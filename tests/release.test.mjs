@@ -1,9 +1,8 @@
 /**
  * Guard tests for scripts/release.mjs, the tagging/publishing script for the
- * three independently versioned components. Until now it had zero coverage
- * while owning every refusal that protects a public release: dirty tree,
- * unpushed HEAD, existing tag, disagreeing manifests, missing changelog
- * entry, missing artifacts.
+ * independently versioned components (skill, cli, engine). It owns every
+ * refusal that protects a public release: dirty tree, unpushed HEAD, existing
+ * tag, missing version, and engine pins that disagree.
  *
  * The script resolves repoRoot from its own file location and runs top-level
  * code on import, so these tests copy it into a disposable git repo (with a
@@ -22,28 +21,6 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RELEASE_SCRIPT = path.join(REPO_ROOT, 'scripts', 'release.mjs');
 
-const CHANGELOG = `---
----
-<article>
-  <div class="changelog-version-header"><span class="cf-version">v1.2.3</span></div>
-  <ul class="cf-items">
-    <li><strong>Loader contract pinned.</strong> Uses <code>plugin.json</code> checks &amp; a <a href="https://example.com/docs">guide</a>.</li>
-    <li><strong>Faster runner.</strong> Batched invocations cut wall time.</li>
-  </ul>
-</article>
-<article>
-  <div class="changelog-version-header"><span class="cf-version">CLI v9.9.9</span></div>
-  <ul class="cf-items">
-    <li><strong>New detect flags.</strong> Adds <code>--fast</code>.</li>
-  </ul>
-</article>
-<article>
-  <div class="changelog-version-header"><span class="cf-version">Extension v2.0.0</span></div>
-  <ul class="cf-items">
-    <li><strong>Panel refresh.</strong> Faster overlay.</li>
-  </ul>
-</article>
-`;
 
 function git(cwd, ...args) {
   return execFileSync('git', args, { cwd, encoding: 'utf-8' }).trim();
@@ -57,7 +34,7 @@ function runRelease(cwd, ...args) {
       timeout: 60000,
       // The D4 engine release-order guard would otherwise probe the network for
       // published engine assets; these guards predate it and only exercise the
-      // version/changelog/artifact checks, so take its documented escape hatch.
+      // version and tag checks, so take its documented escape hatch.
       env: { ...process.env, IMPECCABLE_SKIP_ENGINE_CHECK: '1' },
     });
     return { code: 0, stdout, stderr: '' };
@@ -104,10 +81,6 @@ describe('release.mjs guards', () => {
       optionalDependencies: { '@impeccable/cli-darwin-arm64': '0.1.0', '@impeccable/cli-linux-x64': '0.1.0' },
     }));
     write('skill/scripts/VERSION', '0.1.0\n');
-    write('extension/manifest.json', JSON.stringify({ version: '2.0.0' }));
-    write('site/pages/changelog.astro', CHANGELOG);
-    write('dist/extension.zip', 'zip');
-    write('dist/extension-firefox.zip', 'zip');
 
     git(workDir, 'add', '-A');
     git(workDir, 'commit', '-m', 'fixture');
@@ -175,32 +148,8 @@ describe('release.mjs guards', () => {
     assert.match(stdout, /tag is free/);
     assert.match(stdout, /\[dry-run\] git tag -a skill-v1\.2\.3/);
     assert.match(stdout, /\[dry-run\] gh release create skill-v1\.2\.3/);
-    assert.doesNotMatch(stdout, /universal\.zip|1Password/);
-  });
-
-  it('converts the changelog entry to markdown release notes', () => {
-    const { code, stdout } = runRelease(workDir, 'skill');
-    assert.equal(code, 0, stdout);
-    assert.match(stdout, /- \*\*Loader contract pinned\.\*\* Uses `plugin\.json` checks & a \[guide\]\(https:\/\/example\.com\/docs\)\./);
-    assert.match(stdout, /- \*\*Faster runner\.\*\*/);
-  });
-
-  it('renders a tweet within the 280-char limit with the release URL', () => {
-    const { code, stdout } = runRelease(workDir, 'skill');
-    assert.equal(code, 0, stdout);
-    const tweetMatch = stdout.match(/--- Tweet \((\d+)\/280 chars\)[^\n]*---\n([\s\S]*?)\n--- end tweet ---/);
-    assert.ok(tweetMatch, `no tweet block in output:\n${stdout}`);
-    assert.ok(Number(tweetMatch[1]) <= 280);
-    assert.match(tweetMatch[2], /Impeccable v1\.2\.3 is out\./);
-    assert.match(tweetMatch[2], /releases\/tag\/skill-v1\.2\.3/);
-    assert.match(tweetMatch[2], /• Loader contract pinned/);
-  });
-
-  it('matches the prefixed changelog label for the CLI component', () => {
-    const { code, stdout } = runRelease(workDir, 'cli');
-    assert.equal(code, 0, stdout);
-    assert.match(stdout, /CLI 9\.9\.9/);
-    assert.match(stdout, /- \*\*New detect flags\.\*\*/);
+    assert.match(stdout, /gh release create skill-v1\.2\.3 [^\n]*--generate-notes/);
+    assert.doesNotMatch(stdout, /universal\.zip|1Password|changelog/);
   });
 
   it('refuses an unknown component', () => {
@@ -251,26 +200,4 @@ describe('release.mjs guards', () => {
     assert.match(stderr, /No version field in skill\/SKILL\.md/);
   });
 
-  it('refuses when the changelog entry is missing', () => {
-    write('extension/manifest.json', JSON.stringify({ version: '3.0.0' }));
-    git(workDir, 'add', '-A');
-    git(workDir, 'commit', '-m', 'bump without changelog');
-    git(workDir, 'push', 'origin', 'main');
-    const { code, stderr } = runRelease(workDir, 'extension');
-    assert.equal(code, 1);
-    assert.match(stderr, /No changelog entry found for "Extension v3\.0\.0"/);
-  });
-
-  it('refuses when a release artifact is missing', () => {
-    const pkg = JSON.parse(fs.readFileSync(path.join(workDir, 'package.json'), 'utf8'));
-    pkg.scripts = { 'build:extension': 'node -e "process.exit(0)"' };
-    write('package.json', JSON.stringify(pkg));
-    fs.rmSync(path.join(workDir, 'dist/extension.zip'));
-    git(workDir, 'add', '-A');
-    git(workDir, 'commit', '-m', 'drop artifact');
-    git(workDir, 'push', 'origin', 'main');
-    const { code, stderr } = runRelease(workDir, 'extension');
-    assert.equal(code, 1);
-    assert.match(stderr, /Missing artifact: dist\/extension\.zip/);
-  });
 });

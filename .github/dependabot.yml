@@ -17,7 +17,6 @@ updates:
           - "minor"
           - "patch"
     exclude-paths:
-      - "demos/**"
       - "tests/framework-fixtures/**"
 
   - package-ecosystem: "github-actions"

@@ -50,7 +50,6 @@ function checkCounts(rootDir, skills) {
 
   // Validate counts in key files
   const filesToCheck = [
-    'site/pages/index.astro',
     'README.md',
     'README.npm.md',
     'AGENTS.md',

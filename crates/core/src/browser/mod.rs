@@ -65,7 +65,7 @@
 //!   plans and rects are shared. The async pixel sampling (Image loading,
 //!   canvas draws) stays JS and feeds these.
 //!
-//! Porting rules are the crate's usual ones (see docs/PORTING-GUIDE.md):
+//! Porting rules are the crate's usual ones:
 //! JS number/string semantics through `crate::js`, field order preserved,
 //! bugs ported, `// JS-PARITY:` where it looks odd. Every function carries a
 //! `/// JS: <file>#<name>` doc comment.
