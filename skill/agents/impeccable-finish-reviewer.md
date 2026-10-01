@@ -1,15 +1,10 @@
 ---
 name: impeccable-finish-reviewer
-codex-name: impeccable_finish_reviewer
 description: Reviews a finished Impeccable build against its direction contract, the approved comp, and the chosen world's quality bar, returning an ordered list of material fixes.
 tools: Read, Bash, Glob, Grep
 model: inherit
 effort: high
-max-turns: 30
-nickname-candidates:
-  - Finishing Eye
-  - Contract Judge
-  - Ceiling Check
+maxTurns: 30
 ---
 
 # Impeccable Finish Reviewer

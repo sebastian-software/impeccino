@@ -28,7 +28,7 @@ Analyze what makes the design feel too intense:
    - What's working? (Don't throw away good ideas)
    - What's the core message? (Preserve what matters)
 
-If any of these are unclear from the codebase, do not guess. {{ask_instruction}}
+If any of these are unclear from the codebase, do not guess. STOP and ask the user to clarify, through the host's structured question tool when it has one (for example AskUserQuestion or request_user_input), otherwise directly in chat.
 
 **CRITICAL**: "Quieter" doesn't mean boring or generic. It means refined and easier on the eyes. Think luxury, not laziness.
 
@@ -96,4 +96,4 @@ Ensure refinement maintains quality:
 - **Better reading**: Is text easier to read for extended periods?
 - **Restrained, not absent**: Does the POV survive the cuts?
 
-When the result feels right, hand off to `{{command_prefix}}impeccable polish` for the final pass.
+When the result feels right, hand off to `/impeccable polish` for the final pass.
