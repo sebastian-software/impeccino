@@ -46,11 +46,12 @@ describe('skill scripts payload', () => {
     expect([...names].filter((n) => n.startsWith('bin/'))).toEqual([]);
   });
 
-  test('the launcher is executable and VERSION matches ENGINE_VERSION', () => {
+  test('the launcher is executable and the npm platform pins match VERSION', () => {
     const launcher = scripts.find((s) => s.name === 'impeccable');
     expect(launcher.mode & 0o111).not.toBe(0);
-    const version = scripts.find((s) => s.name === 'VERSION');
-    expect(version.content.trim()).toBe(fs.readFileSync(path.join(ROOT_DIR, 'ENGINE_VERSION'), 'utf-8').trim());
+    const version = scripts.find((s) => s.name === 'VERSION').content.trim();
+    const pins = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8')).optionalDependencies;
+    for (const pinned of Object.values(pins)) expect(pinned).toBe(version);
   });
 });
 

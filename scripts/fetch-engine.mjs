@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Fetch the pinned engine binary (root ENGINE_VERSION) for one or every
+ * Fetch the pinned engine binary (skill/scripts/VERSION) for one or every
  * platform into skill/scripts/bin/<os>-<arch>/impeccable[.exe], the sibling
  * layout the launcher (skill/scripts/impeccable) looks in first.
  *
@@ -28,7 +28,7 @@ export const DEFAULT_DOWNLOAD_BASE = 'https://github.com/pbakaus/impeccable/rele
 export const ENGINE_TARGETS = ['darwin-arm64', 'darwin-x64', 'linux-x64', 'linux-arm64', 'windows-x64'];
 
 export function readEngineVersion(root = ROOT) {
-  return fs.readFileSync(path.join(root, 'ENGINE_VERSION'), 'utf-8').trim();
+  return fs.readFileSync(path.join(root, 'skill', 'scripts', 'VERSION'), 'utf-8').trim();
 }
 
 export function currentTarget() {

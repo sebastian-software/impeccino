@@ -33,7 +33,7 @@ export const SUITES = {
       ...COMMON_INFRA_PATTERNS,
       /^scripts\/(?!build-extension)/,
       /^skill\/(SKILL\.md|agents\/|reference\/|scripts\/)/,
-      /^ENGINE_VERSION$/,
+      /^skill\/scripts\/VERSION$/,
       /^README(\.npm)?\.md$/,
       /^\.github\/workflows\/release-engine\.yml$/,
       /^cli\/bin\//,
@@ -85,7 +85,7 @@ export const SUITES = {
     description: 'Oracle corpus replay against the engine binary; skips without a binary.',
     triggers: [
       ...COMMON_INFRA_PATTERNS,
-      /^ENGINE_VERSION$/,
+      /^skill\/scripts\/VERSION$/,
       /^tests\/oracle\//,
       /^tests\/fixtures\//,
       /^tests\/lib\/engine-bin\.mjs$/,
@@ -156,7 +156,7 @@ export const SUITES = {
     description: 'Framework fixture coverage for live injection, CSP detection, and wrapping through the engine binary; skips without a binary.',
     triggers: [
       ...COMMON_INFRA_PATTERNS,
-      /^ENGINE_VERSION$/,
+      /^skill\/scripts\/VERSION$/,
       /^tests\/framework-fixtures/,
       /^tests\/framework-fixtures\.test\.mjs$/,
       /^tests\/lib\/engine-bin\.mjs$/,
@@ -175,7 +175,7 @@ export const SUITES = {
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^skill\/scripts\/live-browser/,
-      /^ENGINE_VERSION$/,
+      /^skill\/scripts\/VERSION$/,
       /^tests\/framework-fixtures/,
       /^tests\/live-e2e(\.test\.mjs|\/)/,
     ],
@@ -194,7 +194,7 @@ export const SUITES = {
     needsPlaywright: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
-      /^ENGINE_VERSION$/,
+      /^skill\/scripts\/VERSION$/,
       /^tests\/new-work-e2e(\.test\.mjs|\/)/,
     ],
     commands: [
@@ -212,7 +212,7 @@ export const SUITES = {
     needsPlaywright: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
-      /^ENGINE_VERSION$/,
+      /^skill\/scripts\/VERSION$/,
       /^tests\/live-e2e-accept-cleanup-regression\.test\.mjs$/,
       /^tests\/live-e2e\//,
     ],
@@ -240,7 +240,7 @@ export const SUITES = {
       ...COMMON_INFRA_PATTERNS,
       /^skill\/SKILL\.md$/,
       /^skill\/reference\//,
-      /^ENGINE_VERSION$/,
+      /^skill\/scripts\/VERSION$/,
       /^tests\/skill-behavior\//,
     ],
     commands: [{
@@ -257,7 +257,7 @@ export const SUITES = {
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^skill\//,
-      /^ENGINE_VERSION$/,
+      /^skill\/scripts\/VERSION$/,
       /^tests\/skill-workflow\//,
       /^tests\/skill-behavior\//,
     ],
@@ -281,7 +281,7 @@ export const SUITES = {
     needsPlaywright: true,
     triggers: [
       ...COMMON_INFRA_PATTERNS,
-      /^ENGINE_VERSION$/,
+      /^skill\/scripts\/VERSION$/,
       /^tests\/framework-fixtures\/vite8-sveltekit-stateful\//,
       /^tests\/live-svelte-adapter-deepseek\.test\.mjs$/,
     ],

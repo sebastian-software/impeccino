@@ -4,7 +4,7 @@
  *
  * The launcher (skill/scripts/impeccable), the npm shim (cli/bin/cli.js), and
  * `impeccable install` all dead-end unless the engine release for the pinned
- * ENGINE_VERSION exists FIRST: the five platform binaries in the engine-v<version> GitHub Release
+ * skill/scripts/VERSION exists FIRST: the five platform binaries in the engine-v<version> GitHub Release
  * release channel AND the five @impeccable/cli-<os>-<arch> npm platform packages.
  * Nothing else mechanically stops a maintainer from tagging the skill release (or
  * merging and letting the sync workflow rewrite provider dirs) before those assets
@@ -19,7 +19,7 @@
  * otherwise. release.mjs runs it before an engine-dependent release; CI runs it
  * as a soft warning until the first engine release exists.
  *
- *   node scripts/check-engine-release.mjs            # check the pinned ENGINE_VERSION
+ *   node scripts/check-engine-release.mjs            # check the pinned skill/scripts/VERSION
  *   node scripts/check-engine-release.mjs --json     # machine-readable report
  *
  * Environment:

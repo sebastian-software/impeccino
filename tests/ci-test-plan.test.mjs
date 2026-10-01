@@ -51,7 +51,7 @@ describe('ci-test-plan', () => {
   it('routes an engine version bump to every binary-driven lane', () => {
     const outputs = runPlan({
       GITHUB_EVENT_NAME: 'pull_request',
-      CI_CHANGED_FILES: 'ENGINE_VERSION',
+      CI_CHANGED_FILES: 'skill/scripts/VERSION',
     });
 
     assert.equal(outputs.framework, 'true');

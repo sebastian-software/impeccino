@@ -5,7 +5,7 @@ name: release-engine
 # (cli/bin/cli.js), `impeccable install`, and `bun run fetch:engine` download.
 #
 # Trigger: `bun run release:engine` (scripts/release.mjs) verifies
-# ENGINE_VERSION, the npm platform-package pins, and a clean tree, then
+# skill/scripts/VERSION, the npm platform-package pins, and a clean tree, then
 # pushes the tag. Third-party actions are pinned to commit SHAs so a
 # moved tag cannot swap the code this workflow runs.
 on:
@@ -31,11 +31,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Check the tag matches ENGINE_VERSION
+      - name: Check the tag matches skill/scripts/VERSION
         shell: bash
         run: |
           set -e
-          want="engine-v$(tr -d '[:space:]' < ENGINE_VERSION)"
+          want="engine-v$(tr -d '[:space:]' < skill/scripts/VERSION)"
           [ "$GITHUB_REF_NAME" = "$want" ] || { echo "tag $GITHUB_REF_NAME != $want"; exit 1; }
       # rust-toolchain.toml names the channel; `rustup show` installs it.
       # Never override the toolchain here.

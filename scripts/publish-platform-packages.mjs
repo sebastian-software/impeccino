@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Publish the five @impeccable/cli-<os>-<arch> npm platform packages for the
- * pinned ENGINE_VERSION from the engine-v<ENGINE_VERSION> GitHub release.
+ * pinned skill/scripts/VERSION from the engine-v<version> GitHub release.
  *
  * Step 3 of the engine cutover, as one command:
  *
@@ -18,7 +18,7 @@
  * partial failure picks up where it stopped.
  *
  * Preconditions checked up front: package.json optionalDependencies pin the
- * same version as ENGINE_VERSION, and `npm whoami` succeeds (log in first).
+ * same version as skill/scripts/VERSION, and `npm whoami` succeeds (log in first).
  *
  * Environment:
  *   IMPECCABLE_DOWNLOAD_BASE  release channel root (default: this repo's GitHub Releases)
@@ -125,7 +125,7 @@ function checkPins(version) {
   const bad = ENGINE_TARGETS.filter((t) => pins[packageName(t)] !== version);
   if (bad.length) {
     const listed = bad.map((t) => `${packageName(t)}@${pins[packageName(t)] || 'missing'}`).join(', ');
-    throw new Error(`package.json optionalDependencies do not pin ENGINE_VERSION ${version}: ${listed}. Bump them with ENGINE_VERSION first.`);
+    throw new Error(`package.json optionalDependencies do not pin engine version ${version}: ${listed}. Bump them with skill/scripts/VERSION first.`);
   }
 }
 

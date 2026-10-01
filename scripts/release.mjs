@@ -4,7 +4,7 @@
 //
 // Usage: node scripts/release.mjs <skill|cli|extension|engine> [--dry-run]
 //
-// `engine` is different: it only tags `engine-v<ENGINE_VERSION>` and pushes the
+// `engine` is different: it only tags `engine-v<version>` and pushes the
 // tag; .github/workflows/release-engine.yml builds the five binaries and
 // publishes the GitHub Release. It has no changelog entry and no local
 // artifacts.
@@ -30,7 +30,7 @@ const COMPONENTS = {
     label: 'Skill',
     changelogLabel: 'v',
     // The skill's launcher dead-ends without the engine release for the
-    // pinned ENGINE_VERSION. Enforce release order (D4).
+    // pinned skill/scripts/VERSION. Enforce release order (D4).
     engineGated: true,
     buildCmd: null,
     artifacts: [],
@@ -44,7 +44,7 @@ const COMPONENTS = {
     label: 'CLI',
     changelogLabel: 'CLI v',
     // The npm shim resolves the engine binary through the @impeccable/cli-<os>-<arch>
-    // platform packages (pinned at ENGINE_VERSION) and the dist channel; publishing
+    // platform packages (pinned at skill/scripts/VERSION) and the dist channel; publishing
     // it before those exist strands `npx impeccable`. Enforce release order (D4).
     engineGated: true,
     buildCmd: null,
@@ -69,9 +69,9 @@ const COMPONENTS = {
     tweetCta: null,
   },
   engine: {
-    // Version comes from the root ENGINE_VERSION file, not a JSON manifest;
+    // Version comes from skill/scripts/VERSION, the file the launcher reads;
     // releaseEngine() below owns this component's whole flow.
-    manifest: 'ENGINE_VERSION',
+    manifest: 'skill/scripts/VERSION',
     tagPrefix: 'engine-v',
     label: 'Engine',
   },
@@ -129,7 +129,7 @@ if (!version) fail(`No version field in ${cfg.manifest}`);
 ok(`${cfg.label} ${version}`);
 
 // Release-order guard (triage decision D4). Engine-gated components refuse to
-// tag/publish until the engine release for the pinned ENGINE_VERSION is fully
+// tag/publish until the engine release for the pinned skill/scripts/VERSION is fully
 // live: the five engine-v<version> release binaries + .sha256 and the five @impeccable/cli-<os>-<arch>
 // npm platform packages. Without this the launcher, the npm shim, and
 // `impeccable install` all dead-end. Set IMPECCABLE_SKIP_ENGINE_CHECK=1 only
@@ -385,16 +385,16 @@ function htmlToMarkdown(html) {
 // toolchains. The whole workspace builds from source, so there is nothing to
 // fetch and nothing to order ahead of it.
 async function releaseEngine() {
-  step('Reading version from ENGINE_VERSION');
+  step('Reading version from skill/scripts/VERSION');
   const version = readEngineVersion(repoRoot);
-  if (!/^\d+\.\d+\.\d+/.test(version)) fail(`ENGINE_VERSION "${version}" is not a version`);
+  if (!/^\d+\.\d+\.\d+/.test(version)) fail(`skill/scripts/VERSION "${version}" is not a version`);
   ok(`Engine ${version}`);
 
   step('Checking package.json optionalDependencies pin the same engine version');
   const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
   const pins = Object.entries(pkg.optionalDependencies || {}).filter(([name]) => name.startsWith('@impeccable/cli-'));
   const wrong = pins.filter(([, range]) => String(range).replace(/^[^\d]*/, '') !== version);
-  if (wrong.length) fail(`package.json pins ${wrong.map(([n, r]) => `${n}@${r}`).join(', ')}; expected ${version}. Bump them with ENGINE_VERSION.`);
+  if (wrong.length) fail(`package.json pins ${wrong.map(([n, r]) => `${n}@${r}`).join(', ')}; expected ${version}. Bump them with skill/scripts/VERSION.`);
   ok(`${pins.length} platform package pins agree`);
 
   const tag = `${cfg.tagPrefix}${version}`;

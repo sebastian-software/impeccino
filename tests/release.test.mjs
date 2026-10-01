@@ -103,7 +103,7 @@ describe('release.mjs guards', () => {
       version: '9.9.9',
       optionalDependencies: { '@impeccable/cli-darwin-arm64': '0.1.0', '@impeccable/cli-linux-x64': '0.1.0' },
     }));
-    write('ENGINE_VERSION', '0.1.0\n');
+    write('skill/scripts/VERSION', '0.1.0\n');
     write('extension/manifest.json', JSON.stringify({ version: '2.0.0' }));
     write('site/pages/changelog.astro', CHANGELOG);
     write('dist/extension.zip', 'zip');
@@ -150,8 +150,8 @@ describe('release.mjs guards', () => {
     assert.match(stdout, /release-engine workflow/);
   });
 
-  it('engine: refuses when package.json platform pins disagree with ENGINE_VERSION', () => {
-    write('ENGINE_VERSION', '0.2.0\n');
+  it('engine: refuses when package.json platform pins disagree with skill/scripts/VERSION', () => {
+    write('skill/scripts/VERSION', '0.2.0\n');
     git(workDir, 'commit', '-am', 'bump engine');
     git(workDir, 'push', 'origin', 'main');
     const { code, stderr } = runRelease(workDir, 'engine');
