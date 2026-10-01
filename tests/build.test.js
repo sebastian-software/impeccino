@@ -472,7 +472,7 @@ describe('universal skill source', () => {
 
   test('carries a real SKILL.md with only Agent Skills spec frontmatter', () => {
     const { frontmatter } = utils.parseFrontmatter(fs.readFileSync(path.join(SKILL_DIR, 'SKILL.md'), 'utf-8'));
-    // Codex rejects unknown top-level keys; every harness reads these.
+    // Every harness reads these, and Codex's skill validator accepts only these.
     const spec = new Set(['name', 'description', 'license', 'compatibility', 'metadata']);
     for (const key of Object.keys(frontmatter)) expect(spec.has(key)).toBe(true);
     expect(frontmatter.metadata.version).toBeTruthy();

@@ -131,7 +131,7 @@ There are no build-time placeholders or provider blocks. Write skill text that h
 - The launcher is `"<skill-base-dir>/scripts/impeccable" <verb>`, quoted because install paths can contain spaces. Agents never load SKILL.md, so the parent passes them `<scripts-path>`.
 - Questions go through "the host's structured question tool", not a named tool.
 - Harness- or model-specific guidance is a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`).
-- SKILL.md frontmatter stays within the Agent Skills spec (`name`, `description`, `license`, `compatibility`, `metadata`); Codex rejects unknown top-level keys.
+- SKILL.md frontmatter stays within the Agent Skills spec (`name`, `description`, `license`, `compatibility`, `metadata`); Codex's runtime ignores unknown keys, but its bundled skill validator (`quick_validate.py`, issue #701) flags them.
 
 `tests/lib/transformers/providers.test.js` pins that every provider copy matches `skill/` byte for byte, and `tests/build.test.js` (`universal skill source`) pins the rules above.
 

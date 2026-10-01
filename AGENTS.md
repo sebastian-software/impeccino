@@ -32,7 +32,7 @@ Write skill text so it holds in every harness:
 - Run the launcher as `"<skill-base-dir>/scripts/impeccable" <verb>`, quoted, because install paths can contain spaces. Agents never see SKILL.md, so they receive `<scripts-path>` from the parent instead.
 - Ask through "the host's structured question tool", not a named tool.
 - Put harness- or model-specific guidance in a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`) instead of a build-time block.
-- Keep SKILL.md frontmatter to the Agent Skills spec fields (`name`, `description`, `license`, `compatibility`, `metadata`); Codex rejects unknown top-level keys. `metadata.version` is bumped with `.claude-plugin/plugin.json`.
+- Keep SKILL.md frontmatter to the Agent Skills spec fields (`name`, `description`, `license`, `compatibility`, `metadata`); Codex's runtime ignores unknown keys, but its bundled skill validator (`quick_validate.py`, issue #701) flags them. `metadata.version` is bumped with `.claude-plugin/plugin.json`.
 
 `plugin/` and `cursor-plugin/` are the only tracked generated output. After source changes land on `main`, `.github/workflows/sync-generated-output.yml` runs `bun run build:release` and commits them back to `main`; keep their churn out of feature PRs unless it is the point of the PR. The two tracked engine assets under `crates/live/assets/` follow the rule-change workflow below instead.
 
