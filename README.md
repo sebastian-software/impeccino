@@ -2,6 +2,8 @@
 
 Design guidance for AI coding agents. 1 skill, 24 commands, live browser iteration, and 61 deterministic detector rules for AI-generated frontend design.
 
+> **About this branch.** This is `light`, an experimental fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable) by [Sebastian Werner](https://github.com/swernerx). It keeps the skill, the engine, and the detector, and removes everything that existed only to install and package the skill: per-harness variants, the self-installer, the update check, and the marketplace packages. Skill managers such as [Dalo](https://dalo.sh) take over placement, pinning, and updates. Read [What changed in this branch](#what-changed-in-this-branch) and the [Light ADRs](docs/adr/README.md) for the reasoning. It is not an official release.
+
 > **Quick start:** Add the `skill/` folder to your harness with a skill manager such as [Dalo](https://dalo.sh), or copy it in (see [Installation](#installation)), then run `/impeccable init` inside your AI coding tool. Full docs: [impeccable.style](https://impeccable.style).
 
 ## Why Impeccable?
@@ -93,6 +95,44 @@ The skill includes explicit guidance on what to avoid:
 ## See It In Action
 
 Visit [the Neo Mirai case study](https://impeccable.style/cases/neo-mirai) to see a before/after case study of a real project transformed with Impeccable commands.
+
+## What's in this repository
+
+| Path | What it is |
+| --- | --- |
+| [`skill/`](skill/) | **The skill.** This folder is what you install, unchanged, in every harness. `SKILL.md` holds the setup flow, the design laws, and the command router; `reference/` has one playbook per command plus shared playbooks; `agents/` has the four shipped roles as Claude Code agent files; `scripts/` holds the launcher (`impeccable`, `impeccable.cmd`), the pinned engine version (`VERSION`), command metadata, and the live-mode page scripts. |
+| [`crates/`](crates/) | **The engine.** A Rust workspace that builds the `impeccable` binary behind every skill command: project context, the 61-rule detector, live mode, design hooks, comp tooling, and `doctor`. `crates/wasm` compiles the same rules for the browser extension. Release binaries are published as `engine-v<version>` GitHub releases; the launcher fetches the one named in `skill/scripts/VERSION`. |
+| [`cli/`](cli/) | **The npm package** `impeccable`: a small shim that runs the engine for `npx impeccable detect` without an AI harness. It does not install the skill. |
+| [`extension/`](extension/) | **The browser extension** (Chrome and Firefox) that runs the detector on any page. |
+| [`browser-bundle/`](browser-bundle/), [`ui/`](ui/) | Page-side code the engine bundles: the live-mode overlay and the component review UI. |
+| [`tests/`](tests/) | Bun and Node suites, the oracle corpus that pins every engine verb's output (`tests/oracle/`), framework fixtures for live mode, and opt-in LLM-backed behavior checks. |
+| [`scripts/`](scripts/) | Tooling: `check.js` (`bun run check`), the release script, engine fetch and release checks, and the test runner. There is no skill build. |
+| [`docs/`](docs/) | Developer documentation, the editorial style guide, harness notes, and the [Light ADRs](docs/adr/README.md). |
+
+The website [impeccable.style](https://impeccable.style) lives in a separate private repository and is not part of this one.
+
+## What changed in this branch
+
+The upstream repository compiles the skill into 19 harness-specific variants, commits those variants back into git, ships its own installer, and publishes plugin packages for several marketplaces. Comparing the variants showed that almost all differences were cosmetic (command sigil, the name of the question tool, a hardcoded scripts path), and that several components existed only to undo each other. This branch tests how far a single folder gets.
+
+| Area | Upstream | This branch | ADR |
+| --- | --- | --- | --- |
+| Skill source | `SKILL.src.md` with placeholders and provider blocks, compiled per harness | `skill/` is one universal skill; harness notes are labelled paragraphs | [0001](docs/adr/0001-one-universal-skill-folder.md) |
+| Generated files | 19 harness folders and two plugin subtrees committed, synced by a workflow | Nothing generated is tracked | [0002](docs/adr/0002-no-generated-output-in-git.md) |
+| Installation | `npx impeccable install / update / link / check` with a signed `universal.zip` | A skill manager, a submodule, or a copy places `skill/` | [0003](docs/adr/0003-no-self-installer.md) |
+| Updates | `context` checks impeccable.style and suggests an update | No update check; the installer of the skill owns updates | [0004](docs/adr/0004-no-update-check.md) |
+| Distribution | Claude Code, Grok, Cursor, and OpenAI plugins, VS Code extension | No marketplace or editor packages | [0005](docs/adr/0005-no-marketplace-packages.md) |
+| Subagents | Compiled into Claude, Codex, Cursor, and Copilot formats plus fallback copies | Claude Code agent files in `skill/agents/`; other hosts spawn a general-purpose subagent with the same instructions | [0006](docs/adr/0006-agents-as-claude-code-files.md) |
+| Hooks | Merged into project settings at install time | Opt-in per project with `/impeccable hooks on` | [0007](docs/adr/0007-hooks-are-a-project-opt-in.md) |
+| Frontmatter | Claude-only keys in the Claude variant | Agent Skills spec fields only | [0008](docs/adr/0008-spec-only-skill-frontmatter.md) |
+| Engine pin | Root `ENGINE_VERSION`, copied by the build | `skill/scripts/VERSION` only | [0009](docs/adr/0009-engine-version-in-one-file.md) |
+| Engine binary | Fetched by the installer or the launcher | Still fetched by the launcher, for now | [0010](docs/adr/0010-launcher-fetches-the-engine.md) |
+
+Unchanged: the design guidance itself, all 24 commands, the engine and its detector rules, live mode, the npm detector CLI, and the browser extension.
+
+**Verified so far.** `skill/` linked into a scratch project loads in Claude Code and in Codex: both resolve and run the launcher, and Codex names commands with `$`. The Rust workspace tests, the core and live suites, and the full oracle corpus against an engine built from this branch pass.
+
+**Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs. Apache-2.0 notices are not yet inside `skill/`. The website still links the removed installer and downloads.
 
 ## Installation
 
