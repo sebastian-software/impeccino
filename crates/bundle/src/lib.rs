@@ -257,7 +257,7 @@ pub fn check_capture_contract() -> Result<(), String> {
 
 /// `antipatterns.json`: `{ id, name, category, description }` per rule, in
 /// registry order (built-ins first, then any installed rule pack's rows), as
-/// 2-space JSON with a trailing newline. This is the shape `bun run build`
+/// 2-space JSON with a trailing newline. This is the shape `bun run check`
 /// and the extension panel read.
 pub fn registry_json() -> String {
     let rows: Vec<serde_json::Value> = impeccable_core::registry::all_antipatterns()

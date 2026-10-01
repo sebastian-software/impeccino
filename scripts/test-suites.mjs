@@ -1,9 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const DEFAULT_SUITES = ['core', 'oracle', 'detector', 'live', 'framework', 'plugin-e2e'];
+export const DEFAULT_SUITES = ['core', 'oracle', 'detector', 'live', 'framework'];
 export const OPT_IN_SUITES = [
-  'cli-remote-e2e',
   'live-e2e',
   'live-e2e-accept-cleanup',
   'new-work-e2e',
@@ -27,7 +26,7 @@ const COMMON_INFRA_PATTERNS = [
 
 export const SUITES = {
   core: {
-    description: 'Build, provider transforms, hook manifests, plugin validators, and prose gates.',
+    description: 'Skill source rules, repository checks, workflows, launcher, and release tooling.',
     triggers: [
       /^ui\/component-review\//,
       /^crates\/context\/assets\/component-review\.js$/,
@@ -36,7 +35,6 @@ export const SUITES = {
       /^skill\/(SKILL\.md|agents\/|reference\/|scripts\/)/,
       /^ENGINE_VERSION$/,
       /^README(\.npm)?\.md$/,
-      /^vscode\//,
       /^\.github\/workflows\/release-engine\.yml$/,
       /^cli\/bin\//,
     ],
@@ -44,17 +42,12 @@ export const SUITES = {
       {
         runner: 'bun',
         files: [
-          'tests/build.test.js',
+          'tests/skill-source.test.js',
           'tests/component-review-bundle.test.js',
           'ui/component-review/model.test.ts',
           'ui/component-review/plan-model.test.ts',
           'ui/component-review/viewport.test.ts',
           'tests/lib/utils.test.js',
-          'tests/lib/transformers/factory.test.js',
-          'tests/lib/transformers/opencode-commands.test.js',
-          'tests/lib/transformers/providers.test.js',
-          'tests/validate-plugin-versions.test.js',
-          'tests/validate-plugin-manifest.test.js',
           'tests/release-engine-workflow.test.js',
           'tests/workflow-security.test.js',
         ],
@@ -74,13 +67,8 @@ export const SUITES = {
           'tests/launcher-download.test.mjs',
           'tests/publish-platform-packages.test.mjs',
           'tests/github-sheriff.test.mjs',
-          'tests/hook-build.test.mjs',
-          'tests/openai-plugin.test.mjs',
-          'tests/cursor-plugin.test.mjs',
-          'tests/vscode-extension.test.mjs',
           'tests/process-group.test.mjs',
           'tests/release.test.mjs',
-          'tests/bundle-signing.test.mjs',
           'tests/skill-reference.test.mjs',
           'tests/skill-behavior-harness.test.mjs',
           'tests/readme-gitignore.test.mjs',
@@ -177,34 +165,6 @@ export const SUITES = {
       {
         runner: 'node',
         files: ['tests/framework-fixtures.test.mjs'],
-      },
-    ],
-  },
-  // `impeccable install/update/check` and their remote smoke moved into the
-  // engine binary and its repo; the deterministic coverage here is the oracle
-  // corpus. The lane name stays so ci.yml and package.json keep resolving.
-  'cli-remote-e2e': {
-    description: 'Remote CLI install/update smoke (moved to the engine repo; no tests here).',
-    optIn: true,
-    triggers: [...COMMON_INFRA_PATTERNS],
-    commands: [],
-  },
-  'plugin-e2e': {
-    description: 'Install the committed ./plugin subtree into a real (sandboxed) Claude Code and assert skills, agents, and hooks all load. Skips when the claude CLI is not on PATH.',
-    triggers: [
-      ...COMMON_INFRA_PATTERNS,
-      /^plugin\//,
-      /^skill\/agents\//,
-      /^scripts\/build\.js$/,
-      /^scripts\/lib\/validate-plugin-manifest\.js$/,
-      /^tests\/plugin-e2e\.test\.mjs$/,
-    ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 300000,
-        forceExit: true,
-        files: ['tests/plugin-e2e.test.mjs'],
       },
     ],
   },

@@ -29,18 +29,24 @@ import { fileURLToPath } from 'node:url';
 import { getProviderOptions } from './providers.mjs';
 import { ENGINE_MISSING_MESSAGE, findEngineBinary } from '../lib/engine-bin.mjs';
 import { readSourceFiles } from '../../scripts/lib/utils.js';
-import { createTransformer } from '../../scripts/lib/transformers/factory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const MAX_BASH_OUTPUT_BYTES = 200_000;
 
-// skill/ is already provider-neutral, so the fixture stages it exactly as the
-// production build copies it. Exact host loader contracts are tested separately.
+// skill/ is provider-neutral and installs as-is, so the fixture copies it the
+// way a skill manager would, minus fetched binaries and per-project state.
 const sourceSkills = readSourceFiles(REPO_ROOT).skills;
-const stageSkill = createTransformer({
-  provider: 'skill-behavior', configDir: '.claude', displayName: 'Behavior fixture',
-});
+function stageSkill(dest) {
+  const src = path.join(REPO_ROOT, 'skill');
+  fs.cpSync(src, dest, {
+    recursive: true,
+    filter: (file) => {
+      const rel = path.relative(src, file);
+      return rel !== path.join('scripts', 'bin') && rel !== path.join('scripts', 'config.json');
+    },
+  });
+}
 
 function snapshotWorkspaceFiles(root) {
   const snapshot = new Map();
@@ -101,15 +107,7 @@ export { ENGINE_MISSING_MESSAGE };
 
 export function prepareWorkspace({ files = {}, skillVersion = null } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccable-skill-test-'));
-  const log = console.log;
-  console.log = () => {};
-  try {
-    stageSkill(sourceSkills, dir);
-  } finally {
-    console.log = log;
-  }
-  fs.renameSync(path.join(dir, 'skill-behavior', '.claude'), path.join(dir, '.claude'));
-  fs.rmdirSync(path.join(dir, 'skill-behavior'));
+  stageSkill(path.join(dir, '.claude', 'skills', 'impeccable'));
   if (skillVersion) {
     const skillMd = path.join(dir, '.claude', 'skills', 'impeccable', 'SKILL.md');
     fs.writeFileSync(skillMd, fs.readFileSync(skillMd, 'utf-8').replace(/^(\s+version:\s*).+$/m, `$1${skillVersion}`));

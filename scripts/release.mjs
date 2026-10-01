@@ -10,8 +10,8 @@
 // artifacts.
 //
 // Refuses on a dirty tree, an unpushed HEAD, or a missing changelog entry.
-// For the skill component, also reruns `bun run build:release` and refuses if the
-// regenerated harness directories drift from what is committed.
+// The skill release is a tag on the commit skill managers pin; it has no
+// build and no artifacts (docs/adr/0003).
 
 import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -19,26 +19,24 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkEngineRelease } from './check-engine-release.mjs';
 import { readEngineVersion } from './fetch-engine.mjs';
-import { signReleaseBundle } from './sign-bundle.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const COMPONENTS = {
   skill: {
-    manifest: '.claude-plugin/plugin.json',
-    sibling: '.claude-plugin/marketplace.json',
-    siblingVersion: (m) => m.plugins?.[0]?.version,
+    manifest: 'skill/SKILL.md',
+    readVersion: readSkillVersion,
     tagPrefix: 'skill-v',
     label: 'Skill',
     changelogLabel: 'v',
-    // The skill's launcher and `impeccable install` dead-end without the engine
-    // release for the pinned ENGINE_VERSION. Enforce release order (D4).
+    // The skill's launcher dead-ends without the engine release for the
+    // pinned ENGINE_VERSION. Enforce release order (D4).
     engineGated: true,
-    buildCmd: 'bun run build:release',
-    artifacts: ['dist/universal.zip'],
+    buildCmd: null,
+    artifacts: [],
     postReleaseHint: null,
     tweetHeader: (v) => `Impeccable v${v} is out.`,
-    tweetCta: 'Install / update: npx impeccable install',
+    tweetCta: 'Add skill/ from github.com/pbakaus/impeccable with your skill manager.',
   },
   cli: {
     manifest: 'package.json',
@@ -118,20 +116,17 @@ function runMutating(cmd) {
   execSync(cmd, { cwd: repoRoot, stdio: 'inherit' });
 }
 
+/** `metadata.version` from SKILL.md frontmatter. */
+function readSkillVersion(text) {
+  const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
+  return frontmatter.match(/^metadata:\s*\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+version:\s*["']?([^"'\s]+)/m)?.[1];
+}
+
 step(`Reading version from ${cfg.manifest}`);
-const manifest = JSON.parse(readFileSync(path.join(repoRoot, cfg.manifest), 'utf8'));
-const version = manifest.version;
+const manifestText = readFileSync(path.join(repoRoot, cfg.manifest), 'utf8');
+const version = cfg.readVersion ? cfg.readVersion(manifestText) : JSON.parse(manifestText).version;
 if (!version) fail(`No version field in ${cfg.manifest}`);
 ok(`${cfg.label} ${version}`);
-
-if (cfg.sibling) {
-  const sibling = JSON.parse(readFileSync(path.join(repoRoot, cfg.sibling), 'utf8'));
-  const siblingVersion = cfg.siblingVersion(sibling);
-  if (siblingVersion !== version) {
-    fail(`${cfg.manifest} (${version}) and ${cfg.sibling} (${siblingVersion}) disagree. Bump both.`);
-  }
-  ok(`${cfg.sibling} agrees`);
-}
 
 // Release-order guard (triage decision D4). Engine-gated components refuse to
 // tag/publish until the engine release for the pinned ENGINE_VERSION is fully
@@ -254,25 +249,6 @@ for (const artifact of cfg.artifacts) {
   const abs = path.join(repoRoot, artifact);
   if (!existsSync(abs)) fail(`Missing artifact: ${artifact}`);
   ok(artifact);
-}
-
-// Sign the final rebuilt bytes before any tag or upload. Dry runs do not
-// unlock 1Password or write a signature; they only show the publishing plan.
-if (component === 'skill') {
-  const signatureArtifact = 'dist/universal.zip.sig.json';
-  step('Signing universal.zip with the trusted 1Password release key');
-  if (dryRun) {
-    console.log('  [dry-run] Sign dist/universal.zip (1Password is not accessed)');
-  } else {
-    try {
-      signReleaseBundle({ zipPath: path.join(repoRoot, 'dist/universal.zip'), version });
-    } catch (error) {
-      fail(error.message);
-    }
-    if (!existsSync(path.join(repoRoot, signatureArtifact))) fail(`Missing artifact: ${signatureArtifact}`);
-    ok('signature verified locally');
-  }
-  cfg.artifacts.push(signatureArtifact);
 }
 
 console.log('\n--- Release notes preview ---');

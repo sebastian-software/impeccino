@@ -35,7 +35,6 @@ const plan = isSchedule
     detector: true,
     live: true,
     framework: true,
-    cli_remote_e2e: false,
     live_e2e: true,
     live_e2e_accept_cleanup: false,
     skill_behavior: false,
@@ -48,7 +47,6 @@ const plan = isSchedule
     detector: forceDeterministic || matchesSuiteTriggers('detector', changedFiles),
     live: forceDeterministic || matchesSuiteTriggers('live', changedFiles),
     framework: forceDeterministic || matchesSuiteTriggers('framework', changedFiles),
-    cli_remote_e2e: forceOptIn,
     live_e2e: forceOptIn || matchesSuiteTriggers('live-e2e', changedFiles),
     live_e2e_accept_cleanup: forceOptIn || matchesSuiteTriggers('live-e2e-accept-cleanup', changedFiles),
     skill_behavior: forceOptIn || matchesSuiteTriggers('skill-behavior', changedFiles),
@@ -115,7 +113,6 @@ function printSummary(outputs, files) {
   console.log(`Deterministic suites: ${deterministic} rust=${outputs.rust}`);
   console.log(
     [
-      `cli_remote_e2e=${outputs.cli_remote_e2e}`,
       `live_e2e=${outputs.live_e2e}`,
       `live_e2e_accept_cleanup=${outputs.live_e2e_accept_cleanup}`,
       `skill_behavior=${outputs.skill_behavior}`,

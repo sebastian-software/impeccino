@@ -24,7 +24,7 @@ This repo is issue-first for outside contributions. If you are not `pbakaus` or 
 ## Checklist
 
 - [ ] Source files updated in `source/`
-- [ ] `bun run build` ran successfully
+- [ ] `bun run check` passes
 - [ ] `bun test` passes
 - [ ] Tested with at least one provider (Cursor / Claude Code / Gemini CLI / Codex / Copilot / Grok Build / Kiro / OpenCode / Qoder / Mistral Vibe)
 - [ ] README / DEVELOP.md updated if needed

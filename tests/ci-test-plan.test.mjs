@@ -82,7 +82,6 @@ describe('ci-test-plan', () => {
     assert.equal(outputs.detector, 'true');
     assert.equal(outputs.live, 'true');
     assert.equal(outputs.framework, 'true');
-    assert.equal(outputs.cli_remote_e2e, 'false');
     assert.equal(outputs.live_e2e, 'false');
     assert.equal(outputs.live_e2e_accept_cleanup, 'false');
     assert.equal(outputs.live_svelte_adapter_deepseek, 'false');
@@ -93,8 +92,6 @@ describe('ci-test-plan', () => {
       GITHUB_EVENT_NAME: 'workflow_dispatch',
       CI_CHANGED_FILES: 'README.md',
     });
-
-    assert.equal(outputs.cli_remote_e2e, 'true');
     assert.equal(outputs.live_e2e, 'true');
     assert.equal(outputs.live_e2e_accept_cleanup, 'true');
     assert.equal(outputs.skill_behavior, 'true');
@@ -115,7 +112,6 @@ describe('ci-test-plan', () => {
     assert.equal(outputs.live_e2e_accept_cleanup, 'false');
     assert.equal(outputs.skill_behavior, 'false');
     assert.equal(outputs.live_svelte_adapter_deepseek, 'false');
-    assert.equal(outputs.cli_remote_e2e, 'false');
     assert.equal(outputs.core, 'true');
     assert.equal(outputs.detector, 'true');
     assert.equal(outputs.live, 'true');
