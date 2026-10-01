@@ -4,9 +4,10 @@
  * The Claude Code marketplace installs from the committed `./plugin` subtree,
  * so any version disagreement between the hand-edited manifests and the
  * generated subtree ships stale content reporting a wrong version. Root
- * `.claude-plugin/plugin.json` is the single source of truth (build() reads
- * skillsVersion from it). Every other version-bearing file must match it:
+ * `.claude-plugin/plugin.json` is the single source of truth. Every other version-bearing file must match it:
  *
+ *   - `skill/SKILL.md` frontmatter `metadata.version`, hand-edited alongside
+ *     plugin.json because skill/ itself is the universal install payload.
  *   - `.claude-plugin/marketplace.json` plugins[0].version — hand-edited
  *     alongside plugin.json; the post-merge sync workflow can't repair a
  *     mismatch here because it never bumps versions.
@@ -116,6 +117,12 @@ export function collectPluginVersions(rootDir) {
   }
 
   const checks = [
+    {
+      // Hand-edited with plugin.json: skill/ installs as-is, so its version is
+      // committed source rather than stamped in by the build.
+      relPath: 'skill/SKILL.md',
+      read: readSkillFrontmatterVersion,
+    },
     {
       relPath: '.claude-plugin/marketplace.json',
       read: (raw) => JSON.parse(raw).plugins?.[0]?.version,

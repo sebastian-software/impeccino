@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 
 import { readSourceFiles } from '../scripts/lib/utils.js';
 import { createTransformer, PROVIDERS } from '../scripts/lib/transformers/index.js';
-import { stageVSCodeExtension, rewriteVSCodeMarkdown } from '../scripts/lib/vscode-extension.js';
+import { stageVSCodeExtension } from '../scripts/lib/vscode-extension.js';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
 
@@ -33,8 +33,8 @@ describe('VS Code skill extension', () => {
     assert.deepEqual(fs.readdirSync(extension).sort(), ['.vscodeignore', 'LICENSE', 'README.md', 'icon.png', 'package.json', 'skills']);
     assert.ok(fs.existsSync(path.join(extension, manifest.contributes.chatSkills[0].path)));
     const skill = fs.readFileSync(path.join(extension, manifest.contributes.chatSkills[0].path), 'utf8');
-    assert.equal(skill.match(/^version: (.+)$/m)?.[1], manifest.version);
-    assert.ok(fs.existsSync(path.join(extension, 'skills/impeccable/reference/degraded/asset-producer.md')));
+    assert.equal(skill.match(/^\s+version: (.+)$/m)?.[1], manifest.version);
+    assert.ok(fs.existsSync(path.join(extension, 'skills/impeccable/agents/impeccable-asset-producer.md')));
     assert.equal(fs.existsSync(path.join(extension, 'skills/impeccable/scripts/bin')), false);
   });
 
@@ -55,11 +55,12 @@ describe('VS Code skill extension', () => {
     assert.ok(links > 20, 'entrypoint retains its playbook links');
   });
 
-  it('keeps POSIX and Windows paths quoted, with arguments outside the quotes', () => {
-    const output = rewriteVSCodeMarkdown('Run `.github/skills/impeccable/scripts/impeccable context` or `<skill-base-dir>/scripts/impeccable.cmd context`.');
-    assert.equal(output, 'Run `"<skill-base-dir>/scripts/impeccable" context` or `"<skill-base-dir>/scripts/impeccable.cmd" context`.');
-    assert.equal(rewriteVSCodeMarkdown(output), output);
-    assert.throws(() => rewriteVSCodeMarkdown('changed Setup', { isSkillEntrypoint: true }), /rewrite drift/);
+  it('keeps POSIX and Windows launcher paths quoted, with arguments outside the quotes', () => {
+    const skill = path.join(extension, 'skills/impeccable');
+    for (const rel of fs.readdirSync(skill, { recursive: true }).filter(p => p.endsWith('.md'))) {
+      const content = fs.readFileSync(path.join(skill, rel), 'utf8');
+      assert.doesNotMatch(content, /(?<!["\w/])<skill-base-dir>\/scripts\/impeccable(\.cmd)?[\s`]/, rel);
+    }
   });
 
   it('runs the relocated launcher with spaces without changing project cwd or skill root', { skip: process.platform === 'win32' }, () => {

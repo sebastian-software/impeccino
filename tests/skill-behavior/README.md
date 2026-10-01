@@ -418,7 +418,7 @@ first tool call after the denied launcher, and an untouched PRODUCT.md.
 
 Scenario 19 on this branch, all four cases, one run each on 2026-09-09:
 4/4 on claude-sonnet-5, 4/4 on gpt-5.6-terra, 4/4 on gemini-3.7-flash. The
-documentation case also passes with main's unchanged `SKILL.src.md` and
+documentation case also passes with main's unchanged `SKILL.md` and
 `init.md` plus this test file, so the coverage is the test, not a skill-text
 change.
 

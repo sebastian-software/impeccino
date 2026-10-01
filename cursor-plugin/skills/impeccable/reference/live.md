@@ -6,6 +6,8 @@ A running dev server with HMR (Vite, Next.js, Bun, etc.), OR a static HTML file 
 
 Live editing requires a local checkout; injection into deployed production sites (including HTTPS) is unsupported. For production inspection, use `"<skill-base-dir>/scripts/impeccable" detect <url>` or the browser extension, not the live helper. Do not disable browser security or weaken production CSP to enable live mode.
 
+Codex: run live helper commands, the app dev server, and any dependency-installing setup with `sandbox_permissions: "require_escalated"` from the start; live mode depends on localhost and package-manager network access that the sandbox blocks.
+
 ## The contract (read once)
 
 Execute in order. No step skipped, no step reordered. Every tool output in live mode may carry an `_instructions` field: it is the authoritative next step for that exact situation, with real ids and paths substituted; when it conflicts with your recollection of this document, `_instructions` wins.

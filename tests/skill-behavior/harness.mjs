@@ -28,33 +28,18 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { getProviderOptions } from './providers.mjs';
 import { ENGINE_MISSING_MESSAGE, findEngineBinary } from '../lib/engine-bin.mjs';
-import { readSourceFiles, compileProviderBlocks, replacePlaceholders, stripRuleMarkers } from '../../scripts/lib/utils.js';
+import { readSourceFiles } from '../../scripts/lib/utils.js';
 import { createTransformer } from '../../scripts/lib/transformers/factory.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const MAX_BASH_OUTPUT_BYTES = 200_000;
 
-function renderNeutral(content) {
-  return stripRuleMarkers(replacePlaceholders(compileProviderBlocks(content, [])
-    .replaceAll('{{ask_instruction}}', 'Use the ask_user_question tool.')
-    .replaceAll('{{model}}', 'the assistant'), 'dsh'))
-    .replaceAll('{{scripts_path}}', '.claude/skills/impeccable/scripts')
-    .replaceAll('{{command_hint}}', 'command');
-}
-
-// Use the production builder so fallback reviewer/documenter references exist.
-// Generic tool names are shared by the API providers; host-specific blocks are
-// deliberately absent. Exact provider transforms have separate loader tests.
-const sourceSkills = readSourceFiles(REPO_ROOT).skills.map((skill) => ({
-  ...skill,
-  body: renderNeutral(skill.body),
-  references: skill.references.map((ref) => ({ ...ref, content: renderNeutral(ref.content) })),
-  agents: skill.agents.map((agent) => ({ ...agent, body: renderNeutral(agent.body) })),
-}));
+// skill/ is already provider-neutral, so the fixture stages it exactly as the
+// production build copies it. Exact host loader contracts are tested separately.
+const sourceSkills = readSourceFiles(REPO_ROOT).skills;
 const stageSkill = createTransformer({
-  provider: 'skill-behavior', placeholderProvider: 'dsh', providerTags: [],
-  configDir: '.claude', displayName: 'Behavior fixture',
+  provider: 'skill-behavior', configDir: '.claude', displayName: 'Behavior fixture',
 });
 
 function snapshotWorkspaceFiles(root) {
@@ -84,10 +69,7 @@ function changedPaths(before, after) {
     .sort();
 }
 
-/**
- * Strip the YAML frontmatter and replace `{{...}}` placeholders so SKILL.md
- * is provider-neutral when inlined.
- */
+/** SKILL.md without its YAML frontmatter, for inlining as a system prompt. */
 function loadSkillBody() {
   return sourceSkills[0].body.trim();
 }
@@ -102,12 +84,12 @@ export const SKILL_BODY = `Base directory for this skill (workspace-relative): .
 /**
  * Create a temp workspace and prepopulate it.
  *
- * - Compile current source into an independent fixture distribution. Shell
- *   and read tools see the same resolved references, including degraded roles.
+ * - Copy skill/ into an independent fixture distribution, exactly as the
+ *   build does. Shell and read tools see the same references and agents.
  * - `files` lets the test seed PRODUCT.md / DESIGN.md (or anything else).
- * - `skillVersion` adds a `SKILL.md` version. `impeccable context` reads its
- *   own version from that sibling file, so this is required for any scenario
- *   that exercises the update-check path (the source dir has only SKILL.src.md).
+ * - `skillVersion` overrides the staged `SKILL.md` version. `impeccable context`
+ *   reads its own version from that sibling file, which matters for any
+ *   scenario that exercises the update-check path.
  *
  * The launcher in the staged scripts dir needs an engine binary. Every bash
  * call the agent makes gets `IMPECCABLE_BIN` (tests/lib/engine-bin.mjs:
@@ -119,9 +101,19 @@ export { ENGINE_MISSING_MESSAGE };
 
 export function prepareWorkspace({ files = {}, skillVersion = null } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccable-skill-test-'));
-  stageSkill(sourceSkills, dir, { skillsVersion: skillVersion || '' });
+  const log = console.log;
+  console.log = () => {};
+  try {
+    stageSkill(sourceSkills, dir);
+  } finally {
+    console.log = log;
+  }
   fs.renameSync(path.join(dir, 'skill-behavior', '.claude'), path.join(dir, '.claude'));
   fs.rmdirSync(path.join(dir, 'skill-behavior'));
+  if (skillVersion) {
+    const skillMd = path.join(dir, '.claude', 'skills', 'impeccable', 'SKILL.md');
+    fs.writeFileSync(skillMd, fs.readFileSync(skillMd, 'utf-8').replace(/^(\s+version:\s*).+$/m, `$1${skillVersion}`));
+  }
   for (const [name, contents] of Object.entries(files)) {
     const target = path.join(dir, name);
     fs.mkdirSync(path.dirname(target), { recursive: true });

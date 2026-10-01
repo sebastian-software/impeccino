@@ -2,13 +2,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { compileProviderBlocks } from '../scripts/lib/utils.js';
 
 const ROOT = process.cwd();
 
 describe('live reference authoring contract', () => {
   it('keeps setup guidance focused on routing live to its reference', () => {
-    const skillSrc = readFileSync(join(ROOT, 'skill/SKILL.src.md'), 'utf-8');
+    const skillSrc = readFileSync(join(ROOT, 'skill/SKILL.md'), 'utf-8');
     const liveMd = readFileSync(join(ROOT, 'skill/reference/live.md'), 'utf-8');
 
     assert.match(skillSrc, /Load the request's playbook/);
@@ -20,14 +19,14 @@ describe('live reference authoring contract', () => {
   });
 
   it('keeps monorepo live guidance short and target-driven', () => {
-    const skillSrc = readFileSync(join(ROOT, 'skill/SKILL.src.md'), 'utf-8');
+    const skillSrc = readFileSync(join(ROOT, 'skill/SKILL.md'), 'utf-8');
     const liveMd = readFileSync(join(ROOT, 'skill/reference/live.md'), 'utf-8');
 
     assert.match(skillSrc, /Load the request's playbook/);
     assert.doesNotMatch(skillSrc, /TARGET_SELECTION_REQUIRED/);
     assert.doesNotMatch(skillSrc, /productStatus/);
     assert.doesNotMatch(skillSrc, /designStatus/);
-    assert.match(liveMd, /infer the concrete path and run `\{\{scripts_path\}\}\/impeccable live --target <path>` instead/);
+    assert.match(liveMd, /infer the concrete path and run `"<skill-base-dir>\/scripts\/impeccable" live --target <path>` instead/);
     assert.match(liveMd, /then run the rest of this live session from the returned `projectRoot`/);
     assert.doesNotMatch(liveMd, /target_selection_required/);
     assert.doesNotMatch(liveMd, /rerun with the chosen app path as `--target`/);
@@ -69,7 +68,7 @@ describe('live reference authoring contract', () => {
     // The dense source-editing rules live in the manual-edit applier subagent.
     assert.match(liveMd, /--reply EVENT_ID done --data '\{"status":"done"/);
     assert.match(liveMd, /evidencePath/);
-    assert.match(manualAgentMd, /codex-name: impeccable_manual_edit_applier/);
+    assert.match(manualAgentMd, /^name: impeccable-manual-edit-applier$/m);
     assert.doesNotMatch(manualAgentMd, /^providers:/m);
     assert.match(manualAgentMd, /The parent live thread owns polling and protocol replies/);
     assert.match(manualAgentMd, /Do not ask what to do/);
@@ -105,31 +104,11 @@ describe('live reference authoring contract', () => {
     assert.match(manualAgentMd, /"status":"error"/);
   });
 
-  it('keeps Codex sandbox guidance Codex-only', () => {
+  it('labels the Codex sandbox guidance for Codex', () => {
     const liveMd = readFileSync(join(ROOT, 'skill/reference/live.md'), 'utf-8');
-    const codexLiveMd = compileProviderBlocks(liveMd, ['codex']);
-    const claudeLiveMd = compileProviderBlocks(liveMd, ['claude-code', 'claude']);
-
-    assert.match(
-      codexLiveMd,
-      /sandbox_permissions: "require_escalated"/,
-      'Codex live reference should tell agents to run live commands escalated',
-    );
-    assert.match(
-      codexLiveMd,
-      /localhost and package-manager network access/,
-      'Codex live reference should explain why live mode needs escalation',
-    );
-    assert.doesNotMatch(
-      codexLiveMd,
-      /<\/?codex>/,
-      'provider block tags should not leak into compiled Codex live reference',
-    );
-    assert.doesNotMatch(
-      claudeLiveMd,
-      /sandbox_permissions: "require_escalated"/,
-      'Codex-only sandbox guidance should not appear in Claude live reference',
-    );
+    assert.match(liveMd, /^Codex: run live helper commands[^\n]*sandbox_permissions: "require_escalated"/m);
+    assert.match(liveMd, /localhost and package-manager network access/);
+    assert.doesNotMatch(liveMd, /<\/?codex>/);
   });
 
   it('keeps live preview CSS guidance capability-mode driven', () => {

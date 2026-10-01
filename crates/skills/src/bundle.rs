@@ -793,6 +793,10 @@ pub fn resolve_link_source(source_value: Option<&str>, root: &str) -> Result<Lin
     } else {
         jsp::resolve(root, &[source_path])
     };
+    // A source checkout ships the universal skill at skill/; link it directly.
+    if util::exists(&jsp::join(&[&checkout_root, "skill", "SKILL.md"])) {
+        return Ok(LinkSource { bundle_root: checkout_root.clone(), checkout_root });
+    }
     let universal_root = jsp::join(&[&checkout_root, "dist", "universal"]);
     if util::exists(&universal_root) {
         return Ok(LinkSource { checkout_root, bundle_root: universal_root });
@@ -800,7 +804,7 @@ pub fn resolve_link_source(source_value: Option<&str>, root: &str) -> Result<Lin
     if PROVIDER_DIRS.iter().any(|p| util::exists(&jsp::join(&[&checkout_root, p, "skills"]))) {
         return Ok(LinkSource { bundle_root: checkout_root.clone(), checkout_root });
     }
-    Err(format!("Could not find compiled skills in {source_path}. Expected dist/universal/ or provider skill folders."))
+    Err(format!("Could not find skills in {source_path}. Expected skill/SKILL.md, dist/universal/, or provider skill folders."))
 }
 
 /// JS: isSymlinkTo(dest, expectedSource)
@@ -822,6 +826,27 @@ pub struct LinkResult {
     pub skipped: usize,
 }
 
+/// Skill directories to link for one provider, as (name, source dir). A source
+/// checkout's universal skill/ serves every provider; a built bundle lists the
+/// provider's own skills/ folder.
+fn link_entries(bundle_root: &str, provider: &str) -> Vec<(String, String)> {
+    let universal = jsp::join(&[bundle_root, "skill"]);
+    if util::exists(&jsp::join(&[&universal, "SKILL.md"])) {
+        return vec![("impeccable".to_string(), universal)];
+    }
+    let src_dir = jsp::join(&[bundle_root, provider, "skills"]);
+    if !util::exists(&src_dir) {
+        return Vec::new();
+    }
+    bundle_skill_dirs(&src_dir)
+        .into_iter()
+        .map(|skill| {
+            let src = jsp::join(&[&src_dir, &skill]);
+            (skill, src)
+        })
+        .collect()
+}
+
 /// JS: linkProviderSkills(bundleRoot, root, targets, {force})
 pub fn link_provider_skills(io: &mut Io, bundle_root: &str, root: &str, targets: &[&str], force: bool) -> Result<LinkResult, String> {
     let mut result = LinkResult { linked: 0, already: 0, skipped: 0 };
@@ -839,12 +864,7 @@ pub fn link_provider_skills(io: &mut Io, bundle_root: &str, root: &str, targets:
         unique.push((provider, local_skills_dir));
     }
     for (provider, local_skills_dir) in unique {
-        let src_dir = jsp::join(&[bundle_root, provider, "skills"]);
-        if !util::exists(&src_dir) {
-            continue;
-        }
-        for skill in bundle_skill_dirs(&src_dir) {
-            let src = jsp::join(&[&src_dir, &skill]);
+        for (skill, src) in link_entries(bundle_root, provider) {
             let dest = jsp::join(&[&local_skills_dir, &skill]);
             if util::exists_or_link(&dest) {
                 if is_symlink_to(&dest, &src) {
@@ -896,6 +916,29 @@ mod tests {
         }
         w.finish().unwrap();
         buf.into_inner()
+    }
+
+    #[test]
+    fn link_prefers_the_universal_skill_of_a_source_checkout() {
+        let dir = tmp_dir("link");
+        std::fs::create_dir_all(format!("{dir}/skill")).unwrap();
+        std::fs::write(format!("{dir}/skill/SKILL.md"), "---\nname: impeccable\n---\n").unwrap();
+        std::fs::create_dir_all(format!("{dir}/dist/universal/.claude/skills/impeccable")).unwrap();
+        let source = resolve_link_source(Some(&dir), "/").unwrap();
+        assert_eq!(source.bundle_root, dir);
+        for provider in [".claude", ".agents", ".cursor"] {
+            assert_eq!(link_entries(&source.bundle_root, provider), vec![("impeccable".to_string(), format!("{dir}/skill"))]);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn link_lists_provider_skills_of_a_built_bundle() {
+        let dir = tmp_dir("link-bundle");
+        std::fs::create_dir_all(format!("{dir}/.claude/skills/impeccable")).unwrap();
+        assert_eq!(link_entries(&dir, ".claude"), vec![("impeccable".to_string(), format!("{dir}/.claude/skills/impeccable"))]);
+        assert!(link_entries(&dir, ".cursor").is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

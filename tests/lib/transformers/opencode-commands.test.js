@@ -17,6 +17,7 @@ const SAMPLE_SKILL = {
   name: 'impeccable',
   description: 'Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface.',
   body: '# Impeccable\n\nSkill body here.',
+  filePath: path.join(TEST_DIR, 'src', 'skill', 'SKILL.md'),
   references: [],
   scripts: [],
   agents: [],
@@ -26,6 +27,8 @@ beforeEach(() => {
   if (fs.existsSync(TEST_DIR)) {
     fs.rmSync(TEST_DIR, { recursive: true, force: true });
   }
+  fs.mkdirSync(path.dirname(SAMPLE_SKILL.filePath), { recursive: true });
+  fs.writeFileSync(SAMPLE_SKILL.filePath, `---\nname: impeccable\ndescription: ${SAMPLE_SKILL.description}\n---\n\n${SAMPLE_SKILL.body}\n`);
 });
 
 afterEach(() => {

@@ -6,6 +6,7 @@ model: inherit
 effort: medium
 maxTurns: 12
 ---
+
 # Impeccable Manual Edit Applier
 
 You apply one leased Impeccable live `manual_edit_apply` event to real source files.

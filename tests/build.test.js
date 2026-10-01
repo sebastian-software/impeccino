@@ -137,7 +137,7 @@ This is a test skill body.`;
 
     const skillDir = path.join(TEST_DIR, 'skill');
     fs.mkdirSync(skillDir, { recursive: true });
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     // Run the build process
     const DIST_DIR = path.join(TEST_DIR, 'dist');
@@ -166,7 +166,7 @@ This is a test skill body.`;
     expect(fs.existsSync(path.join(DIST_DIR, 'antigravity/.agent/skills/test-skill/SKILL.md'))).toBe(true);
   });
 
-  test('integration: emits native subagent files for Codex, Claude Code, GitHub Copilot, and Cursor', () => {
+  test('integration: emits native subagent files for Claude Code, GitHub Copilot, and Cursor', () => {
     const skillContent = `---
 name: test-skill
 description: A test skill
@@ -176,21 +176,18 @@ This is a test skill body.`;
 
     const agentContent = `---
 name: asset-producer
-codex-name: asset_producer
 description: Produces assets from approved crops
 tools: Read, Write
 model: inherit
 effort: medium
-max-turns: 8
-nickname-candidates:
-  - Asset Plate
+maxTurns: 8
 ---
 
 Do not redesign the approved crop.`;
 
     const skillDir = path.join(TEST_DIR, 'skill');
     fs.mkdirSync(path.join(skillDir, 'agents'), { recursive: true });
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
     fs.writeFileSync(path.join(skillDir, 'agents/asset-producer.md'), agentContent);
 
     const DIST_DIR = path.join(TEST_DIR, 'dist');
@@ -203,16 +200,12 @@ Do not redesign the approved crop.`;
     transformers.transformCursor(skills, DIST_DIR, patterns);
 
     const claudeAgentPath = path.join(DIST_DIR, 'claude-code/.claude/agents/asset-producer.md');
-    // Codex auto-discovers agents nested inside an installed skill, so the .toml
-    // ships in the skill's own agents/ folder rather than a top-level .codex/agents/.
-    const codexAgentPath = path.join(DIST_DIR, 'codex/.codex/skills/test-skill/agents/asset_producer.toml');
     // GitHub Copilot discovers repo-level custom agents at .github/agents/<name>.agent.md.
     const copilotAgentPath = path.join(DIST_DIR, 'github/.github/agents/asset-producer.agent.md');
     // Cursor discovers repo-level subagents at .cursor/agents/<name>.md.
     const cursorAgentPath = path.join(DIST_DIR, 'cursor/.cursor/agents/asset-producer.md');
 
     expect(fs.existsSync(claudeAgentPath)).toBe(true);
-    expect(fs.existsSync(codexAgentPath)).toBe(true);
     expect(fs.existsSync(copilotAgentPath)).toBe(true);
     expect(fs.existsSync(cursorAgentPath)).toBe(true);
 
@@ -220,12 +213,6 @@ Do not redesign the approved crop.`;
     expect(claudeAgent).toContain('name: asset-producer');
     expect(claudeAgent).toContain('tools: Read, Write');
     expect(claudeAgent).toContain('maxTurns: 8');
-
-    const codexAgent = fs.readFileSync(codexAgentPath, 'utf-8');
-    expect(codexAgent).toContain('name = "asset_producer"');
-    expect(codexAgent).toContain('model_reasoning_effort = "medium"');
-    expect(codexAgent).toContain('nickname_candidates = ["Asset Plate"]');
-    expect(codexAgent).toContain('developer_instructions =');
 
     // Copilot's portable frontmatter is name + description only: omitting
     // `tools` grants access to all tools, and there are no documented
@@ -251,57 +238,6 @@ Do not redesign the approved crop.`;
     expect(cursorAgent).not.toContain('tools:');
     expect(cursorAgent).not.toContain('effort:');
     expect(cursorAgent).not.toContain('maxTurns:');
-  });
-
-  test('integration: verify transformations are correct', () => {
-    const skillContent = `---
-name: audit
-description: Run technical quality checks
-user-invocable: true
-argument-hint: "[TARGET=<value>]"
----
-
-Please audit {{target}} for technical quality. Ask {{model}} for help.`;
-
-    const skillDir = path.join(TEST_DIR, 'skill');
-    fs.mkdirSync(skillDir, { recursive: true });
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
-
-    const DIST_DIR = path.join(TEST_DIR, 'dist');
-    const { skills } = utils.readSourceFiles(TEST_DIR);
-    const patterns = utils.readPatterns(TEST_DIR);
-
-    transformers.transformCursor(skills, DIST_DIR, patterns);
-    transformers.transformClaudeCode(skills, DIST_DIR, patterns);
-    transformers.transformGemini(skills, DIST_DIR, patterns);
-    transformers.transformCodex(skills, DIST_DIR, patterns);
-
-    // Verify Cursor: full frontmatter with user-invocable
-    const cursorContent = fs.readFileSync(path.join(DIST_DIR, 'cursor/.cursor/skills/audit/SKILL.md'), 'utf-8');
-    expect(cursorContent).toContain('---');
-    expect(cursorContent).toContain('name: audit');
-    expect(cursorContent).toContain('{{target}}');
-    expect(cursorContent).toContain('the model');
-
-    // Verify Claude Code: full frontmatter with user-invocable and argument-hint
-    const claudeContent = fs.readFileSync(path.join(DIST_DIR, 'claude-code/.claude/skills/audit/SKILL.md'), 'utf-8');
-    expect(claudeContent).toContain('---');
-    expect(claudeContent).toContain('name: audit');
-    expect(claudeContent).toContain('user-invocable: true');
-    expect(claudeContent).toContain('{{target}}');
-    expect(claudeContent).toContain('Claude');
-
-    // Verify Gemini: skill in skills directory
-    expect(fs.existsSync(path.join(DIST_DIR, 'gemini/.gemini/skills/audit/SKILL.md'))).toBe(true);
-    const geminiContent = fs.readFileSync(path.join(DIST_DIR, 'gemini/.gemini/skills/audit/SKILL.md'), 'utf-8');
-    expect(geminiContent).toContain('{{target}}'); // No body transform, placeholder preserved
-    expect(geminiContent).toContain('Gemini');
-
-    // Verify Codex: skill in skills directory
-    expect(fs.existsSync(path.join(DIST_DIR, 'codex/.codex/skills/audit/SKILL.md'))).toBe(true);
-    const codexContent = fs.readFileSync(path.join(DIST_DIR, 'codex/.codex/skills/audit/SKILL.md'), 'utf-8');
-    expect(codexContent).toContain('{{target}}'); // No body transform, placeholder preserved
-    expect(codexContent).toContain('GPT');
   });
 
   test('should call transformers in correct order', () => {
@@ -426,86 +362,6 @@ describe('skill scripts payload', () => {
   });
 });
 
-describe('degraded-mode fallback reference generation', () => {
-  const ROOT = process.cwd();
-  const DEGRADED_TEST_DIR = path.join(ROOT, 'test-tmp-degraded');
-  const DIST = path.join(DEGRADED_TEST_DIR, 'dist');
-
-  const readDegraded = (provider, configDir, role) =>
-    fs.readFileSync(
-      path.join(DIST, provider, configDir, 'skills', 'impeccable', 'reference', 'degraded', `${role}.md`),
-      'utf-8'
-    );
-
-  beforeEach(() => {
-    if (fs.existsSync(DEGRADED_TEST_DIR)) fs.rmSync(DEGRADED_TEST_DIR, { recursive: true, force: true });
-    fs.mkdirSync(DEGRADED_TEST_DIR, { recursive: true });
-    const { skills } = utils.readSourceFiles(ROOT);
-    transformers.transformClaudeCode(skills, DIST);
-    transformers.transformCodex(skills, DIST);
-  });
-
-  afterEach(() => {
-    if (fs.existsSync(DEGRADED_TEST_DIR)) fs.rmSync(DEGRADED_TEST_DIR, { recursive: true, force: true });
-  });
-
-  test('a build emits reference/degraded/<role>.md for every agent, prefix-stripped', () => {
-    const dir = path.join(DIST, 'codex', '.codex', 'skills', 'impeccable', 'reference', 'degraded');
-    const files = fs.readdirSync(dir).sort();
-    expect(files).toEqual([
-      'asset-producer.md',
-      'documenter.md',
-      'finish-reviewer.md',
-      'manual-edit-applier.md',
-    ]);
-  });
-
-  test('finish-reviewer fallback opens with the preamble and carries a distinctive body phrase', () => {
-    const content = readDegraded('codex', '.codex', 'finish-reviewer');
-    expect(content.startsWith('<!-- Generated from skill/agents/ at build time. Do not edit; edit the agent definition. -->'))
-      .toBe(true);
-    expect(content).toContain('This harness has no subagent capability, so you are running this role inline.');
-    // Distinctive phrase from the agent body proves the source body was inlined.
-    expect(content).toContain('material_fixes');
-  });
-
-  test('generated fallbacks pass through provider-block compilation (codex keeps its block, others strip it)', () => {
-    // Standalone provider blocks are the shape compileProviderBlocks compiles.
-    // A synthetic agent proves the degraded path runs the same compilation as
-    // ordinary reference files, with the right provider tags per target.
-    const synthetic = {
-      name: 'impeccable',
-      description: 'synthetic',
-      body: 'Synthetic skill body.',
-      agents: [
-        {
-          name: 'impeccable-synthetic',
-          body: 'Shared body line.\n\n<codex>\nCODEX_ONLY_MARKER for the codex target.\n</codex>\n\nMore shared body.',
-        },
-      ],
-    };
-    const synthDist = path.join(DEGRADED_TEST_DIR, 'synth');
-    transformers.transformCodex([synthetic], synthDist);
-    transformers.transformClaudeCode([synthetic], synthDist);
-    const read = (provider, configDir) =>
-      fs.readFileSync(
-        path.join(synthDist, provider, configDir, 'skills', 'impeccable', 'reference', 'degraded', 'synthetic.md'),
-        'utf-8'
-      );
-    const codex = read('codex', '.codex');
-    const claude = read('claude-code', '.claude');
-    expect(codex).toContain('CODEX_ONLY_MARKER');
-    expect(claude).not.toContain('CODEX_ONLY_MARKER');
-    // Both still carry the preamble and the shared body.
-    expect(codex.startsWith('<!-- Generated from skill/agents/')).toBe(true);
-    expect(claude).toContain('More shared body.');
-  });
-
-  test('the source repo contains no hand-authored degraded/ reference files (generation-only)', () => {
-    expect(fs.existsSync(path.join(ROOT, 'skill', 'reference', 'degraded'))).toBe(false);
-  });
-});
-
 describe('GitHub Copilot custom agent generation', () => {
   const ROOT = process.cwd();
   const COPILOT_TEST_DIR = path.join(ROOT, 'test-tmp-copilot-agents');
@@ -550,31 +406,6 @@ describe('GitHub Copilot custom agent generation', () => {
     expect(frontmatter).not.toContain('nickname');
   });
 
-  test('bodies are compiled: placeholders resolved, rule markers stripped', () => {
-    for (const name of fs.readdirSync(AGENTS_DIR)) {
-      const content = fs.readFileSync(path.join(AGENTS_DIR, name), 'utf-8');
-      expect(content).not.toContain('{{');
-      expect(content).not.toMatch(/<!--\s*rule:/);
-    }
-    // The asset producer's body references the skill's scripts dir; the
-    // placeholder resolves to the provider-aware path.
-    const assetProducer = fs.readFileSync(path.join(AGENTS_DIR, 'impeccable-asset-producer.agent.md'), 'utf-8');
-    expect(assetProducer).toContain('.github/skills/impeccable/scripts');
-    // A distinctive body phrase proves the agent body itself was inlined.
-    const reviewer = fs.readFileSync(path.join(AGENTS_DIR, 'impeccable-finish-reviewer.agent.md'), 'utf-8');
-    expect(reviewer).toContain('material_fixes');
-  });
-
-  test('degraded fallbacks still ship for the github provider alongside the real agents', () => {
-    const degradedDir = path.join(DIST, 'github', '.github', 'skills', 'impeccable', 'reference', 'degraded');
-    const files = fs.readdirSync(degradedDir).sort();
-    expect(files).toEqual([
-      'asset-producer.md',
-      'documenter.md',
-      'finish-reviewer.md',
-      'manual-edit-applier.md',
-    ]);
-  });
 });
 
 describe('Cursor subagent generation', () => {
@@ -627,97 +458,44 @@ describe('Cursor subagent generation', () => {
     }
   });
 
-  test('bodies are compiled: placeholders resolved, rule markers stripped', () => {
-    for (const name of fs.readdirSync(AGENTS_DIR)) {
-      const content = fs.readFileSync(path.join(AGENTS_DIR, name), 'utf-8');
-      expect(content).not.toContain('{{');
-      expect(content).not.toMatch(/<!--\s*rule:/);
-    }
-    const assetProducer = fs.readFileSync(path.join(AGENTS_DIR, 'impeccable-asset-producer.md'), 'utf-8');
-    expect(assetProducer).toContain('.cursor/skills/impeccable/scripts');
-  });
 });
 
 // Regression guard for the gap that shipped literal `{{scripts_path}}` inside
 // the Codex dists' nested agent .toml: three separate code paths emit an agent
 // body, and one of them skipped placeholder substitution and rule-marker
 // stripping. Assert every surface, not just the one that was broken.
-describe('agent bodies resolve placeholders on every surface that ships them', () => {
+
+describe('universal skill source', () => {
   const ROOT = process.cwd();
-  const AGENT_TEST_DIR = path.join(ROOT, 'test-tmp-agent-placeholders');
-  const DIST = path.join(AGENT_TEST_DIR, 'dist');
+  const SKILL_DIR = path.join(ROOT, 'skill');
+  const markdown = utils.readFilesRecursive(SKILL_DIR);
 
-  // [emitted file, the scripts path that provider installs to]
-  const SURFACES = [
-    // Nested Codex .toml: the skill install is the whole delivery for these.
-    ['codex/.codex/skills/impeccable/agents/impeccable_asset_producer.toml', '.codex/skills/impeccable/scripts'],
-    ['agents/.agents/skills/impeccable/agents/impeccable_asset_producer.toml', '.agents/skills/impeccable/scripts'],
-    // Native agent files.
-    ['claude-code/.claude/agents/impeccable-asset-producer.md', '.claude/skills/impeccable/scripts'],
-    ['github/.github/agents/impeccable-asset-producer.agent.md', '.github/skills/impeccable/scripts'],
-    ['grok/.grok/agents/impeccable-asset-producer.md', '.grok/skills/impeccable/scripts'],
-    // Degraded fallback reference generated from the same agent definition.
-    ['codex/.codex/skills/impeccable/reference/degraded/asset-producer.md', '.codex/skills/impeccable/scripts'],
-  ];
-
-  beforeEach(() => {
-    if (fs.existsSync(AGENT_TEST_DIR)) fs.rmSync(AGENT_TEST_DIR, { recursive: true, force: true });
-    fs.mkdirSync(AGENT_TEST_DIR, { recursive: true });
-    const { skills } = utils.readSourceFiles(ROOT);
-    transformers.transformCodex(skills, DIST);
-    transformers.transformAgents(skills, DIST);
-    transformers.transformClaudeCode(skills, DIST);
-    transformers.transformGitHub(skills, DIST);
-    transformers.transformGrok(skills, DIST);
+  test('carries a real SKILL.md with only Agent Skills spec frontmatter', () => {
+    const { frontmatter } = utils.parseFrontmatter(fs.readFileSync(path.join(SKILL_DIR, 'SKILL.md'), 'utf-8'));
+    // Codex rejects unknown top-level keys; every harness reads these.
+    const spec = new Set(['name', 'description', 'license', 'compatibility', 'metadata']);
+    for (const key of Object.keys(frontmatter)) expect(spec.has(key)).toBe(true);
+    expect(frontmatter.metadata.version).toBeTruthy();
   });
 
-  afterEach(() => {
-    if (fs.existsSync(AGENT_TEST_DIR)) fs.rmSync(AGENT_TEST_DIR, { recursive: true, force: true });
-  });
-
-  test('the asset producer ships a runnable embed-prompt command, never the raw token', () => {
-    for (const [relPath, scriptsPath] of SURFACES) {
-      const content = fs.readFileSync(path.join(DIST, relPath), 'utf-8');
-      expect(content).toContain(`${scriptsPath}/impeccable embed-prompt`);
-      expect(content).not.toContain('{{scripts_path}}');
+  test('leaves no build-time placeholders or provider blocks', () => {
+    for (const file of markdown) {
+      const text = fs.readFileSync(file, 'utf-8');
+      expect(text).not.toMatch(/\{\{[a-z_]+\}\}/);
+      expect(text).not.toMatch(/^[ \t]*<\/?(claude|claude-code|codex|cursor|gemini)>[ \t]*$/m);
     }
   });
 
-  test('no emitted agent body carries an unresolved placeholder or a rule marker', () => {
-    const synthetic = {
-      name: 'impeccable',
-      description: 'synthetic',
-      body: 'Synthetic skill body.',
-      agents: [
-        {
-          name: 'impeccable-synthetic',
-          codexName: 'impeccable_synthetic',
-          description: 'synthetic agent',
-          body: 'Run `{{scripts_path}}/impeccable embed-prompt` and ask {{model}}. <!-- rule:synthetic-marker -->',
-        },
-      ],
-    };
-    const synthDist = path.join(AGENT_TEST_DIR, 'synth');
-    transformers.transformCodex([synthetic], synthDist);
-    transformers.transformClaudeCode([synthetic], synthDist);
-
-    const emitted = [
-      'codex/.codex/skills/impeccable/agents/impeccable_synthetic.toml',
-      'codex/.codex/skills/impeccable/reference/degraded/synthetic.md',
-      'claude-code/.claude/agents/impeccable-synthetic.md',
-    ];
-    for (const relPath of emitted) {
-      const content = fs.readFileSync(path.join(synthDist, relPath), 'utf-8');
-      expect(content).not.toContain('{{');
-      expect(content).not.toMatch(/<!--\s*rule:/);
+  test('never hardcodes one harness install path for the launcher', () => {
+    for (const file of markdown) {
+      const text = fs.readFileSync(file, 'utf-8');
+      expect(text).not.toMatch(/\.(claude|agents|cursor|github)\/skills\/impeccable\/scripts\/impeccable /);
     }
-    const codexToml = fs.readFileSync(
-      path.join(synthDist, 'codex/.codex/skills/impeccable/agents/impeccable_synthetic.toml'),
-      'utf-8'
-    );
-    expect(codexToml).toContain('.codex/skills/impeccable/scripts/impeccable embed-prompt');
-    // The model name belongs to PROVIDER_PLACEHOLDERS and may change; what
-    // this pins is that {{model}} resolved to something.
-    expect(codexToml).toMatch(/and ask \S+\./);
+  });
+
+  test('agents get the scripts path from the parent, not from SKILL.md', () => {
+    for (const file of fs.readdirSync(path.join(SKILL_DIR, 'agents'))) {
+      expect(fs.readFileSync(path.join(SKILL_DIR, 'agents', file), 'utf-8')).not.toContain('<skill-base-dir>');
+    }
   });
 });

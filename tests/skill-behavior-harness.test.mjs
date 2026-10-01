@@ -124,19 +124,18 @@ it('new-work requires approval and a brief before code, then documents the finis
   assert.throws(() => check([ask, brief, page, design, page]), /finished build/);
 });
 
-it('stages resolved references independently of the source skill', async () => {
+it('stages the universal references independently of the source skill', async () => {
   const workspace = prepareWorkspace();
   try {
     const base = path.join(workspace, '.claude/skills/impeccable');
     assert.equal(fs.lstatSync(base).isSymbolicLink(), false);
     const { tools } = makeTools(workspace);
     const critique = await tools.read.execute({ path: '.claude/skills/impeccable/reference/critique.md' });
-    assert.match(critique, /Use the ask_user_question tool\./);
+    assert.match(critique, /structured question tool when it has one/);
     assert.doesNotMatch(critique, /\{\{ask_instruction\}\}|\{\{scripts_path\}\}|<codex>/);
     for (const role of ['finish-reviewer', 'documenter']) {
-      const reference = await tools.read.execute({ path: `.claude/skills/impeccable/reference/degraded/${role}.md` });
-      assert.match(reference, /This harness has no subagent capability/);
-      assert.doesNotMatch(reference, /\{\{scripts_path\}\}|<codex>/);
+      const agent = await tools.read.execute({ path: `.claude/skills/impeccable/agents/impeccable-${role}.md` });
+      assert.match(agent, new RegExp(`name: impeccable-${role}`));
     }
     const shellRead = await tools.bash.execute({ command: 'cat .claude/skills/impeccable/reference/critique.md' });
     assert.ok(shellRead.includes(critique), 'shell and read tools must see the same resolved reference');
@@ -330,7 +329,7 @@ it('loaded-skill metadata resolves to the staged launcher and readable reference
     await tools.read.execute({ path: `${baseDir}/reference/polish.md` });
     await tools.read.execute({ path: `${baseDir}/reference/craft-floor.md` });
     assert.ok(trace.toolCalls.every((call) => call.succeeded));
-    assert.ok(SKILL_BODY.includes('<skill-base-dir>/scripts/impeccable context'), 'metadata must not rewrite away the path-resolution behavior under test');
+    assert.ok(SKILL_BODY.includes('"<skill-base-dir>/scripts/impeccable" context'), 'metadata must not rewrite away the path-resolution behavior under test');
   } finally {
     cleanupWorkspace(workspace);
   }

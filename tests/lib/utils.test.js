@@ -10,8 +10,6 @@ import {
   writeFile,
   generateYamlFrontmatter,
   readPatterns,
-  replacePlaceholders,
-  replaceScriptProviderMarker,
 } from '../../scripts/lib/utils.js';
 
 // Temporary test directory
@@ -396,7 +394,7 @@ Skill instructions here.`;
 
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const { skills } = readSourceFiles(testRootDir);
 
@@ -418,7 +416,7 @@ Audit the code.`;
 
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const { skills } = readSourceFiles(testRootDir);
 
@@ -437,7 +435,7 @@ Audit the code.`;
 
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const { skills } = readSourceFiles(testRootDir);
 
@@ -455,7 +453,7 @@ Impeccable design instructions.`;
 
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const refDir = path.join(skillDir, 'reference');
     ensureDir(refDir);
@@ -474,7 +472,7 @@ Impeccable design instructions.`;
   test('should fall back to "impeccable" when frontmatter has no name', () => {
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), 'Just body, no frontmatter.');
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), 'Just body, no frontmatter.');
 
     const { skills } = readSourceFiles(testRootDir);
 
@@ -485,7 +483,7 @@ Impeccable design instructions.`;
   test('should ignore non-md files in skill/reference', () => {
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), '---\nname: test-skill\n---\nBody');
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: test-skill\n---\nBody');
 
     const refDir = path.join(skillDir, 'reference');
     ensureDir(refDir);
@@ -502,7 +500,7 @@ Impeccable design instructions.`;
   test('should read nested skill script files with portable relative names', () => {
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), '---\nname: test-skill\n---\nBody');
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: test-skill\n---\nBody');
 
     const scriptsDir = path.join(skillDir, 'scripts');
     ensureDir(path.join(scriptsDir, 'live'));
@@ -529,15 +527,15 @@ name: test-skill
 description: A comprehensive test skill
 license: Apache-2.0
 compatibility: claude-code
-user-invocable: true
-allowed-tools: Bash,Edit
+metadata:
+  version: 4.4.0
 ---
 
 Body content.`;
 
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
-    fs.writeFileSync(path.join(skillDir, 'SKILL.src.md'), skillContent);
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const { skills } = readSourceFiles(testRootDir);
 
@@ -545,8 +543,7 @@ Body content.`;
     expect(skills[0].description).toBe('A comprehensive test skill');
     expect(skills[0].license).toBe('Apache-2.0');
     expect(skills[0].compatibility).toBe('claude-code');
-    expect(skills[0].userInvocable).toBe(true);
-    expect(skills[0].allowedTools).toBe('Bash,Edit');
+    expect(skills[0].metadata).toEqual({ version: '4.4.0' });
   });
 });
 
@@ -596,110 +593,5 @@ describe('readPatterns', () => {
       fromRealRoot.patterns.map((p) => p.name)
     );
     expect(fromBogusRoot.patterns).toHaveLength(6);
-  });
-});
-
-describe('replacePlaceholders', () => {
-  test('should replace {{model}} with provider-specific value', () => {
-    expect(replacePlaceholders('Ask {{model}} for help.', 'claude-code')).toBe('Ask Claude for help.');
-    expect(replacePlaceholders('Ask {{model}} for help.', 'gemini')).toBe('Ask Gemini for help.');
-    expect(replacePlaceholders('Ask {{model}} for help.', 'codex')).toBe('Ask GPT for help.');
-    expect(replacePlaceholders('Ask {{model}} for help.', 'cursor')).toBe('Ask the model for help.');
-    expect(replacePlaceholders('Ask {{model}} for help.', 'agents')).toBe('Ask the model for help.');
-    expect(replacePlaceholders('Ask {{model}} for help.', 'kiro')).toBe('Ask Claude for help.');
-  });
-
-  test('should replace {{config_file}} with provider-specific value', () => {
-    expect(replacePlaceholders('See {{config_file}}.', 'claude-code')).toBe('See CLAUDE.md.');
-    expect(replacePlaceholders('See {{config_file}}.', 'cursor')).toBe('See .cursorrules.');
-    expect(replacePlaceholders('See {{config_file}}.', 'gemini')).toBe('See GEMINI.md.');
-    expect(replacePlaceholders('See {{config_file}}.', 'codex')).toBe('See AGENTS.md.');
-    expect(replacePlaceholders('See {{config_file}}.', 'agents')).toBe('See .github/copilot-instructions.md.');
-    expect(replacePlaceholders('See {{config_file}}.', 'kiro')).toBe('See .kiro/settings.json.');
-  });
-
-  test('should replace {{ask_instruction}} with provider-specific value', () => {
-    const result = replacePlaceholders('{{ask_instruction}}', 'claude-code');
-    expect(result).toBe('STOP and call the AskUserQuestion tool to clarify.');
-
-    const cursorResult = replacePlaceholders('{{ask_instruction}}', 'cursor');
-    expect(cursorResult).toBe('Ask the user directly to clarify what you cannot infer.');
-  });
-
-  test('should replace {{available_commands}} with command list', () => {
-    const result = replacePlaceholders('Commands: {{available_commands}}', 'claude-code', ['audit', 'polish', 'optimize']);
-    expect(result).toBe('Commands: /audit, /polish, /optimize');
-  });
-
-  test('should exclude impeccable from {{available_commands}}', () => {
-    const result = replacePlaceholders('Commands: {{available_commands}}', 'claude-code', ['audit', 'impeccable', 'polish']);
-    expect(result).toBe('Commands: /audit, /polish');
-  });
-
-  test('should exclude legacy teach-impeccable from {{available_commands}}', () => {
-    const result = replacePlaceholders('Commands: {{available_commands}}', 'claude-code', ['audit', 'teach-impeccable', 'polish']);
-    expect(result).toBe('Commands: /audit, /polish');
-  });
-
-  test('lists /impeccable sub-commands for {{available_commands}} when no command names are passed', () => {
-    // v3.0 single-skill architecture: with no command names, the list falls back
-    // to the IMPECCABLE_SUB_COMMANDS sub-commands rendered as `/impeccable <sub>`.
-    const result = replacePlaceholders('Commands: {{available_commands}}', 'claude-code', []);
-    expect(result.startsWith('Commands: /impeccable ')).toBe(true);
-    expect(result).toContain('/impeccable audit');
-    expect(result).toContain('/impeccable polish');
-  });
-
-  test('should replace multiple placeholders in the same string', () => {
-    const result = replacePlaceholders('{{model}} uses {{config_file}} and {{ask_instruction}}', 'claude-code');
-    expect(result).toBe('Claude uses CLAUDE.md and STOP and call the AskUserQuestion tool to clarify.');
-  });
-
-  test('should replace multiple occurrences of the same placeholder', () => {
-    const result = replacePlaceholders('{{model}} and {{model}} again.', 'gemini');
-    expect(result).toBe('Gemini and Gemini again.');
-  });
-
-  test('should fall back to cursor placeholders for unknown provider', () => {
-    const result = replacePlaceholders('{{model}} {{config_file}}', 'unknown-provider');
-    expect(result).toBe('the model .cursorrules');
-  });
-
-  test('should replace Codex command invocations without rewriting paths', () => {
-    const source = [
-      'Run /impeccable audit.',
-      'Use `/impeccable polish` next.',
-      '.github/hooks/impeccable.json',
-      '.codex/skills/impeccable/scripts/context.mjs',
-      'https://example.com/impeccable',
-    ].join('\n');
-
-    const result = replacePlaceholders(source, 'codex', [], ['impeccable']);
-
-    expect(result).toContain('Run $impeccable audit.');
-    expect(result).toContain('Use `$impeccable polish` next.');
-    expect(result).toContain('.github/hooks/impeccable.json');
-    expect(result).toContain('.codex/skills/impeccable/scripts/context.mjs');
-    expect(result).toContain('https://example.com/impeccable');
-  });
-});
-
-describe('replaceScriptProviderMarker', () => {
-  test('renders only the explicit provider declarations', () => {
-    const source = [
-      "export const IMPECCABLE_COMMAND_PREFIX = '/'; // @impeccable-provider-command-prefix",
-      "export const IMPECCABLE_PROVIDER_ID = 'source'; // @impeccable-provider-id",
-      'const regex = /impeccable\\b/gi;',
-      "const runtime = '/src/lib/impeccable/__runtime.js';",
-      "const text = 'Run /impeccable audit';",
-    ].join('\n');
-
-    const result = replaceScriptProviderMarker(source, 'codex', 'agents');
-
-    expect(result).toContain('export const IMPECCABLE_COMMAND_PREFIX = "$";');
-    expect(result).toContain('export const IMPECCABLE_PROVIDER_ID = "agents";');
-    expect(result).toContain('const regex = /impeccable\\b/gi;');
-    expect(result).toContain("const runtime = '/src/lib/impeccable/__runtime.js';");
-    expect(result).toContain("const text = 'Run /impeccable audit';");
   });
 });

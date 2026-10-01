@@ -4,14 +4,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { stageCursorPlugin, rewriteCursorPluginMarkdown } from '../scripts/lib/cursor-plugin.js';
+import { stageCursorPlugin } from '../scripts/lib/cursor-plugin.js';
 import { buildCursorHooksManifest } from '../scripts/lib/transformers/hooks.js';
 import { collectPluginVersions } from '../scripts/lib/validate-plugin-versions.js';
 import { readSourceFiles } from '../scripts/lib/utils.js';
 import { createTransformer, PROVIDERS } from '../scripts/lib/transformers/index.js';
 
-const scripts = '.cursor/skills/impeccable/scripts';
-const sample = `---\nname: impeccable\ndescription: Design\n---\nRun \`${scripts}/impeccable context\`, and \`${scripts}\` is the fallback only when the runtime reports no base directory. Windows: \`${scripts}/impeccable.cmd context\`.\n`;
+// skill/ is universal, so the plugin ships provider output verbatim.
+const sample = '---\nname: impeccable\ndescription: Design\n---\nRun `"<skill-base-dir>/scripts/impeccable" context`. Windows: `"<skill-base-dir>/scripts/impeccable.cmd" context`.\n';
 
 describe('Cursor native plugin', () => {
   let root;
@@ -46,8 +46,8 @@ describe('Cursor native plugin', () => {
       assert.doesNotMatch(text, /\.cursor\/skills|fallback only/);
       assert.match(text, /"<skill-base-dir>\/scripts\/impeccable" context/);
       assert.match(text, /"<skill-base-dir>\/scripts\/impeccable\.cmd" context/);
+      assert.equal(text, sample);
     }
-    assert.match(fs.readFileSync(path.join(output, 'agents/impeccable-asset-producer.md'), 'utf8'), /supplied in the handoff/);
     assert.equal(fs.statSync(path.join(output, 'skills/impeccable/scripts/impeccable')).mode & 0o111, 0o111);
     assert.equal(fs.readFileSync(path.join(root, 'dist/cursor/.cursor/skills/impeccable/SKILL.md'), 'utf8'), sample);
     write('dist/cursor-plugin/stale.txt', 'stale');
@@ -66,10 +66,6 @@ describe('Cursor native plugin', () => {
     assert.equal(result.status, 2, result.stderr);
     assert.equal(result.stdout, `${fs.realpathSync(root)}\nhook-before-edit\n{"tool_name":"Edit"}\n`);
     assert.match(buildCursorHooksManifest().hooks.preToolUse[0].command, /\.cursor\/skills\/impeccable/);
-  });
-
-  it('does not add path prose to agents that do not use scripts', () => {
-    assert.equal(rewriteCursorPluginMarkdown('---\nname: reviewer\n---\nReview.', { agent: true }), '---\nname: reviewer\n---\nReview.\n');
   });
 
   it('detects version drift in both staged and tracked Cursor artifacts', () => {

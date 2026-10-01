@@ -1,37 +1,24 @@
 #!/usr/bin/env node
 
 /**
- * Build System for Cross-Provider Design Skills
+ * Build System for Impeccable
  *
- * Transforms source skills into provider-specific formats:
- * - Cursor: .cursor/skills/
- * - Claude Code: .claude/skills/
- * - Gemini: .gemini/skills/
- * - Codex: dist/codex/ only (OpenAI-metadata bundle; not synced to repo root)
- * - Agents: .agents/skills/ (Codex repo/user installs)
- * - GitHub: .github/skills/ (GitHub Copilot)
- * - Veto: .veto/skills/ (Veto model-routing harness)
- *
- * Also assembles a universal ZIP containing all providers,
- * and builds Tailwind CSS for production deployment.
+ * skill/ is the universal skill and installs as-is. The build copies it into
+ * every provider layout under dist/ (adding only harness wiring: native agent
+ * files, hook manifests, OpenCode's command bridge), assembles the universal
+ * ZIP, stages the Claude/Grok plugin subtree at ./plugin/, and validates
+ * counts, versions, and prose.
  */
 
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { readSourceFiles, readPatterns, stashPerProjectArtifacts, restorePerProjectArtifacts } from './lib/utils.js';
-import { syncRootCommands } from './lib/root-commands-sync.mjs';
+import { readSourceFiles, readPatterns } from './lib/utils.js';
 import { createTransformer, PROVIDERS } from './lib/transformers/index.js';
-import { hooksJsonFor, buildClaudePluginHooksManifest } from './lib/transformers/hooks.js';
+import { buildClaudePluginHooksManifest } from './lib/transformers/hooks.js';
 import { createAllZips, createProviderZip } from './lib/zip.js';
 import { collectPluginVersions } from './lib/validate-plugin-versions.js';
 import { collectPluginManifestFindings } from './lib/validate-plugin-manifest.js';
-import {
-  rewritePluginMarkdownTree,
-  rewritePluginAgentMarkdown,
-  verifyPluginSkillRewrite,
-  verifyPluginAgentRewrite,
-} from './lib/plugin-paths.js';
 import { stageOpenAIPlugin } from './lib/openai-plugin.js';
 import { stageCursorPlugin } from './lib/cursor-plugin.js';
 import { stageVSCodeExtension } from './lib/vscode-extension.js';
@@ -430,57 +417,6 @@ function validateSkillProse(rootDir) {
 }
 
 /**
- * Validate that every `{{ask_instruction}}` interpolation starts a sentence.
- *
- * The placeholder's per-provider values are complete capitalized sentences
- * ("STOP and call the AskUserQuestion tool to clarify."), so a call site that
- * splices it mid-sentence ships malformed guidance to every provider at once:
- * `stop and STOP and call the AskUserQuestion tool to clarify. before expanding
- * it`. Four reference files shipped exactly that before this gate existed, and
- * a comment in PROVIDER_PLACEHOLDERS asking authors to keep the contract is
- * what failed to prevent it.
- *
- * Returns the number of validation errors. Build fails if > 0.
- */
-function validateAskInstructionSites(rootDir) {
-  const dir = path.join(rootDir, 'skill', 'reference');
-  const token = '{{ask_instruction}}';
-  let errors = 0;
-  let sites = 0;
-
-  if (!fs.existsSync(dir)) return 0;
-
-  for (const file of fs.readdirSync(dir)) {
-    if (path.extname(file) !== '.md') continue;
-    const rel = path.join('skill/reference', file);
-    fs.readFileSync(path.join(dir, file), 'utf-8')
-      .split('\n')
-      .forEach((line, i) => {
-        let idx = line.indexOf(token);
-        while (idx !== -1) {
-          sites++;
-          // Bold/italic markers may sit between the punctuation and the token.
-          const before = line.slice(0, idx).replace(/[*_`]+\s*$/, '').trimEnd();
-          if (before !== '' && !/[.!?:]$/.test(before)) {
-            console.error(`  ❌ ${rel}:${i + 1}: ${token} is spliced mid-sentence`);
-            console.error(`        ...${before.slice(-60)} ${token}`);
-            console.error(`        Provider values are full sentences. Start a new one.`);
-            errors++;
-          }
-          idx = line.indexOf(token, idx + 1);
-        }
-      });
-  }
-
-  if (errors === 0) {
-    console.log(`✓ ask_instruction call sites: ${sites} sentence-initial`);
-  } else {
-    console.error(`\n❌ ${errors} of ${sites} {{ask_instruction}} site(s) spliced mid-sentence.`);
-  }
-  return errors;
-}
-
-/**
  * Validate that every hand-authored HTML page carries the shared site header.
  * The partial is stamped with `<!-- site-header v1 -->` so drift is loud.
  *
@@ -530,21 +466,6 @@ function mirrorDirContentsSync(src, dest) {
       fs.copyFileSync(srcPath, destPath);
     }
   }
-}
-
-function syncRootHookManifests(rootDir) {
-  const synced = [];
-  for (const config of Object.values(PROVIDERS)) {
-    if (!config.emitHooks) continue;
-    const manifest = hooksJsonFor(config.emitHooks, { configDir: config.configDir });
-    if (!manifest) continue;
-    const rel = config.hooksManifestRel || path.join('hooks', 'hooks.json');
-    const dest = path.join(rootDir, config.configDir, rel);
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    fs.writeFileSync(dest, JSON.stringify(manifest, null, 2) + '\n');
-    synced.push(path.join(config.configDir, rel).split(path.sep).join('/'));
-  }
-  return synced;
 }
 
 /**
@@ -695,6 +616,7 @@ async function build() {
   // or download; the root ENGINE_VERSION file is the source of truth for it.
   syncEngineVersionFile(ROOT_DIR);
 
+
   // Read source files (unified skills architecture)
   const { skills } = readSourceFiles(ROOT_DIR);
   const patterns = readPatterns(ROOT_DIR);
@@ -706,92 +628,20 @@ async function build() {
     process.exit(1);
   }
 
-  // Read skills version from plugin.json
-  const pluginJson = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, '.claude-plugin/plugin.json'), 'utf-8'));
-  const skillsVersion = pluginJson.version;
-
-  // Transform for each provider
+  // Copy the skill into every provider layout
   for (const config of Object.values(PROVIDERS)) {
     const transform = createTransformer(config);
-    transform(skills, DIST_DIR, { skillsVersion });
+    transform(skills, DIST_DIR);
   }
 
   if (BUILD_OPTIONS.syncRootOutputs) {
-    // Copy all provider outputs to project root for direct GitHub installs and
-    // submodule users. `.codex/` is intentionally excluded: Codex no longer
-    // consumes that layout; keep generated Codex bundles under dist/ only.
-    const syncConfigs = Object.values(PROVIDERS).filter(({ configDir }) => configDir !== '.codex');
-
-    for (const { provider, configDir } of syncConfigs) {
-      const skillsSrc = path.join(DIST_DIR, provider, configDir, 'skills');
-      const skillsDest = path.join(ROOT_DIR, configDir, 'skills');
-
-      if (fs.existsSync(skillsSrc)) {
-        // Preserve legacy per-project script artifacts (e.g. live-mode config.json)
-        // while replacing only skills generated by this build. Removing the
-        // whole provider skills directory can erase unrelated repo-local skills,
-        // and watched directories such as `.agents/skills` may reject the parent
-        // removal while Codex is using them.
-        const stashed = stashPerProjectArtifacts(skillsDest);
-        fs.mkdirSync(skillsDest, { recursive: true });
-        for (const entry of fs.readdirSync(skillsSrc, { withFileTypes: true })) {
-          const generatedDest = path.join(skillsDest, entry.name);
-          if (entry.isDirectory()) mirrorDirContentsSync(path.join(skillsSrc, entry.name), generatedDest);
-          else fs.copyFileSync(path.join(skillsSrc, entry.name), generatedDest);
-        }
-        restorePerProjectArtifacts(skillsDest, stashed);
-      }
-    }
-
-    for (const { provider, configDir, agentFormat } of Object.values(PROVIDERS)) {
-      if (!agentFormat) continue;
-
-      const agentsSrc = path.join(DIST_DIR, provider, configDir, 'agents');
-      const agentsDest = path.join(ROOT_DIR, configDir, 'agents');
-
-      if (fs.existsSync(agentsDest)) fs.rmSync(agentsDest, { recursive: true, force: true });
-      if (fs.existsSync(agentsSrc)) {
-        copyDirSync(agentsSrc, agentsDest);
-      }
-    }
-
-    const syncedCommands = syncRootCommands(DIST_DIR, ROOT_DIR, syncConfigs);
-    if (syncedCommands.length > 0) {
-      console.log(`📟 Synced provider commands to: ${syncedCommands.join(', ')}`);
-    }
-
-    const syncedHooks = syncRootHookManifests(ROOT_DIR);
-    if (syncedHooks.length > 0) {
-      console.log(`🪝 Synced hook manifests to: ${syncedHooks.join(', ')}`);
-    }
-
-    // Remove deprecated skill stubs from local harness dirs. They exist
-    // in dist/ so the cleanup script can redirect users, but they should
-    // not clutter the repo's own skill directories.
-    const deprecatedLocalSkills = [
-      'frontend-design', 'teach-impeccable',
-      'arrange', 'normalize', 'onboard', 'extract',
-      // v3.0 consolidation: standalone skills -> /impeccable sub-commands
-      'adapt', 'animate', 'audit', 'bolder', 'clarify', 'colorize',
-      'critique', 'delight', 'distill', 'harden', 'layout', 'optimize',
-      'overdrive', 'polish', 'quieter', 'shape', 'typeset',
-    ];
-    for (const { configDir } of syncConfigs) {
-      for (const name of deprecatedLocalSkills) {
-        const p = path.join(ROOT_DIR, configDir, 'skills', name);
-        if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true });
-      }
-    }
-
-    console.log(`📋 Synced skills to: ${syncConfigs.map(p => p.configDir).join(', ')}`);
-
     // Build the shared plugin subtree at ./plugin/.
     // Claude Code marketplace is configured with `source: "./plugin"`, so the
     // plugin cache only copies this slim directory (~0.3 MB) instead of the
     // entire monorepo. Grok Build installs the same subtree via
     // `grok plugin install pbakaus/impeccable#plugin --trust` (or the
-    // marketplace source). The harness dirs above stay where they are because
-    // `npx skills add pbakaus/impeccable` reads them from the GitHub repo.
+    // marketplace source). `npx skills add pbakaus/impeccable` and other
+    // git-based installs read skill/ directly.
     const pluginRoot = path.join(ROOT_DIR, 'plugin');
     const pluginManifestDir = path.join(pluginRoot, '.claude-plugin');
     const grokPluginManifestDir = path.join(pluginRoot, '.grok-plugin');
@@ -860,21 +710,6 @@ async function build() {
       copyDirSync(claudeAgentsSrc, pluginAgentsDir);
     }
 
-    // The claude-code output resolves {{scripts_path}} to a project-relative
-    // path. Inside the plugin cache that path points into the user's project,
-    // so a dual install silently runs the project's older skill copy (issue
-    // #523). Rewrite the copied markdown to the skill-base-dir form.
-    rewritePluginMarkdownTree(pluginSkillsDir);
-    // Agents get the plugin-root variable, not the skill-base-dir token:
-    // a spawned agent never loads SKILL.md, so the token is undefined there.
-    rewritePluginMarkdownTree(pluginAgentsDir, rewritePluginAgentMarkdown);
-    verifyPluginSkillRewrite(path.join(pluginSkillsDir, 'impeccable', 'SKILL.md'));
-    if (fs.existsSync(pluginAgentsDir)) {
-      for (const agentFile of fs.readdirSync(pluginAgentsDir)) {
-        if (agentFile.endsWith('.md')) verifyPluginAgentRewrite(path.join(pluginAgentsDir, agentFile));
-      }
-    }
-
     // Ship the design detector as a plugin-packaged hook. Claude Code and
     // Grok Build both auto-discover `hooks/hooks.json` at the plugin root
     // (Grok aliases CLAUDE_PLUGIN_ROOT → GROK_PLUGIN_ROOT), so marketplace /
@@ -888,7 +723,7 @@ async function build() {
 
     console.log('📦 Built Claude Code / Grok Build plugin subtree at ./plugin/');
   } else {
-    console.log('📋 Skipped root harness and plugin sync (--skip-root-sync)');
+    console.log('📋 Skipped plugin subtree sync (--skip-root-sync)');
   }
 
   // The public OpenAI plugin is a Codex artifact, not a copy of the tracked
@@ -944,11 +779,7 @@ async function build() {
   // that has no technical reading. Hardening repetition is intentionally allowed.
   const skillProseErrors = validateSkillProse(ROOT_DIR);
 
-  // Placeholder values are full sentences; a mid-sentence splice ships broken
-  // guidance to every provider at once.
-  const askSiteErrors = validateAskInstructionSites(ROOT_DIR);
-
-  if (countErrors > 0 || versionErrors > 0 || manifestShapeErrors > 0 || proseErrors > 0 || skillProseErrors > 0 || askSiteErrors > 0) {
+  if (countErrors > 0 || versionErrors > 0 || manifestShapeErrors > 0 || proseErrors > 0 || skillProseErrors > 0) {
     process.exit(1);
   }
 

@@ -4,8 +4,6 @@ description: Produces clean reusable raster assets from approved Impeccable mock
 model: inherit
 is_background: false
 ---
-
-Resolve `<skill-base-dir>` from the skill scripts path supplied in the handoff (its parent directory), or from `../skills/impeccable` relative to this agent file. Keep cwd at the user's project.
 # Impeccable Asset Producer
 
 You are the asset production agent for Impeccable craft. Your job is production cleanup, not new art direction. Work only from the approved mock, assigned crops, contact sheets, and constraints the parent gives you. Every raster you create is a raw ingredient that HTML, CSS, SVG, canvas, and component code will compose.
@@ -24,7 +22,7 @@ Return the actual files and any unresolved drift to the parent for the user's pl
 
 ## Input Contract
 
-Expect the measured spec (`.impeccable/build/spec.json`, written by `impeccable comp-spec` from the approved comp), the approved comp path, and the skill scripts path. Optionally: a subset of region ids to produce, extra prompt notes per region, and format or transparency needs. Everything else you need is in the spec: each raster region's id, kind (plate, image, texture), pixel box, sampled palette, aspect, note, and the plate path it must land on.
+Expect the measured spec (`.impeccable/build/spec.json`, written by `impeccable comp-spec` from the approved comp), the approved comp path, and the skill scripts path (`<scripts-path>` below: the absolute path of the skill's `scripts/` folder, which the parent resolves for you). Optionally: a subset of region ids to produce, extra prompt notes per region, and format or transparency needs. Everything else you need is in the spec: each raster region's id, kind (plate, image, texture), pixel box, sampled palette, aspect, note, and the plate path it must land on.
 
 If there is no spec, stop and return one line asking the parent to run `impeccable comp-spec` first. You do not inventory the comp yourself; the spec is the inventory, and a second inventory disagrees with the first.
 
@@ -34,11 +32,13 @@ Every region with `medium: raster` in the spec ships as a plate at its `plate` p
 
 Per region, in the spec's order:
 
-1. `"<skill-base-dir>/scripts/impeccable" comp-spec --crop <id>` writes the reference crop under `.impeccable/build/crops/`.
-2. Choose the background from the approved region: an isolated figure, object, or line drawing on the page ground is a **transparent cutout**; a photograph, full-frame illustration, or texture stays **opaque**. Save `"<skill-base-dir>/scripts/impeccable" comp-spec --plate-prompt <id> --background transparent` to a UTF-8 prompt file for a cutout; use `--background opaque` otherwise. The transparent prompt preserves reference placement and clear margins, white paint, fine edges, and interior holes.
-3. Produce the plate at its exact spec `plate` path. Create the output directory first and choose a supported output size matching the region's aspect, at least 1.5x its pixel dimensions. Prefer the harness-native image tool with the crop as input and the saved prompt; request a transparent PNG for cutouts, then run `"<skill-base-dir>/scripts/impeccable" embed-prompt <plate> --prompt-file <prompt.txt>` (if you refine the prompt, save and embed the exact text sent). With the API fallback, run `"<skill-base-dir>/scripts/impeccable" generate-image --ref <crop.png> --prompt-file <prompt.txt> --out <plate.png> --size <WxH> --quality high --background transparent` for a cutout, or `--background opaque` otherwise. The API fallback embeds the prompt and records the background in the sidecar. The output must be PNG; the fallback requests native alpha and performs no chroma-keying.
+1. `"<scripts-path>/impeccable" comp-spec --crop <id>` writes the reference crop under `.impeccable/build/crops/`.
+2. Choose the background from the approved region: an isolated figure, object, or line drawing on the page ground is a **transparent cutout**; a photograph, full-frame illustration, or texture stays **opaque**. Save `"<scripts-path>/impeccable" comp-spec --plate-prompt <id> --background transparent` to a UTF-8 prompt file for a cutout; use `--background opaque` otherwise. The transparent prompt preserves reference placement and clear margins, white paint, fine edges, and interior holes.
+3. Produce the plate at its exact spec `plate` path. Create the output directory first and choose a supported output size matching the region's aspect, at least 1.5x its pixel dimensions. Prefer the harness-native image tool with the crop as input and the saved prompt; request a transparent PNG for cutouts, then run `"<scripts-path>/impeccable" embed-prompt <plate> --prompt-file <prompt.txt>` (if you refine the prompt, save and embed the exact text sent). With the API fallback, run `"<scripts-path>/impeccable" generate-image --ref <crop.png> --prompt-file <prompt.txt> --out <plate.png> --size <WxH> --quality high --background transparent` for a cutout, or `--background opaque` otherwise. The API fallback embeds the prompt and records the background in the sidecar. The output must be PNG; the fallback requests native alpha and performs no chroma-keying.
 4. Open the plate beside the crop and compare subject, placement, scale, palette, and style. For cutouts, verify a real alpha channel and inspect composites on light and dark grounds: white paint must stay solid, interior holes must clear, and fine edges must avoid halos. Inspect glass and soft shadows carefully; partial alpha alone does not ensure convincing translucency. Never chroma-key native transparent output or flatten it before saving. If a native tool returns opaque pixels or a painted checkerboard, retry with the API fallback when available; otherwise report the transparency blocker. On a visual miss, tighten the prompt and regenerate once. Two misses on one region: keep the better plate, mark it `needs_parent_review`, and name the drift. The parent runs the plates gate after all assets exist; report `unscored` until a gate score is available.
 5. A frame plate (a window, a doorway, an arch) is a transparent cutout with an opening: generate it with a transparent background and keep the opening fully transparent. Verify the alpha inside the opening before saving: no baked view, no glow or vignette halo across it. The content seen through the opening is its own image region; produce it separately at the opening's size.
+
+Codex: the imagegen skill's built-in `image_gen` path is the native tool here; prefer it for generation and editing, with the crop as the input image.
 
 Do not redesign. Do not add objects, restyle, or reinterpret; the comp was approved as it is. Do not touch the page code, the spec, or the comp. Do not produce anything the spec does not list; a region the parent forgot goes back as a one-line note, not a plate.
 

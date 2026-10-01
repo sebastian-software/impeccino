@@ -121,6 +121,22 @@ export function parseFrontmatter(content) {
       continue;
     }
 
+    // One-level map under a key with no inline value (e.g. `metadata:` then
+    // `  version: 4.4.0`). The key starts out as an empty array; the first
+    // `key: value` child turns it into an object.
+    if (leadingSpaces === 2 && currentKey && !trimmed.startsWith('- ')) {
+      const holder = frontmatter[currentKey];
+      const colonIndex = trimmed.indexOf(':');
+      if (colonIndex > 0 && (Array.isArray(holder) ? holder.length === 0 : typeof holder === 'object')) {
+        const map = Array.isArray(holder) ? {} : holder;
+        const raw = trimmed.slice(colonIndex + 1).trim();
+        map[trimmed.slice(0, colonIndex).trim()] = /^(".*"|'.*')$/.test(raw) ? raw.slice(1, -1) : raw;
+        frontmatter[currentKey] = map;
+        currentArray = null;
+        continue;
+      }
+    }
+
     // Property of array object (indented further)
     if (leadingSpaces >= 4 && currentArray && currentArray.length > 0) {
       const colonIndex = trimmed.indexOf(':');
@@ -193,21 +209,15 @@ export function readFilesRecursive(dir, fileList = []) {
 
 /**
  * Read and parse the impeccable skill source.
- * After v3.0 the repo holds exactly one user-invocable skill, flat at skill/.
+ * The repo holds exactly one skill, flat at skill/. skill/ is also the
+ * universal install payload, so it carries a real SKILL.md.
  * Returns { skills: [oneEntry] } so downstream array-shaped consumers stay happy.
- *
- * The source manifest is `SKILL.src.md`, NOT `SKILL.md`, on purpose: the
- * `vercel-labs/skills` CLI discovers a skill by finding a literal `SKILL.md`
- * and copies that directory verbatim. If `skill/SKILL.md` existed, `npx skills`
- * would install the UNCOMPILED source (unresolved `{{placeholders}}` and
- * `{{scripts_path}}`). Naming it `SKILL.src.md` hides it from discovery so the CLI falls
- * through to a compiled harness dir (`.agents/skills/impeccable`) instead.
  */
 export function readSourceFiles(rootDir) {
   const skillDir = path.join(rootDir, 'skill');
   const skills = [];
 
-  const skillMdPath = path.join(skillDir, 'SKILL.src.md');
+  const skillMdPath = path.join(skillDir, 'SKILL.md');
   if (!fs.existsSync(skillMdPath)) {
     return { skills };
   }
@@ -247,24 +257,13 @@ export function readSourceFiles(rootDir) {
       const agentContent = fs.readFileSync(agentPath, 'utf-8');
       const { frontmatter: agentFrontmatter, body: agentBody } = parseFrontmatter(agentContent);
       const name = agentFrontmatter.name || path.basename(agentFile, '.md');
-      const providersRaw = agentFrontmatter.providers;
-      let providers = null;
-      if (Array.isArray(providersRaw)) {
-        providers = providersRaw.map(p => String(p).trim()).filter(Boolean);
-      } else if (typeof providersRaw === 'string' && providersRaw.trim()) {
-        providers = providersRaw.split(',').map(p => p.trim()).filter(Boolean);
-      }
       agents.push({
         name,
-        codexName: agentFrontmatter['codex-name'] || name.replace(/-/g, '_'),
-        claudeName: agentFrontmatter['claude-name'] || name,
         description: agentFrontmatter.description || '',
         tools: agentFrontmatter.tools || '',
         model: agentFrontmatter.model || '',
         effort: agentFrontmatter.effort || '',
-        maxTurns: agentFrontmatter['max-turns'] ? Number(agentFrontmatter['max-turns']) : '',
-        nicknameCandidates: agentFrontmatter['nickname-candidates'] || [],
-        providers,
+        maxTurns: agentFrontmatter.maxTurns ? Number(agentFrontmatter.maxTurns) : '',
         body: agentBody,
         filePath: agentPath,
       });
@@ -277,9 +276,7 @@ export function readSourceFiles(rootDir) {
     license: frontmatter.license || '',
     compatibility: frontmatter.compatibility || '',
     metadata: frontmatter.metadata || null,
-    allowedTools: frontmatter['allowed-tools'] || '',
-    userInvocable: frontmatter['user-invocable'] === true || frontmatter['user-invocable'] === 'true',
-    argumentHint: frontmatter['argument-hint'] || '',
+    userInvocable: true,
     context: frontmatter.context || null,
     body,
     filePath: skillMdPath,
@@ -406,273 +403,6 @@ export function readPatterns(_rootDir, _relativePath) {
     patterns: CURATED_CATEGORIES.map((c) => ({ name: c.name, items: c.do })),
     antipatterns: CURATED_CATEGORIES.map((c) => ({ name: c.name, items: c.dont })),
   };
-}
-
-/**
- * Provider-specific placeholders
- */
-export const PROVIDER_PLACEHOLDERS = {
-  'claude-code': {
-    model: 'Claude',
-    config_file: 'CLAUDE.md',
-    ask_instruction: 'STOP and call the AskUserQuestion tool to clarify.',
-    command_prefix: '/'
-  },
-  'cursor': {
-    model: 'the model',
-    config_file: '.cursorrules',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  'dsh': {
-    model: 'DeepSeek',
-    config_file: 'AGENTS.md',
-    ask_instruction: 'STOP and call the ask_user_question tool to clarify.',
-    command_prefix: '/'
-  },
-  'gemini': {
-    model: 'Gemini',
-    config_file: 'GEMINI.md',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  'codex': {
-    model: 'GPT',
-    config_file: 'AGENTS.md',
-    // Each value is a complete capitalized sentence, because every
-    // {{ask_instruction}} call site is sentence-initial. That is enforced by
-    // validateAskInstructionSites() in scripts/build.js, not left to authors:
-    // four reference files had already spliced the placeholder mid-sentence.
-    ask_instruction: "STOP and use Codex's structured user-input/question tool when available; if unavailable, ask directly in chat to clarify what you cannot infer.",
-    command_prefix: '$'
-  },
-  'agents': {
-    model: 'the model',
-    config_file: '.github/copilot-instructions.md',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  'kiro': {
-    model: 'Claude',
-    config_file: '.kiro/settings.json',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  opencode: {
-    model: 'Claude',
-    config_file: 'AGENTS.md',
-    ask_instruction: 'STOP and call the `question` tool to clarify.',
-    command_prefix: '/'
-  },
-  'pi': {
-    model: 'the model',
-    config_file: 'AGENTS.md',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  'qoder': {
-    model: 'the model',
-    config_file: 'AGENTS.md',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  'trae': {
-    model: 'the model',
-    config_file: 'RULES.md',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  'rovo-dev': {
-    model: 'Rovo Dev',
-    config_file: 'AGENTS.md',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  veto: {
-    model: 'the selected model',
-    config_file: '~/.veto/config.json',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/',
-  },
-  'vibe': {
-    model: 'Mistral',
-    config_file: 'AGENTS.md',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  'grok': {
-    model: 'Grok',
-    config_file: 'AGENTS.md',
-    ask_instruction: 'STOP and call the AskUserQuestion tool to clarify.',
-    command_prefix: '/'
-  },
-  'antigravity': {
-    model: 'Gemini',
-    config_file: 'AGENTS.md',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  },
-  'hermes': {
-    // Hermes is provider-agnostic and reads AGENTS.md / CLAUDE.md / .cursorrules
-    // for project context. "the model" matches the pi/opencode phrasing used
-    // for harnesses without a vendor-fixed assistant name.
-    model: 'the model',
-    config_file: 'AGENTS.md',
-    ask_instruction: 'Ask the user directly to clarify what you cannot infer.',
-    command_prefix: '/'
-  }
-};
-
-export const PROVIDER_BLOCK_TAGS = new Set([
-  'agents',
-  'antigravity',
-  'claude',
-  'claude-code',
-  'codex',
-  'cursor',
-  'dsh',
-  'gemini',
-  'github',
-  'grok',
-  'hermes',
-  'kiro',
-  'opencode',
-  'pi',
-  'qoder',
-  'rovo-dev',
-  'trae',
-  'trae-cn',
-  'vibe',
-  'veto',
-]);
-
-/**
- * Compile harness-conditional markdown blocks.
- *
- * Known provider blocks must be written as standalone tags:
- *
- * <codex>
- * Codex-only instructions.
- * </codex>
- *
- * Matching blocks keep their body and drop the tags. Non-matching blocks are
- * removed. Unknown tags are preserved so ordinary markdown/HTML is untouched.
- */
-export function compileProviderBlocks(content, activeTags = []) {
-  const activeTagSet = new Set(activeTags);
-  const providerBlockPattern = /(^|\r?\n)[ \t]*<([a-z][a-z0-9-]*)>[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*<\/\2>[ \t]*(?=\r?\n|$)/g;
-  let didCompileBlock = false;
-
-  const compiled = content.replace(providerBlockPattern, (match, prefix, tag, body) => {
-    if (!PROVIDER_BLOCK_TAGS.has(tag)) return match;
-    didCompileBlock = true;
-    return activeTagSet.has(tag) ? `${prefix}${body}` : prefix;
-  });
-
-  return didCompileBlock ? compiled.replace(/(?:\r?\n){3,}/g, '\n\n') : compiled;
-}
-
-/**
- * Strip `<!-- rule:id -->` markers from skill markdown.
- *
- * External eval tooling can pin each instruction line to a stable ID.
- * Markers in the source keep that mapping verifiable in lock-step with
- * the file. Staged SKILL.md files should not expose them, so this strip
- * runs during the per-provider staging in factory.js.
- *
- * Removes the marker plus any leading whitespace on the same line, so
- * `something. <!-- rule:foo -->` becomes `something.` and a standalone
- * marker line collapses to an empty line that the existing
- * blank-line normalization in compileProviderBlocks reaps.
- */
-export function stripRuleMarkers(content) {
-  return content.replace(/[ \t]*<!--\s*rule:[a-z0-9-]+\s*-->/g, '');
-}
-
-/**
- * Replace all {{placeholder}} tokens with provider-specific values
- */
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-const EXCLUDED_FROM_SUGGESTIONS = new Set([
-  'impeccable',               // foundational skill, not a steering command
-  'teach-impeccable',         // deprecated shim
-  'frontend-design',          // deprecated shim
-]);
-
-// Sub-commands of /impeccable that should appear in {{available_commands}}.
-// These are the commands that audit/critique/etc. reference when suggesting next steps.
-const IMPECCABLE_SUB_COMMANDS = [
-  'adapt', 'animate', 'audit', 'bolder', 'clarify', 'colorize',
-  'critique', 'delight', 'distill', 'document', 'harden', 'layout',
-  'onboard', 'optimize', 'overdrive', 'polish', 'quieter', 'shape', 'typeset',
-];
-
-export function replacePlaceholders(content, provider, commandNames = [], allSkillNames = []) {
-  const placeholders = PROVIDER_PLACEHOLDERS[provider] || PROVIDER_PLACEHOLDERS['cursor'];
-  const cmdPrefix = placeholders.command_prefix || '/';
-
-  // Build the available_commands list.
-  // After the v3.0 consolidation, commands are sub-commands of /impeccable.
-  // If there's only one user-invocable skill (impeccable), generate sub-command references.
-  // Otherwise fall back to listing skill names (backwards compat for forks).
-  const nonExcluded = commandNames.filter(n => !EXCLUDED_FROM_SUGGESTIONS.has(n));
-  let commandList;
-  if (nonExcluded.length === 0) {
-    // Single-skill architecture: list sub-commands as /impeccable <sub>
-    commandList = IMPECCABLE_SUB_COMMANDS
-      .map(n => `${cmdPrefix}impeccable ${n}`)
-      .join(', ');
-  } else {
-    // Multi-skill architecture (backwards compat)
-    commandList = nonExcluded.map(n => `${cmdPrefix}${n}`).join(', ');
-  }
-
-  let result = content
-    .replace(/\{\{model\}\}/g, placeholders.model)
-    .replace(/\{\{config_file\}\}/g, placeholders.config_file)
-    .replace(/\{\{ask_instruction\}\}/g, placeholders.ask_instruction)
-    .replace(/\{\{command_prefix\}\}/g, cmdPrefix)
-    .replace(/\{\{available_commands\}\}/g, commandList);
-
-  // Replace `/skillname` invocations with the correct command prefix for this provider
-  // (e.g., `/normalize` → `$normalize` for Codex). Require the slash to be
-  // outside a path or URL so `.github/hooks/impeccable.json`,
-  // `.codex/skills/impeccable`, and the launcher invocation
-  // `{{scripts_path}}/impeccable <verb>` (a `}}`-preceded path segment,
-  // resolved after this pass) remain untouched.
-  if (cmdPrefix !== '/' && allSkillNames.length > 0) {
-    const sorted = [...allSkillNames].sort((a, b) => b.length - a.length);
-    for (const name of sorted) {
-      result = result.replace(
-        new RegExp(`(?<![a-zA-Z0-9_./}>-])\\/(?=${escapeRegex(name)}(?:[^a-zA-Z0-9_-]|$))`, 'g'),
-        cmdPrefix
-      );
-    }
-  }
-
-  return result;
-}
-
-/**
- * Render the one explicit provider marker allowed in executable skill scripts.
- *
- * Do not run replacePlaceholders() across JavaScript source: slash-command
- * heuristics can collide with regex literals and runtime paths. Only exact
- * marker lines are replaced. The shipped scripts today (the launcher and the
- * page JS) carry no marker; the binary derives its provider from its install
- * path or IMPECCABLE_PROVIDER_ID at run time.
- */
-export function replaceScriptProviderMarker(content, provider, buildProvider = provider) {
-  const placeholders = PROVIDER_PLACEHOLDERS[provider] || PROVIDER_PLACEHOLDERS.cursor;
-  const commandPrefix = placeholders.command_prefix || '/';
-  const prefixMarker = "export const IMPECCABLE_COMMAND_PREFIX = '/'; // @impeccable-provider-command-prefix";
-  const providerMarker = "export const IMPECCABLE_PROVIDER_ID = 'source'; // @impeccable-provider-id";
-  return content
-    .replace(prefixMarker, `export const IMPECCABLE_COMMAND_PREFIX = ${JSON.stringify(commandPrefix)};`)
-    .replace(providerMarker, `export const IMPECCABLE_PROVIDER_ID = ${JSON.stringify(buildProvider)};`);
 }
 
 /**

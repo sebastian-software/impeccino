@@ -64,7 +64,7 @@ describe('ci-test-plan', () => {
   it('routes skill setup changes to the skill behavior lane', () => {
     const outputs = runPlan({
       GITHUB_EVENT_NAME: 'pull_request',
-      CI_CHANGED_FILES: 'skill/SKILL.src.md',
+      CI_CHANGED_FILES: 'skill/SKILL.md',
     });
 
     assert.equal(outputs.skill_behavior, 'true');

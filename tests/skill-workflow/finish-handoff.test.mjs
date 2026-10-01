@@ -63,7 +63,7 @@ for (const modelId of (process.env.IMPECCABLE_SKILL_BEHAVIOR_MODELS || 'claude-s
             userPrompt: 'Continue from this checkpoint and finish the task.',
           });
           assertCompleted(result);
-          t.diagnostic(`Documentation wrapper coverage gaps (diagnostic; contract and artifacts remain required): ${missingReferences(result.trace, ['degraded/documenter.md']).join(', ') || 'none'}`);
+          t.diagnostic(`Documentation wrapper coverage gaps (diagnostic; contract and artifacts remain required): ${missingReferences(result.trace, ['agents/impeccable-documenter.md']).join(', ') || 'none'}`);
           assert.ok(fileLoaded(result.trace, 'reference/document.md'), 'must consult the documentation contract');
           for (const name of existingSystem ? ['index.html', 'DESIGN.md'] : ['index.html']) {
             assert.ok(fileLoaded(result.trace, name), `documentation must check ${name}, not merely announce a no-op`);
