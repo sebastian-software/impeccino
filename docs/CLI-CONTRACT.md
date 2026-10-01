@@ -5,6 +5,11 @@ inputs, stdout and stderr byte for byte, exit codes, files written, network.
 This is the specification an alternate implementation of the scripts has to
 meet; `tests/oracle/` records goldens against it and replays them.
 
+> **Retired verbs.** `install`, `link`, `update`, `check`, and the `skills`
+> namespace now exit 1 with a pointer to `skill/` (adr/0003), and `context`
+> no longer emits `UPDATE_AVAILABLE` (adr/0004). Their sections below are kept
+> as history; the oracle pins the current behavior.
+
 Verb names are the binary's subcommands. Each verb was a script under
 `skill/scripts/` or a `cli/bin` subcommand when this contract was recorded;
 the mapping is `JS_VERBS` in `tests/oracle/lib.mjs`, and file references below

@@ -1,17 +1,14 @@
 /**
- * The installer verbs' static help (`install`, `link`, `update`, `check`).
- *
- * Only the help paths are pinned here: every other installer path writes into
- * harness directories or reaches the network, which the corpus keeps out. The
- * help text must render before any operational path runs (#708), through both
- * the top-level verb and the legacy `skills` namespace.
+ * The retired installer verbs (`install`, `link`, `update`, `check`, and the
+ * legacy `skills` namespace). Impeccable no longer installs itself
+ * (docs/adr/0003-no-self-installer.md); each verb exits 1 with a pointer to
+ * skill/, without touching harness directories or the network.
  */
 export default [
-  { id: 'skills-install-help', verb: 'install', args: ['--help'] },
-  { id: 'skills-install-help-short', verb: 'install', args: ['-h'] },
-  { id: 'skills-link-help', verb: 'link', args: ['--help'] },
-  { id: 'skills-update-help', verb: 'update', args: ['--help'] },
-  { id: 'skills-check-help', verb: 'check', args: ['--help'] },
-  { id: 'skills-namespace-install-help', verb: 'skills', args: ['install', '--help'] },
-  { id: 'skills-namespace-check-help-short', verb: 'skills', args: ['check', '-h'] },
+  { id: 'skills-install-retired', verb: 'install', args: [] },
+  { id: 'skills-install-help-retired', verb: 'install', args: ['--help'] },
+  { id: 'skills-link-retired', verb: 'link', args: ['--source=.impeccable'] },
+  { id: 'skills-update-retired', verb: 'update', args: [] },
+  { id: 'skills-check-retired', verb: 'check', args: [] },
+  { id: 'skills-namespace-install-retired', verb: 'skills', args: ['install'] },
 ];

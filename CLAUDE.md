@@ -18,8 +18,8 @@ The skill has no runtime of its own. Every command the skill text runs is `"<ski
 The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the root, `crates/*`; `cargo build --release -p impeccable`). Its verbs are the old script basenames (`context`, `doctor`, `pin`, `hook`, `hook-before-edit`, `live*`, `detect`, ...) with two aliases: `signals` for context-signals and `hooks` for hook-admin. Its observable behavior is specified in `docs/CLI-CONTRACT.md` and pinned by `tests/oracle/`. **Read `docs/ENGINE.md` before touching `crates/`**: it maps the crates and the browser-bundle flow.
 
 - **The rule engine is in the workspace.** Every `check_*` / `scan_*`, the browser rule adapters and the visual-contrast decisions live in `crates/core`, Apache-2.0 like everything else; `crates/foundation` holds what they are written against (JS semantics, color, the registry, the `Dom` trait, the plain-data input and output types) and `crates/core` re-exports it, so consumers name one crate. `crates/wasm` compiles the same source to WebAssembly for the extension, the live overlay and the site, and `cargo xtask bundle` builds those artifacts. There is no build-time download and no exact toolchain pin: `cargo build --release -p impeccable` works offline on stable.
-- **`ENGINE_VERSION`** (repo root) pins the engine release (`engine-v<X>` on this repo's GitHub Releases, built by `.github/workflows/release-engine.yml` when `bun run release:engine` pushes the tag). The build copies it to `skill/scripts/VERSION`, which the launcher reads to name the download and the cache dir; `cli/bin/cli.js` reads the same version from `package.json`'s `optionalDependencies`. Bumping it is a release-time decision, like the other manifest versions.
-- **Binaries are never tracked.** `skill/scripts/bin/` and `**/skills/impeccable/scripts/bin/` are gitignored, so `skill/` and `plugin/` ship launcher-only and users get the binary on first run. `bun run build:release` produces launcher-only zips by default; `IMPECCABLE_BUNDLE_ENGINE=1 bun run build:release` fetches every target (`scripts/fetch-engine.mjs --all --lenient`) and stages `bin/<os-arch>/` into the dist skill copies **after** `plugin/` was synced, so `dist/universal.zip` is self-contained for offline installs while git stays clean. Bundling is opt-in because five targets in every provider copy put `universal.zip` near 340 MB, past the 25 MB Cloudflare Pages file cap that `impeccable install` downloads through.
+- **`skill/scripts/VERSION`** pins the engine release (`engine-v<X>` on this repo's GitHub Releases, built by `.github/workflows/release-engine.yml` when `bun run release:engine` pushes the tag). The launcher reads it to name the download and the cache dir (ADR 0009); `cli/bin/cli.js` reads the same version from `package.json`'s `optionalDependencies`. Bumping it is a release-time decision, like the other manifest versions.
+- **Binaries are never tracked.** `skill/scripts/bin/` and `**/skills/impeccable/scripts/bin/` are gitignored, so `skill/` ships launcher-only and users get the binary on first run (ADR 0010).
 - **Tests get a binary** from `IMPECCABLE_BIN`, then `skill/scripts/bin/<os-arch>/` (`bun run fetch:engine`; `IMPECCABLE_BIN=<local build> bun run fetch:engine` copies a local build there), then `target/release/impeccable` from a plain `cargo build --release -p impeccable`. `tests/lib/engine-bin.mjs` is the one resolver; suites that need the binary skip cleanly without it.
 - **The oracle is the behavior gate.** `tests/oracle/` holds goldens recorded from the JS scripts before they left the tree, plus reviewed deltas in `DELTAS.md`; `tests/oracle.test.mjs` replays them against the binary in `bun run test`. New cases are recorded from the binary (`record.mjs --bin`) and reviewed by hand. `tests/oracle/vectors/calls/` is the frozen function-level snapshot; it cannot be regenerated.
 - **What stays JavaScript here:** the in-page live-mode JS (`skill/scripts/live-browser*.js`, `modern-screenshot.umd.js`), the build and test tooling, the extension shell, and the npm shim.
@@ -66,7 +66,7 @@ Where a command's native guidance diverges too much to share a file, it gets a *
 
 Impeccable writes files into user projects, so a released version has to cope with artifacts an older one wrote. Three kinds of drift travel under "out of date" and they are handled separately:
 
-1. **Tool version drift** (installed skill older than published). Emitted by `impeccable context` as `UPDATE_AVAILABLE`. Predates this system, unchanged.
+1. **Tool version drift** (installed skill older than published). Owned by whatever installed the skill; the engine no longer checks (ADR 0004).
 2. **Schema drift** (an artifact carries fields nothing reads, is missing fields now expected, or sits in a retired location). Deterministic; the engine's staleness module.
 3. **Truth drift** (the code moved on and the document no longer describes it). Not mechanical. `document` and `init` own the rewrite; the deep pass measures a proxy and is required to say it is a proxy.
 
@@ -87,7 +87,7 @@ Impeccable writes files into user projects, so a released version has to cope wi
 
 ## Repo split: public product vs private service (impeccable-site)
 
-As of v4 the repo holds only the open-source product layer: the skill, CLI, extension, their tests, and the build that generates provider outputs. Everything service-side lives in the private repo `pbakaus/impeccable-site` (checked out at `~/code/impeccable-site`): the impeccable.style site, the review labs, the concept/composition catalogs and reviews, the world-card image pipeline and R2 publish, the Cloudflare Pages Functions (including `/api/roll` and `/api/chosen`), and `docs/WORLD-CATALOG-AUTHORING.md`.
+As of v4 the repo holds only the open-source product layer: the skill, CLI, extension, and their tests. Everything service-side lives in the private repo `pbakaus/impeccable-site` (checked out at `~/code/impeccable-site`): the impeccable.style site, the review labs, the concept/composition catalogs and reviews, the world-card image pipeline and R2 publish, the Cloudflare Pages Functions (including `/api/roll` and `/api/chosen`), and `docs/WORLD-CATALOG-AUTHORING.md`.
 
 Consequences here:
 
@@ -101,27 +101,24 @@ Consequences here:
 
 Editorial brief is at `docs/STYLE.md`. Read it before editing the READMEs or any user-facing copy. The rules exist because the project has been called out for AI prose before; site copy applies them in impeccable-site.
 
-The build's `validateProse` step (in `scripts/build.js`) enforces a denylist: em dashes (`—` and HTML entities), the `--` em-dash substitute, `load-bearing`, `highest-leverage`, `biggest unlock`, `seamless`, `robust`, `delve`, `elevate`, `empower`, `underscore`, `pivotal`, `tapestry`, `data-driven`, `reflex defaults`, `collapses into monoculture`, `in today's`, `gone are the days`, `whether you're`, `let's dive in`, `in summary`, `in conclusion`, `moreover`, `furthermore`. Each rule prints a rationale and a suggested replacement when it fires. **Do not silently work around the regex.** If a banned word has earned a real meaning here, raise it as a `docs/STYLE.md` amendment.
+`bun run check`'s `validateProse` step (in `scripts/check.js`) enforces a denylist: em dashes (`—` and HTML entities), the `--` em-dash substitute, `load-bearing`, `highest-leverage`, `biggest unlock`, `seamless`, `robust`, `delve`, `elevate`, `empower`, `underscore`, `pivotal`, `tapestry`, `data-driven`, `reflex defaults`, `collapses into monoculture`, `in today's`, `gone are the days`, `whether you're`, `let's dive in`, `in summary`, `in conclusion`, `moreover`, `furthermore`. Each rule prints a rationale and a suggested replacement when it fires. **Do not silently work around the regex.** If a banned word has earned a real meaning here, raise it as a `docs/STYLE.md` amendment.
 
 `validateProse` scans `README.md` and `README.npm.md`; site copy is validated in impeccable-site.
 
-**`skill/` is checked too, by a second gate.** `validateProse` skips it because the full ruleset does not fit LLM-facing reference instructions. `validateSkillProse` then scans `skill/**/*.md` (markdown only, not the launcher or page JS under `skill/scripts/`) and fails the build on em dashes plus the subset of phrases with no technical reading: `load-bearing`, `highest-leverage`, `biggest unlock`, `reflex defaults`, `collapses into monoculture`, `data-driven`, `delve`, `tapestry`, `in today's`, `gone are the days`, `let's dive in`, `in summary`, `in conclusion`. The words it does *not* enforce in `skill/` (`seamless`, `robust`, `elevate`, and friends) are the ones with legitimate technical uses. Net effect: an em dash in `skill/reference/*.md` fails `bun run build`; an em dash in a `scripts/*.js` code comment does not.
+**`skill/` is checked too, by a second gate.** `validateProse` skips it because the full ruleset does not fit LLM-facing reference instructions. `validateSkillProse` then scans `skill/**/*.md` (markdown only, not the launcher or page JS under `skill/scripts/`) and fails the build on em dashes plus the subset of phrases with no technical reading: `load-bearing`, `highest-leverage`, `biggest unlock`, `reflex defaults`, `collapses into monoculture`, `data-driven`, `delve`, `tapestry`, `in today's`, `gone are the days`, `let's dive in`, `in summary`, `in conclusion`. The words it does *not* enforce in `skill/` (`seamless`, `robust`, `elevate`, and friends) are the ones with legitimate technical uses. Net effect: an em dash in `skill/reference/*.md` fails `bun run check`; an em dash in a `scripts/*.js` code comment does not.
 
 The deeper structural issues (negation pivot, triadic auto-pilot, uniform paragraph rhythm, hollow confidence) require human judgment. `docs/STYLE.md` lists them. Use them on every editorial pass.
 
-## Build System
+## No build
 
-The build copies `skill/` verbatim into every provider layout in `dist/` and adds only harness wiring around it (agent files for Cursor and Copilot, hook manifests, OpenCode's command bridge). The default build leaves the tracked marketplace packages alone; the release build regenerates them:
+`skill/` is the skill and installs as-is; there is no build, installer, update check, or marketplace package. The decisions are recorded as Light ADRs in `docs/adr/` (0001 to 0010); add a new one when a change alters how the skill is built or delivered.
 
 ```bash
-bun run build            # Copy skill/ into every dist/ provider layout, zip, validate
-bun run build:release    # The same, plus regenerating plugin/ and cursor-plugin/
-bun run rebuild          # Clean and rebuild without refreshing the plugin packages
-bun run rebuild:release  # Clean and rebuild, including the plugin packages
+bun run check            # Count claims, skill frontmatter limits, prose gates
 bun run fetch:engine     # Download the pinned engine binary for this machine into skill/scripts/bin/
 ```
 
-The skill's `scripts/` payload is copied verbatim to every provider (launcher with its executable bit, `impeccable.cmd`, `VERSION`, `command-metadata.json`, page JS); nothing under `skill/scripts/bin/` is copied. The in-page detector bundle and the extension's detector pieces are produced by `cargo xtask bundle`, which `bun run build:extension` runs; the page JS and the bundling itself live in the `impeccable-bundle` library crate (`crates/bundle`) so a downstream rule pack can build the same artifacts for its own wasm module.
+The in-page detector bundle and the extension's detector pieces are produced by `cargo xtask bundle`, which `bun run build:extension` runs; the page JS and the bundling itself live in the `impeccable-bundle` library crate (`crates/bundle`) so a downstream rule pack can build the same artifacts for its own wasm module.
 
 ### One skill for every harness
 
@@ -132,12 +129,9 @@ There are no build-time placeholders or provider blocks. Write skill text that h
 - Questions go through "the host's structured question tool", not a named tool.
 - Harness- or model-specific guidance is a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`).
 - SKILL.md frontmatter stays within the Agent Skills spec (`name`, `description`, `license`, `compatibility`, `metadata`); Codex's runtime ignores unknown keys, but its bundled skill validator (`quick_validate.py`, issue #701) flags them.
+- Agents are plain Claude Code agent files in `skill/agents/`; SKILL.md's "Shipped agents" section covers hosts that lack them.
 
-`tests/lib/transformers/providers.test.js` pins that every provider copy matches `skill/` byte for byte, and `tests/build.test.js` (`universal skill source`) pins the rules above.
-
-### Tracked generated output
-
-Only `plugin/` (Claude Code / Grok marketplace) and `cursor-plugin/` (Cursor marketplace) are generated and tracked, because those marketplaces install from this repo. After source changes land on `main`, `.github/workflows/sync-generated-output.yml` runs `bun run build:release` and commits them back to `main`; keep their churn out of feature PRs unless it is the point of the PR.
+`tests/skill-source.test.js` pins these rules. Nothing generated is tracked (ADR 0002).
 
 Local state files inside harness directories (e.g. `.claude/scheduled_tasks.lock`, `.claude/settings.local.json`) ARE gitignored.
 
@@ -154,14 +148,13 @@ This contribution was prepared by an AI agent that tried to ship unchecked vibes
 ## Testing
 
 ```bash
-bun run test                  # Default suite: unit + static framework fixtures + plugin loader E2E
+bun run test                  # Default suite: unit + oracle + static framework fixtures
 bun run test:live-e2e         # Opt-in: full-cycle live-mode E2E across framework fixtures
 bun run test:skill-behavior   # Opt-in: LLM-backed checks that the skill text actually drives the agent's setup flow
-bun run test:plugin-e2e       # Just the plugin loader E2E (also part of the default suite)
 bun run test:cleanup          # Kill live servers a previous run of THIS checkout left behind
 ```
 
-Unit tests (build orchestration, transformers, validators) run via `bun test`. Everything that spawns the engine binary (`tests/oracle.test.mjs`, `tests/framework-fixtures.test.mjs`) runs via `node --test`; both skip cleanly when no binary is found (`bun run fetch:engine` or `IMPECCABLE_BIN`). The `test` script handles this split automatically. Runtime unit and integration tests live under `crates/` and run with `cargo test --workspace`; the oracle goldens pin observable verb behavior across the same workspace.
+Unit tests (skill source rules, release tooling, workflows) run via `bun test`. Everything that spawns the engine binary (`tests/oracle.test.mjs`, `tests/framework-fixtures.test.mjs`) runs via `node --test`; both skip cleanly when no binary is found (`bun run fetch:engine` or `IMPECCABLE_BIN`). The `test` script handles this split automatically. Runtime unit and integration tests live under `crates/` and run with `cargo test --workspace`; the oracle goldens pin observable verb behavior across the same workspace.
 
 ### Live servers must not outlive their test process
 
@@ -184,18 +177,15 @@ The default suite does not cover everything. When a change touches one of these 
 
 | Area touched | Run | Cost |
 |---|---|---|
-| `ENGINE_VERSION` bump, `skill/scripts/live-browser*.js` | `bun run test:live-e2e` | ~2 min, real npm installs + dev servers, needs Playwright Chromium |
-| `ENGINE_VERSION` bump | also `bun run test:live-e2e-accept-cleanup` | bills a provider API key |
-| `ENGINE_VERSION` bump | `bun run test:live-svelte-adapter-deepseek` | bills DeepSeek |
-| `SKILL.md` Setup, Setup-adjacent reference files, `ENGINE_VERSION` bump | `bun run test:skill-behavior` | ~5 min, bills all four provider keys |
-| `ENGINE_VERSION` bump | `bun run test:new-work-e2e` | Playwright, offline, no API cost |
-| `plugin/`, `skill/agents/`, `scripts/build.js`, plugin manifest validator | `bun run test:plugin-e2e` | ~1 s; already in the default suite, needs the `claude` CLI |
+| engine version bump (`skill/scripts/VERSION`), `skill/scripts/live-browser*.js` | `bun run test:live-e2e` | ~2 min, real npm installs + dev servers, needs Playwright Chromium |
+| engine version bump (`skill/scripts/VERSION`) | also `bun run test:live-e2e-accept-cleanup` | bills a provider API key |
+| engine version bump (`skill/scripts/VERSION`) | `bun run test:live-svelte-adapter-deepseek` | bills DeepSeek |
+| `SKILL.md` Setup, Setup-adjacent reference files, engine version bump (`skill/scripts/VERSION`) | `bun run test:skill-behavior` | ~5 min, bills all four provider keys |
+| engine version bump (`skill/scripts/VERSION`) | `bun run test:new-work-e2e` | Playwright, offline, no API cost |
 
 For verb-level behavior changes in `crates/`, run focused crate tests and `cargo test --workspace`, then `cargo build --release -p impeccable`. Run `IMPECCABLE_BIN="$PWD/target/release/impeccable" bun run test` to exercise the changed source rather than an older downloaded release. Add a new oracle case when the contract grows and review golden changes by hand. See `docs/ENGINE.md` for browser-bundle checks and generated assets.
 
-**Plugin loader E2E** (`tests/plugin-e2e.test.mjs`, in the default suite): installs the committed `./plugin` subtree into a real Claude Code, sandboxed via `CLAUDE_CONFIG_DIR` in a temp dir, and asserts the component inventory from `claude plugin details`: the skill parses, every `plugin/agents/*.md` is visible, hooks are discovered. This is the only check that catches loader-contract surprises the unit guards can't know about (PR #494 shipped an `agents` manifest key that silently loaded zero agents; `claude plugin validate` never flags plugin-manifest problems). Runs in about a second; skips cleanly when the `claude` CLI is not on PATH. The known contract itself (allowed manifest keys, no `agents` key, trailing-slash `skills` path, source agents shipped) is pinned deterministically by `scripts/lib/validate-plugin-manifest.js`, unit-tested in `tests/validate-plugin-manifest.test.js` and enforced as a `bun run build` gate. Never add a key to the generated plugin manifest without verifying it against a real install and extending `KNOWN_LOADER_KEYS`.
 
-**Important:** `tests/build.test.js` uses `spyOn(transformers, 'transformCursor')` with the named exports from `scripts/lib/transformers/index.js`. Those named exports (`transformCursor`, `transformClaudeCode`, etc.) are kept specifically for test spying, even though `build.js` itself uses `createTransformer + PROVIDERS` directly. **Do not delete them as "dead code"** — I made that mistake once and broke 8 tests.
 
 ### Live-mode E2E
 
@@ -243,16 +233,15 @@ IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1 bun run test:skill-behavior    # dump per-sc
 
 **Adding a scenario.** Write the fixture in `tests/skill-behavior/fixtures.mjs`, add the `it()` block in `scenarios.test.mjs` (the harness uses the source `skill/` dir via a symlink, so no rebuild needed), and update the baseline table in the suite's README. The harness's `fileLoaded(trace, filename)` helper checks both `read` and bash `cat` — different models prefer different tools.
 
-**The harness symlinks source, not built output.** This is deliberate so SKILL.md / reference edits show up immediately without `bun run build:skills`; the launcher under `skill/scripts/` resolves the binary the same way tests do. The trade-off: reference files surface their raw `{{placeholders}}`, but the assertions key on tool calls rather than content, so it doesn't matter for correctness.
+**The harness copies `skill/` as-is**, the way a skill manager installs it, so SKILL.md and reference edits show up immediately; the launcher under `skill/scripts/` resolves the binary the same way tests do.
 
 ## CLI
 
-`cli/` is the npm package `impeccable`, now a thin shim: `cli/bin/cli.js` locates the engine binary (`IMPECCABLE_BIN`, then the `@impeccable/cli-<os>-<arch>` optional dependency pinned at `ENGINE_VERSION`, then `~/.impeccable/bin/<version>/`, then a checksum-verified download into that cache) and execs it with argv. The verbs users see (`detect`, `ignores`, `install`, `update`, `check`, `link`, `help`, the legacy `skills` namespace) are the binary's. `cli/platform-packages/<os>-<arch>/package.json` are the templates the engine release publishes; the version pinned in `package.json` `optionalDependencies` must equal `ENGINE_VERSION`.
+`cli/` is the npm package `impeccable`, now a thin shim: `cli/bin/cli.js` locates the engine binary (`IMPECCABLE_BIN`, then the `@impeccable/cli-<os>-<arch>` optional dependency pinned at `skill/scripts/VERSION`, then `~/.impeccable/bin/<version>/`, then a checksum-verified download into that cache) and execs it with argv. The verbs users see (`detect`, `ignores`, `install`, `update`, `check`, `link`, `help`, the legacy `skills` namespace) are the binary's. `cli/platform-packages/<os>-<arch>/package.json` are the templates the engine release publishes; the version pinned in `package.json` `optionalDependencies` must equal `ENGINE_VERSION`.
 
 ```bash
 npx impeccable detect [file-or-dir-or-url...]   # detect anti-patterns
 npx impeccable detect --json src/               # JSON output
-npx impeccable install                          # install skills
 npx impeccable --help                           # show help
 ```
 
@@ -264,19 +253,16 @@ The package no longer exports a JS detector API (`main` / `exports` are gone); t
 
 There are three independently versioned components plus the engine pin. Only bump the one(s) that actually changed:
 
-**Engine pin** (`ENGINE_VERSION`, root):
-- The engine release the launcher downloads and the npm shim's `optionalDependencies` pin. Bump it when a new engine release is published; keep `package.json` `optionalDependencies` at the same version and run `bun run build` (it rewrites `skill/scripts/VERSION`). A skill release that needs the new engine bumps this together with the skill version.
+**Engine pin** (`skill/scripts/VERSION`):
+- The engine release the launcher downloads and the npm shim's `optionalDependencies` pin. Bump it when a new engine release is published and keep `package.json` `optionalDependencies` at the same version; `tests/skill-source.test.js` fails on a mismatch.
 
 **CLI** (npm package):
 - `package.json` → `version`
 - Bump when: CLI shim code changes (`cli/bin/cli.js`, `cli/platform-packages/`)
 
-**Skills** (Claude Code plugin / skill definitions):
-- `.claude-plugin/plugin.json` → `version` (source of truth)
-- `.claude-plugin/marketplace.json` → `plugins[0].version`
+**Skill**:
 - `skill/SKILL.md` → `metadata.version`
-- Bump when: skill content changes (`skill/`, reference files, command metadata, etc.)
-- After bumping, run `bun run build:release` so the committed `./plugin` subtree (`plugin/.claude-plugin/plugin.json` + `plugin/skills/impeccable/SKILL.md`) is regenerated to the new version. The build validator (`validatePluginVersions` in `scripts/build.js`) fails if `marketplace.json`, `skill/SKILL.md`, the `./plugin` manifest, or the bundled `SKILL.md` frontmatter disagree with `plugin.json` — this guards the marketplace install path against version drift (issue #274).
+- Bump when: skill content changes (`skill/`, reference files, command metadata, etc.). A skill release is a tag on the commit skill managers pin; there is nothing to build or upload.
 
 **Chrome extension**:
 - `extension/manifest.json` → `version`
@@ -301,19 +287,19 @@ Workflow for any component:
 3. Commit and push to `main`.
 4. Run `bun run release:<skill|cli|ext>`. Preview first with `node scripts/release.mjs <component> --dry-run`.
 
-The script refuses to run if: the working tree is dirty, HEAD is ahead of origin, the tag already exists, the matching changelog entry is missing, or (for skill/extension) `bun run build:release` / `bun run build:extension` produces uncommitted changes — meaning the harness output dirs or `extension/detector/` files weren't refreshed before the bump was committed.
+The script refuses to run if: the working tree is dirty, HEAD is ahead of origin, the tag already exists, the matching changelog entry is missing, or (for the extension) `bun run build:extension` produces uncommitted changes — meaning the harness output dirs or `extension/detector/` files weren't refreshed before the bump was committed.
 
-Skill releases attach `dist/universal.zip`. Extension releases run `bun run build:extension` first and attach `dist/extension.zip`. CLI releases print a reminder to run `npm publish` separately; extension releases print a reminder to upload the zip to the Chrome Web Store dashboard.
+Skill releases attach nothing. Extension releases run `bun run build:extension` first and attach `dist/extension.zip`. CLI releases print a reminder to run `npm publish` separately; extension releases print a reminder to upload the zip to the Chrome Web Store dashboard.
 
 If you need to fix release notes after the fact (typo, missing thank-you, formatting bug): `gh release edit <tag> --notes-file <md>`. The release script's `htmlToMarkdown` function is the cleanest source for regenerating notes from the changelog.
 
 ### Release order is mechanically enforced (triage decision D4)
 
-The skill launcher, the npm shim (`cli/bin/cli.js`), and `impeccable install` all resolve the engine binary for the pinned `ENGINE_VERSION`. Nothing they do works until the engine release exists first. **The order is: publish the engine release, then the platform packages, then release/merge the skill (or CLI):**
+The skill launcher and the npm shim (`cli/bin/cli.js`) resolve the engine binary for the pinned version in `skill/scripts/VERSION`. Nothing they do works until the engine release exists first. **The order is: publish the engine release, then the platform packages, then release/merge the skill (or CLI):**
 
-1. Publish engine `engine-v<ENGINE_VERSION>`: `bun run release:engine` tags and pushes; `release-engine.yml` builds the five `impeccable-<os>-<arch>[.exe]` binaries plus a `.sha256` beside each and publishes the release on this repo. The whole workspace builds from source, so nothing has to ship ahead of it.
-2. Publish the five `@impeccable/cli-<os>-<arch>@<ENGINE_VERSION>` npm platform packages.
-3. Only then tag/publish the skill or CLI release, and only then merge a branch that bumps `ENGINE_VERSION` (the `sync-generated-output.yml` workflow rewrites provider dirs on merge to `main`).
+1. Publish engine `engine-v<version>`: `bun run release:engine` tags and pushes; `release-engine.yml` builds the five `impeccable-<os>-<arch>[.exe]` binaries plus a `.sha256` beside each and publishes the release on this repo. The whole workspace builds from source, so nothing has to ship ahead of it.
+2. Publish the five `@impeccable/cli-<os>-<arch>@<version>` npm platform packages.
+3. Only then tag/publish the skill or CLI release, and only then merge a branch that bumps `skill/scripts/VERSION`: skill managers pin `main` commits, so a bump on `main` must point at a published engine.
 
 `scripts/check-engine-release.mjs` verifies step 1 and 2 for the pinned version (ranged-GET each release asset, registry-probe each npm package; honors `IMPECCABLE_DOWNLOAD_BASE`). It exits non-zero and names exactly which assets are missing. `scripts/release.mjs` runs it as a hard gate before tagging the **skill** and **CLI** components and refuses to proceed when any asset is absent; the **extension** release is exempt because it ships a vendored WASM detector and never execs the engine. `IMPECCABLE_SKIP_ENGINE_CHECK=1` bypasses the gate only for the case where the assets exist but the registry probe is unreachable. CI's `engine-release-ready` job runs the same script as a hard gate, so missing release assets fail CI.
 
@@ -324,22 +310,19 @@ All commands live under `/impeccable`. To add a new one:
 1. Create `skill/reference/<command>.md` with the command's instructions (this is what the LLM loads when the command is invoked)
 2. Add a row to the **Sub-command reference table** in `skill/SKILL.md`
 3. Add an entry to the **Command menu** section in the same file
-4. Add the command name to `IMPECCABLE_SUB_COMMANDS` in `scripts/lib/utils.js`
+4. Add the command to the `/impeccable <command>` lists in `skill/reference/audit.md`, `audit.native.md`, and `critique.md`
 5. Add it to the `pin` verb's valid-command list (`crates/context`) and record the pin/unpin oracle case
 6. Add its metadata (description + argumentHint) to `skill/scripts/command-metadata.json`
-7. Add its category to `SKILL_CATEGORIES` in `scripts/lib/skill-categories.js`
-8. Add its relationships to `COMMAND_RELATIONSHIPS` in impeccable-site's `sub-pages-data.js`
-9. In the private impeccable-site repo: add the category to `site/scripts/data.js`, the symbol/number to `framework-viz.js`, and optionally an editorial wrapper under `site/content/skills/`
+7. Add its relationships to `COMMAND_RELATIONSHIPS` in impeccable-site's `sub-pages-data.js`
+8. In the private impeccable-site repo: add the category to `site/scripts/data.js`, the symbol/number to `framework-viz.js`, and optionally an editorial wrapper under `site/content/skills/`
 
-The build system counts commands from the router table automatically. Update the command count in **all** of these locations when the total changes:
+`bun run check` counts commands from the router table automatically. Update the command count in **all** of these locations when the total changes:
 
 - impeccable-site: `site/pages/index.astro` meta descriptions and hero box
 - `README.md` — intro, command count, commands table
 - `AGENTS.md` — intro command count
-- `.claude-plugin/plugin.json` — description
-- `.claude-plugin/marketplace.json` — metadata description + plugin description
 
-The build validator (`generateCounts` in `scripts/build.js`) checks these files for stale numeric counts and fails the build if any disagree with the router table.
+`checkCounts` in `scripts/check.js` flags stale numeric counts in these files and fails `bun run check` if any disagree with the router table.
 
 ## Adding or modifying anti-pattern detection rules
 
@@ -376,7 +359,7 @@ cd ~/code/impeccable-evals
 bun run serve            # dashboard on http://localhost:8723
 ```
 
-The eval runners read this repo's skill from `../impeccable/skill/` and staged provider skills from `../impeccable/build/_data/dist/*`. Run `bun run build` in this repo before an eval sweep if you want the Claude/Gemini staged skills to reflect your latest edits.
+The eval runners read this repo's skill from `../impeccable/skill/`. There are no staged provider copies anymore; if the evals repo still reads `build/_data/dist/*`, point it at `skill/` (every harness gets the same folder).
 
 ### After structural skill changes, update `inline-skill.ts` in the evals repo
 

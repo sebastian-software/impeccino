@@ -1,0 +1,7 @@
+{
+  "stdout": "",
+  "stderr": "Impeccable no longer installs or updates itself.\n\nAdd the skill/ folder of https://github.com/pbakaus/impeccable with your skill\nmanager (for example Dalo), or copy it into your harness as skills/impeccable.\n",
+  "exit": 1,
+  "signal": null,
+  "files": {}
+}

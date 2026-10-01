@@ -17,7 +17,7 @@ part of the engine is fetched at build time.
 ```
 Cargo.toml              the workspace (crates/*), release profile
 rust-toolchain.toml     the channel plus the wasm32 target
-ENGINE_VERSION          which engine release the launcher / npm shim download
+skill/scripts/VERSION   which engine release the launcher / npm shim download
 .cargo/config.toml      the `cargo xtask` alias
 browser-bundle/         the page JS the in-page bundle is built from
 crates/
@@ -238,7 +238,7 @@ signature-first rollout order.
 
 Two release kinds touch the runtime, in this order:
 
-1. **Engine** (`engine-v<ENGINE_VERSION>`): `bun run release:engine` verifies
+1. **Engine** (`engine-v<version>`): `bun run release:engine` verifies
    the version, the npm platform-package pins and a clean tree, then tags and
    pushes; `.github/workflows/release-engine.yml` builds the five targets and
    publishes the binaries with `.sha256` sidecars. The launcher, the npm shim

@@ -2,7 +2,7 @@
 
 Design guidance for AI coding agents. 1 skill, 24 commands, live browser iteration, and 61 deterministic detector rules for AI-generated frontend design.
 
-> **Quick start:** From your project root, run `npx impeccable install`, then run `/impeccable init` inside your AI coding tool. Full docs: [impeccable.style](https://impeccable.style).
+> **Quick start:** Add the `skill/` folder to your harness with a skill manager such as [Dalo](https://dalo.sh), or copy it in (see [Installation](#installation)), then run `/impeccable init` inside your AI coding tool. Full docs: [impeccable.style](https://impeccable.style).
 
 ## Why Impeccable?
 
@@ -96,247 +96,41 @@ Visit [the Neo Mirai case study](https://impeccable.style/cases/neo-mirai) to se
 
 ## Installation
 
-The skill needs no runtime of its own. Every skill copy ships a small launcher (`scripts/impeccable`, plus `impeccable.cmd` for Windows) that runs the Impeccable engine, a self-contained binary that either sits next to the launcher or is downloaded once on first run into `~/.impeccable/bin/`. Node is only involved if you use the `npx impeccable` installer, which is a shim around the same binary; the manual and Git options below work without it.
+`skill/` is the whole skill, in one form for every harness, like an app bundle you drag into place. Impeccable has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)): a skill manager, a submodule, or a plain copy puts the folder into your harness's skills directory as `impeccable`.
 
-### Option 1: CLI installer (Recommended)
+The skill needs no runtime. Its launcher (`scripts/impeccable`, plus `impeccable.cmd` for Windows) runs the Impeccable engine, a self-contained binary that is downloaded once on first run into `~/.impeccable/bin/` for the version pinned in `skill/scripts/VERSION`.
 
-From the root of your project, run:
+### Option 1: Skill manager (recommended)
 
-```bash
-npx impeccable install
-```
-
-This shows the harness folders or installed CLIs it detected (for example `~/.claude`, `~/.codex`, `~/.grok`, `~/.hermes`, `~/.veto`, or project-local `.cursor`), lets you keep the detected set or customize providers, then asks whether to install into the current project or globally. Use `--providers=claude,codex,cursor,grok,hermes,veto` and `--scope=project|global` to skip those choices in scripts. On Claude Code, Cursor, Codex, GitHub Copilot, and Grok Build, it also installs the provider-native hook manifest for the current project. Veto receives the packaged skill under `~/.veto/skills/` and does not run native Impeccable edit hooks. Works with Cursor, Claude Code, Gemini CLI, Codex CLI, Grok Build, Hermes Agent, Veto, and every other supported tool. Reload your harness afterward.
-
-To refresh an existing install, run:
+Point your skill manager at this repository and the `skill/` folder. With [Dalo](https://dalo.sh):
 
 ```bash
-npx impeccable update
+dalo source add-catalog impeccable https://github.com/pbakaus/impeccable.git
+dalo source select impeccable impeccable
+dalo sync
 ```
 
-Codex users should open `/hooks` after install or update and approve the project hook when prompted. Codex tracks trust by hook definition, so updates that change `.codex/hooks.json` can require approval again. Grok Build users need project folder trust (`/hooks-trust` or launch with `--trust`) before `.grok/hooks/` scripts run.
+The manager pins the commit, links the folder into every harness you use, and owns updates and removal. To give Claude Code the dedicated subagents, link `skill/agents/*.md` into `.claude/agents/` as well; without them the skill runs each role in a fresh general-purpose subagent.
 
-See [Allow the hook in your harness](https://impeccable.style/docs/hooks#allow-the-hook-in-your-harness) for harness-specific trust and verification steps.
-
-### Option 2: Git Submodule
-
-For teams that want to keep Impeccable vendored and updated through Git, add this repo as a submodule and link its skill into your harness folders:
+### Option 2: Git submodule
 
 ```bash
 git submodule add https://github.com/pbakaus/impeccable .impeccable
-npx impeccable link --source=.impeccable --providers=claude,cursor
-git add .gitmodules .impeccable .claude .cursor
-git commit -m "Add Impeccable skills"
+mkdir -p .claude/skills .agents/skills
+ln -s ../../.impeccable/skill .claude/skills/impeccable   # Claude Code
+ln -s ../../.impeccable/skill .agents/skills/impeccable   # Codex
 ```
 
-Use the providers your project needs, for example `claude`, `cursor`, `gemini`, `codex`, `github`, `grok`, `hermes`, `opencode`, `pi`, `qoder`, `trae`, `trae-cn`, `rovo-dev`, `vibe`, or `veto`. The command links `.impeccable/skill/`, the same folder for every harness, as `<harness>/skills/impeccable` and leaves existing real skill directories untouched unless you pass `--force`.
+Update with `git submodule update --remote .impeccable`.
 
-To update later:
-
-```bash
-git submodule update --remote .impeccable
-npx impeccable link --source=.impeccable --providers=claude,cursor
-```
-
-### Option 3: Plugin install
-
-**GitHub Copilot in VS Code:**
-
-Install [Impeccable from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=renaissance-geek.impeccable), or run:
-
-```bash
-code --install-extension renaissance-geek.impeccable
-```
-
-Requires VS Code 1.109.3+, Copilot Chat access, and a trusted local workspace. Open Chat in Agent mode and try `/impeccable polish`. This skill-only extension does not install automatic hooks; avoid a duplicate Impeccable skill in the same workspace/profile. See [VS Code distribution details](docs/VSCODE-EXTENSION.md).
-
-**Claude Code:**
-```bash
-/plugin marketplace add pbakaus/impeccable
-```
-
-> Claude Code only. After adding the marketplace, open `/plugin` and install Impeccable from the list.
-
-**Grok Build:**
-```bash
-grok plugin install pbakaus/impeccable#plugin --trust
-```
-
-> Grok Build only. The `#plugin` suffix installs the slim plugin package (skills, agents, and hooks) instead of the full monorepo. Then run `/impeccable init` in a Grok session. Project-scoped installs via `npx impeccable install --providers=grok` also work and write `.grok/skills/` plus `.grok/hooks/impeccable.json`.
-
-### Option 4: Download from Website
-
-Visit [impeccable.style](https://impeccable.style), download the ZIP for your tool, and extract to your project.
-
-### Option 5: Copy from Repository
-
-`skill/` is the complete skill for every harness. Copy or symlink it into your harness's skills folder under the name `impeccable`, for example:
+### Option 3: Copy
 
 ```bash
 cp -r skill your-project/.claude/skills/impeccable   # Claude Code
 cp -r skill your-project/.agents/skills/impeccable   # Codex
 ```
 
-Skill managers that install from Git (`npx skills`, Dalo, submodules) can point at `skill/` directly. For Claude Code's dedicated subagents, also copy `skill/agents/*.md` into `.claude/agents/`; without them the skill runs each role in a fresh general-purpose subagent. Hooks are opt-in per project: run `/impeccable hooks on`.
-
-The per-harness layouts below are the same skill plus that harness's hook and agent wiring:
-
-**Cursor:**
-```bash
-cp -r dist/cursor/.cursor your-project/
-```
-
-> **Note:** Cursor skills require setup:
-> 1. Switch to Nightly channel in Cursor Settings → Beta
-> 2. Enable Agent Skills in Cursor Settings → Rules
->
-> [Learn more about Cursor skills](https://cursor.com/docs/context/skills)
-
-**Claude Code:**
-```bash
-# Project-specific
-cp -r dist/claude-code/.claude your-project/
-
-# Or global (applies to all projects)
-cp -r dist/claude-code/.claude/* ~/.claude/
-```
-
-**OpenCode:**
-```bash
-cp -r dist/opencode/.opencode your-project/
-```
-
-**DeepSeek Harness:**
-```bash
-# Project-specific
-cp -r dist/dsh/.dsh your-project/
-
-# Or global (applies to all projects)
-mkdir -p "${DSH_HOME:-$HOME/.dsh}/skills"
-cp -r dist/dsh/.dsh/skills/* "${DSH_HOME:-$HOME/.dsh}/skills/"
-```
-
-The CLI honors `DSH_HOME` only when it resolves inside your home directory (or to home itself); otherwise it uses `~/.dsh`. An outside-home manual copy is not managed by `impeccable install/update`.
-
-**Hermes Agent:**
-```bash
-# Global (applies to all projects; uses the active profile, or ~/.hermes by default)
-cp -r dist/hermes/.hermes/skills/* "${HERMES_HOME:-$HOME/.hermes}/skills/"
-
-# Or project-specific
-cp -r dist/hermes/.hermes your-project/
-```
-
-> **Note:** Hermes gates project-local skills behind a per-repo trust decision
-> (they are procedure documents, so auto-loading them from any cloned repo is
-> treated as a prompt-injection vector). After a project-scoped install, run
-> `hermes skills trust` once from the project root. Global installs into the
-> active `$HERMES_HOME/skills/` (or `~/.hermes/skills/` when unset) load without
-> a trust step. `/impeccable <command>` then
-> routes through the skill's Commands table; the design hook does not install
-> on Hermes (no hook surface).
->
-> [Learn more about Hermes skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills)
-
-**Pi:**
-```bash
-cp -r dist/pi/.pi your-project/
-```
-
-**Gemini CLI:**
-```bash
-cp -r dist/gemini/.gemini your-project/
-```
-
-> **Note:** Gemini CLI skills require setup:
-> 1. Install preview version: `npm i -g @google/gemini-cli@preview`
-> 2. Run `/settings` and enable "Skills"
-> 3. Run `/skills list` to verify installation
->
-> [Learn more about Gemini CLI skills](https://geminicli.com/docs/cli/skills/)
-
-**Codex CLI:**
-```bash
-# Project-local
-cp -r dist/agents/.agents your-project/
-mkdir -p your-project/.codex
-cp dist/codex/.codex/hooks.json your-project/.codex/hooks.json
-
-# Or install the skill user-wide. Copy .codex/hooks.json into each project
-# where you want the design hook to run.
-mkdir -p ~/.agents/skills
-cp -r dist/agents/.agents/skills/* ~/.agents/skills/
-```
-
-> The asset-producer subagent ships nested inside the skill's own `agents/` folder, which Codex auto-discovers. No separate `.codex/agents/` copy is needed. The hook is project-local because Codex discovers hooks from `.codex/hooks.json` next to trusted project config.
-
-**GitHub Copilot:**
-```bash
-cp -r dist/github/.github your-project/
-```
-
-**Trae:**
-```bash
-# Trae China (domestic version)
-cp -r dist/trae/.trae-cn/skills/* ~/.trae-cn/skills/
-
-# Trae International
-cp -r dist/trae/.trae/skills/* ~/.trae/skills/
-```
-
-> **Note:** Trae has two versions with different config directories:
-> - **Trae China**: `~/.trae-cn/skills/`
-> - **Trae International**: `~/.trae/skills/`
->
-> After copying, restart Trae IDE to activate the skills.
-
-**Rovo Dev:**
-```bash
-# Project-specific
-cp -r dist/rovo-dev/.rovodev your-project/
-
-# Or global (applies to all projects)
-cp -r dist/rovo-dev/.rovodev/skills/* ~/.rovodev/skills/
-```
-
-**Qoder:**
-```bash
-# Project-specific
-cp -r dist/qoder/.qoder your-project/
-
-# Or global (applies to all projects)
-cp -r dist/qoder/.qoder/skills/* ~/.qoder/skills/
-```
-
-**Mistral Vibe:**
-```bash
-# Project-specific
-cp -r dist/vibe/.vibe your-project/
-
-# Or global (applies to all projects)
-cp -r dist/vibe/.vibe/skills/* ~/.vibe/skills/
-```
-
-**Grok Build:**
-```bash
-# Project-specific
-cp -r dist/grok/.grok your-project/
-
-# Or global (applies to all projects)
-cp -r dist/grok/.grok/skills/* ~/.grok/skills/
-```
-
-> Prefer `npx impeccable install --providers=grok` or `grok plugin install pbakaus/impeccable#plugin --trust` so the design hook installs too. Project hooks need `/hooks-trust` (or `--trust`) once per folder.
-
-**Google Antigravity:**
-```bash
-# Project-specific
-cp -r dist/antigravity/.agent your-project/
-
-# Or global (applies to all projects)
-mkdir -p ~/.gemini/config/skills
-cp -r dist/antigravity/.agent/skills/* ~/.gemini/config/skills/
-```
+Use your harness's skills folder: `.claude/skills/` (Claude Code), `.agents/skills/` (Codex), `.cursor/skills/` (Cursor), `.github/skills/` (GitHub Copilot), `.gemini/skills/` (Gemini CLI), `.opencode/skills/` (OpenCode), `.grok/skills/` (Grok Build), or the user-level equivalent under `~`. Some harnesses gate project skills behind a trust step (for example `hermes skills trust`).
 
 ## Usage
 
@@ -406,23 +200,18 @@ If an ephemeral file (a screenshot, `config.local.json`) was committed before yo
 
 ## Design hook
 
-On Claude Code, GitHub Copilot, Codex, Cursor, and Grok Build, `npx impeccable install` and `npx impeccable update` install a provider-native hook manifest along with the skill payload. The hook runs the Impeccable design detector on direct UI file edits and surfaces findings back into the agent flow. Claude Code, GitHub Copilot, and Codex surface findings after the edit (and run a deeper pass on Stop where supported). Grok Build scans after the edit to warm Stop, then surfaces on Stop; PostToolUse stdout never reaches the model. Cursor blocks bad proposed writes before they land.
+The design hook runs the Impeccable detector on direct UI file edits and surfaces findings back into the agent flow. It is a per-project opt-in ([ADR 0007](docs/adr/0007-hooks-are-a-project-opt-in.md)): run `/impeccable hooks on` in a project, and the engine writes the harness's own hook manifest; `/impeccable hooks off` and `reset` undo it. Without the hook, the skill asks for one manual detector run when a change is finished.
 
-Installed hook surfaces:
+Hook surfaces the engine manages:
 
-- Claude Code: `.claude/settings.local.json` (gitignored, machine-local) runs `${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable hook`. A hook moved into the shared `settings.json` is honored in place.
-- GitHub Copilot: `.github/hooks/impeccable.json` (committed, shared by the Copilot CLI and the cloud agent) runs `.github/skills/impeccable/scripts/impeccable hook`. The Copilot CLI activates it once the file is on the repository's default branch and the folder is trusted.
-- Cursor: `.cursor/hooks.json` runs `.cursor/skills/impeccable/scripts/impeccable hook-before-edit`.
-- Codex: `.codex/hooks.json` runs `.agents/skills/impeccable/scripts/impeccable hook`, with a `commandWindows` sibling that calls `impeccable.cmd` for cmd.exe.
-- Grok Build: `.grok/hooks/impeccable.json` runs `.grok/skills/impeccable/scripts/impeccable hook`. Requires `/hooks-trust` or `--trust`. Findings reach the model on Stop, not after each edit.
+- Claude Code: `.claude/settings.local.json` (gitignored, machine-local). A hook moved into the shared `settings.json` is honored in place.
+- Codex: `.codex/hooks.json`, with a `commandWindows` sibling that calls `impeccable.cmd` for cmd.exe. Approve it in `/hooks`.
+- Cursor: `.cursor/hooks.json`, which blocks bad proposed writes before they land.
+- Gemini CLI: `.gemini/settings.json`.
 
-Every command goes through the launcher shipped in the skill's `scripts/` directory (`impeccable`, or `impeccable.cmd` on Windows), guarded so a missing launcher is a silent no-op. The launcher runs the engine binary that ships next to it, or downloads the pinned version once into `~/.impeccable/bin/`. No Node or other runtime is required for the hook or the skill.
+Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. Hook lifecycle settings live under the `hook` key of `.impeccable/config.json`; detector ignores live under `detector`, shared by `/impeccable hooks` and `npx impeccable detect`.
 
-In Claude Code, installed command hooks run independently of model-tool approval. The first edit or Stop event can therefore download and cache the engine even if the session denies the model's launcher command. Review installed hooks before unattended runs; to disable all Claude Code hooks for a run, pass `--settings '{"disableAllHooks": true}'`. See [Claude Code's hook security guidance](https://code.claude.com/docs/en/hooks#security-considerations).
-
-The installer preserves unrelated hook entries and settings. If a hook manifest is malformed, install/update aborts by default; rerun with `--force` to back up the malformed file as `.bak` and replace it.
-
-On an interactive `install`/`update`, Impeccable explains the hook and offers to install it (default yes). Your choice is remembered per-developer in the gitignored `.impeccable/config.local.json`, so you are not asked again; `--no-hooks` skips it for that run without recording anything. Hook lifecycle settings live under the `hook` key of `.impeccable/config.json`; detector ignores live under `detector`, shared by `/impeccable hooks` and `npx impeccable detect`.
+In Claude Code, command hooks run independently of model-tool approval, so the first edit or Stop event can download and cache the engine even if the session denies the model's launcher command. Review hooks before unattended runs; to disable all Claude Code hooks for a run, pass `--settings '{"disableAllHooks": true}'`.
 
 For debugging, set `hook.auditLog` in `.impeccable/config.json` to a path (or the legacy `IMPECCABLE_HOOK_LOG` env var) to write one NDJSON line per hook invocation. Leave it unset for normal use.
 
@@ -438,18 +227,9 @@ The values are `comp` and `code`, and nothing else is read. Set it in the gitign
 
 You do not have to re-run `init` to set it on a project that predates the setting, and you do not have to edit the file by hand either. Whatever is recorded is a default rather than a lock: every decision page carries a footer toggle, and flipping it binds that session only. Flip it on a project that has recorded nothing and Impeccable asks once, after the round, whether to keep it, then writes your answer. That is the whole migration path for an existing project: use the toggle when the default is wrong, and answer the question that follows.
 
-Codex requires one platform step that Impeccable cannot safely skip: open `/hooks` after install or update and approve the project hook. There is no Codex marketplace/plugin install flow for this hook.
-
 Full hook docs: [impeccable.style/docs/hooks](https://impeccable.style/docs/hooks).
 
 The Stop pass suppresses confirmed pre-existing findings when a verified before-edit baseline is available (currently Claude Edit/Write results for text scans). Other findings are marked new or attribution unknown; unknown is not evidence that your session caused the problem. Explicit `detect` scans remain unchanged.
-
-Manual copy commands are fallback/debug instructions. The normal path is:
-
-```bash
-npx impeccable install
-npx impeccable update
-```
 
 ## Live mode and production sites
 
@@ -461,7 +241,7 @@ For production inspection, use `npx impeccable detect https://example.com` or th
 
 ## CLI
 
-Impeccable includes a standalone CLI for detecting anti-patterns without an AI harness. `npx impeccable` is a small shim that runs the same engine binary the skill uses (installed as a platform-specific optional dependency, or fetched once into `~/.impeccable/bin/`); Node is needed only for `npx` itself, and you can also download the binary directly and put it on your PATH.
+Impeccable includes a standalone CLI for detecting anti-patterns without an AI harness. `npx impeccable` is a small shim that runs the same engine binary the skill uses (installed as a platform-specific optional dependency, or fetched once into `~/.impeccable/bin/`); Node is needed only for `npx` itself, and you can also download the binary directly and put it on your PATH. The CLI does not install the skill.
 
 ```bash
 npx impeccable detect src/                   # scan a directory

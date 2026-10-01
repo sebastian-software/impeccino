@@ -4,9 +4,7 @@ Documentation for contributors to Impeccable.
 
 ## Architecture
 
-The skill at `skill/` is transformed into provider-specific formats by a config-driven factory. Each provider is defined as a config object in `scripts/lib/transformers/providers.js` -- adding a new provider requires only a new config entry.
-
-For detailed harness capabilities (which frontmatter fields each supports, placeholder systems, directory structures), see [HARNESSES.md](HARNESSES.md).
+`skill/` is the skill, and it installs as-is in every harness: there is no build, installer, or per-harness variant. The decisions behind this are recorded as Light ADRs in [adr/](adr/README.md). For harness behavior (frontmatter, subagents, hooks), see [HARNESSES.md](HARNESSES.md).
 
 ## Source Format
 
@@ -14,126 +12,37 @@ For detailed harness capabilities (which frontmatter fields each supports, place
 
 ```yaml
 ---
-name: skill-name
+name: impeccable
 description: What this skill provides
-argument-hint: "[target]"
-user-invocable: true
-license: License info (optional)
-compatibility: Environment requirements (optional)
+license: Apache-2.0
+metadata:
+  version: 4.4.0
 ---
 
 Your skill instructions here...
 ```
 
-**Frontmatter fields** (based on [Agent Skills spec](https://agentskills.io/specification)):
-- `name` (required): Skill identifier (1-64 chars, lowercase/numbers/hyphens)
-- `description` (required): What the skill provides (1-1024 chars)
-- `user-invocable` (optional): Boolean -- if `true`, the skill can be invoked as a slash command
-- `argument-hint` (optional): Hint shown during autocomplete (e.g., `[target]`, `[area (feature, page...)]`)
-- `license` (optional): License/attribution info
-- `compatibility` (optional): Environment requirements (1-500 chars)
-- `metadata` (optional): Arbitrary key-value pairs
-- `allowed-tools` (optional, experimental): Pre-approved tools list
+Frontmatter stays within the [Agent Skills spec](https://agentskills.io/specification) (ADR 0008):
 
-**Body placeholders** (replaced per-provider during build):
-- `{{model}}` -- Provider-specific model name (e.g., "Claude", "Gemini", "GPT")
-- `{{config_file}}` -- Provider-specific config file (e.g., "CLAUDE.md", ".cursorrules")
-- `{{ask_instruction}}` -- How to ask the user for clarification
-- `{{command_prefix}}` -- Slash command prefix (`/` for most, `$` for Codex)
-- `{{available_commands}}` -- Comma-separated list of user-invocable commands
+- `name` (required): skill identifier (1-64 chars, lowercase, numbers, hyphens)
+- `description` (required): what the skill provides (1-1024 chars)
+- `license`, `compatibility` (optional)
+- `metadata` (optional): `metadata.version` carries the skill version
 
-## Building
+The body is the same for every harness (ADR 0001). Write the launcher as `"<skill-base-dir>/scripts/impeccable" <verb>`, commands as `/impeccable <command>`, questions as "the host's structured question tool", and harness- or model-specific guidance as a labelled paragraph (`In Codex: ...`).
 
-### Developer Lab URLs
+## Developer Lab URLs
 
 No-index visual harnesses and internal inspectors live under `/labs/<subject>`. Use a short subject noun (`/labs/live-ui`, later `/labs/detector`), not a second `-lab` suffix. Stable public references such as `/docs` and `/design-system` stay top-level. Keep legacy top-level lab routes working through redirects when a lab moves; migrate existing exceptions when that surface is next changed rather than duplicating the page.
 
-### Prerequisites
-- Bun (fast JavaScript runtime and package manager)
-- No external dependencies required
-
-### Commands
+## Checks
 
 ```bash
-# Build all provider formats
-bun run build
-
-# Clean dist folder
-bun run clean
-
-# Rebuild from scratch
-bun run rebuild
+bun run check         # Count claims, skill frontmatter limits, prose gates
+bun run fetch:engine  # Pinned engine binary for this machine into skill/scripts/bin/
 ```
 
-### What Gets Generated
-
-```
-source/                          -> dist/
-  skills/{name}/SKILL.md           {provider}/{configDir}/skills/{name}/SKILL.md
-```
-
-Each provider gets its own output directory.
-
-## Build System Details
-
-The build system uses a factory pattern under `scripts/`:
-
-```
-scripts/
-  build.js                        # Main orchestrator
-  lib/
-    utils.js                      # Frontmatter parsing, placeholder replacement, YAML generation
-    zip.js                        # ZIP bundle generation
-    transformers/
-      factory.js                  # createTransformer() -- generates transformer functions from config
-      providers.js                # PROVIDERS config map -- one entry per provider
-      index.js                    # Re-exports factory-generated transformer functions
-```
-
-### Adding a New Provider
-
-1. Add a placeholder config to `PROVIDER_PLACEHOLDERS` in `scripts/lib/utils.js`:
-   ```javascript
-   'my-provider': {
-     model: 'MyModel',
-     config_file: 'CONFIG.md',
-     ask_instruction: 'ask the user directly to clarify.',
-     command_prefix: '/'
-   }
-   ```
-
-2. Add a provider config to `PROVIDERS` in `scripts/lib/transformers/providers.js`:
-   ```javascript
-   'my-provider': {
-     provider: 'my-provider',
-     configDir: '.my-provider',
-     displayName: 'My Provider',
-     frontmatterFields: ['user-invocable', 'argument-hint', 'license'],
-   }
-   ```
-
-3. Run `bun run build` -- the provider is automatically picked up by the build loop.
-
-4. Update `HARNESSES.md` with the provider's capabilities.
-
-### Provider Config Options
-
-| Field | Description |
-|-------|-------------|
-| `provider` | Key for output directory and placeholder lookup |
-| `configDir` | Dot-directory name (e.g., `.claude`) |
-| `displayName` | Human-readable name for build logs |
-| `frontmatterFields` | Which optional fields to emit (see `factory.js` FIELD_SPECS) |
-| `bodyTransform` | Optional `(body, skill) => body` function for post-processing |
-| `placeholderProvider` | Override which PROVIDER_PLACEHOLDERS key to use (for variants sharing config) |
-
-### Key Functions
-
-- `createTransformer(config)`: Factory that returns a transformer function from a provider config
-- `parseFrontmatter()`: Extracts YAML frontmatter and body from SKILL.md files
-- `readSourceFiles()`: Reads `skill/SKILL.md` plus its `reference/` and `scripts/` siblings
-- `replacePlaceholders()`: Substitutes `{{model}}`, `{{config_file}}`, etc. per provider
-- `generateYamlFrontmatter()`: Serializes objects to YAML frontmatter (auto-quotes values starting with `[` or `{`)
+To try an edit in a harness, link `skill/` into a project as `.claude/skills/impeccable` or `.agents/skills/impeccable`.
 
 ## Testing
 
@@ -178,51 +87,32 @@ The skill-behavior suite runs three providers (claude-haiku-4-5, gpt-5.4-mini, g
 
 ```
 impeccable/
-  skill/                           # Edit these! Source of truth
-    SKILL.md                   # Frontmatter, shared design laws, command router
-    reference/                     # One <command>.md per command + domain references
-    scripts/                       # Skill runtime scripts (hooks, context.mjs, etc.)
-    agents/                        # Nested subagent definitions
-  cli/                             # Standalone `impeccable` CLI (npm package)
-  site/                            # impeccable.style (Astro)
-  extension/                       # Chrome extension
-  functions/                       # Cloudflare Pages Functions
-  plugin/                          # Committed Claude Code plugin build output
-  dist/                            # Generated provider output (gitignored)
+  skill/                           # The skill; installs as-is
+    SKILL.md                       # Frontmatter, shared design laws, command router
+    reference/                     # One <command>.md per command + shared playbooks
+    scripts/                       # Launcher, engine VERSION pin, command metadata, live-mode page JS
+    agents/                        # Claude Code agent files for the shipped roles
+  crates/                          # Engine binary (Rust workspace)
+  cli/                             # Standalone `impeccable` detector CLI (npm package)
+  extension/                       # Browser extension
   scripts/
-    build.js                       # Main orchestrator
-    lib/
-      utils.js                     # Shared utilities
-      zip.js                       # ZIP generation
-      transformers/
-        factory.js                 # Config-driven transformer factory
-        providers.js               # Provider config map
-        index.js                   # Re-exports
-  tests/                           # Bun test suite
+    check.js                       # Repository checks (`bun run check`)
+    release.mjs                    # Per-component release tags
+  tests/                           # Bun and Node test suites
   docs/
-    HARNESSES.md                   # Provider capabilities reference
+    adr/                           # Light ADRs
+    HARNESSES.md                   # Harness capabilities reference
     STYLE.md                       # Editorial style guide
-    adr-live-variant-mode.md       # Live mode architecture decision record
     DEVELOP.md                     # This file
   README.md                        # User documentation
 ```
 
 ## Troubleshooting
 
-### Build fails with YAML parsing errors
-- Check frontmatter indentation (YAML is indent-sensitive)
-- Ensure `---` delimiters are on their own lines
-- Values starting with `[` or `{` are auto-quoted; other special YAML chars may need manual quoting
-
-### Output doesn't match expectations
-- Check the provider config in `scripts/lib/transformers/providers.js`
-- Verify source file has correct frontmatter structure
-- Run `bun run rebuild` to ensure clean build
-
-### Provider doesn't recognize the files
-- Check installation path for your provider
-- Verify file naming matches provider requirements
-- Consult [HARNESSES.md](HARNESSES.md) for provider-specific details
+### A harness does not pick up the skill
+- Check that the folder is named `impeccable` inside the harness's skills directory.
+- Some harnesses gate project skills behind a trust step; see [HARNESSES.md](HARNESSES.md).
+- Run `bun test tests/skill-source.test.js` to confirm the frontmatter and portability rules.
 
 ## Questions?
 

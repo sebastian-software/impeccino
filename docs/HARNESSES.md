@@ -1,7 +1,7 @@
 # Harness Skills Capabilities Reference
 
 Source of truth for what each AI coding harness supports in terms of agent skills.
-Used to inform provider configs in `scripts/lib/transformers/providers.js`.
+Reference for how harnesses treat skills, subagents, and hooks. Impeccable no longer installs into these harnesses itself (see adr/0003); install-path and hook-manifest notes below describe the harnesses, not an installer.
 
 Last verified: 2026-04-28 (subagent landscape spot-checked 2026-06-28; Mistral Vibe row verified 2026-07-16; Grok Build skills row verified 2026-07-21; Grok Build hook stdin captured 2026-08-24; DeepSeek Harness row verified 2026-09-06)
 

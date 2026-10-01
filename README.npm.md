@@ -1,33 +1,12 @@
 # Impeccable CLI
 
-Detect UI anti-patterns and design quality issues from the command line, and install the Impeccable design skill into your AI coding harness. The detector scans HTML, CSS, JSX, TSX, Vue, and Svelte files for 61 deterministic rules, including AI-generated UI tells, accessibility violations, and general design quality problems.
+Detect UI anti-patterns and design quality issues from the command line. The detector scans HTML, CSS, JSX, TSX, Vue, and Svelte files for 61 deterministic rules, including AI-generated UI tells, accessibility violations, and general design quality problems.
 
 The npm package is a small launcher. It runs the `impeccable` engine binary for your platform, installed alongside it as an optional dependency (`@impeccable/cli-<os>-<arch>`), and falls back to a per-user cache or a one-time download when that package is missing.
 
 ## Quick Start
 
 ```bash
-# Install skills into your AI harness (Claude, Cursor, Gemini, etc.)
-npx impeccable install
-
-# Non-interactive install for a specific scope
-npx impeccable install -y --providers=claude,codex --scope=project
-
-# First command to run inside your AI harness
-/impeccable init
-
-# Update skills to the latest version
-npx impeccable update
-
-# Install or update skills without hook manifests
-npx impeccable install --no-hooks
-
-# Link skills from a Git submodule checkout
-npx impeccable link --source=.impeccable --providers=claude,cursor
-
-# List all available commands
-npx impeccable help
-
 # Scan files or directories for anti-patterns
 npx impeccable detect src/
 
@@ -36,9 +15,12 @@ npx impeccable detect https://example.com
 
 # JSON output for CI/tooling
 npx impeccable detect --json src/
+
+# List all available commands
+npx impeccable help
 ```
 
-`npx impeccable skills <command>` is the legacy namespace and still works.
+The CLI does not install the Impeccable skill. The skill is the `skill/` folder of [pbakaus/impeccable](https://github.com/pbakaus/impeccable); add it with a skill manager such as [Dalo](https://dalo.sh) or copy it into your harness, then run `/impeccable init` there.
 
 ## What It Detects
 
