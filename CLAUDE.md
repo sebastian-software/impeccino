@@ -4,7 +4,8 @@
 
 There is **one** user-invocable skill, `impeccable`, with **24 commands** underneath it. Users type `/impeccable polish`, `/impeccable audit`, etc. The skill is defined in `skill/`:
 
-- `SKILL.src.md` — frontmatter (with the auto-trigger-optimized description and the `allowed-tools` list), shared design laws, and the **Commands** router table. Provider `SKILL.md` files are generated from this source.
+- `SKILL.md` — frontmatter (Agent Skills spec fields only, with the auto-trigger-optimized description), shared design laws, and the **Commands** router table. `skill/` installs as-is in every harness; nothing in it is generated.
+- `agents/` — the four shipped roles as Claude Code agent files. SKILL.md's **Shipped agents** section covers hosts without them.
 - `reference/` — one `<command>.md` per command (`audit.md`, `polish.md`, `critique.md`, etc.), the shared playbooks the router loads outside the command table (`new-work.md`, `craft-floor.md`, `operate.md`, `routing.md`), and the native platform references (`ios.md`, `android.md`). When a sub-command is matched, the router loads its reference file.
 - `scripts/command-metadata.json` — single source of truth for each command's description, argument hint, and (eventually) category. Both the build and the engine's `pin` verb read from this.
 - `scripts/impeccable` (+ `impeccable.cmd`, `VERSION`): the launcher every skill verb goes through. See **Engine binary** below.
@@ -12,13 +13,13 @@ There is **one** user-invocable skill, `impeccable`, with **24 commands** undern
 
 ### Engine binary (the runtime behind every verb)
 
-The skill has no runtime of its own. Every command the skill text runs is `{{scripts_path}}/impeccable <verb>` (Setup step 1 says `impeccable context`; `impeccable.cmd` is the Windows twin for shells without `sh`). `skill/scripts/impeccable` is a POSIX `sh` launcher: it execs `$IMPECCABLE_BIN` if set, else the sibling `scripts/bin/<os>-<arch>/impeccable[.exe]`, else `~/.impeccable/bin/impeccable`, else the version-pinned user cache `~/.impeccable/bin/<VERSION>/`, else `impeccable` on PATH, and as a last resort downloads the pinned version into that cache. It exports `IMPECCABLE_SKILL_DIR` (the skill dir, for `reference/*.md` and `command-metadata.json`) and `IMPECCABLE_SELF` (how the binary spells itself in the commands it prints).
+The skill has no runtime of its own. Every command the skill text runs is `"<skill-base-dir>/scripts/impeccable" <verb>` (Setup step 1 says `impeccable context`; `impeccable.cmd` is the Windows twin for shells without `sh`). `skill/scripts/impeccable` is a POSIX `sh` launcher: it execs `$IMPECCABLE_BIN` if set, else the sibling `scripts/bin/<os>-<arch>/impeccable[.exe]`, else `~/.impeccable/bin/impeccable`, else the version-pinned user cache `~/.impeccable/bin/<VERSION>/`, else `impeccable` on PATH, and as a last resort downloads the pinned version into that cache. It exports `IMPECCABLE_SKILL_DIR` (the skill dir, for `reference/*.md` and `command-metadata.json`) and `IMPECCABLE_SELF` (how the binary spells itself in the commands it prints).
 
 The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the root, `crates/*`; `cargo build --release -p impeccable`). Its verbs are the old script basenames (`context`, `doctor`, `pin`, `hook`, `hook-before-edit`, `live*`, `detect`, ...) with two aliases: `signals` for context-signals and `hooks` for hook-admin. Its observable behavior is specified in `docs/CLI-CONTRACT.md` and pinned by `tests/oracle/`. **Read `docs/ENGINE.md` before touching `crates/`**: it maps the crates and the browser-bundle flow.
 
 - **The rule engine is in the workspace.** Every `check_*` / `scan_*`, the browser rule adapters and the visual-contrast decisions live in `crates/core`, Apache-2.0 like everything else; `crates/foundation` holds what they are written against (JS semantics, color, the registry, the `Dom` trait, the plain-data input and output types) and `crates/core` re-exports it, so consumers name one crate. `crates/wasm` compiles the same source to WebAssembly for the extension, the live overlay and the site, and `cargo xtask bundle` builds those artifacts. There is no build-time download and no exact toolchain pin: `cargo build --release -p impeccable` works offline on stable.
 - **`ENGINE_VERSION`** (repo root) pins the engine release (`engine-v<X>` on this repo's GitHub Releases, built by `.github/workflows/release-engine.yml` when `bun run release:engine` pushes the tag). The build copies it to `skill/scripts/VERSION`, which the launcher reads to name the download and the cache dir; `cli/bin/cli.js` reads the same version from `package.json`'s `optionalDependencies`. Bumping it is a release-time decision, like the other manifest versions.
-- **Binaries are never tracked.** `skill/scripts/bin/` and `**/skills/impeccable/scripts/bin/` are gitignored, so the tracked provider dirs and `plugin/` ship launcher-only and users get the binary on first run. `bun run build:release` produces launcher-only zips by default; `IMPECCABLE_BUNDLE_ENGINE=1 bun run build:release` fetches every target (`scripts/fetch-engine.mjs --all --lenient`) and stages `bin/<os-arch>/` into the dist skill copies **after** the root harness dirs and `plugin/` were synced, so `dist/universal.zip` is self-contained for offline installs while git stays clean. Bundling is opt-in because five targets in every provider copy put `universal.zip` near 340 MB, past the 25 MB Cloudflare Pages file cap that `impeccable install` downloads through.
+- **Binaries are never tracked.** `skill/scripts/bin/` and `**/skills/impeccable/scripts/bin/` are gitignored, so `skill/` and `plugin/` ship launcher-only and users get the binary on first run. `bun run build:release` produces launcher-only zips by default; `IMPECCABLE_BUNDLE_ENGINE=1 bun run build:release` fetches every target (`scripts/fetch-engine.mjs --all --lenient`) and stages `bin/<os-arch>/` into the dist skill copies **after** `plugin/` was synced, so `dist/universal.zip` is self-contained for offline installs while git stays clean. Bundling is opt-in because five targets in every provider copy put `universal.zip` near 340 MB, past the 25 MB Cloudflare Pages file cap that `impeccable install` downloads through.
 - **Tests get a binary** from `IMPECCABLE_BIN`, then `skill/scripts/bin/<os-arch>/` (`bun run fetch:engine`; `IMPECCABLE_BIN=<local build> bun run fetch:engine` copies a local build there), then `target/release/impeccable` from a plain `cargo build --release -p impeccable`. `tests/lib/engine-bin.mjs` is the one resolver; suites that need the binary skip cleanly without it.
 - **The oracle is the behavior gate.** `tests/oracle/` holds goldens recorded from the JS scripts before they left the tree, plus reviewed deltas in `DELTAS.md`; `tests/oracle.test.mjs` replays them against the binary in `bun run test`. New cases are recorded from the binary (`record.mjs --bin`) and reviewed by hand. `tests/oracle/vectors/calls/` is the frozen function-level snapshot; it cannot be regenerated.
 - **What stays JavaScript here:** the in-page live-mode JS (`skill/scripts/live-browser*.js`, `modern-screenshot.umd.js`), the build and test tooling, the extension shell, and the npm shim.
@@ -29,7 +30,7 @@ The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the ro
 
 ### Modes (Persuade / Operate / Read / Experience)
 
-v4 replaced the old brand/product **register** axis with four modes, named in SKILL.src.md's `## Modes` section. A mode names what the visitor's success looks like on the surface in hand:
+v4 replaced the old brand/product **register** axis with four modes, named in SKILL.md's `## Modes` section. A mode names what the visitor's success looks like on the surface in hand:
 
 - **Persuade** — the visitor decides and acts; design is the product. Landing pages, marketing, campaigns, pricing.
 - **Operate** — the visitor completes a task. App UI, dashboards, editors, admin, settings, tools.
@@ -82,7 +83,7 @@ Impeccable writes files into user projects, so a released version has to cope wi
 
 **When you retire a PRODUCT.md field, add it to the engine's deprecated-sections list** with the reason (and record the new boot output as an oracle case). The reason is not decoration: told only that a field is deprecated, models preserve it "just in case", which is how a retired axis keeps steering current output.
 
-**`doctor` is a utility command, not a design command.** It follows the `hooks` and `pin` pattern (a line in SKILL.src.md plus `reference/doctor.md`), not the Commands-table pattern. It is deliberately **not** in `IMPECCABLE_SUB_COMMANDS`, `command-metadata.json`, `SKILL_CATEGORIES`, or the `pin` verb's valid-command list, and it does not count toward the 23. Keep maintenance tooling out of the design menu.
+**`doctor` is a utility command, not a design command.** It follows the `hooks` and `pin` pattern (a line in SKILL.md plus `reference/doctor.md`), not the Commands-table pattern. It is deliberately **not** in `IMPECCABLE_SUB_COMMANDS`, `command-metadata.json`, `SKILL_CATEGORIES`, or the `pin` verb's valid-command list, and it does not count toward the 23. Keep maintenance tooling out of the design menu.
 
 ## Repo split: public product vs private service (impeccable-site)
 
@@ -110,33 +111,33 @@ The deeper structural issues (negation pivot, triadic auto-pilot, uniform paragr
 
 ## Build System
 
-The build system compiles the impeccable skill from `skill/` to provider-specific formats in `dist/`. The default build is source-first and does not sync tracked root harness folders; the release build performs the tracked distribution sync:
+The build copies `skill/` verbatim into every provider layout in `dist/` and adds only harness wiring around it (agent files for Cursor and Copilot, hook manifests, OpenCode's command bridge). The default build leaves the tracked marketplace packages alone; the release build regenerates them:
 
 ```bash
-bun run build            # Build dist/ provider output without syncing root harness dirs
-bun run build:release    # Build dist/ provider output, sync root harness dirs + plugin/, stage engine binaries into dist zips
-bun run rebuild          # Clean and rebuild without root harness sync
-bun run rebuild:release  # Clean and rebuild with root harness sync
+bun run build            # Copy skill/ into every dist/ provider layout, zip, validate
+bun run build:release    # The same, plus regenerating plugin/ and cursor-plugin/
+bun run rebuild          # Clean and rebuild without refreshing the plugin packages
+bun run rebuild:release  # Clean and rebuild, including the plugin packages
 bun run fetch:engine     # Download the pinned engine binary for this machine into skill/scripts/bin/
 ```
 
-The skill's `scripts/` payload is copied verbatim to every provider (launcher with its executable bit, `impeccable.cmd`, `VERSION`, `command-metadata.json`, page JS); nothing under `skill/scripts/bin/` is read as source. The in-page detector bundle and the extension's detector pieces are produced by `cargo xtask bundle`, which `bun run build:extension` runs; the page JS and the bundling itself live in the `impeccable-bundle` library crate (`crates/bundle`) so a downstream rule pack can build the same artifacts for its own wasm module.
+The skill's `scripts/` payload is copied verbatim to every provider (launcher with its executable bit, `impeccable.cmd`, `VERSION`, `command-metadata.json`, page JS); nothing under `skill/scripts/bin/` is copied. The in-page detector bundle and the extension's detector pieces are produced by `cargo xtask bundle`, which `bun run build:extension` runs; the page JS and the bundling itself live in the `impeccable-bundle` library crate (`crates/bundle`) so a downstream rule pack can build the same artifacts for its own wasm module.
 
-Source files use placeholders that get replaced per-provider:
-- `{{model}}` — Model name (Claude, Gemini, GPT, etc.)
-- `{{config_file}}` — Config file name (CLAUDE.md, .cursorrules, etc.)
-- `{{ask_instruction}}` — How to ask user questions
-- `{{command_prefix}}` — `/` or `$` depending on provider
-- `{{available_commands}}` — auto-populated list of commands (from `IMPECCABLE_SUB_COMMANDS` in `scripts/lib/utils.js`)
-- `{{scripts_path}}` — provider-aware path to the skill's scripts directory
+### One skill for every harness
 
-### Generated provider output policy
+There are no build-time placeholders or provider blocks. Write skill text that holds in every harness:
 
-`.claude/skills/`, `.cursor/skills/`, `.agents/skills/`, and the other harness directories are **intentionally committed to the repo**. `npx skills` reads them directly from this repo at install time, and they enable clean submodule use. Do not gitignore them.
+- Commands are `/impeccable <command>`; SKILL.md tells hosts with another sigil (Codex: `$impeccable`) to translate.
+- The launcher is `"<skill-base-dir>/scripts/impeccable" <verb>`, quoted because install paths can contain spaces. Agents never load SKILL.md, so the parent passes them `<scripts-path>`.
+- Questions go through "the host's structured question tool", not a named tool.
+- Harness- or model-specific guidance is a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`).
+- SKILL.md frontmatter stays within the Agent Skills spec (`name`, `description`, `license`, `compatibility`, `metadata`); Codex rejects unknown top-level keys.
 
-They are generated distribution artifacts, not authoring surfaces. Normal development PRs should be source-first: edit and stage `skill/`, `scripts/`, `cli/`, `extension/`, and `tests/`; do not stage regenerated provider permutations unless the task is explicitly a release/generated-output sync or a build-system change. Run `bun run build` for validation after editing `skill/`, transformer code, or provider behavior. Use `bun run build:release` only when intentionally refreshing tracked harness outputs.
+`tests/lib/transformers/providers.test.js` pins that every provider copy matches `skill/` byte for byte, and `tests/build.test.js` (`universal skill source`) pins the rules above.
 
-After source changes land on `main`, `.github/workflows/sync-generated-output.yml` runs `bun run build:release` and commits generated provider output directly back to `main`. Treat generated harness diffs as release artifacts and keep them out of feature PRs unless they are the point of the PR.
+### Tracked generated output
+
+Only `plugin/` (Claude Code / Grok marketplace) and `cursor-plugin/` (Cursor marketplace) are generated and tracked, because those marketplaces install from this repo. After source changes land on `main`, `.github/workflows/sync-generated-output.yml` runs `bun run build:release` and commits them back to `main`; keep their churn out of feature PRs unless it is the point of the PR.
 
 Local state files inside harness directories (e.g. `.claude/scheduled_tasks.lock`, `.claude/settings.local.json`) ARE gitignored.
 
@@ -186,7 +187,7 @@ The default suite does not cover everything. When a change touches one of these 
 | `ENGINE_VERSION` bump, `skill/scripts/live-browser*.js` | `bun run test:live-e2e` | ~2 min, real npm installs + dev servers, needs Playwright Chromium |
 | `ENGINE_VERSION` bump | also `bun run test:live-e2e-accept-cleanup` | bills a provider API key |
 | `ENGINE_VERSION` bump | `bun run test:live-svelte-adapter-deepseek` | bills DeepSeek |
-| `SKILL.src.md` Setup, Setup-adjacent reference files, `ENGINE_VERSION` bump | `bun run test:skill-behavior` | ~5 min, bills all four provider keys |
+| `SKILL.md` Setup, Setup-adjacent reference files, `ENGINE_VERSION` bump | `bun run test:skill-behavior` | ~5 min, bills all four provider keys |
 | `ENGINE_VERSION` bump | `bun run test:new-work-e2e` | Playwright, offline, no API cost |
 | `plugin/`, `skill/agents/`, `scripts/build.js`, plugin manifest validator | `bun run test:plugin-e2e` | ~1 s; already in the default suite, needs the `claude` CLI |
 
@@ -224,7 +225,7 @@ Adding a new fixture is a matter of cloning a directory under `tests/framework-f
 
 ### Skill-behavior tests
 
-`tests/skill-behavior/scenarios.test.mjs` is the LLM-backed safety net for edits to `skill/SKILL.src.md` and the Setup-adjacent reference files (`init.md`, `document.md`, `new-work.md`, sub-command refs). It inlines the source `skill/SKILL.src.md` into the system prompt of a real LLM, gives the agent `bash` / `read` / `write` / `list` tools scoped to a temp workspace, and asserts on the tool-call trace — not on the model's free-form output. The trace is the source of truth. `tests/skill-behavior/workflow-contract.test.mjs` adds the end-to-end flows (attended fresh init, initialized natural build request, replacement-world redesign, scope-preserving refinement), asserting on question order and artifact writes.
+`tests/skill-behavior/scenarios.test.mjs` is the LLM-backed safety net for edits to `skill/SKILL.md` and the Setup-adjacent reference files (`init.md`, `document.md`, `new-work.md`, sub-command refs). It inlines the source `skill/SKILL.md` into the system prompt of a real LLM, gives the agent `bash` / `read` / `write` / `list` tools scoped to a temp workspace, and asserts on the tool-call trace — not on the model's free-form output. The trace is the source of truth. `tests/skill-behavior/workflow-contract.test.mjs` adds the end-to-end flows (attended fresh init, initialized natural build request, replacement-world redesign, scope-preserving refinement), asserting on question order and artifact writes.
 
 ```bash
 bun run test:skill-behavior                                        # full suite, ~5 min, ~$0.50-1.50 across providers
@@ -273,8 +274,9 @@ There are three independently versioned components plus the engine pin. Only bum
 **Skills** (Claude Code plugin / skill definitions):
 - `.claude-plugin/plugin.json` → `version` (source of truth)
 - `.claude-plugin/marketplace.json` → `plugins[0].version`
+- `skill/SKILL.md` → `metadata.version`
 - Bump when: skill content changes (`skill/`, reference files, command metadata, etc.)
-- After bumping, run `bun run build:release` so the committed `./plugin` subtree (`plugin/.claude-plugin/plugin.json` + `plugin/skills/impeccable/SKILL.md`) is regenerated to the new version. The build validator (`validatePluginVersions` in `scripts/build.js`) fails if `marketplace.json`, the `./plugin` manifest, or the bundled `SKILL.md` frontmatter disagree with `plugin.json` — this guards the marketplace install path against version drift (issue #274).
+- After bumping, run `bun run build:release` so the committed `./plugin` subtree (`plugin/.claude-plugin/plugin.json` + `plugin/skills/impeccable/SKILL.md`) is regenerated to the new version. The build validator (`validatePluginVersions` in `scripts/build.js`) fails if `marketplace.json`, `skill/SKILL.md`, the `./plugin` manifest, or the bundled `SKILL.md` frontmatter disagree with `plugin.json` — this guards the marketplace install path against version drift (issue #274).
 
 **Chrome extension**:
 - `extension/manifest.json` → `version`
@@ -320,7 +322,7 @@ The skill launcher, the npm shim (`cli/bin/cli.js`), and `impeccable install` al
 All commands live under `/impeccable`. To add a new one:
 
 1. Create `skill/reference/<command>.md` with the command's instructions (this is what the LLM loads when the command is invoked)
-2. Add a row to the **Sub-command reference table** in `skill/SKILL.src.md`
+2. Add a row to the **Sub-command reference table** in `skill/SKILL.md`
 3. Add an entry to the **Command menu** section in the same file
 4. Add the command name to `IMPECCABLE_SUB_COMMANDS` in `scripts/lib/utils.js`
 5. Add it to the `pin` verb's valid-command list (`crates/context`) and record the pin/unpin oracle case
@@ -355,7 +357,7 @@ The rule logic lives in `crates/core`: every check, the browser rule adapters ov
 | `crates/live/assets/detect-antipatterns-browser.js` | The in-page bundle, a tracked generated file. `cargo xtask bundle` rewrites it; the binary embeds it and serves it as `/detect.js` |
 | `crates/live/assets/antipatterns.json` | The registry as `[{ id, name, category, description }]`, the second tracked generated file. Same writer and the same `cargo xtask bundle --check` staleness gate. It exists because `extension/detector/` is gitignored: this is how a consumer without a Rust toolchain (impeccable.style, working from a tarball of this repo) reads the rule list. Adding or renaming a rule means committing this file too |
 | `extension/detector/` | The five generated pieces (`core.js`, `core_bg.wasm`, `snapshot.js`, `overlay.js`, `antipatterns.json`) written by `cargo xtask bundle`, which `bun run build:extension` runs. Gitignored, never tracked |
-| `skill/SKILL.src.md` and `reference/*.md` | Hand-edited if the rule introduces new design guidance |
+| `skill/SKILL.md` and `reference/*.md` | Hand-edited if the rule introduces new design guidance |
 
 Order for a new rule: fixture here first, registry row in `crates/foundation/src/registry.rs`, the check in `crates/core` against that fixture, oracle case + golden, `cargo xtask bundle` to refresh the two tracked live assets, then `bun run build && bun run test` with a binary present. Rule counts quoted in `README.md` / `README.npm.md` are validated by `generateCounts` against `crates/live/assets/antipatterns.json`.
 

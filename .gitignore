@@ -118,16 +118,26 @@ talks/
 
 # Build artifacts written to site/public/ so Astro copies them to build/
 
-# Note: harness skill directories (.claude/skills/, .cursor/skills/, etc.)
-# are intentionally tracked. npx skills reads them from this repo at install
-# time, and they enable clean submodule use. Run `bun run build` to refresh
-# them after editing skill/.
-#
-# Codex CLI consumes `.agents/skills/`; the asset-producer subagent ships
-# nested inside that skill (agents/*.toml), auto-discovered on install.
-# The project-local hook manifest is the one tracked `.codex/` artifact.
-.codex/*
-!.codex/hooks.json
+# Harness folders at the repo root are local developer state, never shipped:
+# skill/ itself is the install payload for every harness.
+/.agent/
+/.agents/
+/.claude/
+/.codex/
+/.cursor/
+/.dsh/
+/.gemini/
+/.grok/
+/.hermes/
+/.kiro/
+/.opencode/
+/.pi/
+/.qoder/
+/.rovodev/
+/.trae/
+/.trae-cn/
+/.veto/
+/.vibe/
 .astro/
 
 # Local-only scratch for exploratory scripts, parked pages, and unused asset candidates.

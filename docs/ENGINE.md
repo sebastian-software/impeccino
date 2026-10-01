@@ -1,6 +1,6 @@
 # The engine: the Rust runtime behind every skill verb
 
-Every command the skill text runs is `{{scripts_path}}/impeccable <verb>`. The
+Every command the skill text runs is `<skill-base-dir>/scripts/impeccable <verb>`. The
 launcher next to the skill (`skill/scripts/impeccable`, `impeccable.cmd`)
 finds or downloads one static binary per platform and execs it. That binary
 is built from this repo's Cargo workspace. There is no Node at runtime.

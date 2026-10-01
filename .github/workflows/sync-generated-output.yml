@@ -1,4 +1,4 @@
-name: Sync Generated Provider Output
+name: Sync Generated Plugin Packages
 
 on:
   push:
@@ -23,27 +23,6 @@ concurrency:
 
 env:
   GENERATED_PATHS: >-
-    .agent
-    .agents
-    .codex
-    .claude
-    .cursor
-    .dsh
-    .gemini
-    .github/agents
-    .github/hooks
-    .github/skills
-    .grok
-    .hermes
-    .kiro
-    .opencode
-    .pi
-    .qoder
-    .rovodev
-    .trae
-    .trae-cn
-    .veto
-    .vibe
     plugin
     cursor-plugin
 

@@ -120,7 +120,7 @@ See [Allow the hook in your harness](https://impeccable.style/docs/hooks#allow-t
 
 ### Option 2: Git Submodule
 
-For teams that want to keep Impeccable vendored and updated through Git, add this repo as a submodule and link the compiled provider build into your harness folders:
+For teams that want to keep Impeccable vendored and updated through Git, add this repo as a submodule and link its skill into your harness folders:
 
 ```bash
 git submodule add https://github.com/pbakaus/impeccable .impeccable
@@ -129,7 +129,7 @@ git add .gitmodules .impeccable .claude .cursor
 git commit -m "Add Impeccable skills"
 ```
 
-Use the providers your project needs, for example `claude`, `cursor`, `gemini`, `codex`, `github`, `grok`, `hermes`, `opencode`, `pi`, `qoder`, `trae`, `trae-cn`, `rovo-dev`, `vibe`, or `veto`. The command links individual skill folders from `.impeccable/dist/universal/` and leaves existing real skill directories untouched unless you pass `--force`.
+Use the providers your project needs, for example `claude`, `cursor`, `gemini`, `codex`, `github`, `grok`, `hermes`, `opencode`, `pi`, `qoder`, `trae`, `trae-cn`, `rovo-dev`, `vibe`, or `veto`. The command links `.impeccable/skill/`, the same folder for every harness, as `<harness>/skills/impeccable` and leaves existing real skill directories untouched unless you pass `--force`.
 
 To update later:
 
@@ -169,6 +169,17 @@ grok plugin install pbakaus/impeccable#plugin --trust
 Visit [impeccable.style](https://impeccable.style), download the ZIP for your tool, and extract to your project.
 
 ### Option 5: Copy from Repository
+
+`skill/` is the complete skill for every harness. Copy or symlink it into your harness's skills folder under the name `impeccable`, for example:
+
+```bash
+cp -r skill your-project/.claude/skills/impeccable   # Claude Code
+cp -r skill your-project/.agents/skills/impeccable   # Codex
+```
+
+Skill managers that install from Git (`npx skills`, Dalo, submodules) can point at `skill/` directly. For Claude Code's dedicated subagents, also copy `skill/agents/*.md` into `.claude/agents/`; without them the skill runs each role in a fresh general-purpose subagent. Hooks are opt-in per project: run `/impeccable hooks on`.
+
+The per-harness layouts below are the same skill plus that harness's hook and agent wiring:
 
 **Cursor:**
 ```bash
