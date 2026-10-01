@@ -8,13 +8,8 @@ use crate::staleness_notice::{build_staleness_directive, filter_fresh_findings, 
 use crate::target_args::{has_target_option, parse_target_options, TargetOptions};
 use crate::util::*;
 use impeccable_common::Io;
-use once_cell::sync::Lazy;
-use regex::Regex;
 use serde_json::{Map, Value};
 
-const CHECK_INTERVAL_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
-const RENOTIFY_INTERVAL_MS: f64 = 7.0 * 24.0 * 60.0 * 60.0 * 1000.0;
-const FETCH_TIMEOUT_MS: u64 = 1200;
 
 pub fn hook_manifests_for(provider_id: &str) -> &'static [&'static str] {
     match provider_id {
@@ -350,104 +345,9 @@ fn build_target_selection_directive(sel: &TargetSelection) -> String {
 
 // ─── Update check ──────────────────────────────────────────────────────────
 
-static FRONTMATTER_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?s)^---[ \t]*\r?\n(.*?)\r?\n---(?:[ \t]*\r?\n|[ \t]*$)").unwrap()
-});
-static METADATA_KEY_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^metadata:\s*(?:#.*)?$").unwrap());
-static VERSION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^version:\s*(.+?)\s*$").unwrap());
 
-/// JS: context.mjs#parseSkillFrontmatterVersion
-///
-/// Codex's validator rejects unknown top-level keys, so the Codex and
-/// `.agents` skills carry `version` under the spec-defined `metadata:` map
-/// (#703). A metadata version wins; a legacy top-level one still reads.
-fn parse_skill_frontmatter_version(content: &str) -> Option<String> {
-    let caps = FRONTMATTER_RE.captures(content)?;
-    let body = caps.get(1)?.as_str();
 
-    let mut metadata_version: Option<String> = None;
-    let mut top_level_version: Option<String> = None;
-    let mut in_metadata = false;
-    let mut metadata_indent: Option<usize> = None;
 
-    for line in body.split('\n') {
-        let line = line.strip_suffix('\r').unwrap_or(line);
-        let trimmed_start = line.trim_start();
-        if trimmed_start.is_empty() || trimmed_start.starts_with('#') {
-            continue;
-        }
-        let indent_text: String = line.chars().take_while(|c| *c == ' ' || *c == '\t').collect();
-        // JS `indentText.replace(/\t/g, '  ').length`.
-        let indent = indent_text.replace('\t', "  ").chars().count();
-
-        if indent == 0 {
-            in_metadata = METADATA_KEY_RE.is_match(line);
-            metadata_indent = None;
-            if let Some(m) = VERSION_RE.captures(line) {
-                top_level_version = Some(m[1].to_string());
-            }
-            continue;
-        }
-        if !in_metadata {
-            continue;
-        }
-        if metadata_indent.is_none() {
-            metadata_indent = Some(indent);
-        }
-        if metadata_indent != Some(indent) {
-            continue;
-        }
-        if let Some(m) = VERSION_RE.captures(line.trim()) {
-            metadata_version = Some(m[1].to_string());
-        }
-    }
-
-    let value = metadata_version.or(top_level_version)?;
-    let v = js_trim(&value);
-    if v.is_empty() {
-        return None;
-    }
-    Some(strip_matched_quotes(v))
-}
-
-/// JS `.replace(/^(["'])(.*)\1$/, '$2')`: only a matched pair is stripped.
-fn strip_matched_quotes(v: &str) -> String {
-    let chars: Vec<char> = v.chars().collect();
-    if chars.len() >= 2 {
-        let first = chars[0];
-        if (first == '"' || first == '\'') && chars[chars.len() - 1] == first {
-            return chars[1..chars.len() - 1].iter().collect();
-        }
-    }
-    v.to_string()
-}
-
-fn read_local_skill_version(provider: &Provider) -> Option<String> {
-    let p = provider.skill_md_path()?;
-    let content = safe_read(&p)?;
-    parse_skill_frontmatter_version(&content)
-}
-
-fn update_cache_path(env: &Env) -> String {
-    match env.get("IMPECCABLE_UPDATE_CACHE").filter(|v| !v.is_empty()) {
-        Some(p) => p.clone(),
-        None => jsp::join(&[&homedir(env), ".impeccable", "update-check.json"]),
-    }
-}
-
-fn compare_semver(a: &str, b: &str) -> i64 {
-    let parse = |s: &str| -> Vec<i64> { s.split('.').map(|n| js_parse_int(n).unwrap_or(0)).collect() };
-    let pa = parse(a);
-    let pb = parse(b);
-    for i in 0..pa.len().max(pb.len()) {
-        let d = pa.get(i).copied().unwrap_or(0) - pb.get(i).copied().unwrap_or(0);
-        if d != 0 {
-            return d;
-        }
-    }
-    0
-}
 
 /// `parseInt(n, 10) || 0` semantics: leading digits (after optional sign/ws), NaN -> 0.
 pub fn js_parse_int(s: &str) -> Option<i64> {
@@ -467,89 +367,10 @@ pub fn js_parse_int(s: &str) -> Option<i64> {
     Some(if neg { -v } else { v })
 }
 
-fn fetch_latest_skill_version(env: &Env) -> Option<String> {
-    let host = env
-        .get("IMPECCABLE_UPDATE_HOST")
-        .filter(|v| !v.is_empty())
-        .cloned()
-        .unwrap_or_else(|| "https://impeccable.style".to_string());
-    let host = host.strip_suffix('/').unwrap_or(&host).to_string();
-    let agent = crate::http::agent_builder()
-        .timeout(std::time::Duration::from_millis(FETCH_TIMEOUT_MS))
-        .build();
-    let res = agent.get(&format!("{}/api/version", host)).call().ok()?;
-    if res.status() < 200 || res.status() >= 300 {
-        return None;
-    }
-    let text = res.into_string().ok()?;
-    let data: Value = serde_json::from_str(&text).ok()?;
-    data.get("skills").and_then(|v| v.as_str()).map(|s| s.to_string())
-}
 
-fn build_update_directive(local: &str, latest: &str) -> String {
-    format!(
-        "UPDATE_AVAILABLE: A newer Impeccable skill is available (installed v{}, latest v{}). Mention it once, in this form: \"A newer Impeccable (v{}) is available. Update now? It runs `npx impeccable update`.\" Do not run `npx impeccable update` in this turn, whatever the user answers: it rewrites the skill files this session is reading, and the update only takes effect in the next session, so there is nothing to gain now. Run it in a later turn, only after the user has asked for it in their own words. Continue the current task now without waiting, and do not raise this again.",
-        local, latest, latest
-    )
-}
 
-fn update_check_disabled_by_config(cwd: &str) -> bool {
-    let mut value: Option<bool> = None;
-    for name in ["config.json", "config.local.json"] {
-        if let Some(raw) = read_json(&jsp::join(&[cwd, ".impeccable", name])) {
-            if let Some(b) = raw.as_object().and_then(|o| o.get("updateCheck")).and_then(|v| v.as_bool()) {
-                value = Some(b);
-            }
-        }
-    }
-    value == Some(false)
-}
 
-/// JS: computeUpdateDirective()
-pub fn compute_update_directive(cwd: &str, env: &Env, provider: &Provider) -> Option<String> {
-    if env.get("IMPECCABLE_NO_UPDATE_CHECK").map(|v| !v.is_empty()).unwrap_or(false) {
-        return None;
-    }
-    if update_check_disabled_by_config(cwd) {
-        return None;
-    }
-    let local = read_local_skill_version(provider)?;
-    if local.is_empty() {
-        return None;
-    }
-    let now = now_ms();
-    let cache_path = update_cache_path(env);
-    let mut cache: Map<String, Value> = read_json(&cache_path).and_then(|v| v.as_object().cloned()).unwrap_or_default();
-    let last_check = cache.get("lastCheck").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    if last_check == 0.0 || now - last_check > CHECK_INTERVAL_MS {
-        let latest = fetch_latest_skill_version(env);
-        cache.insert("lastCheck".into(), Value::from(now as i64));
-        if let Some(l) = latest {
-            if !l.is_empty() {
-                cache.insert("latestVersion".into(), Value::String(l));
-            }
-        }
-        write_update_cache(&cache_path, &cache);
-    }
-    let latest = cache.get("latestVersion").and_then(|v| v.as_str()).map(|s| s.to_string())?;
-    if latest.is_empty() || compare_semver(&latest, &local) <= 0 {
-        return None;
-    }
-    let notified = cache.get("notifiedVersion").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let notified_at = cache.get("notifiedAt").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    if notified.as_deref() == Some(latest.as_str()) && notified_at != 0.0 && now - notified_at < RENOTIFY_INTERVAL_MS {
-        return None;
-    }
-    cache.insert("notifiedVersion".into(), Value::String(latest.clone()));
-    cache.insert("notifiedAt".into(), Value::from(now as i64));
-    write_update_cache(&cache_path, &cache);
-    Some(build_update_directive(&local, &latest))
-}
 
-fn write_update_cache(path: &str, cache: &Map<String, Value>) {
-    let _ = std::fs::create_dir_all(jsp::dirname(path));
-    let _ = std::fs::write(path, json_compact(&Value::Object(cache.clone())));
-}
 
 // ─── native refs ───────────────────────────────────────────────────────────
 
@@ -612,7 +433,6 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         None => options.clone(),
     };
     let ctx = load_context(&cwd, &load_options, &env);
-    let update_directive = compute_update_directive(&cwd, &env, &provider);
     let cmd = &provider.command;
 
     if !ctx.has_product {
@@ -644,9 +464,6 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         }
         append_image_tools_directive(&mut parts, &env);
         append_staleness_directive(&mut parts, &ctx, &options, &cwd, &env);
-        if let Some(u) = update_directive {
-            parts.push(u);
-        }
         io.out(&format!("{}\n", parts.join("\n\n---\n\n")));
         return 0;
     }
@@ -688,44 +505,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             }
         }
     }
-    if let Some(u) = update_directive {
-        parts.push(u);
-    }
     io.out(&format!("{}\n", parts.join("\n\n---\n\n")));
     0
 }
 
-#[cfg(test)]
-mod skill_version_tests {
-    use super::parse_skill_frontmatter_version as v;
-
-    /// Values recorded from origin/main's `parseSkillFrontmatterVersion` (#703).
-    #[test]
-    fn frontmatter_version_shapes() {
-        assert_eq!(v("---\nname: impeccable\nversion: 4.1.3\n---\n\nbody\n").as_deref(), Some("4.1.3"));
-        assert_eq!(v("---\nname: impeccable\nversion: \"4.1.3\"\n---\n").as_deref(), Some("4.1.3"));
-        assert_eq!(v("---\nname: impeccable\nversion: '4.1.3'\n---\n").as_deref(), Some("4.1.3"));
-        assert_eq!(
-            v("---\nname: impeccable\nmetadata:\n  version: 4.1.3\n  argument-hint: \"[t]\"\n---\n").as_deref(),
-            Some("4.1.3")
-        );
-        // A metadata version wins over a legacy top-level one, in either order.
-        assert_eq!(v("---\nversion: 1.0.0\nmetadata:\n  version: 4.1.3\n---\n").as_deref(), Some("4.1.3"));
-        assert_eq!(
-            v("---\nmetadata:\n  version: 4.1.3\nname: x\nversion: 2.0.0\n---\n").as_deref(),
-            Some("4.1.3")
-        );
-        // Only the map's own indent level counts, so a deeper key is ignored.
-        assert_eq!(
-            v("---\nmetadata:\n  a:\n    version: 9.9.9\n  version: 4.1.3\n---\n").as_deref(),
-            Some("4.1.3")
-        );
-        assert_eq!(v("---\nmetadata:\n\tversion: 4.1.3\n---\n").as_deref(), Some("4.1.3"));
-        assert_eq!(v("---\nmetadata: # note\n  version: 4.1.3\n---\n").as_deref(), Some("4.1.3"));
-        assert_eq!(v("---\r\nmetadata:\r\n  version: 4.1.3\r\n---\r\n").as_deref(), Some("4.1.3"));
-        assert_eq!(v("---\n# version: 9.9.9\nversion: 4.1.3\n---\n").as_deref(), Some("4.1.3"));
-        assert_eq!(v("---  \nversion: 4.1.3\n---  \n").as_deref(), Some("4.1.3"));
-        assert_eq!(v("version: 4.1.3\n"), None);
-        assert_eq!(v("---\nversion:\n---\n"), None);
-    }
-}

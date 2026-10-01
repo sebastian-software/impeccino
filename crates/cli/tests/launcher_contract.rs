@@ -1,12 +1,20 @@
 //! String-level guards over the two launchers (`skill/scripts/impeccable`,
 //! `skill/scripts/impeccable.cmd`). The .cmd cannot be executed here (no Windows),
 //! so this pins the shapes a dry parse depends on: asset/URL construction in
-//! both launchers agrees with `engine_binary::asset_url`, the .cmd contains
+//! both launchers matches the release asset naming of
+//! `.github/workflows/release-engine.yml`, the .cmd contains
 //! no multi-line parenthesized blocks (the parse-time `%var%` expansion bug
 //! that made its download path dead code), both launchers carry the
 //! engine-probe handshake, and the .cmd verifies downloads via certutil.
 
-use impeccable_skills::engine_binary::{asset_url, DEFAULT_DOWNLOAD_BASE};
+/// Where `.github/workflows/release-engine.yml` publishes engine binaries.
+const DEFAULT_DOWNLOAD_BASE: &str = "https://github.com/pbakaus/impeccable/releases/download";
+
+/// The release asset name for one platform, as the launchers compose it.
+fn asset_url(base: &str, version: &str, os: &str, arch: &str) -> String {
+    let ext = if os == "windows" { ".exe" } else { "" };
+    format!("{}/engine-v{version}/impeccable-{os}-{arch}{ext}", base.trim_end_matches('/'))
+}
 
 /// The launchers ship next to the skill they power.
 fn launcher_dir() -> String {
@@ -101,7 +109,7 @@ fn launchers_reference_the_same_release_channel() {
     for text in [&sh, &cmd] {
         assert!(text.contains("https://github.com/pbakaus/impeccable/releases"));
     }
-    // Spot-check the engine's own URL builder against the launcher template.
+    // Spot-check the release naming the launcher template composes.
     assert_eq!(
         asset_url(DEFAULT_DOWNLOAD_BASE, "1.2.3", "darwin", "arm64"),
         format!("{DEFAULT_DOWNLOAD_BASE}/engine-v1.2.3/impeccable-darwin-arm64")

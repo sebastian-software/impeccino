@@ -25,7 +25,7 @@ fn main() {
 }
 
 fn run(args: &[String], io: &mut Io) -> i32 {
-    // cli/bin/cli.js dispatch: help / version / detect / ignores / skills verbs
+    // cli/bin/cli.js dispatch: help / version / detect / ignores
     let Some(verb) = args.first().map(String::as_str) else {
         io.out(impeccable_detect::ROOT_USAGE);
         return 0;
@@ -51,8 +51,16 @@ fn run(args: &[String], io: &mut Io) -> i32 {
         }
         "detect" => impeccable_detect::run_detect(rest, io, &engines()),
         "ignores" | "ignore" => impeccable_detect::run_ignores(rest, io),
-        "skills" => impeccable_skills::run(rest, io),
-        "help" | "install" | "link" | "update" | "check" => impeccable_skills::run(args, io),
+        "help" => {
+            io.out(impeccable_detect::ROOT_USAGE);
+            0
+        }
+        // Impeccable no longer installs itself (docs/adr/0003): a skill manager
+        // or a plain copy of skill/ places it in each harness.
+        "skills" | "install" | "link" | "update" | "check" => {
+            io.err(SELF_INSTALL_RETIRED);
+            1
+        }
         // skill scripts
         "context" => impeccable_context::run_context(rest, io),
         "pin" => impeccable_context::run_pin(rest, io),
@@ -113,6 +121,8 @@ fn run(args: &[String], io: &mut Io) -> i32 {
         }
     }
 }
+
+const SELF_INSTALL_RETIRED: &str = "Impeccable no longer installs or updates itself.\n\nAdd the skill/ folder of https://github.com/pbakaus/impeccable with your skill\nmanager (for example Dalo), or copy it into your harness as skills/impeccable.\n";
 
 /// The npm `impeccable` package version `cli.js --version` prints (its
 /// `package.json`), tracked separately from the crate version.

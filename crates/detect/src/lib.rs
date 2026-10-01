@@ -62,18 +62,14 @@ pub const ROOT_USAGE: &str = "Usage: impeccable <command> [options]
 Commands:
   detect [file-or-dir-or-url...]   Scan for UI anti-patterns and design quality issues
   ignores                          Manage detector ignore rules, files, and values
-  help                             List all available skills and commands
-  install                          Install impeccable skills into your project or global harness
-  link                             Symlink skills from a local checkout or submodule
-  update                           Update skills to the latest version
-  check                            Check if skill updates are available
+  help                             Show this help message
 
 Options:
   --help       Show this help message
   --version    Show version number
 
-Compatibility:
-  impeccable skills <command>       Legacy namespace; still supported.
+The skill itself lives in skill/ of https://github.com/pbakaus/impeccable;
+add it with your skill manager (for example Dalo) or copy it.
 ";
 
 /// The `impeccable init` mistake message (`cli.js`).

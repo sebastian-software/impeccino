@@ -31,9 +31,8 @@ dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # reference/*.md and command-metadata.json) and how to name itself in the
 # commands it prints. Exported BEFORE any exec below, including the
 # IMPECCABLE_BIN override: an engine binary reached with no IMPECCABLE_SKILL_DIR
-# cannot find reference/*.md (so native platform refs never inline) or read its
-# own version (so UPDATE_AVAILABLE never fires). Setting it here covers every
-# candidate the launcher can exec.
+# cannot find reference/*.md, so native platform refs never inline. Setting it
+# here covers every candidate the launcher can exec.
 : "${IMPECCABLE_SKILL_DIR:=$(CDPATH= cd -- "$dir/.." && pwd)}"
 : "${IMPECCABLE_SELF:=$0}"
 export IMPECCABLE_SKILL_DIR IMPECCABLE_SELF
@@ -72,7 +71,7 @@ home_bin="${HOME:-/nonexistent}/.impeccable/bin/impeccable$exe"
 if [ -z "$probing" ] && [ -x "$home_bin" ] && probe_ok "$home_bin"; then
   exec "$home_bin" "$@"
 fi
-# Version-pinned user cache, filled by the download below or by `impeccable update`.
+# Version-pinned user cache, filled by the download below.
 version=""
 [ -f "$dir/VERSION" ] && version=$(tr -d '[:space:]' < "$dir/VERSION")
 cache_root="${IMPECCABLE_HOME:-${HOME:-/nonexistent}/.impeccable}"
