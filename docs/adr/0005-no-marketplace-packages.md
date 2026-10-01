@@ -22,5 +22,4 @@ build and validation code are removed.
 - One-click marketplace installs are gone; the skill reaches users through
   skill managers or a copy (0003).
 - A skill manager that wants a native plugin can generate one from `skill/`.
-- The Chrome/Firefox detector extension (`extension/`) is a separate product
-  and is not affected by this decision.
+- The Chrome/Firefox detector extension was out of scope here; 0013 removed it.

@@ -310,6 +310,5 @@ mod jsonc_tests {
         assert_eq!(v["s"], "/* no */\"//");
         assert_eq!(parse_manifest_jsonc("{\"a\": 1}").unwrap().1, false);
         assert!(parse_manifest_jsonc("{ \"a\": ").is_none());
-        assert_eq!(crate::context_cli::hook_manifests_for("gemini"), &[".gemini/settings.json"]);
     }
 }

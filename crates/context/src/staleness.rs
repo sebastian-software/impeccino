@@ -35,10 +35,10 @@ pub fn finding(id: &str, artifact: &str, path: Option<String>, severity: &'stati
     Finding { id: id.to_string(), artifact: artifact.to_string(), path, severity, summary, fix }
 }
 
+// `updateCheck`, `buildPath`, and `browser` belong to retired features
+// (docs/adr/0004, 0011, 0012); existing configs keep them without a finding.
 const KNOWN_CONFIG_KEYS: [&str; 9] =
     ["hook", "detector", "updateCheck", "stalenessCheck", "projectRoots", "buildPath", "browser", "$schema", "version"];
-const BUILD_PATH_VALUES: [&str; 2] = ["comp", "code"];
-const DIRECTION_WORK_PATHS: [&str; 2] = [".impeccable/surfaces", ".impeccable/mocks/decision"];
 const KNOWN_DETECTOR_KEYS: [&str; 5] = ["ignoreRules", "ignoreFiles", "ignoreValues", "designSystem", "extensions"];
 
 struct NativeEvidence {
@@ -326,24 +326,6 @@ pub fn check_config(project_root: &str, repo_root: Option<&str>) -> Vec<Finding>
                     "Report the exact keys to the user. A near-miss of a real key is a setting that has never applied.".to_string(),
                 ));
             }
-            if let Some(bp) = obj.get("buildPath") {
-                let ok = bp.as_str().map(|s| BUILD_PATH_VALUES.contains(&s)).unwrap_or(false);
-                if !ok {
-                    out.push(finding(
-                        "config-invalid-build-path",
-                        "config.json",
-                        Some(rel.clone()),
-                        "mention",
-                        format!(
-                            "{} sets `buildPath` to {}, which nothing reads. The values are {}.",
-                            rel,
-                            js_json_stringify(bp),
-                            BUILD_PATH_VALUES.iter().map(|v| format!("`{}`", v)).collect::<Vec<_>>().join(" and ")
-                        ),
-                        "Report the value. An unread `buildPath` does not fall back to the other path; it falls back to the default, so a project meaning `code` has been building comp-led.".to_string(),
-                    ));
-                }
-            }
             if let Some(det) = obj.get("detector").and_then(|d| d.as_object()) {
                 let unknown_d: Vec<String> = det.keys().filter(|k| !KNOWN_DETECTOR_KEYS.contains(&k.as_str())).cloned().collect();
                 if !unknown_d.is_empty() {
@@ -370,34 +352,6 @@ pub fn check_config(project_root: &str, repo_root: Option<&str>) -> Vec<Finding>
 /// `JSON.stringify(v)` for a single value (undefined -> "undefined" never occurs here since key present).
 pub fn js_json_stringify(v: &Value) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "null".into())
-}
-
-/// JS: checkBuildPathUnset
-pub fn check_build_path_unset(project_root: &str, repo_root: Option<&str>, product: Option<&str>) -> Vec<Finding> {
-    if project_root.is_empty() || !product.map(|p| !p.is_empty()).unwrap_or(false) {
-        return vec![];
-    }
-    for root in unique_roots(project_root, repo_root) {
-        for name in ["config.json", "config.local.json"] {
-            if let Some(raw) = read_json(&jsp::join(&[&root, ".impeccable", name])) {
-                if js_truthy(&raw) && raw.as_object().map(|o| o.contains_key("buildPath")).unwrap_or(false) {
-                    return vec![];
-                }
-            }
-        }
-    }
-    let evidence: Vec<&str> = DIRECTION_WORK_PATHS.iter().copied().filter(|rel| exists(&jsp::join(&[project_root, rel]))).collect();
-    if evidence.is_empty() {
-        return vec![];
-    }
-    vec![finding(
-        "config-build-path-unset",
-        "config.json",
-        Some(".impeccable/config.json".to_string()),
-        "mention",
-        "This project has run visual direction work but records no `buildPath`, so every direction round takes the comp-first default without anyone having chosen it.".to_string(),
-        "Only when image generation exists in your tool surface, offer the choice once: **comp-first** (an image sets the bar before any code; bolder composition, slower) or **code-first** (build directly; ambition carried by the direction contract; leaner, faster). Write the answer to `.impeccable/config.json` as `\"buildPath\": \"comp\"` or `\"buildPath\": \"code\"`, merging with the keys already there. Without image generation there is no choice to record: stay silent.".to_string(),
-    )]
 }
 
 /// JS: checkSurfaceBriefs
@@ -475,7 +429,6 @@ pub struct BootFindingGroups {
     pub native_platform: Vec<Finding>,
     pub design_sidecar: Vec<Finding>,
     pub config: Vec<Finding>,
-    pub build_path: Vec<Finding>,
     pub surface_briefs: Vec<Finding>,
     pub project_roots: Vec<Finding>,
 }
@@ -499,7 +452,6 @@ pub fn collect_boot_finding_groups(ctx: &Ctx, cwd: &str, extras: &BootExtras) ->
         },
         design_sidecar: check_design_sidecar(extras.abs_design_path.as_deref(), &extras.sidecar_candidates, &project_root),
         config: check_config(&project_root, Some(&ctx.repo_root)),
-        build_path: check_build_path_unset(&project_root, Some(&ctx.repo_root), ctx.product.as_deref()),
         surface_briefs: check_surface_briefs(&ctx.surface_brief_candidates, &project_root),
         project_roots: match &extras.project_root_patterns {
             Some(patterns) => check_project_roots(patterns, extras.target_candidates.len()),
@@ -516,7 +468,6 @@ pub fn collect_boot_findings(ctx: &Ctx, cwd: &str, extras: &BootExtras) -> Vec<F
     out.extend(groups.native_platform);
     out.extend(groups.design_sidecar);
     out.extend(groups.config);
-    out.extend(groups.build_path);
     out.extend(groups.surface_briefs);
     out.extend(groups.project_roots);
     out

@@ -32,25 +32,13 @@ const plan = isSchedule
     core: true,
     oracle: true,
     rust: true,
-    detector: true,
-    live: true,
-    framework: true,
-    live_e2e: true,
-    live_e2e_accept_cleanup: false,
     skill_behavior: false,
-    live_svelte_adapter_deepseek: false,
   }
   : {
     core: true,
     oracle: forceDeterministic || matchesSuiteTriggers('oracle', changedFiles),
     rust: forceDeterministic || rustChanged,
-    detector: forceDeterministic || matchesSuiteTriggers('detector', changedFiles),
-    live: forceDeterministic || matchesSuiteTriggers('live', changedFiles),
-    framework: forceDeterministic || matchesSuiteTriggers('framework', changedFiles),
-    live_e2e: forceOptIn || matchesSuiteTriggers('live-e2e', changedFiles),
-    live_e2e_accept_cleanup: forceOptIn || matchesSuiteTriggers('live-e2e-accept-cleanup', changedFiles),
     skill_behavior: forceOptIn || matchesSuiteTriggers('skill-behavior', changedFiles),
-    live_svelte_adapter_deepseek: forceOptIn || matchesSuiteTriggers('live-svelte-adapter-deepseek', changedFiles),
   };
 
 writeGithubOutputs(plan);
@@ -111,12 +99,5 @@ function printSummary(outputs, files) {
   console.log(`Event: ${eventName || 'local'}`);
   console.log(`Changed files: ${files.length}`);
   console.log(`Deterministic suites: ${deterministic} rust=${outputs.rust}`);
-  console.log(
-    [
-      `live_e2e=${outputs.live_e2e}`,
-      `live_e2e_accept_cleanup=${outputs.live_e2e_accept_cleanup}`,
-      `skill_behavior=${outputs.skill_behavior}`,
-      `deepseek=${outputs.live_svelte_adapter_deepseek}`,
-    ].join(' '),
-  );
+  console.log(`skill_behavior=${outputs.skill_behavior}`);
 }

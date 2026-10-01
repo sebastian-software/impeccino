@@ -8,7 +8,7 @@
 //!
 //! What is NOT here is the rule logic: the `check_*` and `scan_*` functions
 //! and their heuristics live in `impeccable-core`. This crate has no
-//! filesystem, process, or network access; it compiles to wasm.
+//! filesystem, process, or network access.
 
 pub mod browser;
 pub mod color;

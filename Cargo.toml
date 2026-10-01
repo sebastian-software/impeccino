@@ -17,13 +17,8 @@ impeccable-common = { path = "crates/common" }
 impeccable-core = { path = "crates/core" }
 impeccable-detect = { path = "crates/detect" }
 impeccable-html = { path = "crates/html" }
-impeccable-browser = { path = "crates/browser" }
-impeccable-live = { path = "crates/live" }
 impeccable-context = { path = "crates/context" }
 impeccable-hook = { path = "crates/hook" }
-impeccable-comp = { path = "crates/comp" }
-impeccable-comp-verbs = { path = "crates/comp-verbs" }
-impeccable-bundle = { path = "crates/bundle" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 thiserror = "2"

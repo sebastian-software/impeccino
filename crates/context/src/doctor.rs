@@ -94,7 +94,6 @@ fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> R
     findings.extend(check_design_drift(abs_design_path.as_deref(), &project_root, 25));
     findings.extend(check_design_coverage(ctx.design.as_deref(), ctx.design_path.as_deref()));
     findings.extend(boot.config);
-    findings.extend(boot.build_path);
     findings.extend(check_detector_ignores(&project_root, known.as_deref()));
     findings.extend(boot.surface_briefs);
     findings.extend(check_hook_installation(&project_root, Some(&ctx.repo_root), provider_id));

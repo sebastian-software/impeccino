@@ -14,7 +14,6 @@ pub mod admin;
 pub mod before_edit;
 pub mod hook;
 pub mod hook_lib;
-mod build_completion;
 mod stop_baseline;
 pub mod util;
 

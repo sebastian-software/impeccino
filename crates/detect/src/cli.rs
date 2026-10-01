@@ -21,17 +21,15 @@ use crate::file_system::{
 use crate::jsp;
 use crate::util::{exists, re, D};
 
-pub const USAGE: &str = "Usage: impeccable detect [options] [file-or-dir-or-url...]
+pub const USAGE: &str = "Usage: impeccable detect [options] [file-or-dir...]
 
-Scan files or URLs for UI anti-patterns and design quality issues.
+Scan source files for UI anti-patterns and design quality issues.
 
 Options:
   --json              Output results as JSON
   --quiet             In text mode, only print the final findings count
   --scope <name>      Only report rules in the given design domain
                       (type, layout). Comma-separated.
-  --viewport <WxH>    Browser viewport for URL scans (default 1280x800),
-                      e.g. --viewport 390x844 for a mobile-width pass
   --no-config         Do not apply project config, detector ignores, inline
                       ignore comments, or DESIGN.md
   --no-inline-ignores Do not honor in-file impeccable-disable* ignore comments
@@ -70,13 +68,12 @@ Inline ignores:
 Detection modes:
   HTML files     Static HTML/CSS analysis (default, catches linked CSS)
   Non-HTML files Regex pattern matching (CSS, JSX, TSX, etc.)
-  URLs           Puppeteer full browser rendering (auto-detected;
-                 http(s):// and file:// URLs; accessible linked CSS included)
+  Rendered pages are not scanned here; use `impeccable page-probe` with your
+  harness's browser tool for the rules that need layout.
 
 Examples:
   impeccable detect src/
   impeccable detect index.html
-  impeccable detect https://example.com
   impeccable detect --json .
   impeccable detect --no-config src/
 ";
@@ -835,7 +832,7 @@ fn confirm(io: &mut Io, question: &str) -> bool {
     a.is_empty() || a.eq_ignore_ascii_case("y") || a.eq_ignore_ascii_case("yes")
 }
 
-fn stderr_is_tty() -> bool {
+pub fn stderr_is_tty() -> bool {
     #[cfg(unix)]
     {
         extern "C" {

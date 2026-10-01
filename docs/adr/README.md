@@ -17,6 +17,12 @@ record with a new one instead of rewriting history.
 | [0008](0008-spec-only-skill-frontmatter.md) | Skill frontmatter stays within the Agent Skills spec |
 | [0009](0009-engine-version-in-one-file.md) | The engine version lives in `skill/scripts/VERSION` |
 | [0010](0010-launcher-fetches-the-engine.md) | The launcher still fetches the pinned engine |
+| [0011](0011-nothing-runs-in-the-browser.md) | Nothing runs in the browser; harnesses bring their own |
+| [0012](0012-no-image-comps.md) | No image-generated comps; code-led builds only |
+| [0013](0013-no-wasm-or-browser-extension.md) | No WebAssembly build and no browser extension |
+| [0014](0014-releases-are-tags.md) | Releases are tags with generated notes |
+| [0015](0015-history-lives-in-git.md) | History lives in git |
+| [0016](0016-rendered-page-rules-via-the-harness-browser.md) | Rendered-page rules run through the harness's browser |
 
 Format: **Status**, **Date**, **Context**, **Decision**, **Consequences**,
 and, where it applies, **Revisit when**.

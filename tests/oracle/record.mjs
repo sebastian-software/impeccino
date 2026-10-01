@@ -5,7 +5,8 @@
  *                                                   # or --bin=/path/to/impeccable)
  *   node tests/oracle/record.mjs [prefix]           # from the JS scripts (historical; the
  *                                                   # scripts left the tree with the launcher swap)
- * A prefix limits recording to ids starting with it (e.g. detect-).
+ * A prefix limits recording to ids starting with it (e.g. detect-);
+ * --ids=a,b records exactly those ids.
  *
  * The committed goldens are frozen JS behavior plus the reviewed deltas in
  * DELTAS.md. Re-recording from the binary overwrites that history for the
@@ -33,7 +34,8 @@ if (impl === 'js') {
   void REPO_ROOT;
 }
 const prefix = argv.find(a => !a.startsWith('--')) || '';
-const cases = (await allCases()).filter(c => c.id.startsWith(prefix));
+const exact = argv.find(a => a.startsWith('--ids='))?.slice(6).split(',').filter(Boolean);
+const cases = (await allCases()).filter(c => (exact ? exact.includes(c.id) : c.id.startsWith(prefix)));
 let n = 0;
 for (const c of cases) {
   const res = runCase(c, { impl, bin });

@@ -99,48 +99,22 @@ function checkCounts(rootDir, skills) {
   return errors;
 }
 
-const RULE_REGISTRY_PATHS = [
-  ['crates', 'live', 'assets', 'antipatterns.json'],
-  ['extension', 'detector', 'antipatterns.json'],
-];
+const RULE_REGISTRY = path.join('crates', 'foundation', 'src', 'registry.rs');
 
 /**
- * The number of distinct rule ids in the registry, or `{ count: null, reason }`
- * when no location yields one. The reason names the actual condition and the
- * path it applies to: a registry that is present but unparseable reads very
- * differently from one that was never generated, and "no antipatterns.json"
- * for both sends anyone debugging a count failure to the wrong place.
+ * The number of distinct built-in rule ids, read from the `ANTIPATTERNS` table
+ * in the registry source (the part before its test module), or
+ * `{ count: null, reason }` when the table cannot be found.
  */
 function readDetectionRuleCount(rootDir) {
-  const problems = [];
-  for (const parts of RULE_REGISTRY_PATHS) {
-    const rel = parts.join('/');
-    const registry = path.join(rootDir, ...parts);
-    if (!fs.existsSync(registry)) continue;
-    let rules;
-    try {
-      rules = JSON.parse(fs.readFileSync(registry, 'utf-8'));
-    } catch (err) {
-      problems.push(`${rel} is not readable as JSON (${err.message})`);
-      continue;
-    }
-    // Only string ids count. A shape change (a wrapper object, a row without
-    // an id) would otherwise collapse to a Set of one `undefined` and read as
-    // a one-rule registry, which validates every count claim as stale.
-    const ids = (Array.isArray(rules) ? rules : [])
-      .map(rule => rule?.id)
-      .filter(id => typeof id === 'string' && id.length > 0);
-    if (ids.length === 0) {
-      problems.push(`${rel} carries no rule ids`);
-      continue;
-    }
-    return { count: new Set(ids).size };
-  }
-  const where = RULE_REGISTRY_PATHS.map(parts => parts.join('/')).join(' or ');
-  return {
-    count: null,
-    reason: problems.length > 0 ? problems.join('; ') : `no antipatterns.json at ${where}`,
-  };
+  const file = path.join(rootDir, RULE_REGISTRY);
+  if (!fs.existsSync(file)) return { count: null, reason: `${RULE_REGISTRY} is missing` };
+  const source = fs.readFileSync(file, 'utf-8');
+  const start = source.indexOf('pub static ANTIPATTERNS');
+  const end = source.indexOf('\n];', start);
+  if (start === -1 || end === -1) return { count: null, reason: `no ANTIPATTERNS table in ${RULE_REGISTRY}` };
+  const ids = [...source.slice(start, end).matchAll(/^\s+id: "([^"]+)",$/gm)].map(m => m[1]);
+  return ids.length ? { count: new Set(ids).size } : { count: null, reason: `ANTIPATTERNS in ${RULE_REGISTRY} has no ids` };
 }
 
 function validateSkillFrontmatter(skills) {

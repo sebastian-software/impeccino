@@ -1,14 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const DEFAULT_SUITES = ['core', 'oracle', 'detector', 'live', 'framework'];
+export const DEFAULT_SUITES = ['core', 'oracle'];
 export const OPT_IN_SUITES = [
-  'live-e2e',
-  'live-e2e-accept-cleanup',
-  'new-work-e2e',
   'skill-behavior',
   'skill-workflow',
-  'live-svelte-adapter-deepseek',
 ];
 
 const COMMON_INFRA_PATTERNS = [
@@ -17,10 +13,7 @@ const COMMON_INFRA_PATTERNS = [
   /^scripts\/run-tests\.mjs$/,
   /^scripts\/test-suites\.mjs$/,
   /^scripts\/ci-test-plan\.mjs$/,
-  /^scripts\/lib\/(live-server-processes|process-group|test-orphan-reaper)\.mjs$/,
-  /^tests\/lib\/live-servers\.mjs$/,
-  /^scripts\/lib\/(live-server-processes|process-group|test-orphan-reaper)\.mjs$/,
-  /^tests\/lib\/live-servers\.mjs$/,
+  /^scripts\/lib\/process-group\.mjs$/,
   /^\.github\/workflows\/ci\.yml$/,
 ];
 
@@ -28,10 +21,8 @@ export const SUITES = {
   core: {
     description: 'Skill source rules, repository checks, workflows, launcher, and release tooling.',
     triggers: [
-      /^ui\/component-review\//,
-      /^crates\/context\/assets\/component-review\.js$/,
       ...COMMON_INFRA_PATTERNS,
-      /^scripts\/(?!build-extension)/,
+      /^scripts\//,
       /^skill\/(SKILL\.md|agents\/|reference\/|scripts\/)/,
       /^skill\/scripts\/VERSION$/,
       /^README(\.npm)?\.md$/,
@@ -43,10 +34,6 @@ export const SUITES = {
         runner: 'bun',
         files: [
           'tests/skill-source.test.js',
-          'tests/component-review-bundle.test.js',
-          'ui/component-review/model.test.ts',
-          'ui/component-review/plan-model.test.ts',
-          'ui/component-review/viewport.test.ts',
           'tests/lib/utils.test.js',
           'tests/release-engine-workflow.test.js',
           'tests/workflow-security.test.js',
@@ -99,140 +86,6 @@ export const SUITES = {
       },
     ],
   },
-  detector: {
-    description: 'Extension packaging checks (the rule logic itself is covered by the crate tests and the oracle).',
-    triggers: [
-      ...COMMON_INFRA_PATTERNS,
-      /^extension\/(background|content|detector|devtools|offscreen|popup|shared|manifest\.json)/,
-      /^scripts\/build-extension\.js$/,
-      /^browser-bundle\//,
-      // Everything `cargo xtask bundle` reads: the rules and the registry
-      // rows (core, foundation), the wasm module (wasm), the assembly and the
-      // registry serialization (bundle), and the task itself (xtask). Leaving
-      // one out means a PR that changes what the bundle emits never rebuilds
-      // it, and the tracked-output check in ci.yml then compares a committed
-      // artifact against an untouched tree and passes on stale bytes.
-      /^crates\/(bundle|core|foundation|wasm|xtask)\//,
-      // The tracked artifacts themselves, so a hand-edit is regenerated over.
-      /^crates\/live\/assets\//,
-    ],
-    commands: [
-      {
-        runner: 'node',
-        files: ['tests/extension-build.test.mjs'],
-      },
-    ],
-  },
-  live: {
-    description: 'Live-mode reference contract checks plus the live-e2e helper units (agent output, CLI options, LLM agent parsing, steer loop against the binary); the live verbs themselves are covered by the oracle and framework suites.',
-    triggers: [
-      ...COMMON_INFRA_PATTERNS,
-      /^skill\/(reference\/live\.md|scripts\/live-browser)/,
-      /^tests\/live-e2e\//,
-      /^tests\/lib\/engine-bin\.mjs$/,
-      /^tests\/live-agent-target\.test\.mjs$/,
-      /^tests\/live-boot-fastpath\.test\.mjs$/,
-    ],
-    commands: [
-      {
-        runner: 'node',
-        files: [
-          'tests/live-reference.test.mjs',
-          'tests/live-agent-target.test.mjs',
-          'tests/live-boot-fastpath.test.mjs',
-          'tests/live-browser-ignores.test.mjs',
-          'tests/live-browser-source.test.mjs',
-          'tests/live-e2e-agent-output.test.mjs',
-          'tests/live-e2e-cli-options.test.mjs',
-          'tests/live-e2e-llm-agent.test.mjs',
-          'tests/live-e2e-steer-agent.test.mjs',
-          'tests/live-e2e/agent-insert.test.mjs',
-          'tests/live-server-leak.test.mjs',
-        ],
-      },
-    ],
-  },
-  framework: {
-    description: 'Framework fixture coverage for live injection, CSP detection, and wrapping through the engine binary; skips without a binary.',
-    triggers: [
-      ...COMMON_INFRA_PATTERNS,
-      /^skill\/scripts\/VERSION$/,
-      /^tests\/framework-fixtures/,
-      /^tests\/framework-fixtures\.test\.mjs$/,
-      /^tests\/lib\/engine-bin\.mjs$/,
-    ],
-    commands: [
-      {
-        runner: 'node',
-        files: ['tests/framework-fixtures.test.mjs'],
-      },
-    ],
-  },
-  'live-e2e': {
-    description: 'Full Playwright live-mode click-to-accept sweep across runtime framework fixtures.',
-    optIn: true,
-    needsPlaywright: true,
-    triggers: [
-      ...COMMON_INFRA_PATTERNS,
-      /^skill\/scripts\/live-browser/,
-      /^skill\/scripts\/VERSION$/,
-      /^tests\/framework-fixtures/,
-      /^tests\/live-e2e(\.test\.mjs|\/)/,
-    ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 600000,
-        forceExit: true,
-        files: ['tests/live-e2e.test.mjs'],
-      },
-    ],
-  },
-  'new-work-e2e': {
-    description: 'Playwright smoke sweep of the new-work concept/serve-question decision page plus the offline fake image generator.',
-    optIn: true,
-    needsPlaywright: true,
-    triggers: [
-      ...COMMON_INFRA_PATTERNS,
-      /^skill\/scripts\/VERSION$/,
-      /^tests\/new-work-e2e(\.test\.mjs|\/)/,
-    ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 600000,
-        forceExit: true,
-        files: ['tests/new-work-e2e.test.mjs'],
-      },
-    ],
-  },
-  'live-e2e-accept-cleanup': {
-    description: 'Provider-backed post-accept cleanup regression.',
-    optIn: true,
-    needsPlaywright: true,
-    triggers: [
-      ...COMMON_INFRA_PATTERNS,
-      /^skill\/scripts\/VERSION$/,
-      /^tests\/live-e2e-accept-cleanup-regression\.test\.mjs$/,
-      /^tests\/live-e2e\//,
-    ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 600000,
-        files: ['tests/live-e2e-accept-cleanup-regression.test.mjs'],
-      },
-    ],
-  },
-  'live-e2e-agent': {
-    description: 'Focused insert-mode fake-agent helper tests.',
-    commands: [
-      {
-        runner: 'node',
-        files: ['tests/live-e2e/agent-insert.test.mjs'],
-      },
-    ],
-  },
   'skill-behavior': {
     description: 'LLM-backed protocol checkpoints, not full builds.',
     optIn: true,
@@ -272,24 +125,6 @@ export const SUITES = {
         timeoutMs: 900000,
         wallClockMs: 3_600_000,
         files: ['tests/skill-workflow/full-build.test.mjs'],
-      },
-    ],
-  },
-  'live-svelte-adapter-deepseek': {
-    description: 'DeepSeek-backed Svelte adapter browser sweep.',
-    optIn: true,
-    needsPlaywright: true,
-    triggers: [
-      ...COMMON_INFRA_PATTERNS,
-      /^skill\/scripts\/VERSION$/,
-      /^tests\/framework-fixtures\/vite8-sveltekit-stateful\//,
-      /^tests\/live-svelte-adapter-deepseek\.test\.mjs$/,
-    ],
-    commands: [
-      {
-        runner: 'node',
-        timeoutMs: 1200000,
-        files: ['tests/live-svelte-adapter-deepseek.test.mjs'],
       },
     ],
   },

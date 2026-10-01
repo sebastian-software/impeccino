@@ -28,15 +28,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { armLiveServerReaper, trackServerChild } from '../lib/live-servers.mjs';
 
-// Daemon steps spawn the engine's `live-server` detached, so it is orphaned to
-// pid 1 the moment this process dies and stopDaemon() is the only thing that
-// ever ends it. Arm the reaper before any case runs: it stamps this process's
-// environment, and buildInvocation() below inherits process.env, so the marker
-// reaches the daemon and a SIGKILLed oracle run leaves no server behind.
-// The marker vars are read by nothing in the engine, so goldens are unchanged.
-armLiveServerReaper();
 
 export const ORACLE_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(ORACLE_DIR, '..', '..');
@@ -53,12 +45,8 @@ export const JS_VERBS = {
 };
 for (const script of [
   'context', 'doctor', 'pin', 'surface-brief', 'critique-storage', 'palette',
-  'embed-prompt', 'context-signals', 'detect-csp', 'concept-seed',
-  'generate-image', 'serve-question',
+  'context-signals', 'concept-seed',
   'hook', 'hook-before-edit', 'hook-admin',
-  'live', 'live-server', 'live-poll', 'live-status', 'live-resume', 'live-complete',
-  'live-accept', 'live-wrap', 'live-insert', 'live-inject', 'live-target',
-  'live-commit-manual-edits', 'live-discard-manual-edits', 'live-manual-edit-evidence',
 ]) {
   JS_VERBS[script] = ['node', path.join(REPO_ROOT, 'skill', 'scripts', `${script}.mjs`)];
 }
@@ -350,7 +338,7 @@ function runDaemonStep(c, opts) {
   const errPath = path.join(outDir, `${n}.stderr`);
   const outFd = fs.openSync(outPath, 'w');
   const errFd = fs.openSync(errPath, 'w');
-  const child = trackServerChild(spawn(argv[0], argv.slice(1), {
+  const child = (spawn(argv[0], argv.slice(1), {
     cwd, env, stdio: ['ignore', outFd, errFd], detached: true, windowsHide: true,
   }));
   fs.closeSync(outFd);

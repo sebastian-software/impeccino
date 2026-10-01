@@ -12,34 +12,10 @@ describe('skill scripts payload', () => {
   const scripts = skills[0]?.scripts ?? [];
   const names = new Set(scripts.map((s) => s.name));
 
-  test('ships the launcher, VERSION, page JS, and command metadata', () => {
-    for (const expected of [
-      'impeccable', 'impeccable.cmd', 'VERSION', 'command-metadata.json',
-      'live-browser.js', 'live-browser-dom.js', 'live-browser-session.js', 'modern-screenshot.umd.js',
-    ]) {
-      expect(names.has(expected)).toBe(true);
-    }
-  });
-
-  test('ships no engine entry points and no bundled detector', () => {
-    // The engine verbs live in the binary; the only Node scripts allowed in
-    // the payload are the comp-fidelity build pipeline and its libs, which
-    // have not moved into the engine yet.
-    const allowedNodeScripts = new Set([
-      'build-phase.mjs',
-      'comp-diff.mjs',
-      'comp-spec.mjs',
-      'font-match.mjs',
-      'lib/font-fingerprint.mjs',
-      'lib/font-index.mjs',
-      'lib/hero-checks.mjs',
-      'lib/image-metrics.mjs',
-      'lib/png.mjs',
-      'lib/raster.mjs',
-    ]);
-    const stray = [...names].filter((n) =>
-      (n.endsWith('.mjs') || n.startsWith('detector/') || n.startsWith('lib/')) && !allowedNodeScripts.has(n));
-    expect(stray).toEqual([]);
+  test('ships only the launcher, VERSION, and command metadata', () => {
+    // Browser-run assets and comp data left the skill with the features that
+    // used them (docs/adr/0011, 0012); the skill carries no page JS or data.
+    expect([...names].sort()).toEqual(['VERSION', 'command-metadata.json', 'impeccable', 'impeccable.cmd']);
   });
 
   test('never reads platform binaries as source', () => {

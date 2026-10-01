@@ -112,14 +112,14 @@ impl HtmlEngine for MissingHtmlEngine {
     }
 }
 
-/// Placeholder until crates/browser lands: reports what the JS reports when
-/// puppeteer is missing.
+/// URL scans are not supported (docs/adr/0011): the harness's own browser
+/// renders pages, and `page-probe` measures them (docs/adr/0016).
 pub struct MissingUrlEngine;
 
 impl UrlEngine for MissingUrlEngine {
     fn detect_url(&self, _url: &str, _options: &ScanOptions) -> Result<Vec<Finding>, EngineError> {
         Err(EngineError::new(
-            "puppeteer is required for URL scanning. Install: npm install puppeteer",
+            "URL scanning is not supported. Scan the source files instead; for the rendered page, run `impeccable page-probe` and evaluate its loader with your harness's browser tool.",
         ))
     }
 }

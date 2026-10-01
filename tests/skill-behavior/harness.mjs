@@ -93,9 +93,6 @@ export const SKILL_BODY = `Base directory for this skill (workspace-relative): .
  * - Copy skill/ into an independent fixture distribution, exactly as the
  *   build does. Shell and read tools see the same references and agents.
  * - `files` lets the test seed PRODUCT.md / DESIGN.md (or anything else).
- * - `skillVersion` overrides the staged `SKILL.md` version. `impeccable context`
- *   reads its own version from that sibling file, which matters for any
- *   scenario that exercises the update-check path.
  *
  * The launcher in the staged scripts dir needs an engine binary. Every bash
  * call the agent makes gets `IMPECCABLE_BIN` (tests/lib/engine-bin.mjs:
@@ -105,13 +102,9 @@ export const SKILL_BODY = `Base directory for this skill (workspace-relative): .
 export const ENGINE_BIN = findEngineBinary();
 export { ENGINE_MISSING_MESSAGE };
 
-export function prepareWorkspace({ files = {}, skillVersion = null } = {}) {
+export function prepareWorkspace({ files = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccable-skill-test-'));
   stageSkill(path.join(dir, '.claude', 'skills', 'impeccable'));
-  if (skillVersion) {
-    const skillMd = path.join(dir, '.claude', 'skills', 'impeccable', 'SKILL.md');
-    fs.writeFileSync(skillMd, fs.readFileSync(skillMd, 'utf-8').replace(/^(\s+version:\s*).+$/m, `$1${skillVersion}`));
-  }
   for (const [name, contents] of Object.entries(files)) {
     const target = path.join(dir, name);
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -171,12 +164,11 @@ function isContextOnlyCommand(workspace, command) {
 function execBash(workspace, command, timeoutMs = 20_000, extraEnv = {}) {
   return new Promise((resolve) => {
     // Model credentials belong to generateText, not to child image helpers.
-    // Real decision pages have browser E2E; this suite has a structured user.
     const shellEnv = Object.fromEntries(Object.entries({ ...process.env, ...extraEnv })
       .filter(([name]) => !/(?:^|_)(?:API_KEY|AUTH_TOKEN|ACCESS_TOKEN)$/.test(name)));
     const proc = spawn('bash', ['-lc', command], {
       cwd: workspace,
-      env: { ...shellEnv, ...(ENGINE_BIN ? { IMPECCABLE_BIN: ENGINE_BIN } : {}), IMPECCABLE_QUESTION_DISABLED: '1' },
+      env: { ...shellEnv, ...(ENGINE_BIN ? { IMPECCABLE_BIN: ENGINE_BIN } : {}) },
     });
     let stdout = '';
     let stderr = '';

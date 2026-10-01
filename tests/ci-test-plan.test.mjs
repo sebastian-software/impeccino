@@ -29,36 +29,18 @@ describe('ci-test-plan', () => {
     });
 
     assert.equal(outputs.core, 'true');
-    assert.equal(outputs.detector, 'false');
-    assert.equal(outputs.live, 'false');
-    assert.equal(outputs.framework, 'false');
-    assert.equal(outputs.live_e2e, 'false');
-    assert.equal(outputs.live_e2e_accept_cleanup, 'false');
-    assert.equal(outputs.live_svelte_adapter_deepseek, 'false');
+    assert.equal(outputs.oracle, 'false');
+    assert.equal(outputs.rust, 'false');
+    assert.equal(outputs.skill_behavior, 'false');
   });
 
-  it('routes extension changes to detector tests only', () => {
-    const outputs = runPlan({
-      GITHUB_EVENT_NAME: 'pull_request',
-      CI_CHANGED_FILES: 'extension/manifest.json',
-    });
-
-    assert.equal(outputs.detector, 'true');
-    assert.equal(outputs.live, 'false');
-    assert.equal(outputs.framework, 'false');
-  });
-
-  it('routes an engine version bump to every binary-driven lane', () => {
+  it('routes an engine version bump to the oracle lane', () => {
     const outputs = runPlan({
       GITHUB_EVENT_NAME: 'pull_request',
       CI_CHANGED_FILES: 'skill/scripts/VERSION',
     });
 
-    assert.equal(outputs.framework, 'true');
-    assert.equal(outputs.live_e2e, 'true');
-    assert.equal(outputs.live_e2e_accept_cleanup, 'true');
-    assert.equal(outputs.live_svelte_adapter_deepseek, 'true');
-    assert.equal(outputs.detector, 'false');
+    assert.equal(outputs.oracle, 'true');
   });
 
   it('routes skill setup changes to the skill behavior lane', () => {
@@ -68,54 +50,34 @@ describe('ci-test-plan', () => {
     });
 
     assert.equal(outputs.skill_behavior, 'true');
-    assert.equal(outputs.detector, 'false');
-    assert.equal(outputs.live, 'false');
   });
 
-  it('forces deterministic suites on push without forcing opt-in E2E suites', () => {
+  it('forces deterministic suites on push without forcing opt-in suites', () => {
     const outputs = runPlan({
       GITHUB_EVENT_NAME: 'push',
       CI_CHANGED_FILES: 'README.md',
     });
 
     assert.equal(outputs.core, 'true');
-    assert.equal(outputs.detector, 'true');
-    assert.equal(outputs.live, 'true');
-    assert.equal(outputs.framework, 'true');
-    assert.equal(outputs.live_e2e, 'false');
-    assert.equal(outputs.live_e2e_accept_cleanup, 'false');
-    assert.equal(outputs.live_svelte_adapter_deepseek, 'false');
+    assert.equal(outputs.oracle, 'true');
+    assert.equal(outputs.rust, 'true');
+    assert.equal(outputs.skill_behavior, 'false');
   });
 
-  it('enables remote smoke suites on manual dispatch', () => {
+  it('enables opt-in suites on manual dispatch', () => {
     const outputs = runPlan({
       GITHUB_EVENT_NAME: 'workflow_dispatch',
       CI_CHANGED_FILES: 'README.md',
     });
-    assert.equal(outputs.live_e2e, 'true');
-    assert.equal(outputs.live_e2e_accept_cleanup, 'true');
     assert.equal(outputs.skill_behavior, 'true');
-    assert.equal(outputs.live_svelte_adapter_deepseek, 'true');
   });
 
-  it('exposes planned opt-in suite outputs to workflow jobs', () => {
-    const workflow = readFileSync('.github/workflows/ci.yml', 'utf-8');
-
-    assert.match(workflow, /live_e2e_accept_cleanup:\s*\$\{\{\s*steps\.plan\.outputs\.live_e2e_accept_cleanup\s*\}\}/);
-    assert.match(workflow, /live_svelte_adapter_deepseek:\s*\$\{\{\s*steps\.plan\.outputs\.live_svelte_adapter_deepseek\s*\}\}/);
-    assert.match(workflow, /live-e2e-accept-cleanup:/);
-    assert.match(workflow, /live-svelte-adapter-deepseek:/);
-  });
-  it('schedule events run only the deterministic suites plus the full live-e2e matrix', () => {
+  it('schedule events run only the deterministic suites', () => {
     const outputs = runPlan({ GITHUB_EVENT_NAME: 'schedule' });
-    assert.equal(outputs.live_e2e, 'true');
-    assert.equal(outputs.live_e2e_accept_cleanup, 'false');
-    assert.equal(outputs.skill_behavior, 'false');
-    assert.equal(outputs.live_svelte_adapter_deepseek, 'false');
     assert.equal(outputs.core, 'true');
-    assert.equal(outputs.detector, 'true');
-    assert.equal(outputs.live, 'true');
-    assert.equal(outputs.framework, 'true');
+    assert.equal(outputs.oracle, 'true');
+    assert.equal(outputs.rust, 'true');
+    assert.equal(outputs.skill_behavior, 'false');
   });
 
 });

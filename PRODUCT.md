@@ -16,17 +16,17 @@ Impeccable gives builders a shared design vocabulary with their AI, delivered as
 
 ## Positioning
 
-Impeccable combines an opinionated design skill, live browser iteration, and deterministic anti-pattern detection in one source-first system that is transformed for supported AI coding harnesses. The repository ships the same design vocabulary through harness-native distributions instead of maintaining unrelated prompts for each tool.
+Impeccable combines an opinionated design skill and deterministic anti-pattern detection in one folder that installs unchanged in every supported AI coding harness. The harness supplies the browser, screenshots, and image tools; Impeccable supplies the judgment and the detector.
 
 ## Operating Context
 
-Builders install Impeccable from the repository or package, run `/impeccable init` once to record product truth, then direct design work through the shared command vocabulary. They may iterate against a runnable interface in live mode and use the CLI or browser extension for deterministic checks. Maintainers author the canonical skill under `skill/`; build scripts derive provider distributions, site assets, and validation output.
+Builders add `skill/` with a skill manager or a copy, run `/impeccable init` once to record product truth, then direct design work through the shared command vocabulary. The agent checks rendered pages with its own browser tool and source files with the detector. Maintainers author the skill under `skill/`; there is no build step.
 
 ## Capabilities and Constraints
 
-- The skill exposes 23 design commands covering new work, critique, technical audit, refinement, hardening, adaptation, and live iteration.
-- The CLI and browser extension run deterministic detector rules without an LLM or API key; LLM critique remains a separate judgment layer.
-- Provider-specific root harness folders and `plugin/` are generated distribution artifacts. Source changes belong in `skill/`, `scripts/`, `cli/`, `site/`, `extension/`, `functions/`, or `tests/`.
+- The skill exposes 22 design commands covering new work, critique, technical audit, refinement, hardening, and adaptation.
+- The CLI runs deterministic detector rules on source files without an LLM or API key; LLM critique remains a separate judgment layer.
+- Nothing generated is tracked. Source changes belong in `skill/`, `crates/`, `scripts/`, `cli/`, or `tests/`; the decisions behind the layout are in `docs/adr/`.
 - Product claims, testimonials, customers, benchmarks, pricing, licensing, and deployment facts must not be invented when evidence is absent.
 
 ## Brand Commitments
@@ -46,9 +46,9 @@ The site and brand must be the antithesis of everything Impeccable critiques. Sp
 ## Evidence on Hand
 
 - `README.md` documents the public command set, supported installation paths, and deterministic detector behavior.
-- `skill/` contains the canonical guidance and command references; `tests/` contains regression coverage for its build and runtime behavior.
-- `site/` is the public product surface and a direct demonstration of the design standard Impeccable advocates.
-- `cli/` and `extension/` are working detector implementations, not roadmap claims.
+- `skill/` contains the guidance and command references; `tests/` contains regression coverage for the skill rules and the engine.
+- The public site lives in a separate repository.
+- `cli/` is a working detector implementation, not a roadmap claim.
 - The existing product record names no customer testimonials or quantified outcome studies. Future surfaces must not fabricate them.
 
 ## Product Principles

@@ -11,7 +11,7 @@ use std::io::Write;
 
 use impeccable_common::Io;
 
-mod font_render;
+mod page_probe;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -64,46 +64,21 @@ fn run(args: &[String], io: &mut Io) -> i32 {
         // skill scripts
         "context" => impeccable_context::run_context(rest, io),
         "pin" => impeccable_context::run_pin(rest, io),
-        "detect-csp" => impeccable_context::run_detect_csp(rest, io),
         "palette" => impeccable_context::run_palette(rest, io),
         "surface-brief" => impeccable_context::run_surface_brief(rest, io),
         "critique-storage" => impeccable_context::run_critique_storage(rest, io),
-        "embed-prompt" => impeccable_context::run_embed_prompt(rest, io),
         "signals" | "context-signals" => impeccable_context::run_signals(rest, io),
         "doctor" => impeccable_context::run_doctor(rest, io),
         "concept-seed" => impeccable_context::run_concept_seed(rest, io),
-        "generate-image" => impeccable_context::run_generate_image(rest, io),
-        "serve-question" => impeccable_context::run_serve_question(rest, io),
-        "component-review" => impeccable_context::component_review::run_with_capturer(rest, io, Some(&mut impeccable::component_capture::NativeComponentCapturer)),
-        // comp-fidelity verbs (crates/comp-verbs over crates/comp)
-        "comp-spec" => impeccable_comp_verbs::run_comp_spec(rest, io),
-        "comp-diff" => impeccable_comp_verbs::run_comp_diff(rest, io),
-        "font-match" => {
-            let mut renderer = font_render::CdpFontRenderer::from_process_env();
-            impeccable_comp_verbs::run_font_match(rest, io, &mut renderer)
-        }
-        "capture-server" => {
-            match impeccable::capture_service::serve(rest) { Ok(()) => 0, Err(e) => { io.err(&format!("Native capture service: {e}\n")); 1 } }
-        }
-        "build-phase" => {
-            // Inject the organic-clip-path CSS scanner (a rule that lives in the
-            // closed `core` crate) so comp-verbs stays core-free.
-            let organic = |html: &str| -> Vec<(Option<String>, String)> {
-                impeccable_core::checks::css_scan::scan_css_text_for_organic_clip_path(html)
-                    .into_iter()
-                    .map(|f| (f.selector, f.snippet))
-                    .collect()
-            };
-            match impeccable::capture_service::RemoteEntryRenderer::from_env(&io.env) {
-                Ok(Some(renderer)) => impeccable_comp_verbs::build_phase::run_with_renderer(rest, io, &organic, Some(&renderer)),
-                Ok(None) => { let renderer=impeccable::reviewed_entry::ReviewedEntryRenderer::local(&io.cwd,io.home().as_deref()); impeccable_comp_verbs::build_phase::run_with_renderer(rest, io, &organic, Some(&renderer)) },
-                Err(e) => { io.err(&format!("Native capture service: {e}\n")); 1 }
-            }
-        }
+        "page-probe" => page_probe::run(rest, io),
         "hook" => impeccable_hook::run_hook(rest, io, engines().html),
         "hook-before-edit" => impeccable_hook::run_hook_before_edit(rest, io, engines().html),
         "hooks" | "hook-admin" => impeccable_hook::run_hook_admin(rest, io),
-        v if v.starts_with("live") => impeccable_live::run(v, rest, io),
+        // Browser-run and image-comp verbs are gone (docs/adr/0011, 0012).
+        v if v.starts_with("live") || RETIRED_VERBS.contains(&v) => {
+            io.err(&format!("\"{v}\" was removed: Impeccable no longer runs anything in the browser or builds image comps.\n"));
+            1
+        }
         // `npx impeccable src/` shorthand: a path-shaped, flag, URL, or existing
         // first arg is a detect target (cli.js looksLikeDetectTarget).
         v if impeccable_detect::looks_like_detect_target(v, &io.cwd.to_string_lossy()) => {
@@ -122,33 +97,23 @@ fn run(args: &[String], io: &mut Io) -> i32 {
     }
 }
 
+const RETIRED_VERBS: &[&str] = &[
+    "detect-csp", "embed-prompt", "generate-image", "serve-question", "component-review",
+    "comp-spec", "comp-diff", "font-match", "capture-server", "build-phase",
+];
+
 const SELF_INSTALL_RETIRED: &str = "Impeccable no longer installs or updates itself.\n\nAdd the skill/ folder of https://github.com/pbakaus/impeccable with your skill\nmanager (for example Dalo), or copy it into your harness as skills/impeccable.\n";
 
 /// The npm `impeccable` package version `cli.js --version` prints (its
 /// `package.json`), tracked separately from the crate version.
 pub const CLI_VERSION: &str = "4.0.0";
 
-/// The engines wired into `impeccable detect`: the static HTML engine
-/// (crates/html). The browser engine (crates/browser) plugs in here once it
-/// lands; until then URL scans report the puppeteer message.
+/// The engine wired into `impeccable detect`: the static HTML engine
+/// (crates/html). URL scans are not supported (docs/adr/0011).
 fn engines() -> impeccable_detect::Engines<'static> {
     static HTML: impeccable_html::StaticHtmlEngine = impeccable_html::StaticHtmlEngine {
         // The shipped binary carries the built-in rules only.
         static_rule_pack: None,
     };
-    impeccable_detect::Engines {
-        html: &HTML,
-        url: Some(url_engine()),
-    }
+    impeccable_detect::Engines { html: &HTML, url: None }
 }
-
-// --- browser engine (crates/browser) -------------------------------------
-/// The URL engine, built once from the process environment (browser
-/// discovery reads `IMPECCABLE_BROWSER` / `PUPPETEER_EXECUTABLE_PATH` /
-/// `CHROME_PATH`, sandbox flags read `CI`).
-fn url_engine() -> &'static impeccable_browser::BrowserEngine {
-    static ENGINE: std::sync::OnceLock<impeccable_browser::BrowserEngine> =
-        std::sync::OnceLock::new();
-    ENGINE.get_or_init(impeccable_browser::BrowserEngine::from_process_env)
-}
-// -------------------------------------------------------------------------

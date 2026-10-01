@@ -166,20 +166,13 @@ it('reference-loading evidence requires content, not a failed read or a filename
   }
 });
 
-it('headless behavior shells disable unattended decision pages and omit provider credentials', async () => {
+it('headless behavior shells omit provider credentials', async () => {
   const workspace = prepareWorkspace();
   try {
-    const { tools } = makeTools(workspace, { OPENAI_API_KEY: 'synthetic-secret', IMPECCABLE_QUESTION_DISABLED: '0' });
-    const result = await tools.bash.execute({ command: 'node -e \'console.log(JSON.stringify({disabled:process.env.IMPECCABLE_QUESTION_DISABLED,hasKey:!!process.env.OPENAI_API_KEY}))\'' });
-    assert.match(result, /"disabled":"1"/);
+    const { tools } = makeTools(workspace, { OPENAI_API_KEY: 'synthetic-secret' });
+    const result = await tools.bash.execute({ command: 'node -e \'console.log(JSON.stringify({hasKey:!!process.env.OPENAI_API_KEY}))\'' });
     assert.match(result, /"hasKey":false/);
     assert.doesNotMatch(result, /synthetic-secret/);
-    if (process.env.IMPECCABLE_BIN) {
-      const question = await tools.bash.execute({ command: '.claude/skills/impeccable/scripts/impeccable serve-question --start --payload nonexistent.json' });
-      assert.match(question, /^exit=2\n/);
-      assert.match(question, /use the structured question tool instead/);
-      assert.equal(fs.existsSync(path.join(workspace, '.impeccable/questions')), false);
-    }
   } finally {
     cleanupWorkspace(workspace);
   }

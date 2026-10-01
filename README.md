@@ -1,8 +1,8 @@
 # Impeccable
 
-Design guidance for AI coding agents. 1 skill, 24 commands, live browser iteration, and 61 deterministic detector rules for AI-generated frontend design.
+Design guidance for AI coding agents. 1 skill, 22 commands, and 61 deterministic detector rules for AI-generated frontend design.
 
-> **About this branch.** This is `light`, an experimental fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable) by [Sebastian Werner](https://github.com/swernerx). It keeps the skill, the engine, and the detector, and removes everything that existed only to install and package the skill: per-harness variants, the self-installer, the update check, and the marketplace packages. Skill managers such as [Dalo](https://dalo.sh) take over placement, pinning, and updates. Read [What changed in this branch](#what-changed-in-this-branch) and the [Light ADRs](docs/adr/README.md) for the reasoning. It is not an official release.
+> **About this branch.** This is `light`, an experimental fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable) by [Sebastian Werner](https://github.com/swernerx). It keeps the skill, the engine, and the detector, and removes everything that existed only to install and package the skill: per-harness variants, the self-installer, the update check, and the marketplace packages. It also drops the parts that ran in a browser or generated image comps: live mode, the decision and review pages, URL scans, the comp-first build path, the WebAssembly build, and the browser extension. Skill managers such as [Dalo](https://dalo.sh) take over placement, pinning, and updates. Read [What changed in this branch](#what-changed-in-this-branch) and the [Light ADRs](docs/adr/README.md) for the reasoning. It is not an official release.
 
 > **Quick start:** Add the `skill/` folder to your harness with a skill manager such as [Dalo](https://dalo.sh), or copy it in (see [Installation](#installation)), then run `/impeccable init` inside your AI coding tool. Full docs: [impeccable.style](https://impeccable.style).
 
@@ -14,8 +14,8 @@ Every model trained on the same SaaS templates. Skip the guidance and you get th
 
 Impeccable adds:
 - **One setup flow.** `/impeccable init` records durable product truth in `PRODUCT.md`, so later commands know the audience, purpose, operating context, constraints, voice, and evidence without confusing those facts with surface-level visual direction.
-- **24 commands.** A shared design vocabulary with your AI: `polish`, `audit`, `critique`, `distill`, `animate`, `bolder`, `quieter`, and more.
-- **61 deterministic detector rules** plus LLM-only critique checks. The CLI and browser extension run the deterministic rules with no LLM and no API key.
+- **22 commands.** A shared design vocabulary with your AI: `polish`, `audit`, `critique`, `distill`, `animate`, `bolder`, `quieter`, and more.
+- **61 deterministic detector rules** plus LLM-only critique checks. The CLI and the design hook run them on source files with no LLM and no API key; the rules that need layout run on the rendered page through `page-probe` in the agent's own browser.
 
 ## What's Included
 
@@ -35,14 +35,14 @@ Start every new project with:
 
 `init` inspects the project, asks only for material gaps in durable product truth, and writes `PRODUCT.md`. Visitor mode and visual direction are chosen later for each surface; incumbent or newly built visual systems are recorded separately in `DESIGN.md`.
 
-### 24 Commands
+### 22 Commands
 
 All commands are accessed through `/impeccable`:
 
 | Command | What it does |
 |---------|--------------|
 | `/impeccable craft` | Full shape-then-build flow with visual iteration |
-| `/impeccable init` | One-time setup: gather durable product context, write PRODUCT.md, configure live mode when applicable, recommend next steps |
+| `/impeccable init` | One-time setup: gather durable product context, write PRODUCT.md, recommend next steps |
 | `/impeccable document` | Generate root DESIGN.md from existing project code |
 | `/impeccable extract` | Pull reusable components and tokens into the design system |
 | `/impeccable shape` | Plan UX/UI before writing code |
@@ -63,8 +63,6 @@ All commands are accessed through `/impeccable`:
 | `/impeccable clarify` | Improve unclear UX copy |
 | `/impeccable adapt` | Adapt for different devices |
 | `/impeccable optimize` | Performance improvements |
-| `/impeccable live` | Visual variant mode: iterate on elements in the browser |
-| `/impeccable generate` | Generate variants of a named element in the live browser, no manual picking |
 
 Use `/impeccable pin <command>` to create standalone shortcuts (e.g., `pin audit` creates `/audit`).
 
@@ -100,12 +98,10 @@ Visit [the Neo Mirai case study](https://impeccable.style/cases/neo-mirai) to se
 
 | Path | What it is |
 | --- | --- |
-| [`skill/`](skill/) | **The skill.** This folder is what you install, unchanged, in every harness. `SKILL.md` holds the setup flow, the design laws, and the command router; `reference/` has one playbook per command plus shared playbooks; `agents/` has the four shipped roles as Claude Code agent files; `scripts/` holds the launcher (`impeccable`, `impeccable.cmd`), the pinned engine version (`VERSION`), command metadata, and the live-mode page scripts. |
-| [`crates/`](crates/) | **The engine.** A Rust workspace that builds the `impeccable` binary behind every skill command: project context, the 61-rule detector, live mode, design hooks, comp tooling, and `doctor`. `crates/wasm` compiles the same rules for the browser extension. Release binaries are published as `engine-v<version>` GitHub releases; the launcher fetches the one named in `skill/scripts/VERSION`. |
+| [`skill/`](skill/) | **The skill.** This folder is what you install, unchanged, in every harness. `SKILL.md` holds the setup flow, the design laws, and the command router; `reference/` has one playbook per command plus shared playbooks; `agents/` has the two shipped roles (finish reviewer and documenter) as Claude Code agent files; `scripts/` holds the launcher (`impeccable`, `impeccable.cmd`), the pinned engine version (`VERSION`), and command metadata. |
+| [`crates/`](crates/) | **The engine.** A Rust workspace that builds the `impeccable` binary behind every skill command: project context, the 61-rule detector for source files and rendered pages (`page-probe`), the design hook, and `doctor`. It is one native binary with no WebAssembly build. Release binaries are published as `engine-v<version>` GitHub releases; the launcher fetches the one named in `skill/scripts/VERSION`. |
 | [`cli/`](cli/) | **The npm package** `impeccable`: a small shim that runs the engine for `npx impeccable detect` without an AI harness. It does not install the skill. |
-| [`extension/`](extension/) | **The browser extension** (Chrome and Firefox) that runs the detector on any page. |
-| [`browser-bundle/`](browser-bundle/), [`ui/`](ui/) | Page-side code the engine bundles: the live-mode overlay and the component review UI. |
-| [`tests/`](tests/) | Bun and Node suites, the oracle corpus that pins every engine verb's output (`tests/oracle/`), framework fixtures for live mode, and opt-in LLM-backed behavior checks. |
+| [`tests/`](tests/) | Bun and Node suites, the oracle corpus that pins every engine verb's output (`tests/oracle/`), and opt-in LLM-backed behavior and workflow checks. |
 | [`scripts/`](scripts/) | Tooling: `check.js` (`bun run check`), the release script, engine fetch and release checks, and the test runner. There is no skill build. |
 | [`docs/`](docs/) | Developer documentation, the editorial style guide, harness notes, and the [Light ADRs](docs/adr/README.md). |
 
@@ -127,12 +123,18 @@ The upstream repository compiles the skill into 19 harness-specific variants, co
 | Frontmatter | Claude-only keys in the Claude variant | Agent Skills spec fields only | [0008](docs/adr/0008-spec-only-skill-frontmatter.md) |
 | Engine pin | Root `ENGINE_VERSION`, copied by the build | `skill/scripts/VERSION` only | [0009](docs/adr/0009-engine-version-in-one-file.md) |
 | Engine binary | Fetched by the installer or the launcher | Still fetched by the launcher, for now | [0010](docs/adr/0010-launcher-fetches-the-engine.md) |
+| Browser | Live mode in the user's dev server, a local decision page, a component review page, URL scans over headless Chrome | Impeccable drives no browser; the agent uses its harness's browser tool for screenshots and the structured question tool for decisions; `detect` scans files and directories | [0011](docs/adr/0011-nothing-runs-in-the-browser.md) |
+| Rendered-page rules | Run in the live overlay, the extension, or URL scans | `page-probe`: the agent's browser runs a read-only measurement, the engine evaluates the same rules natively | [0016](docs/adr/0016-rendered-page-rules-via-the-harness-browser.md) |
+| Build path | Comp-first (image-generated mock, comp fidelity tooling) or code-first, chosen by `buildPath` | Code-led build only, carried by the direction contract | [0012](docs/adr/0012-no-image-comps.md) |
+| Rule engine targets | Native binary plus a WebAssembly build for the browser extension and the in-page overlay | One native binary; no WebAssembly build, no browser extension | [0013](docs/adr/0013-no-wasm-or-browser-extension.md) |
+| Releases | Changelog entry in the website repository, rendered into the release notes | Per-component tags (`skill-v`, `cli-v`, `engine-v`) with notes GitHub generates from the commits | [0014](docs/adr/0014-releases-are-tags.md) |
+| Docs | Finished plans, port contracts, release notes, and demos kept in `docs/` | `docs/` holds current guidance and ADRs; the oracle corpus is the behavioral contract; history lives in git | [0015](docs/adr/0015-history-lives-in-git.md) |
 
-Unchanged: the design guidance itself, all 24 commands, the engine and its detector rules, live mode, the npm detector CLI, and the browser extension.
+Unchanged: the design guidance itself, every command that does not need a browser or an image model (22 commands; `live` and `generate` are gone), the engine's context, hook, and file detector, and the npm detector CLI. The detector keeps all 61 rules: the nine that need a rendered page now run through `page-probe`, measured by the agent's own browser ([ADR 0016](docs/adr/0016-rendered-page-rules-via-the-harness-browser.md)).
 
-**Verified so far.** `skill/` linked into a scratch project loads in Claude Code and in Codex: both resolve and run the launcher, and Codex names commands with `$`. The Rust workspace tests, the core and live suites, and the full oracle corpus against an engine built from this branch pass.
+**Verified so far.** `skill/` linked into a scratch project loads in Claude Code and in Codex: both resolve and run the launcher, and Codex names commands with `$`. The Rust workspace tests, the core suite, and the full oracle corpus against an engine built from this branch pass.
 
-**Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs. Apache-2.0 notices are not yet inside `skill/`. The website still links the removed installer and downloads.
+**Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs. Apache-2.0 notices are not yet inside `skill/`. The website still links the removed installer, the downloads, and the browser extension.
 
 ## Installation
 
@@ -198,31 +200,20 @@ If you reach for one command often, pin it with `/impeccable pin audit` to get `
 
 ## Keeping `.impeccable` out of git
 
-As you run commands, Impeccable writes working files under `.impeccable/`: critique and polish screenshots, live-mode session and preview state, runtime caches, and per-developer config. Most of it is ephemeral and should not be committed, while a few files are shared project artifacts that belong in the repo. Add this block to your project's `.gitignore`:
+As you run commands, Impeccable writes working files under `.impeccable/`: critique and polish screenshots, hook caches, and per-developer config. Most of it is ephemeral and should not be committed, while a few files are shared project artifacts that belong in the repo. Add this block to your project's `.gitignore`:
 
 ```gitignore
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.
 # The **/ prefix covers .impeccable at the repo root or in a nested workspace.
-# Shared artifacts stay tracked: config.json, live/config.json,
-# design.json, surfaces/*.md, critique/*.md.
+# Shared artifacts stay tracked: config.json, design.json,
+# surfaces/*.md, critique/*.md.
 **/.impeccable/config.local.json
 **/.impeccable/hook.cache.json
 **/.impeccable/hook.pending.json
 **/.impeccable/*.png
 **/.impeccable/review/
 **/.impeccable/questions/
-**/.impeccable/live/server.json
-**/.impeccable/live/sessions/
-**/.impeccable/live/previews/
-**/.impeccable/live/annotations/
-**/.impeccable/live/cache/
-**/.impeccable/live/manual-edit-apply-transaction.json
-**/.impeccable/live/manual-edit-events.jsonl
-**/.impeccable/live/manual-edit-evidence/
-**/.impeccable/live/pending-manual-edits.json
-**/.impeccable/live/deferred-svelte-component-accepts.json
-**/.impeccable/live/*.png
 # impeccable-ignore-end
 ```
 
@@ -231,7 +222,6 @@ The block is wrapped in `# impeccable-ignore-start` / `# impeccable-ignore-end` 
 **Keep these tracked** (they are shared project artifacts, do not add them to `.gitignore`):
 
 - `.impeccable/config.json` (unified shared config)
-- `.impeccable/live/config.json` (live-mode framework wiring)
 - `.impeccable/design.json` (shared design spec)
 - `.impeccable/surfaces/*.md` (route- or artifact-specific strategy and direction contracts)
 - `.impeccable/critique/*.md` (review reports)
@@ -247,7 +237,9 @@ Hook surfaces the engine manages:
 - Claude Code: `.claude/settings.local.json` (gitignored, machine-local). A hook moved into the shared `settings.json` is honored in place.
 - Codex: `.codex/hooks.json`, with a `commandWindows` sibling that calls `impeccable.cmd` for cmd.exe. Approve it in `/hooks`.
 - Cursor: `.cursor/hooks.json`, which blocks bad proposed writes before they land.
-- Gemini CLI: `.gemini/settings.json`.
+- GitHub Copilot: `.github/hooks/impeccable.json`, a team-shared file the Copilot CLI reads once it is committed to the default branch.
+
+The hook also understands Grok Build's events, and `context` recognizes a Grok manifest at `.grok/hooks/impeccable.json`; `hooks on` does not write that one. Gemini CLI has no hook manifest anymore ([ADR 0012](docs/adr/0012-no-image-comps.md)); the skill asks for a manual detector run there.
 
 Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. Hook lifecycle settings live under the `hook` key of `.impeccable/config.json`; detector ignores live under `detector`, shared by `/impeccable hooks` and `npx impeccable detect`.
 
@@ -255,29 +247,9 @@ In Claude Code, command hooks run independently of model-tool approval, so the f
 
 For debugging, set `hook.auditLog` in `.impeccable/config.json` to a path (or the legacy `IMPECCABLE_HOOK_LOG` env var) to write one NDJSON line per hook invocation. Leave it unset for normal use.
 
-## Build path: comp-first or code-first
-
-When a new surface gets designed, Impeccable either generates a full-fidelity comp first and builds to match it, or builds straight in code with the ambition written into a development-only direction contract in the surface brief and checked at the finish. Comp-first composes bolder and takes longer; code-first is leaner and faster. `/impeccable init` asks once and records the answer as `buildPath` in `.impeccable/config.json`:
-
-```json
-{ "buildPath": "comp" }
-```
-
-The values are `comp` and `code`, and nothing else is read. Set it in the gitignored `.impeccable/config.local.json` to override the team's committed value on one machine, which is what you want when your harness has no image generation. In a monorepo, commit it once at the repo root and any workspace that wants something else sets its own. The choice appears at all only where image generation is available, since without it there is nothing to comp.
-
-You do not have to re-run `init` to set it on a project that predates the setting, and you do not have to edit the file by hand either. Whatever is recorded is a default rather than a lock: every decision page carries a footer toggle, and flipping it binds that session only. Flip it on a project that has recorded nothing and Impeccable asks once, after the round, whether to keep it, then writes your answer. That is the whole migration path for an existing project: use the toggle when the default is wrong, and answer the question that follows.
-
 Full hook docs: [impeccable.style/docs/hooks](https://impeccable.style/docs/hooks).
 
 The Stop pass suppresses confirmed pre-existing findings when a verified before-edit baseline is available (currently Claude Edit/Write results for text scans). Other findings are marked new or attribution unknown; unknown is not evidence that your session caused the problem. Explicit `detect` scans remain unchanged.
-
-## Live mode and production sites
-
-Live mode edits a local checkout through a development server or local static HTML. Injecting its localhost HTTP helper into a deployed production site, including an HTTPS site, is not supported. Do not disable browser security or weaken production CSP to make it work.
-
-Use live mode only in projects you trust to run locally. Applying copy edits automatically runs `package.json`'s optional `scripts["impeccable:manual-edit-validate"]` command in a shell, with your user permissions; review that script before using live mode in an unfamiliar checkout.
-
-For production inspection, use `npx impeccable detect https://example.com` or the browser extension. These inspect the rendered page; they do not provide live variant editing or write changes back to your source.
 
 ## CLI
 
@@ -286,7 +258,6 @@ Impeccable includes a standalone CLI for detecting anti-patterns without an AI h
 ```bash
 npx impeccable detect src/                   # scan a directory
 npx impeccable detect index.html             # scan an HTML file
-npx impeccable detect https://example.com    # scan a URL (uses an installed Chrome, Chromium, or Edge)
 npx impeccable detect --json .               # CI-friendly JSON output
 npx impeccable detect --no-config src/       # raw scan, ignoring project config/context
 npx impeccable ignores list                  # show detector ignores
@@ -294,9 +265,9 @@ npx impeccable ignores add-file "src/legacy/**"
 npx impeccable ignores add-value overused-font Inter --reason "Brand font"
 ```
 
-The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (line length, cramped padding, small touch targets, skipped headings, and more).
+The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (low contrast, cramped padding, tiny text, skipped headings, and more). `detect` reads files and directories, not URLs. Rules that need layout (line length, text overflow and occlusion, viewport edges, heading rhythm) run on the rendered page with `impeccable page-probe`: it prints a one-line loader for your agent's browser tool, receives the page measurement on 127.0.0.1, and prints the findings with `page-probe --result <key>`. Local pages work; a public HTTPS page may block the loopback request.
 
-Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. URL scans inspect the rendered DOM, computed layout, and accessible linked stylesheets; browser security still prevents reading cross-origin CSS without CORS. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports.
+Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports.
 
 By default, `detect` respects the same `.impeccable/config.json` and `.impeccable/config.local.json` detector config as the design hook: `detector.ignoreRules`, `detector.ignoreFiles`, `detector.ignoreValues`, and `detector.designSystem.enabled`. Hook lifecycle settings such as `hook.enabled` only affect automatic hook execution.
 

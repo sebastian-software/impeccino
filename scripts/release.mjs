@@ -105,8 +105,8 @@ ok(`${cfg.label} ${version}`);
 // Release-order guard (triage decision D4). Engine-gated components refuse to
 // tag/publish until the engine release for the pinned skill/scripts/VERSION is fully
 // live: the five engine-v<version> release binaries + .sha256 and the five @impeccable/cli-<os>-<arch>
-// npm platform packages. Without this the launcher, the npm shim, and
-// `impeccable install` all dead-end. Set IMPECCABLE_SKIP_ENGINE_CHECK=1 only
+// npm platform packages. Without this the launcher and the npm shim
+// dead-end. Set IMPECCABLE_SKIP_ENGINE_CHECK=1 only
 // when you know the assets exist and the registry probe is unreachable.
 if (cfg.engineGated && process.env.IMPECCABLE_SKIP_ENGINE_CHECK !== '1') {
   const engineVersion = readEngineVersion(repoRoot);

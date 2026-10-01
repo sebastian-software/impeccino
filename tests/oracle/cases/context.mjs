@@ -1,8 +1,7 @@
 /**
  * Corpus for the context-and-helper verbs: `context`, `doctor`, `pin`,
- * `surface-brief`, `critique-storage`, `palette`, `embed-prompt`,
- * `context-signals`, `detect-csp`, `concept-seed`, `generate-image`,
- * `serve-question`.
+ * `surface-brief`, `critique-storage`, `palette`, `context-signals`,
+ * `concept-seed`.
  *
  * Workspaces (tests/oracle/workspaces/ctx-*):
  *   ctx-empty          package.json only
@@ -14,12 +13,11 @@
  *   ctx-bad-platform   PRODUCT.md `## Platform` flutter + pubspec.yaml
  *   ctx-monorepo       pnpm-workspace + apps/a (own PRODUCT/DESIGN) + apps/b (inherits) + projectRoots
  *   ctx-legacy         unstamped PRODUCT.md with ## Register, DESIGN.json sidecar v1, bad config, orphan brief
- *   ctx-csp-*          one per detect-csp shape (append-arrays, append-string, middleware, meta, none)
  *   ctx-signals        git-initialised in setup() with fixed author/committer dates
  *   ctx-pin            .claude/.agents/.cursor skills dirs with impeccable installed
  *
- * Only offline, deterministic paths are exercised: no roll API, no OpenAI, no
- * browser, no listening server. Env vars that would change behaviour on the
+ * Only offline, deterministic paths are exercised: no roll API and no listening
+ * server. Env vars that would change behaviour on the
  * recording machine (OPENAI_API_KEY, catalog/context overrides, CI) are pinned
  * per case through BASE_ENV.
  */
@@ -32,12 +30,6 @@ import { execFileSync } from 'node:child_process';
 const WS = '<WS>';
 
 // #710: a Next.js 16 proxy request hook that sets a CSP header.
-const PROXY_CSP_SOURCE = `export function proxy() {
-  const response = new Response();
-  response.headers.set('Content-Security-Policy', "script-src 'self'");
-  return response;
-}
-`;
 const REPO = '<REPO>';
 
 // Env the recording machine may carry that would leak into output.
@@ -170,7 +162,6 @@ const CATALOG = `${REPO}/tests/fixtures/concept-catalog`;
 const seedEnv = (extra = {}) => env({ IMPECCABLE_CATALOG_DIR: CATALOG, IMPECCABLE_API_URL: 'http://127.0.0.1:9/api', IMPECCABLE_API_TIMEOUT: '300', ...extra });
 const degradedEnv = (extra = {}) => env({ IMPECCABLE_CATALOG_DIR: `${WS}/no-such-catalog`, IMPECCABLE_API_URL: 'http://127.0.0.1:9/api', IMPECCABLE_API_TIMEOUT: '300', ...extra });
 
-const QUESTION_PAYLOAD = { title: 'Pick', options: [{ id: 'a', label: 'A', thesis: 'One.' }, { id: 'b', label: 'B', thesis: 'Two.' }] };
 
 const cases = [
   // ======================================================================
@@ -428,7 +419,7 @@ const cases = [
   { id: 'pin-unpin-no-harness', verb: 'pin', workspace: 'ctx-empty', args: ['unpin', 'audit'], env: env(), files: ['.*/skills/**'] },
   { id: 'pin-polish', verb: 'pin', workspace: 'ctx-pin', args: ['pin', 'polish'], env: env(), files: ['.*/skills/**'] },
   { id: 'pin-audit-skips-existing', verb: 'pin', workspace: 'ctx-pin', args: ['pin', 'audit'], env: env(), files: ['.*/skills/**'] },
-  { id: 'pin-live-from-subdir', verb: 'pin', workspace: 'ctx-pin', cwd: 'sub/deeper', setup: (ws) => fs.mkdirSync(path.join(ws, 'sub/deeper'), { recursive: true }), args: ['pin', 'live'], env: env(), files: ['.*/skills/**'] },
+  { id: 'pin-polish-from-subdir', verb: 'pin', workspace: 'ctx-pin', cwd: 'sub/deeper', setup: (ws) => fs.mkdirSync(path.join(ws, 'sub/deeper'), { recursive: true }), args: ['pin', 'polish'], env: env(), files: ['.*/skills/**'] },
   { id: 'pin-unpin-nothing-pinned', verb: 'pin', workspace: 'ctx-pin', args: ['unpin', 'polish'], env: env(), files: ['.*/skills/**'] },
   { id: 'pin-unpin-skips-non-pinned', verb: 'pin', workspace: 'ctx-pin', args: ['unpin', 'audit'], env: env(), files: ['.*/skills/**'] },
   { id: 'pin-then-unpin', verb: 'pin', workspace: 'ctx-pin', env: env(), files: ['.*/skills/**'], steps: [{ args: ['pin', 'critique'] }, { args: ['pin', 'critique'] }, { args: ['unpin', 'critique'] }, { args: ['unpin', 'critique'] }] },
@@ -560,48 +551,6 @@ const cases = [
   { id: 'palette-id-overrides-from', verb: 'palette', args: ['--from', 'oracle-fixture-key', '--id', 'no-such-seed'], env: env() },
 
   // ======================================================================
-  // embed-prompt
-  // ======================================================================
-  { id: 'embed-no-args', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, args: [], env: env() },
-  { id: 'embed-missing-file', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, args: ['assets/nope.png', '--prompt', 'x'], env: env() },
-  { id: 'embed-no-prompt', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, args: ['assets/a.png'], env: env() },
-  { id: 'embed-png', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, env: env(), files: ['assets/a.png*'], steps: [
-    { args: ['assets/a.png', '--prompt', 'A warm editorial hero, paper and ink.'] },
-    { args: ['assets/a.png', '--read'] },
-    { args: ['assets/a.png', '--prompt', 'Replaced prompt.'] },
-    { args: ['assets/a.png', '--read'] },
-  ] },
-  { id: 'embed-png-prompt-file', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, env: env(), files: ['assets/a.png*'], steps: [
-    { args: ['assets/a.png', '--prompt-file', 'prompt.txt'] },
-    { args: ['assets/a.png', '--read'] },
-  ] },
-  { id: 'embed-png-malformed', verb: 'embed-prompt', workspace: 'ctx-empty', setup: (ws) => { imagesSetup(ws); fs.writeFileSync(path.join(ws, 'assets/bad.png'), Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from('garbage-not-chunks')])); }, args: ['assets/bad.png', '--prompt', 'x'], env: env(), files: ['assets/bad.png*'] },
-  { id: 'embed-jpeg', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, env: env(), files: ['assets/b.jpg*'], steps: [
-    { args: ['assets/b.jpg', '--prompt', 'JPEG prompt one.'] },
-    { args: ['assets/b.jpg', '--read'] },
-    { args: ['assets/b.jpg', '--prompt', 'JPEG prompt two.'] },
-    { args: ['assets/b.jpg', '--read'] },
-  ] },
-  { id: 'embed-webp-sidecar', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, env: env(), files: ['assets/c.webp*'], steps: [
-    { args: ['assets/c.webp', '--read'] },
-    { args: ['assets/c.webp', '--prompt', 'Sidecar prompt.'] },
-    { args: ['assets/c.webp', '--read'] },
-  ] },
-  { id: 'embed-read-none', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, args: ['assets/a.png', '--read'], env: env() },
-  { id: 'embed-scan-no-targets', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, args: ['--scan'], env: env() },
-  { id: 'embed-scan-missing-path', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, args: ['--scan', 'assets', 'nowhere'], env: env() },
-  { id: 'embed-scan-missing', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, args: ['--scan', 'assets'], env: env() },
-  { id: 'embed-scan-hidden-root', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, args: ['--scan', 'assets/.hidden'], env: env() },
-  { id: 'embed-scan-single-file', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, args: ['--scan', 'assets/notes.txt'], env: env() },
-  { id: 'embed-scan-clean', verb: 'embed-prompt', workspace: 'ctx-empty', setup: imagesSetup, env: env(), steps: [
-    { args: ['assets/a.png', '--prompt', 'p'] },
-    { args: ['assets/b.jpg', '--prompt', 'p'] },
-    { args: ['assets/c.webp', '--prompt', 'p'] },
-    { args: ['assets/nested/d.jpeg', '--prompt', 'p'] },
-    { args: ['--scan', 'assets/'] },
-  ] },
-
-  // ======================================================================
   // context-signals
   // ======================================================================
   { id: 'signals-empty', verb: 'context-signals', workspace: 'ctx-empty', env: env() },
@@ -615,32 +564,6 @@ const cases = [
   { id: 'signals-git-feature-branch', verb: 'context-signals', workspace: 'ctx-signals', setup: gitFeature, env: env() },
   { id: 'signals-git-dirty-non-ui', verb: 'context-signals', workspace: 'ctx-signals', setup: (ws) => { gitInit(ws); write(ws, 'src/util.ts', 'export const x = 2;\n'); write(ws, 'dist/bundle.css', 'a{}\n'); write(ws, 'README.md', 'x\n'); }, env: env() },
   { id: 'signals-git-dirty-renamed', verb: 'context-signals', workspace: 'ctx-signals', setup: (ws) => { gitInit(ws); git(ws, 'mv', 'src/App.tsx', 'src/Main.tsx'); }, env: env() },
-
-  // ======================================================================
-  // detect-csp
-  // ======================================================================
-  { id: 'csp-append-arrays', verb: 'detect-csp', workspace: 'ctx-csp-append-arrays', env: env() },
-  { id: 'csp-append-string', verb: 'detect-csp', workspace: 'ctx-csp-append-string', env: env() },
-  { id: 'csp-middleware', verb: 'detect-csp', workspace: 'ctx-csp-middleware', env: env() },
-  { id: 'csp-meta', verb: 'detect-csp', workspace: 'ctx-csp-meta', env: env() },
-  { id: 'csp-none', verb: 'detect-csp', workspace: 'ctx-csp-none', setup: (ws) => write(ws, 'node_modules/dep/middleware.ts', 'export function middleware(req, res) { res.headers.set("Content-Security-Policy", "x"); }\n'), env: env() },
-  { id: 'csp-nuxt-security', verb: 'detect-csp', workspace: 'ctx-csp-none', setup: (ws) => write(ws, 'nuxt.config.ts', "export default defineNuxtConfig({ modules: ['nuxt-security'], security: { headers: { contentSecurityPolicy: { 'script-src': [\"'self'\"] } } } });\n"), env: env() },
-  { id: 'csp-empty', verb: 'detect-csp', workspace: 'ctx-empty', env: env() },
-  // #710: Next.js 16 spells the request hook `proxy`, recognized at a project
-  // root or its src/ dir, and only where a Next project marker sits beside it.
-  { id: 'csp-proxy-root', verb: 'detect-csp', workspace: 'ctx-csp-none', setup: (ws) => write(ws, 'proxy.ts', PROXY_CSP_SOURCE), env: env() },
-  { id: 'csp-proxy-src', verb: 'detect-csp', workspace: 'ctx-csp-none', setup: (ws) => write(ws, 'src/proxy.ts', PROXY_CSP_SOURCE), env: env() },
-  {
-    id: 'csp-proxy-nested-app', verb: 'detect-csp', workspace: 'ctx-csp-none',
-    setup: (ws) => { write(ws, 'apps/web/app/page.tsx', 'export default function Page() { return null; }\n'); write(ws, 'apps/web/proxy.ts', PROXY_CSP_SOURCE); },
-    env: env(),
-  },
-  {
-    id: 'csp-proxy-nested-pkg', verb: 'detect-csp', workspace: 'ctx-csp-none',
-    setup: (ws) => { write(ws, 'apps/store/package.json', JSON.stringify({ dependencies: { next: '^16.0.0' } }) + '\n'); write(ws, 'apps/store/proxy.ts', PROXY_CSP_SOURCE); },
-    env: env(),
-  },
-  { id: 'csp-proxy-helper-ignored', verb: 'detect-csp', workspace: 'ctx-csp-none', setup: (ws) => write(ws, 'lib/network/proxy.ts', PROXY_CSP_SOURCE), env: env() },
 
   // ======================================================================
   // concept-seed (local catalog or offline degraded only)
@@ -681,57 +604,6 @@ const cases = [
   { id: 'seed-chosen-no-id-challenger', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--kind', 'challenger', '--from', 'k1'], env: seedEnv({ IMPECCABLE_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
   { id: 'seed-chosen-api-unreachable', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'x', '--kind', 'pick', '--from', 'k1', '--scope', 'surface'], env: seedEnv({ IMPECCABLE_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
 
-  // ======================================================================
-  // generate-image (fake mode + argument errors only)
-  // ======================================================================
-  { id: 'genimg-fake-missing-args', verb: 'generate-image', workspace: 'ctx-empty', args: ['--prompt', 'x'], env: env({ IMPECCABLE_IMAGE_GEN_FAKE: '1' }) },
-  { id: 'genimg-fake-missing-prompt', verb: 'generate-image', workspace: 'ctx-empty', args: ['--out', 'out.png'], env: env({ IMPECCABLE_IMAGE_GEN_FAKE: '1' }) },
-  { id: 'genimg-fake-svg', verb: 'generate-image', workspace: 'ctx-empty', setup: (ws) => fs.mkdirSync(path.join(ws, 'comps')), args: ['--prompt', 'A warm editorial hero for a note-taking app, paper texture, ink type, one blue accent, wide composition.', '--out', 'comps/hero.svg', '--size', '800x500'], env: env({ IMPECCABLE_IMAGE_GEN_FAKE: '1' }), files: ['comps/**'] },
-  { id: 'genimg-fake-svg-default-size', verb: 'generate-image', workspace: 'ctx-empty', args: ['--prompt', 'Short.', '--out', 'hero.svg', '--size', 'huge'], env: env({ IMPECCABLE_IMAGE_GEN_FAKE: '1' }), files: ['hero.svg*'] },
-  { id: 'genimg-fake-png', verb: 'generate-image', workspace: 'ctx-empty', setup: (ws) => fs.mkdirSync(path.join(ws, 'comps')), args: ['--prompt', 'A dashboard comp.', '--out', 'comps/dash.png', '--size', '640x400'], env: env({ IMPECCABLE_IMAGE_GEN_FAKE: '1' }), files: ['comps/**'], steps: [{}, { verb: 'embed-prompt', args: ['comps/dash.png', '--read'] }] },
-  { id: 'genimg-fake-prompt-file', verb: 'generate-image', workspace: 'ctx-empty', setup: (ws) => write(ws, 'prompt.txt', 'Prompt from file wins.\n'), args: ['--prompt', 'inline loses', '--prompt-file', 'prompt.txt', '--out', 'x.svg', '--size', '400x300'], env: env({ IMPECCABLE_IMAGE_GEN_FAKE: '1' }), files: ['x.svg*'] },
-  // generate-image writing a declared slot of a recorded hand marks it generated during that hand (one marker file per slot), so a deterministic regeneration with identical bytes still counts; a path no hand declares gets no marker.
-  { id: 'genimg-fake-marks-hand-slot', verb: 'generate-image', workspace: 'ctx-empty', setup: (ws) => { fs.mkdirSync(path.join(ws, '.impeccable/mocks/decision'), { recursive: true }); write(ws, '.impeccable/questions/k1.hand.json', JSON.stringify({ digest: '0123456789abcdef', comps: ['.impeccable/mocks/decision/a.png', '.impeccable/mocks/decision/b.png'], pre: {} })); }, args: ['--prompt', 'A decision comp.', '--out', '.impeccable/mocks/decision/a.png', '--size', '64x40'], env: env({ IMPECCABLE_IMAGE_GEN_FAKE: '1' }), files: ['.impeccable/questions/**'] },
-  { id: 'genimg-real-no-key', verb: 'generate-image', workspace: 'ctx-empty', args: ['--prompt', 'x', '--out', 'x.png'], env: env() },
-  { id: 'genimg-real-missing-args', verb: 'generate-image', workspace: 'ctx-empty', args: ['--out', 'x.png'], env: env({ OPENAI_API_KEY: 'sk-oracle' }) },
-
-  // ======================================================================
-  // serve-question (no browser, no listening server)
-  // ======================================================================
-  { id: 'question-schema', verb: 'serve-question', workspace: 'ctx-empty', args: ['--schema'], env: env() },
-  { id: 'question-disabled', verb: 'serve-question', workspace: 'ctx-empty', args: ['--schema'], env: env({ IMPECCABLE_QUESTION_DISABLED: '1' }) },
-  { id: 'question-headless-ci', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => write(ws, 'payload.json', JSON.stringify(QUESTION_PAYLOAD)), args: ['--payload', 'payload.json'], env: env({ CI: '1' }) },
-  { id: 'question-headless-ci-start', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => write(ws, 'payload.json', JSON.stringify(QUESTION_PAYLOAD)), args: ['--start', '--payload', 'payload.json'], env: env({ CI: '1' }) },
-  { id: 'question-wait-no-key', verb: 'serve-question', workspace: 'ctx-empty', args: ['--wait'], env: env() },
-  { id: 'question-wait-no-server', verb: 'serve-question', workspace: 'ctx-empty', args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-wait-answer-ready', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/' })); write(ws, '.impeccable/questions/k1.answer.json', JSON.stringify({ optionId: 'a', steer: 'keep the type', hero: 'https://x/hero.webp', comp: '.impeccable/mocks/decision/a.webp', buildPath: 'comp', buildPathFlipped: false })); }, args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-wait-answer-reroll', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/' })); write(ws, '.impeccable/questions/k1.answer.json', JSON.stringify({ optionId: 'reroll', steer: '', register: 'bolder' })); }, args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-wait-answer-canon-followup', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/' })); write(ws, '.impeccable/questions/k1.answer.json', JSON.stringify({ optionId: 'canon', steer: '', followup: true, buildPath: 'code', buildPathFlipped: true })); }, args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-wait-answer-raw', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/' })); write(ws, '.impeccable/questions/k1.answer.json', 'not-json'); }, args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-wait-flip', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/' })); write(ws, '.impeccable/questions/k1.flip.json', JSON.stringify({ buildPath: 'comp' })); }, args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-wait-page-closed', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/', lastBeat: 1000 })), args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-wait-dead-pid', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 2147483000, port: 1, url: 'http://127.0.0.1:1/', lastBeat: 1000 })), args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  // The decision-comp backstop: comps the live round declared (state.comps) that landed without a <comp>.json sidecar are named on every --wait return; b has its sidecar and c has not landed, so only a is named.
-  { id: 'question-wait-comp-sidecar-missing', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/', comps: ['.impeccable/mocks/decision/a.png', '.impeccable/mocks/decision/b.png', '.impeccable/mocks/decision/c.png'] })); write(ws, '.impeccable/mocks/decision/a.png', 'png'); write(ws, '.impeccable/mocks/decision/b.png', 'png'); write(ws, '.impeccable/mocks/decision/b.png.json', JSON.stringify({ prompt: 'b' })); }, args: ['--wait', '--key', 'k1', '--poll', '0'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-wait-answer-comp-sidecar-missing', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/', comps: ['.impeccable/mocks/decision/a.png', '.impeccable/mocks/decision/b.png'] })); write(ws, '.impeccable/mocks/decision/a.png', 'png'); write(ws, '.impeccable/mocks/decision/b.png', 'png'); write(ws, '.impeccable/questions/k1.answer.json', JSON.stringify({ optionId: 'a', steer: '', comp: '.impeccable/mocks/decision/a.png', buildPath: 'comp', buildPathFlipped: false })); }, args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  // Provenance: a declared comp counts for the hand only when its bytes differ from the file that sat at the slot when the hand began (the hand file's `pre` fingerprints). a is still those bytes (sha256 of "png"), so it is named COMP STALE, not a missing sidecar; b never landed.
-  { id: 'question-wait-comp-stale', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/', comps: ['.impeccable/mocks/decision/a.png', '.impeccable/mocks/decision/b.png'] })); write(ws, '.impeccable/questions/k1.hand.json', JSON.stringify({ digest: '0000000000000000', comps: ['.impeccable/mocks/decision/a.png', '.impeccable/mocks/decision/b.png'], pre: { '.impeccable/mocks/decision/a.png': '8f8cbb7dcf46e0bc7d53265749a6c17d116093a6ba95e442764060c76fd4a86c' } })); write(ws, '.impeccable/mocks/decision/a.png', 'png'); }, args: ['--wait', '--key', 'k1', '--poll', '0'], env: env(), files: ['.impeccable/questions/**'] },
-  // --update with a round that declares comps prints the NEXT visualize.md line; a code-led round (comp slots as flip reserve) does not.
-  { id: 'question-update-comps-next', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/' })); write(ws, 'payload.json', JSON.stringify({ title: 'Pick', options: [{ id: 'a', label: 'A', thesis: 'One.', comp: '.impeccable/mocks/decision/a.png' }, { id: 'b', label: 'B', thesis: 'Two.', comp: '.impeccable/mocks/decision/b.png' }], buildPath: { value: 'comp', toggle: true } })); }, args: ['--update', '--key', 'k1', '--payload', 'payload.json'], env: env(), files: ['.impeccable/questions/*.hand.json'],
-    // The per-hand id mixes the clock and the pid, so it is masked.
-    normalize: [['("id":")[0-9a-f]{16}', 'g', '$1<HAND_ID>']] },
-  { id: 'question-update-code-led-no-next', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/' })); write(ws, 'payload.json', JSON.stringify({ title: 'Pick', options: [{ id: 'a', label: 'A', thesis: 'One.', comp: '.impeccable/mocks/decision/a.png' }], buildPath: { value: 'code', toggle: true } })); }, args: ['--update', '--key', 'k1', '--payload', 'payload.json'], env: env() },
-  // A comp-round payload serves comps that already exist, so --update prints no NEXT line.
-  { id: 'question-update-comps-landed-no-next', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/' })); write(ws, '.impeccable/mocks/comp-a.png', 'png'); write(ws, '.impeccable/mocks/comp-b.png', 'png'); write(ws, 'payload.json', JSON.stringify({ title: 'Pick', options: [{ id: 'a', label: 'A', thesis: 'One.', comp: '.impeccable/mocks/comp-a.png' }, { id: 'b', label: 'B', thesis: 'Two.', comp: '.impeccable/mocks/comp-b.png' }] })); }, args: ['--update', '--key', 'k1', '--payload', 'payload.json'], env: env() },
-  // A comp-round pick (comp directly under .impeccable/mocks/) is the approved comp, not decision option one.
-  { id: 'question-wait-answer-comp-round', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 1, port: 1, url: 'http://127.0.0.1:1/', comps: ['.impeccable/mocks/comp-b-open-book.png'] })); write(ws, '.impeccable/mocks/comp-b-open-book.png', 'png'); write(ws, '.impeccable/mocks/comp-b-open-book.png.json', JSON.stringify({ prompt: 'b' })); write(ws, '.impeccable/questions/k1.answer.json', JSON.stringify({ optionId: 'b', steer: '', comp: '.impeccable/mocks/comp-b-open-book.png' })); }, args: ['--wait', '--key', 'k1', '--poll', '2'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-stop-no-key', verb: 'serve-question', workspace: 'ctx-empty', args: ['--stop'], env: env() },
-  { id: 'question-stop-nothing', verb: 'serve-question', workspace: 'ctx-empty', args: ['--stop', '--key', 'k1'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-stop-clears-files', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => { write(ws, '.impeccable/questions/k1.state.json', JSON.stringify({ pid: 2147483000, port: 1, url: 'x' })); write(ws, '.impeccable/questions/k1.answer.json', '{}'); write(ws, '.impeccable/questions/k1.log', 'log\n'); }, args: ['--stop', '--key', 'k1'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-update-no-key', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => write(ws, 'payload.json', JSON.stringify(QUESTION_PAYLOAD)), args: ['--update', '--payload', 'payload.json'], env: env() },
-  { id: 'question-update-empty-options', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => write(ws, 'payload.json', JSON.stringify({ options: [] })), args: ['--update', '--key', 'k1', '--payload', 'payload.json'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-update-no-server', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => write(ws, 'payload.json', JSON.stringify(QUESTION_PAYLOAD)), args: ['--update', '--key', 'k1', '--payload', 'payload.json'], env: env(), files: ['.impeccable/questions/**'] },
-  { id: 'question-payload-no-options', verb: 'serve-question', workspace: 'ctx-empty', setup: (ws) => write(ws, 'payload.json', JSON.stringify({ title: 'no options' })), args: ['--payload', 'payload.json', '--no-open'], env: env(), files: ['.impeccable/questions/**'] },
 ];
 
 export default cases;

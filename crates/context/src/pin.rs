@@ -4,19 +4,19 @@ use crate::jsp;
 use crate::util::{exists, read_json, safe_read};
 use impeccable_common::Io;
 
-/// Bundled copy of `skill/scripts/command-metadata.json` (build-time copy;
-/// keep in sync with the public repo).
-pub const COMMAND_METADATA_JSON: &str = include_str!("command-metadata.json");
+/// `skill/scripts/command-metadata.json`, compiled in as the fallback when the
+/// skill directory is not known at run time.
+pub const COMMAND_METADATA_JSON: &str = include_str!("../../../skill/scripts/command-metadata.json");
 
 const HARNESS_DIRS: [&str; 18] = [
     ".claude", ".cursor", ".dsh", ".gemini", ".codex", ".agents", ".agent", ".github", ".grok", ".hermes", ".trae", ".trae-cn",
     ".pi", ".opencode", ".kiro", ".rovodev", ".vibe", ".qoder",
 ];
 const CODEX_HARNESSES: [&str; 2] = [".codex", ".agents"];
-pub const VALID_COMMANDS: [&str; 24] = [
+pub const VALID_COMMANDS: [&str; 22] = [
     "craft", "init", "extract", "document", "shape", "critique", "audit", "polish", "bolder", "quieter", "distill",
-    "harden", "onboard", "live", "animate", "colorize", "typeset", "layout", "delight", "overdrive", "clarify",
-    "adapt", "optimize", "generate",
+    "harden", "onboard", "animate", "colorize", "typeset", "layout", "delight", "overdrive", "clarify",
+    "adapt", "optimize",
 ];
 const PIN_MARKER: &str = "<!-- impeccable-pinned-skill -->";
 const OPENCODE_PIN_MARKER: &str = "<!-- impeccable-pinned-command -->";

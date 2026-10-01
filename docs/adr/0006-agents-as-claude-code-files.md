@@ -1,6 +1,6 @@
 # 0006: Agents ship as Claude Code files with a generic fallback
 
-**Status:** Accepted · **Date:** 2026-10-01
+**Status:** Accepted · **Date:** 2026-10-01 · amended 2026-10-02
 
 ## Context
 
@@ -23,6 +23,8 @@ host without subagents runs the role inline. Agents never see SKILL.md, so
 the parent passes them `<scripts-path>`.
 
 ## Consequences
+
+- Two roles remain: the finish reviewer and the documenter. The asset producer left with comps (0012), the manual-edit applier with live mode (0011).
 
 - No generated Codex TOMLs (0002). Codex uses the fallback and loses the
   per-agent reasoning effort.

@@ -197,36 +197,6 @@ fn github_manifest() -> Value {
     ])
 }
 
-/// Gemini runs hooks through `bash -c` (PowerShell on Windows) after
-/// substituting `$GEMINI_PROJECT_DIR` with a shell-escaped path, so the POSIX
-/// token stays bare; PowerShell reads the env var. Timeouts are milliseconds.
-/// No per-edit detector: BeforeTool carries the session id into
-/// `build-phase` shell calls, AfterAgent runs the build-completion check.
-const GEMINI_HOOK_COMMAND: &str = "$GEMINI_PROJECT_DIR/.gemini/skills/impeccable/scripts/impeccable hook";
-const GEMINI_HOOK_COMMAND_WINDOWS: &str = "& \"$env:GEMINI_PROJECT_DIR/.gemini/skills/impeccable/scripts/impeccable.cmd\" hook";
-
-fn gemini_manifest() -> Value {
-    let cmd = if cfg!(windows) { GEMINI_HOOK_COMMAND_WINDOWS } else { GEMINI_HOOK_COMMAND };
-    let hook = |name: &str, timeout: i64| obj(vec![
-        ("name", Value::from(name)),
-        ("type", Value::from("command")),
-        ("command", Value::from(cmd)),
-        ("timeout", Value::from(timeout)),
-    ]);
-    obj(vec![(
-        "hooks",
-        obj(vec![
-            ("BeforeTool", Value::Array(vec![obj(vec![
-                ("matcher", Value::from("^run_shell_command$")),
-                ("hooks", Value::Array(vec![hook("impeccable-session", 5000)])),
-            ])])),
-            ("AfterAgent", Value::Array(vec![obj(vec![
-                ("hooks", Value::Array(vec![hook("impeccable-completion", 30000)])),
-            ])])),
-        ]),
-    )])
-}
-
 const HOOK_MANIFEST_TARGETS: &[ManifestTarget] = &[
     ManifestTarget {
         provider: ".claude",
@@ -259,14 +229,6 @@ const HOOK_MANIFEST_TARGETS: &[ManifestTarget] = &[
         shared_dest_rel: None,
         manifest: github_manifest,
         user_settings: false,
-    },
-    ManifestTarget {
-        provider: ".gemini",
-        skill_rel: ".gemini/skills/impeccable",
-        dest_rel: ".gemini/settings.json",
-        shared_dest_rel: None,
-        manifest: gemini_manifest,
-        user_settings: true,
     },
 ];
 

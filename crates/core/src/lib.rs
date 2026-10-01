@@ -8,9 +8,7 @@
 //! This crate re-exports those modules for its own convenience, so
 //! `crate::js`, `crate::color`, `crate::browser::dom` and friends keep
 //! resolving inside it, and so consumers can name everything through
-//! `impeccable_core::`. No filesystem, process, or network access lives here,
-//! and the crate compiles to wasm (`crates/wasm` builds the in-page bundle
-//! and the extension core from it).
+//! `impeccable_core::`. No filesystem, process, or network access lives here.
 
 pub mod browser;
 pub mod checks;
