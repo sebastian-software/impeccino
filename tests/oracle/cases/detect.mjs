@@ -97,6 +97,14 @@ function Thumb({ url }: { url?: string }) {
       args: ['--no-config', '--json', 'locked.html'],
     },
     {
+      id: 'detect-latin1-css-json', verb: 'detect',
+      setup: (ws) => fs.writeFileSync(
+        path.join(ws, 'latin1.css'),
+        Buffer.from([0x61, 0x7b, 0x63, 0x6f, 0x6c, 0x6f, 0x72, 0x3a, 0x72, 0x65, 0x64, 0x7d, 0x2f, 0x2a, 0x20, 0x63, 0x61, 0x66, 0xe9, 0x20, 0x2a, 0x2f, 0x0a]),
+      ),
+      args: ['--no-config', '--json', 'latin1.css'],
+    },
+    {
       id: 'detect-unreadable-file-in-dir', verb: 'detect',
       setup: (ws) => {
         fs.writeFileSync(path.join(ws, 'a.html'), '<div style="border-left: 4px solid #ff0000">x</div>\n');

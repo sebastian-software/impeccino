@@ -940,28 +940,7 @@ fn extract_finding_ignore_value_raw(finding: &Finding, rule: &str) -> String {
 
 /// JS `decodeURIComponent` with the source's `try { } catch { raw }` fallback.
 pub fn decode_uri_component(s: &str) -> String {
-    let bytes = s.as_bytes();
-    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' {
-            if i + 2 < bytes.len() {
-                let hex = &s[i + 1..i + 3];
-                if let Ok(v) = u8::from_str_radix(hex, 16) {
-                    out.push(v);
-                    i += 3;
-                    continue;
-                }
-            }
-            return s.to_string();
-        }
-        out.push(bytes[i]);
-        i += 1;
-    }
-    match String::from_utf8(out) {
-        Ok(v) => v,
-        Err(_) => s.to_string(),
-    }
+    impeccino_core::browser::driver::decode_uri_component(s).unwrap_or_else(|| s.to_string())
 }
 
 re!(
@@ -1120,5 +1099,11 @@ mod tests {
         assert_eq!(normalize_ignore_value(" 'Open+Sans' "), "open sans");
         assert_eq!(decode_uri_component("Open%20Sans"), "Open Sans");
         assert_eq!(decode_uri_component("bad%zz"), "bad%zz");
+    }
+
+    #[test]
+    fn uri_decode_falls_back_on_percent_before_non_ascii() {
+        let input = "file:///x/100%日.html";
+        assert_eq!(decode_uri_component(input), input);
     }
 }

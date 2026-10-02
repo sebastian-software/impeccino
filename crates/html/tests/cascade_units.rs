@@ -6,6 +6,8 @@ use impeccino_html::cascade::rules::{
     apply_static_declaration, parse_static_style_attribute, DeclMeta, SpecifiedStore,
 };
 use impeccino_html::cascade::values::{normalize_color_for_check, unwrap_css_at_layer};
+use impeccino_html::{detect_html_source, DetectHtmlOptions};
+use std::path::Path;
 
 #[test]
 fn normalize_color_for_check_matches_node() {
@@ -208,4 +210,31 @@ fn checks_shim_helpers() {
     assert_eq!(resolve_length_px("2em", 10.0), Some(20.0));
     assert_eq!(resolve_length_px("50%", 10.0), Some(5.0));
     assert_eq!(resolve_length_px("1.5", 10.0), Some(15.0));
+}
+
+#[test]
+fn unitless_line_height_inherits_at_the_child_font_size() {
+    let html = include_str!("../../../tests/fixtures/antipatterns/line-height-cascade.html");
+    let findings = detect_html_source(
+        html,
+        Path::new("/fixture/line-height-cascade.html"),
+        &DetectHtmlOptions::default(),
+    );
+    let tight_leading: Vec<_> = findings
+        .iter()
+        .filter(|finding| finding.antipattern == "tight-leading")
+        .collect();
+
+    assert_eq!(
+        tight_leading.len(),
+        4,
+        "only the four deliberately tight cases should be flagged: {tight_leading:?}"
+    );
+    let tracking = findings
+        .iter()
+        .find(|finding| finding.antipattern == "wide-tracking");
+    assert!(
+        tracking.is_some_and(|finding| finding.snippet.contains("0.06em on body text")),
+        "the 0.06em rule before the larger font size should be measured against 22px: {tracking:?}"
+    );
 }
