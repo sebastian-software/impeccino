@@ -311,11 +311,9 @@ function buildInvocation(c, { impl, bin, ws, isolatedHome }) {
     NO_COLOR: '1',
     FORCE_COLOR: '0',
     IMPECCINO_NO_UPDATE_CHECK: '1',
-    IMPECCINO_NO_TELEMETRY: '1',
     // Context reports a missing agent-browser; any existing file counts as
     // installed, so goldens do not depend on the recording machine's PATH.
     IMPECCINO_AGENT_BROWSER: process.execPath,
-    DO_NOT_TRACK: '1',
     ...(c.isolateHome === false ? {} : { HOME: isolatedHome, USERPROFILE: isolatedHome }),
     // What the launcher exports for the binary (see launcher/impeccino in the engine repo).
     ...(impl === 'bin' ? { IMPECCINO_SKILL_DIR: path.join(REPO_ROOT, 'skill'), IMPECCINO_SELF: bin } : {}),

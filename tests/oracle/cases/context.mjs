@@ -16,10 +16,9 @@
  *   ctx-signals        git-initialised in setup() with fixed author/committer dates
  *   ctx-pin            .claude/.agents/.cursor skills dirs with impeccino installed
  *
- * Only offline, deterministic paths are exercised: no roll API and no listening
- * server. Env vars that would change behaviour on the
- * recording machine (OPENAI_API_KEY, catalog/context overrides, CI) are pinned
- * per case through BASE_ENV.
+ * Only offline, deterministic paths are exercised: no listening server. Env
+ * vars that would change behaviour on the recording machine (OPENAI_API_KEY,
+ * context overrides, CI) are pinned per case through BASE_ENV.
  */
 
 import fs from 'node:fs';
@@ -29,15 +28,10 @@ import { execFileSync } from 'node:child_process';
 
 const WS = '<WS>';
 
-// #710: a Next.js 16 proxy request hook that sets a CSP header.
-const REPO = '<REPO>';
-
 // Env the recording machine may carry that would leak into output.
 const BASE_ENV = {
   OPENAI_API_KEY: null,
   IMPECCINO_CONTEXT_DIR: null,
-  IMPECCINO_CATALOG_DIR: null,
-  IMPECCINO_API_URL: null,
   IMPECCINO_STALENESS_CACHE: null,
   IMPECCINO_UPDATE_CACHE: null,
   IMPECCINO_NO_STALENESS_CHECK: null,
@@ -47,7 +41,6 @@ const BASE_ENV = {
   XDG_CONFIG_HOME: null,
   IMPECCINO_PALETTE_SEED: null,
   IMPECCINO_CONCEPT_SEED: null,
-  IMPECCINO_COMPOSITIONS: null,
   IMPECCINO_IMAGE_GEN_FAKE: null,
   IMPECCINO_QUESTION_DISABLED: null,
   IMPECCINO_QUESTION_FORCE: null,
@@ -157,10 +150,6 @@ const imagesSetup = (ws) => {
   fs.writeFileSync(path.join(ws, 'assets/notes.txt'), 'not a raster\n');
   fs.writeFileSync(path.join(ws, 'prompt.txt'), 'A prompt read from a file.\nSecond line.\n');
 };
-
-const CATALOG = `${REPO}/tests/fixtures/concept-catalog`;
-const seedEnv = (extra = {}) => env({ IMPECCINO_CATALOG_DIR: CATALOG, IMPECCINO_API_URL: 'http://127.0.0.1:9/api', IMPECCINO_API_TIMEOUT: '300', ...extra });
-const degradedEnv = (extra = {}) => env({ IMPECCINO_CATALOG_DIR: `${WS}/no-such-catalog`, IMPECCINO_API_URL: 'http://127.0.0.1:9/api', IMPECCINO_API_TIMEOUT: '300', ...extra });
 
 
 const cases = [
@@ -568,43 +557,30 @@ const cases = [
   { id: 'signals-git-dirty-renamed', verb: 'context-signals', workspace: 'ctx-signals', setup: (ws) => { gitInit(ws); git(ws, 'mv', 'src/App.tsx', 'src/Main.tsx'); }, env: env() },
 
   // ======================================================================
-  // concept-seed (local catalog or offline degraded only)
+  // concept-seed (local only: the roll assigns an index into the model's own list)
   // ======================================================================
-  { id: 'seed-scope-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'world', '--from', 'k1'], env: seedEnv() },
-  { id: 'seed-reroll-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--reroll', '-1'], env: seedEnv() },
-  { id: 'seed-register-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--reroll', '1', '--register', 'wild'], env: seedEnv() },
-  { id: 'seed-register-without-reroll', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--register', 'bolder'], env: seedEnv() },
-  { id: 'seed-register-surface', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--from', 'k1', '--reroll', '1', '--register', 'bolder'], env: seedEnv() },
-  { id: 'seed-mode-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--mode', 'sell'], env: seedEnv() },
-  { id: 'seed-grain-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--from', 'k1', '--grain', 'pixel'], env: seedEnv() },
-  { id: 'seed-platform-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--from', 'k1', '--platform', 'tv'], env: seedEnv() },
-  { id: 'seed-candidate-count-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--candidate-count', '9'], env: seedEnv() },
-  { id: 'seed-no-product-gate', verb: 'concept-seed', workspace: 'ctx-visual-only', args: ['--scope', 'direction', '--from', 'k1'], env: seedEnv() },
-  { id: 'seed-direction-local', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'persuade', '--from', 'oracle-key-1'], env: seedEnv() },
-  { id: 'seed-direction-local-reroll', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'persuade', '--from', 'oracle-key-1', '--reroll', '1'], env: seedEnv() },
-  { id: 'seed-direction-local-reroll-bolder', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'persuade', '--from', 'oracle-key-1', '--reroll', '2', '--register', 'bolder'], env: seedEnv() },
-  { id: 'seed-direction-local-reroll-safer', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'oracle-key-1', '--reroll', '1', '--register', 'safer'], env: seedEnv() },
-  { id: 'seed-direction-local-count-5', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'operate', '--from', 'oracle-key-2', '--candidate-count', '5'], env: seedEnv() },
-  // Operate draws five graphic worlds and one interaction world, never atmosphere
-  // (TIER_QUOTAS in roll_selection.rs, in parity with the site's roll API).
-  { id: 'seed-direction-local-operate', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'operate', '--from', 'oracle-key-1'], env: seedEnv() },
-  { id: 'seed-direction-local-unscoped', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'oracle-key-3'], env: seedEnv() },
-  { id: 'seed-direction-env-key', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction'], env: seedEnv({ IMPECCINO_CONCEPT_SEED: 'oracle-key-1' }) },
-  { id: 'seed-surface-local', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'operate', '--from', 'oracle-key-1'], env: seedEnv() },
-  { id: 'seed-surface-local-default-scope', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--mode', 'operate', '--from', 'oracle-key-1'], env: seedEnv() },
-  { id: 'seed-surface-local-grain-flow', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'read', '--from', 'oracle-key-2', '--grain', 'flow', '--platform', 'ios'], env: seedEnv() },
-  { id: 'seed-surface-local-compositions', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'persuade', '--from', 'oracle-key-1', '--platform', 'web'], env: seedEnv({ IMPECCINO_COMPOSITIONS: '1' }) },
-  { id: 'seed-surface-local-card-base', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'experience', '--from', 'oracle-key-4', '--reroll', '1'], env: seedEnv({ IMPECCINO_CARD_BASE: 'https://cards.example/base/' }) },
-  { id: 'seed-degraded-direction', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'persuade', '--from', 'oracle-key-1'], env: degradedEnv() },
-  { id: 'seed-degraded-surface', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'operate', '--from', 'oracle-key-1'], env: degradedEnv() },
-  { id: 'seed-degraded-safer', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'oracle-key-1', '--reroll', '1', '--register', 'safer'], env: degradedEnv() },
-  { id: 'seed-degraded-bolder', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'oracle-key-1', '--reroll', '1', '--register', 'bolder'], env: degradedEnv() },
-  { id: 'seed-degraded-no-product-gate', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--scope', 'direction', '--from', 'k1'], env: degradedEnv() },
-  { id: 'seed-chosen-telemetry-off', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'some-id', '--kind', 'challenger', '--from', 'k1', '--scope', 'direction'], env: seedEnv() },
-  { id: 'seed-kind-assigned-telemetry-off', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--kind', 'assigned', '--from', 'k1', '--scope', 'direction'], env: seedEnv() },
-  { id: 'seed-chosen-bad-kind', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'x', '--kind', 'random', '--from', 'k1'], env: seedEnv({ IMPECCINO_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
-  { id: 'seed-chosen-no-id-challenger', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--kind', 'challenger', '--from', 'k1'], env: seedEnv({ IMPECCINO_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
-  { id: 'seed-chosen-api-unreachable', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'x', '--kind', 'pick', '--from', 'k1', '--scope', 'surface'], env: seedEnv({ IMPECCINO_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
+  { id: 'seed-scope-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'world', '--from', 'k1'], env: env() },
+  { id: 'seed-reroll-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--reroll', '-1'], env: env() },
+  { id: 'seed-register-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--reroll', '1', '--register', 'wild'], env: env() },
+  { id: 'seed-register-without-reroll', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--register', 'bolder'], env: env() },
+  { id: 'seed-register-surface', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--from', 'k1', '--reroll', '1', '--register', 'bolder'], env: env() },
+  { id: 'seed-mode-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--mode', 'sell'], env: env() },
+  { id: 'seed-candidate-count-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--candidate-count', '9'], env: env() },
+  { id: 'seed-no-product-gate', verb: 'concept-seed', workspace: 'ctx-visual-only', args: ['--scope', 'direction', '--from', 'k1'], env: env() },
+  { id: 'seed-no-product-gate-empty', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--scope', 'direction', '--from', 'k1'], env: env() },
+  { id: 'seed-direction', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'persuade', '--from', 'oracle-key-1'], env: env() },
+  { id: 'seed-direction-reroll', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'persuade', '--from', 'oracle-key-1', '--reroll', '1'], env: env() },
+  { id: 'seed-direction-bolder', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'oracle-key-1', '--reroll', '1', '--register', 'bolder'], env: env() },
+  { id: 'seed-direction-safer', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'oracle-key-1', '--reroll', '1', '--register', 'safer'], env: env() },
+  { id: 'seed-direction-count-5', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'operate', '--from', 'oracle-key-2', '--candidate-count', '5'], env: env() },
+  { id: 'seed-direction-unscoped', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'oracle-key-3'], env: env() },
+  { id: 'seed-direction-env-key', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction'], env: env({ IMPECCINO_CONCEPT_SEED: 'oracle-key-1' }) },
+  { id: 'seed-surface', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'operate', '--from', 'oracle-key-1'], env: env() },
+  { id: 'seed-surface-default-scope', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--mode', 'operate', '--from', 'oracle-key-1'], env: env() },
+  { id: 'seed-surface-reroll', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'experience', '--from', 'oracle-key-4', '--reroll', '1'], env: env() },
+  // The choice ping is gone (docs/adr/0019); its flags answer with a removal note.
+  { id: 'seed-removed-chosen', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'some-id', '--kind', 'challenger', '--from', 'k1', '--scope', 'direction'], env: env() },
+  { id: 'seed-removed-kind', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--kind', 'assigned', '--from', 'k1', '--scope', 'direction'], env: env() },
 
 ];
 
