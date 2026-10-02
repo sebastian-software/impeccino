@@ -2,13 +2,13 @@ name: release-engine
 # Builds the engine binary for every supported target and publishes them as
 # the GitHub Release `engine-v<X>` on this repo. That
 # release is what the launcher (skill/scripts/impeccino) and
-# `bun run fetch:engine` download. Binaries are not code-signed; a GitHub
+# `pnpm run fetch:engine` download. Binaries are not code-signed; a GitHub
 # build attestation binds each one to this repo and workflow (verify with
 # `gh attestation verify <file> -R <repo>`). The release is published only
 # once every asset is attached, so it works with immutable releases;
 # scripts/pin-engine.mjs then pins the digests into the skill.
 #
-# Trigger: `bun run release:engine` (scripts/release.mjs) verifies
+# Trigger: `pnpm run release:engine` (scripts/release.mjs) verifies
 # skill/scripts/VERSION and a clean tree, then pushes the tag. Third-party actions are pinned to commit SHAs so a
 # moved tag cannot swap the code this workflow runs.
 on:

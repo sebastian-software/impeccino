@@ -12,17 +12,17 @@ contract.
 ## Run
 
 ```bash
-bun run test:skill-behavior
-IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 bun run test:skill-behavior   # dump per-scenario traces
-IMPECCINO_SKILL_BEHAVIOR_MODELS=claude-sonnet-5 bun run test:skill-behavior   # scope to one model
-IMPECCINO_SKILL_BEHAVIOR_EFFORT=xhigh bun run test:skill-behavior             # OpenAI reasoning effort (default: high)
+pnpm run test:skill-behavior
+IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 pnpm run test:skill-behavior   # dump per-scenario traces
+IMPECCINO_SKILL_BEHAVIOR_MODELS=claude-sonnet-5 pnpm run test:skill-behavior   # scope to one model
+IMPECCINO_SKILL_BEHAVIOR_EFFORT=xhigh pnpm run test:skill-behavior             # OpenAI reasoning effort (default: high)
 ```
 
 Requires `.env` at repo root with at least one of `ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`, `GOOGLE_CLOUD_API_KEY`, `DEEPSEEK_API_KEY`. Providers without a key are
 skipped, not failed.
 
-Also requires the engine binary (`bun run fetch:engine`, or `IMPECCINO_BIN`).
+Also requires the engine binary (`pnpm run fetch:engine`, or `IMPECCINO_BIN`).
 The staged skill dir ships the launcher (`scripts/impeccino`); the harness
 exports `IMPECCINO_BIN` into every bash call the agent makes, so the launcher
 resolves the binary in the generated fixture without a download. Without a
@@ -32,7 +32,7 @@ To run a single scenario against one model:
 
 ```bash
 IMPECCINO_SKILL_BEHAVIOR_MODELS=claude-sonnet-5 IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 \
-  node --test --test-timeout=600000 --test-name-pattern="scenario 6" tests/skill-behavior/scenarios.test.mjs
+  pnpm exec vitest run --testTimeout=600000 -t "scenario 6" tests/skill-behavior/scenarios.test.mjs
 ```
 
 ## How it works
@@ -48,9 +48,9 @@ Failed file reads do not count as project exploration.
 Full workflows moved to `tests/skill-workflow/full-build.test.mjs`:
 
 ```bash
-bun run fetch:engine
-bunx playwright install chromium
-bun run test:skill-workflow
+pnpm run fetch:engine
+pnpm exec playwright install chromium
+pnpm run test:skill-workflow
 ```
 
 This separately billed suite defaults to Claude only; use
@@ -94,14 +94,14 @@ a missing binary. Full-build results must be reported separately from routing.
 
 ### Scoping a run while investigating
 
-Both files honor `--test-name-pattern`, which is much cheaper than a full sweep
+Both files honor Vitest's `-t <name pattern>`, which is much cheaper than a full sweep
 when bisecting one scenario:
 
 ```bash
 CI=1 IMPECCINO_SKILL_BEHAVIOR_MODELS=deepseek-v4-flash \
-  node --test --test-timeout=300000 --test-force-exit \
-  --test-name-pattern="bolder refinement" tests/skill-workflow/full-build.test.mjs
+  pnpm exec vitest run --testTimeout=300000 \
+  -t "bolder refinement" tests/skill-workflow/full-build.test.mjs
 ```
 
-Use the suite's 900000ms timeout for full workflow cases. Pipe to a file rather than `tail`; node prints the failing-test summary at the end,
+Use the suite's 900000ms timeout for full workflow cases. Pipe to a file rather than `tail`; Vitest prints the failing-test summary at the end,
 and truncating it costs you the per-model attribution.

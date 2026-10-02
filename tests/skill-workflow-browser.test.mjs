@@ -1,4 +1,4 @@
-import { it, mock } from 'node:test';
+import { it, vi } from 'vitest';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -7,11 +7,11 @@ import { prepareBrowser, imageOutput } from './skill-workflow/browser.mjs';
 import { chromium } from 'playwright';
 
 it('fails browser preflight with an actionable error before starting a workflow', async () => {
-  const launch = mock.method(chromium, 'launch', async () => { throw new Error('browser missing'); });
+  const launch = vi.spyOn(chromium, 'launch').mockImplementation(async () => { throw new Error('browser missing'); });
   try {
     await assert.rejects(prepareBrowser('/unused'), /playwright install chromium/);
   } finally {
-    launch.mock.restore();
+    launch.mockRestore();
   }
 });
 

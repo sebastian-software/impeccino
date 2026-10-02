@@ -1,4 +1,4 @@
-import { it } from 'node:test';
+import { it } from 'vitest';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,8 +31,8 @@ for (const modelId of (process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS || 'claude-so
   for (const mode of ['extension', 'new world', 'redesign']) {
     const existingSystem = mode !== 'new world';
     const preserveSystem = mode === 'extension';
-    it(`post-review ${mode} ${preserveSystem ? 'preserves' : 'records'} its system :: ${modelId}`,
-      { skip: !ENGINE_BIN || !hasKey(detectProvider(modelId)) }, async (t) => {
+    it.skipIf(!ENGINE_BIN || !hasKey(detectProvider(modelId)))(`post-review ${mode} ${preserveSystem ? 'preserves' : 'records'} its system :: ${modelId}`,
+      async (t) => {
         const files = {
           'PRODUCT.md': '# Field Manual\n\n## Platform\nweb\n\nA reference guide for keyboard users.\n',
           ...(existingSystem ? { 'DESIGN.md': preserveSystem ? DESIGN : '# Old Field Manual\n\nBeige cards, serif body type, orange links.\n' } : {}),
@@ -63,7 +63,7 @@ for (const modelId of (process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS || 'claude-so
             userPrompt: 'Continue from this checkpoint and finish the task.',
           });
           assertCompleted(result);
-          t.diagnostic(`Documentation wrapper coverage gaps (diagnostic; contract and artifacts remain required): ${missingReferences(result.trace, ['agents/impeccino-documenter.md']).join(', ') || 'none'}`);
+          console.log(`Documentation wrapper coverage gaps (diagnostic; contract and artifacts remain required): ${missingReferences(result.trace, ['agents/impeccino-documenter.md']).join(', ') || 'none'}`);
           assert.ok(fileLoaded(result.trace, 'reference/document.md'), 'must consult the documentation contract');
           for (const name of existingSystem ? ['index.html', 'DESIGN.md'] : ['index.html']) {
             assert.ok(fileLoaded(result.trace, name), `documentation must check ${name}, not merely announce a no-op`);

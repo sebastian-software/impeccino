@@ -35,8 +35,8 @@ The body is the same for every harness (ADR 0001). Write the launcher as `"<skil
 ## Checks
 
 ```bash
-bun run check         # Count claims, skill frontmatter limits, prose gates
-bun run fetch:engine  # Pinned engine binary for this machine into skill/scripts/bin/
+pnpm run check         # Count claims, skill frontmatter limits, prose gates
+pnpm run fetch:engine  # Pinned engine binary for this machine into skill/scripts/bin/
 ```
 
 To try an edit in a harness, link `skill/` into a project as `.claude/skills/impeccino` or `.agents/skills/impeccino`.
@@ -44,9 +44,9 @@ To try an edit in a harness, link `skill/` into a project as `.claude/skills/imp
 ## Testing
 
 ```bash
-bun run test                  # Default suites: core + oracle (no API keys needed; the oracle skips without an engine binary)
-bun run test:skill-behavior   # Opt-in: LLM-backed checks that the SKILL.md Setup flow actually drives the agent (~5 min, costs cents, needs `.env`)
-bun run test:skill-workflow   # Opt-in: provider-backed completed workflows; the test harness needs `npx playwright install chromium` once
+pnpm run test                  # Default suites: core + oracle (no API keys needed; the oracle skips without an engine binary)
+pnpm run test:skill-behavior   # Opt-in: LLM-backed checks that the SKILL.md Setup flow actually drives the agent (~5 min, costs cents, needs `.env`)
+pnpm run test:skill-workflow   # Opt-in: provider-backed completed workflows; the test harness needs `npx playwright install chromium` once
 ```
 
 The skill-behavior suite runs the models in `DEFAULT_MODELS` (`tests/skill-behavior/providers.mjs`) with the source `skill/SKILL.md` inlined as the system prompt and a workspace-scoped `bash`/`read`/`write`/`list` tool set. It then asserts on the tool-call trace, not on free-form output. Use it whenever you edit `skill/SKILL.md`'s Setup section or any Setup-touching reference (`init.md`, `document.md`, `new-work.md`, sub-command refs). Per-scenario assertions and the current baseline live in `tests/skill-behavior/README.md`. Provider keys live in repo-root `.env` (gitignored); missing keys skip cleanly.
@@ -62,7 +62,7 @@ Impeccino itself runs nothing in a browser ([ADR 0011](adr/0011-no-own-browser-s
 3. **Clear instructions**: LLM should understand exactly what to do
 4. **Include examples**: Where they clarify intent
 5. **State constraints**: What NOT to do as clearly as what to do
-6. **Test across providers**: Verify it works in multiple contexts. For Setup-related edits to `skill/`, `bun run test:skill-behavior` automates this across several model families.
+6. **Test across providers**: Verify it works in multiple contexts. For Setup-related edits to `skill/`, `pnpm run test:skill-behavior` automates this across several model families.
 
 ## Reference Documentation
 
@@ -93,9 +93,9 @@ impeccino/
     agents/                        # Claude Code agent files for the shipped roles
   crates/                          # Engine binary (Rust workspace); see docs/ENGINE.md
   scripts/
-    check.js                       # Repository checks (`bun run check`)
+    check.js                       # Repository checks (`pnpm run check`)
     release.mjs                    # Per-component release tags (engine, skill)
-  tests/                           # Bun and Node test suites; tests/oracle/ is the engine's behavioral contract
+  tests/                           # Vitest suites; tests/oracle/ is the engine's behavioral contract
   docs/
     adr/                           # Light ADRs
     ENGINE.md                      # Crate map and engine build
@@ -111,7 +111,7 @@ impeccino/
 ### A harness does not pick up the skill
 - Check that the folder is named `impeccino` inside the harness's skills directory.
 - Some harnesses gate project skills behind a trust step; see [HARNESSES.md](HARNESSES.md).
-- Run `bun test tests/skill-source.test.js` to confirm the frontmatter and portability rules.
+- Run `pnpm exec vitest run tests/skill-source.test.js` to confirm the frontmatter and portability rules.
 
 ## Questions?
 

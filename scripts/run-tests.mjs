@@ -7,6 +7,7 @@ import { DEFAULT_SUITES, OPT_IN_SUITES, SUITES, expandSuites } from './test-suit
 import { createGroupShutdown, trackChildExit } from './lib/process-group.mjs';
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const VITEST = path.join(REPO_ROOT, 'node_modules', 'vitest', 'vitest.mjs');
 
 // Global wall-clock backstop for any one command. Even with per-test timeouts
 // and client-side network deadlines in place, a wedged tool or an orphaned
@@ -29,8 +30,8 @@ if (args.includes('--list')) {
 
 /**
  * Suite commands run in their own process group, which buys two things: the
- * wall-clock cap can SIGKILL a wedged tree whole (the runner, its per-file
- * `node --test` workers, and any grandchildren or browsers they left open),
+ * wall-clock cap can SIGKILL a wedged tree whole (Vitest, its worker
+ * processes, and any grandchildren or browsers they left open),
  * and a Ctrl-C can end that same tree deterministically instead of orphaning
  * it. Nothing in this file may use spawnSync: a blocked event loop cannot run
  * the signal handlers that make either guarantee, and cannot reap the child it
@@ -75,22 +76,13 @@ async function runCommand(command, suiteName) {
   const env = { ...process.env, ...(command.env || {}) };
   const wallClockMs = command.wallClockMs ?? DEFAULT_WALL_CLOCK_MS;
 
-  if (command.runner === 'bun') {
-    await runProcess('bun', ['test', ...command.files], { env, wallClockMs });
-  } else if (command.runner === 'node') {
-    // One invocation for the whole file list: node --test runs each file in
-    // its own child process regardless, so isolation is unchanged, but the
-    // runner-per-file spawn overhead is gone and files execute concurrently.
-    // Suites can pin `concurrency: 1` if their tests ever contend for a
-    // shared resource.
-    const nodeArgs = ['--test', `--test-concurrency=${command.concurrency ?? 4}`];
-    if (command.timeoutMs) nodeArgs.push(`--test-timeout=${command.timeoutMs}`);
-    if (command.forceExit) nodeArgs.push('--test-force-exit');
-    nodeArgs.push(...command.files);
-    await runProcess(process.execPath, nodeArgs, { env, wallClockMs });
-  } else {
-    throw new Error(`Unsupported test runner "${command.runner}"`);
-  }
+  if (command.runner !== 'vitest') throw new Error(`Unsupported test runner "${command.runner}"`);
+  // One Vitest invocation per command; it runs the files in parallel worker
+  // processes (vitest.config.mjs: pool forks).
+  const vitestArgs = [VITEST, 'run', '--config', path.join(REPO_ROOT, 'vitest.config.mjs')];
+  if (command.timeoutMs) vitestArgs.push(`--testTimeout=${command.timeoutMs}`, `--hookTimeout=${command.timeoutMs}`);
+  vitestArgs.push(...command.files);
+  await runProcess(process.execPath, vitestArgs, { env, wallClockMs });
 }
 
 function runProcess(cmd, args, { env, wallClockMs }) {
@@ -120,7 +112,7 @@ function runProcess(cmd, args, { env, wallClockMs }) {
             'killing the process group (SIGKILL).',
           );
           // A test blocked in a synchronous spawnSync cannot be reached by
-          // node's --test-timeout, so this is the guaranteed end of the tree.
+          // Vitest's test timeout, so this is the guaranteed end of the tree.
           // No graceful phase: the cap has already been generous.
           try { process.kill(-running.child.pid, 'SIGKILL'); }
           catch { try { running.child.kill('SIGKILL'); } catch { /* already gone */ } }
@@ -151,8 +143,8 @@ function runProcess(cmd, args, { env, wallClockMs }) {
 }
 
 function formatCommand(cmd, args) {
-  const bin = cmd === process.execPath ? 'node' : cmd;
-  return [bin, ...args].join(' ');
+  const shown = cmd === process.execPath && args[0] === VITEST ? ['vitest', ...args.slice(1)] : [cmd === process.execPath ? 'node' : cmd, ...args];
+  return shown.join(' ');
 }
 
 function printHelp() {

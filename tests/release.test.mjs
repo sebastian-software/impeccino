@@ -10,7 +10,7 @@
  * uses --dry-run, which skips all mutating steps (tag, push, gh release,
  * builds) but exercises every guard on the way there.
  */
-import { describe, it, before, after, beforeEach } from 'node:test';
+import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -55,7 +55,7 @@ describe('release.mjs guards', () => {
     fs.writeFileSync(abs, contents);
   };
 
-  before(() => {
+  beforeAll(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccino-release-'));
     bareDir = path.join(root, 'origin.git');
     workDir = path.join(root, 'work');
@@ -91,7 +91,7 @@ describe('release.mjs guards', () => {
     baselineSha = git(workDir, 'rev-parse', 'HEAD');
   });
 
-  after(() => {
+  afterAll(() => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 

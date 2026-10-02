@@ -6,12 +6,12 @@
  * assertions green. If you change Setup intentionally and the assertions
  * flip, that's the test catching the regression you wanted to catch.
  *
- * Run with:  bun run test:skill-behavior
+ * Run with:  pnpm run test:skill-behavior
  *
  * Skips per-provider when its API key is unset. The default model lineup is
  * the cheapest tier of each major provider so a full sweep costs a few cents.
  */
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
@@ -84,11 +84,11 @@ for (const modelId of resolveModelList()) {
 
   describe(`skill behavior :: ${modelId}`, () => {
     if (!keyPresent) {
-      it(`skipped — ${PROVIDERS[provider].envKey} is unset`, { skip: true }, () => {});
+      it.skip(`skipped — ${PROVIDERS[provider].envKey} is unset`, () => {});
       return;
     }
     if (!ENGINE_BIN) {
-      it(`skipped — ${ENGINE_MISSING_MESSAGE}`, { skip: true }, () => {});
+      it.skip(`skipped — ${ENGINE_MISSING_MESSAGE}`, () => {});
       return;
     }
     const model = getModel(modelId);
@@ -570,7 +570,7 @@ for (const modelId of resolveModelList()) {
           });
           const { trace, text } = result;
           logTrace('S16', label, modelId, trace, { textSample: text.slice(0, 300) });
-          t.diagnostic(`Reference coverage gaps (non-blocking): ${missingReferences(trace, ['reference/routing.md']).join(', ') || 'none'}`);
+          console.log(`Reference coverage gaps (non-blocking): ${missingReferences(trace, ['reference/routing.md']).join(', ') || 'none'}`);
           assertCompleted(result);
           assertWorkflowAdvice(trace, text, { missingContext: label === 'missing product context' });
         } finally {
@@ -591,7 +591,7 @@ for (const modelId of resolveModelList()) {
         });
         const { trace, text } = result;
         logTrace('S17', 'command-comparison', modelId, trace, { textSample: text.slice(0, 300) });
-        t.diagnostic(`Reference coverage gaps (non-blocking): ${missingReferences(trace, ['reference/routing.md', 'reference/critique.md', 'reference/polish.md']).join(', ') || 'none'}`);
+        console.log(`Reference coverage gaps (non-blocking): ${missingReferences(trace, ['reference/routing.md', 'reference/critique.md', 'reference/polish.md']).join(', ') || 'none'}`);
         assertCompleted(result);
         assertCommandComparison(trace, text);
       } finally {

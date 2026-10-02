@@ -9,7 +9,8 @@ export const OPT_IN_SUITES = [
 
 const COMMON_INFRA_PATTERNS = [
   /^package\.json$/,
-  /^bun\.lock$/,
+  /^pnpm-lock\.yaml$/,
+  /^vitest\.config\.mjs$/,
   /^scripts\/run-tests\.mjs$/,
   /^scripts\/test-suites\.mjs$/,
   /^scripts\/ci-test-plan\.mjs$/,
@@ -25,30 +26,19 @@ export const SUITES = {
       /^scripts\//,
       /^skill\/(SKILL\.md|agents\/|reference\/|scripts\/)/,
       /^skill\/scripts\/VERSION$/,
-      /^README(\.npm)?\.md$/,
+      /^README\.md$/,
       /^\.github\/workflows\/release-engine\.yml$/,
-      /^cli\/bin\//,
     ],
     commands: [
       {
-        runner: 'bun',
+        runner: 'vitest',
+        // The slowest core test is ~11s; the cap only catches a hang.
+        timeoutMs: 180000,
         files: [
           'tests/skill-source.test.js',
           'tests/lib/utils.test.js',
           'tests/release-engine-workflow.test.js',
           'tests/workflow-security.test.js',
-        ],
-      },
-      {
-        runner: 'node',
-        // A finite per-test cap so an async hang is cancelled and reported
-        // rather than left running with `--test-timeout` unset (Infinity).
-        // Note: this timer lives in the event loop, so it cannot interrupt a
-        // test blocked in a synchronous spawnSync; the runner's wall-clock
-        // group-kill covers that case. The slowest core test is ~11s, so 180s
-        // is safe.
-        timeoutMs: 180000,
-        files: [
           'tests/ci-test-plan.test.mjs',
           'tests/launcher-download.test.mjs',
           'tests/process-group.test.mjs',
@@ -62,9 +52,8 @@ export const SUITES = {
     ],
   },
   // The verbs live in the engine binary; this repo pins its behavior with the
-  // oracle goldens (tests/oracle) and drives its live-mode verbs over the
-  // framework fixtures. Both skip when no binary is present (bun run
-  // fetch:engine, or IMPECCINO_BIN).
+  // oracle goldens (tests/oracle), which skip when no binary is present
+  // (pnpm run fetch:engine, or IMPECCINO_BIN).
   oracle: {
     description: 'Oracle corpus replay against the engine binary; skips without a binary.',
     triggers: [
@@ -77,7 +66,7 @@ export const SUITES = {
     ],
     commands: [
       {
-        runner: 'node',
+        runner: 'vitest',
         timeoutMs: 900000,
         files: ['tests/oracle.test.mjs'],
       },
@@ -94,7 +83,7 @@ export const SUITES = {
       /^tests\/skill-behavior\//,
     ],
     commands: [{
-      runner: 'node',
+      runner: 'vitest',
       timeoutMs: 240000,
       wallClockMs: 1_800_000,
       files: ['tests/skill-behavior/scenarios.test.mjs'],
@@ -112,13 +101,13 @@ export const SUITES = {
       /^tests\/skill-behavior\//,
     ],
     commands: [
-      { runner: 'node', files: ['tests/skill-workflow-browser.test.mjs'] },
+      { runner: 'vitest', files: ['tests/skill-workflow-browser.test.mjs'] },
       {
-        runner: 'node', timeoutMs: 240000, wallClockMs: 600000,
+        runner: 'vitest', timeoutMs: 240000, wallClockMs: 600000,
         files: ['tests/skill-workflow/finish-handoff.test.mjs'],
       },
       {
-        runner: 'node',
+        runner: 'vitest',
         timeoutMs: 900000,
         wallClockMs: 3_600_000,
         files: ['tests/skill-workflow/full-build.test.mjs'],

@@ -8,14 +8,14 @@
 
 - `cargo build --release -p impeccino` - build this checkout's runtime into `target/release/impeccino`.
 - `cargo test --workspace` - run the Rust workspace tests.
-- `bun run check` - repository checks: count claims, skill frontmatter limits, and the prose gates. There is no skill build.
-- `bun test tests/skill-source.test.js` - run a focused Bun test.
-- `bun run fetch:engine` - download the pinned engine binary for this machine into `skill/scripts/bin/<os>-<arch>/` (or set `IMPECCINO_BIN` to a local build). The oracle suite skips without it.
-- `bun run test` - run the default suites, `core` and `oracle` (the oracle replays against the engine binary).
-- `bun run test:skill-behavior` - opt-in LLM-backed checks that the SKILL.md Setup flow actually drives the agent (the model lineup is `DEFAULT_MODELS` in `tests/skill-behavior/providers.mjs`; needs `.env` with provider keys).
-- `bun run test:skill-workflow` - opt-in provider-backed completed workflows (full build, finish handoff); its test harness drives Playwright Chromium for screenshots (`npx playwright install chromium` once).
+- `pnpm run check` - repository checks: count claims, skill frontmatter limits, and the prose gates. There is no skill build.
+- `pnpm exec vitest run tests/skill-source.test.js` - run one test file.
+- `pnpm run fetch:engine` - download the pinned engine binary for this machine into `skill/scripts/bin/<os>-<arch>/` (or set `IMPECCINO_BIN` to a local build). The oracle suite skips without it.
+- `pnpm run test` - run the default suites, `core` and `oracle` (the oracle replays against the engine binary).
+- `pnpm run test:skill-behavior` - opt-in LLM-backed checks that the SKILL.md Setup flow actually drives the agent (the model lineup is `DEFAULT_MODELS` in `tests/skill-behavior/providers.mjs`; needs `.env` with provider keys).
+- `pnpm run test:skill-workflow` - opt-in provider-backed completed workflows (full build, finish handoff); its test harness drives Playwright Chromium for screenshots (`npx playwright install chromium` once).
 
-Run `bun run check` after changing anything in `skill/` or user-facing counts.
+Run `pnpm run check` after changing anything in `skill/` or user-facing counts.
 
 ## One Skill for Every Harness
 
@@ -36,7 +36,7 @@ Nothing generated is tracked (ADR 0002). If a change seems to need a derived fil
 Some repo workflows need to run outside the sandbox in the desktop app:
 
 - GitHub SSH operations that depend on the 1Password SSH agent, such as `gh pr checkout`, may fail in the sandbox with `sign_and_send_pubkey` or no 1Password approval prompt. Rerun them outside the sandbox instead of falling back to unrelated workarounds.
-- The oracle suite spawns the engine binary many times; run it with Node (`node --test tests/oracle.test.mjs`), which is what `bun run test` does.
+- The oracle suite spawns the engine binary many times; `pnpm run test` runs it through Vitest (`tests/oracle.test.mjs`), and `node tests/oracle/run.mjs` replays it directly.
 
 ## Coding Style & Naming Conventions
 
@@ -46,13 +46,13 @@ For Rust, follow the surrounding crate's conventions and workspace formatting co
 
 ## Testing Guidelines
 
-Tests use Bun's test runner plus Node's built-in `--test`. Name tests `*.test.js` or `*.test.mjs` and place new fixtures near the behavior they cover, usually under `tests/fixtures/`. Prefer targeted test runs while iterating, then finish with `bun run test`.
+Tests run on Vitest (`vitest.config.mjs`); `scripts/run-tests.mjs` groups them into suites. Name tests `*.test.js` or `*.test.mjs` and place new fixtures near the behavior they cover, usually under `tests/fixtures/`. Prefer targeted test runs while iterating, then finish with `pnpm run test`.
 
-For runtime changes under `crates/`, add a failing regression in the affected crate, run its focused tests, then `cargo test --workspace`. Rebuild with `cargo build --release -p impeccino` and run `IMPECCINO_BIN="$PWD/target/release/impeccino" bun run test` so the oracle exercises the changed source, not an older downloaded release. Review intended oracle changes by hand; never overwrite goldens just to make a regression pass. `tests/oracle/vectors/calls/` contains frozen function-level vectors and must not be regenerated.
+For runtime changes under `crates/`, add a failing regression in the affected crate, run its focused tests, then `cargo test --workspace`. Rebuild with `cargo build --release -p impeccino` and run `IMPECCINO_BIN="$PWD/target/release/impeccino" pnpm run test` so the oracle exercises the changed source, not an older downloaded release. Review intended oracle changes by hand; never overwrite goldens just to make a regression pass. `tests/oracle/vectors/calls/` contains frozen function-level vectors and must not be regenerated.
 
-For changes to `skill/SKILL.md`'s Setup section or any Setup-touching reference file (`init.md`, `document.md`, `new-work.md`, sub-command refs), also run `bun run test:skill-behavior`. The suite spawns current real models (the `DEFAULT_MODELS` lineup in `tests/skill-behavior/providers.mjs`) with the source SKILL.md inlined as system prompt and a workspace-scoped tool set, then asserts on the tool-call trace. Provider keys live in repo-root `.env`; missing keys skip cleanly. Scope to one provider with `IMPECCINO_SKILL_BEHAVIOR_MODELS=<id>`; add `IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1` to dump per-scenario traces. Baseline and per-scenario assertions live in `tests/skill-behavior/README.md`.
+For changes to `skill/SKILL.md`'s Setup section or any Setup-touching reference file (`init.md`, `document.md`, `new-work.md`, sub-command refs), also run `pnpm run test:skill-behavior`. The suite spawns current real models (the `DEFAULT_MODELS` lineup in `tests/skill-behavior/providers.mjs`) with the source SKILL.md inlined as system prompt and a workspace-scoped tool set, then asserts on the tool-call trace. Provider keys live in repo-root `.env`; missing keys skip cleanly. Scope to one provider with `IMPECCINO_SKILL_BEHAVIOR_MODELS=<id>`; add `IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1` to dump per-scenario traces. Baseline and per-scenario assertions live in `tests/skill-behavior/README.md`.
 
-Other area-to-suite obligations (the canonical mapping is the `triggers` lists in `scripts/test-suites.mjs`; CLAUDE.md carries the table): an engine version bump (`skill/scripts/VERSION`) owes `bun run test:skill-behavior` on top of the default run, and changes across `skill/` that alter a completed build or the finish handoff owe `bun run test:skill-workflow`.
+Other area-to-suite obligations (the canonical mapping is the `triggers` lists in `scripts/test-suites.mjs`; CLAUDE.md carries the table): an engine version bump (`skill/scripts/VERSION`) owes `pnpm run test:skill-behavior` on top of the default run, and changes across `skill/` that alter a completed build or the finish handoff owe `pnpm run test:skill-workflow`.
 
 ## Anti-pattern detection rules
 
@@ -60,7 +60,7 @@ The rule engine lives in this workspace. `crates/core` holds the checks; `crates
 
 Add a fixture first under `tests/fixtures/antipatterns/` with should-flag and should-pass columns, at least four flag cases and five false-positive shapes, unique headings, and explicit pixel dimensions. Add failing Rust coverage before implementing the rule. Cover each affected engine path (text and static HTML) and add or update an oracle case (`node tests/oracle/record.mjs --bin <prefix>`, golden reviewed by hand). When a rule introduces design guidance, update `skill/SKILL.md` or `skill/reference/*.md` too.
 
-Rebuild the native binary, run the Rust and Bun/Node checks above, and run `bun run check`, which reads the rule count from `crates/foundation/src/registry.rs` and validates the counts quoted in the READMEs and this file. There is no bundle step and no generated asset to commit.
+Rebuild the native binary, run the Rust and Vitest checks above, and run `pnpm run check`, which reads the rule count from `crates/foundation/src/registry.rs` and validates the counts quoted in the READMEs and this file. There is no bundle step and no generated asset to commit.
 
 ## Commit & Pull Request Guidelines
 
@@ -74,7 +74,7 @@ Open an issue before larger changes so the direction is agreed first; small fixe
 
 ## Releases
 
-A release is an annotated tag per component, and GitHub generates the notes from the commits since that component's previous tag ([ADR 0014](docs/adr/0014-releases-are-tags.md)), so commit messages should describe user-facing impact. The components: `engine-v` (`skill/scripts/VERSION` plus the matching `Cargo.toml` version; `release-engine.yml` builds and publishes the binaries) and `skill-v` (`skill/SKILL.md` `metadata.version`; a tag only, no artifacts). Order: publish the engine release, pin it into the skill with `bun run pin:engine` (verifies the build attestations, writes `skill/scripts/engine.sha256`), commit, then release the skill. Flow: bump the relevant manifest, commit, push, then `bun run release:<engine|skill>` (or `node scripts/release.mjs <component> --dry-run` first). The script refuses on a dirty tree or an unpushed HEAD, and it refuses to tag the skill until `scripts/check-engine-release.mjs` finds every engine asset for the pinned version. Fix already-shipped notes with `gh release edit <tag> --notes-file <md>`.
+A release is an annotated tag per component, and GitHub generates the notes from the commits since that component's previous tag ([ADR 0014](docs/adr/0014-releases-are-tags.md)), so commit messages should describe user-facing impact. The components: `engine-v` (`skill/scripts/VERSION` plus the matching `Cargo.toml` version; `release-engine.yml` builds and publishes the binaries) and `skill-v` (`skill/SKILL.md` `metadata.version`; a tag only, no artifacts). Order: publish the engine release, pin it into the skill with `pnpm run pin:engine` (verifies the build attestations, writes `skill/scripts/engine.sha256`), commit, then release the skill. Flow: bump the relevant manifest, commit, push, then `pnpm run release:<engine|skill>` (or `node scripts/release.mjs <component> --dry-run` first). The script refuses on a dirty tree or an unpushed HEAD, and it refuses to tag the skill until `scripts/check-engine-release.mjs` finds every engine asset for the pinned version. Fix already-shipped notes with `gh release edit <tag> --notes-file <md>`.
 
 ## Contributor Notes
 

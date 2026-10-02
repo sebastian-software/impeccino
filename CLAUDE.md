@@ -18,10 +18,10 @@ The skill has no runtime of its own. Every command the skill text runs is `"<ski
 The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the root, `crates/*`; `cargo build --release -p impeccino`). Its verbs are `context`, `doctor`, `pin`, `surface-brief`, `critique-storage`, `palette`, `signals` (alias of context-signals), `concept-seed`, `detect` (files, directories, and URLs through agent-browser), `ignores`, `hook`, `hook-before-edit`, and `hooks` (alias of hook-admin). The browser and comp verbs (`live*`, `detect-csp`, `serve-question`, `component-review`, `generate-image`, `comp-spec`, `comp-diff`, `font-match`, `build-phase`, `capture-server`, `embed-prompt`) print a "was removed" message and exit 1 ([ADR 0011](docs/adr/0011-no-own-browser-stack.md), [ADR 0012](docs/adr/0012-no-image-comps.md)). Observable behavior is pinned by `tests/oracle/`, which is the behavioral contract ([ADR 0015](docs/adr/0015-history-lives-in-git.md)). **Read `docs/ENGINE.md` before touching `crates/`**: it maps the crates.
 
 - **The rule engine is in the workspace.** Every `check_*` / `scan_*` lives in `crates/core`, Apache-2.0 like everything else; `crates/foundation` holds what they are written against (JS semantics, color, the registry, inline ignores, the plain-data input and output types) and `crates/core` re-exports it, so consumers name one crate. The engine is one native binary: there is no WebAssembly build, no in-page bundle, and no DOM layer ([ADR 0013](docs/adr/0013-no-wasm-or-browser-extension.md)). There is no build-time download and no exact toolchain pin: `cargo build --release -p impeccino` works offline on stable.
-- **`skill/scripts/VERSION`** pins the engine release (`engine-v<X>` on this repo's GitHub Releases, built by `.github/workflows/release-engine.yml` when `bun run release:engine` pushes the tag). The launcher reads it to name the download and the cache dir (ADR 0009); the workspace `Cargo.toml` version must match it (`impeccino --version` prints the crate version, and a test checks the two agree). Bumping it is a release-time decision, like the other manifest versions.
+- **`skill/scripts/VERSION`** pins the engine release (`engine-v<X>` on this repo's GitHub Releases, built by `.github/workflows/release-engine.yml` when `pnpm run release:engine` pushes the tag). The launcher reads it to name the download and the cache dir (ADR 0009); the workspace `Cargo.toml` version must match it (`impeccino --version` prints the crate version, and a test checks the two agree). Bumping it is a release-time decision, like the other manifest versions.
 - **Binaries are never tracked.** `skill/scripts/bin/` is gitignored, so `skill/` ships launcher-only and users get the binary on first run (ADR 0010).
-- **Tests get a binary** from `IMPECCINO_BIN`, then `skill/scripts/bin/<os-arch>/` (`bun run fetch:engine`; `IMPECCINO_BIN=<local build> bun run fetch:engine` copies a local build there), then `target/release/impeccino` from a plain `cargo build --release -p impeccino`. `tests/lib/engine-bin.mjs` is the one resolver; suites that need the binary skip cleanly without it.
-- **The oracle is the behavior gate.** `tests/oracle/` holds goldens recorded from the JS scripts before they left the tree, plus reviewed deltas in `DELTAS.md`; `tests/oracle.test.mjs` replays them against the binary in `bun run test`. New cases are recorded from the binary (`record.mjs --bin`) and reviewed by hand. `tests/oracle/vectors/calls/` is the frozen function-level snapshot; it cannot be regenerated.
+- **Tests get a binary** from `IMPECCINO_BIN`, then `skill/scripts/bin/<os-arch>/` (`pnpm run fetch:engine`; `IMPECCINO_BIN=<local build> pnpm run fetch:engine` copies a local build there), then `target/release/impeccino` from a plain `cargo build --release -p impeccino`. `tests/lib/engine-bin.mjs` is the one resolver; suites that need the binary skip cleanly without it.
+- **The oracle is the behavior gate.** `tests/oracle/` holds goldens recorded from the JS scripts before they left the tree, plus reviewed deltas in `DELTAS.md`; `tests/oracle.test.mjs` replays them against the binary in `pnpm run test`. New cases are recorded from the binary (`record.mjs --bin`) and reviewed by hand. `tests/oracle/vectors/calls/` is the frozen function-level snapshot; it cannot be regenerated.
 - **What stays JavaScript here:** the repository and test tooling. Impeccino injects nothing into the user's running app ([ADR 0011](docs/adr/0011-no-own-browser-stack.md)); screenshots come from agent-browser or the harness's browser tool, decisions from the host's structured question tool, and `detect <url>` measures rendered pages through agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)).
 
 **Do not add standalone skills** unless there's a strong reason. The consolidation was deliberate: the `/` menu pollution problem is real and gets worse as users install more plugins.
@@ -93,11 +93,11 @@ Impeccino writes files into user projects, so a released version has to cope wit
 
 Editorial brief is at `docs/STYLE.md`. Read it before editing the READMEs or any user-facing copy. The rules exist because the project has been called out for AI prose before.
 
-`bun run check`'s `validateProse` step (in `scripts/check.js`) enforces a denylist: em dashes (`—` and HTML entities), the `--` em-dash substitute, `load-bearing`, `highest-leverage`, `biggest unlock`, `seamless`, `robust`, `delve`, `elevate`, `empower`, `underscore`, `pivotal`, `tapestry`, `data-driven`, `reflex defaults`, `collapses into monoculture`, `in today's`, `gone are the days`, `whether you're`, `let's dive in`, `in summary`, `in conclusion`, `moreover`, `furthermore`. Each rule prints a rationale and a suggested replacement when it fires. **Do not silently work around the regex.** If a banned word has earned a real meaning here, raise it as a `docs/STYLE.md` amendment.
+`pnpm run check`'s `validateProse` step (in `scripts/check.js`) enforces a denylist: em dashes (`—` and HTML entities), the `--` em-dash substitute, `load-bearing`, `highest-leverage`, `biggest unlock`, `seamless`, `robust`, `delve`, `elevate`, `empower`, `underscore`, `pivotal`, `tapestry`, `data-driven`, `reflex defaults`, `collapses into monoculture`, `in today's`, `gone are the days`, `whether you're`, `let's dive in`, `in summary`, `in conclusion`, `moreover`, `furthermore`. Each rule prints a rationale and a suggested replacement when it fires. **Do not silently work around the regex.** If a banned word has earned a real meaning here, raise it as a `docs/STYLE.md` amendment.
 
 `validateProse` scans `README.md` and the docs.
 
-**`skill/` is checked too, by a second gate.** `validateProse` skips it because the full ruleset does not fit LLM-facing reference instructions. `validateSkillProse` then scans `skill/**/*.md` (markdown only, not the launcher under `skill/scripts/`) and fails the build on em dashes plus the subset of phrases with no technical reading: `load-bearing`, `highest-leverage`, `biggest unlock`, `reflex defaults`, `collapses into monoculture`, `data-driven`, `delve`, `tapestry`, `in today's`, `gone are the days`, `let's dive in`, `in summary`, `in conclusion`. The words it does *not* enforce in `skill/` (`seamless`, `robust`, `elevate`, and friends) are the ones with legitimate technical uses. Net effect: an em dash in `skill/reference/*.md` fails `bun run check`; an em dash in a `scripts/*.js` code comment does not.
+**`skill/` is checked too, by a second gate.** `validateProse` skips it because the full ruleset does not fit LLM-facing reference instructions. `validateSkillProse` then scans `skill/**/*.md` (markdown only, not the launcher under `skill/scripts/`) and fails the build on em dashes plus the subset of phrases with no technical reading: `load-bearing`, `highest-leverage`, `biggest unlock`, `reflex defaults`, `collapses into monoculture`, `data-driven`, `delve`, `tapestry`, `in today's`, `gone are the days`, `let's dive in`, `in summary`, `in conclusion`. The words it does *not* enforce in `skill/` (`seamless`, `robust`, `elevate`, and friends) are the ones with legitimate technical uses. Net effect: an em dash in `skill/reference/*.md` fails `pnpm run check`; an em dash in a `scripts/*.js` code comment does not.
 
 The deeper structural issues (negation pivot, triadic auto-pilot, uniform paragraph rhythm, hollow confidence) require human judgment. `docs/STYLE.md` lists them. Use them on every editorial pass.
 
@@ -106,8 +106,8 @@ The deeper structural issues (negation pivot, triadic auto-pilot, uniform paragr
 `skill/` is the skill and installs as-is; there is no build, installer, update check, or marketplace package. The decisions are recorded as Light ADRs in `docs/adr/` (0001 to 0015); add a new one when a change alters how the skill is built or delivered.
 
 ```bash
-bun run check            # Count claims, skill frontmatter limits, prose gates
-bun run fetch:engine     # Download the pinned engine binary for this machine into skill/scripts/bin/
+pnpm run check            # Count claims, skill frontmatter limits, prose gates
+pnpm run fetch:engine     # Download the pinned engine binary for this machine into skill/scripts/bin/
 ```
 
 ### One skill for every harness
@@ -132,12 +132,12 @@ Open an issue before larger changes so the direction is agreed first; small fixe
 ## Testing
 
 ```bash
-bun run test                  # Default suites: core (unit, skill source, tooling) + oracle
-bun run test:skill-behavior   # Opt-in: LLM-backed checks that the skill text actually drives the agent's setup flow
-bun run test:skill-workflow   # Opt-in: provider-backed completed workflows (full build, finish handoff)
+pnpm run test                  # Default suites: core (unit, skill source, tooling) + oracle
+pnpm run test:skill-behavior   # Opt-in: LLM-backed checks that the skill text actually drives the agent's setup flow
+pnpm run test:skill-workflow   # Opt-in: provider-backed completed workflows (full build, finish handoff)
 ```
 
-Unit tests (skill source rules, release tooling, workflows) run via `bun test`. The oracle replay (`tests/oracle.test.mjs`), which spawns the engine binary, runs via `node --test` and skips cleanly when no binary is found (`bun run fetch:engine` or `IMPECCINO_BIN`). The `test` script handles this split automatically. Runtime unit and integration tests live under `crates/` and run with `cargo test --workspace`; the oracle goldens pin observable verb behavior across the same workspace.
+Every JavaScript test runs on Vitest (`vitest.config.mjs`), grouped into suites by `scripts/run-tests.mjs`. The oracle replay (`tests/oracle.test.mjs`), which spawns the engine binary, skips cleanly when no binary is found (`pnpm run fetch:engine` or `IMPECCINO_BIN`). CI runs the core suite on Node 22, 24, and 26. Runtime unit and integration tests live under `crates/` and run with `cargo test --workspace`; the oracle goldens pin observable verb behavior across the same workspace.
 
 ### The runner ends what it starts
 
@@ -149,10 +149,10 @@ The default suite does not cover everything. When a change touches one of these 
 
 | Area touched | Run | Cost |
 |---|---|---|
-| `SKILL.md` Setup, Setup-adjacent reference files, engine version bump (`skill/scripts/VERSION`) | `bun run test:skill-behavior` | ~5 min, bills the provider keys in `.env` |
-| `skill/` changes that affect a completed build or the finish handoff (new-work flow, agents, finish review, documentation) | `bun run test:skill-workflow` | bills a provider key; its test harness needs Playwright Chromium (`npx playwright install chromium` once) |
+| `SKILL.md` Setup, Setup-adjacent reference files, engine version bump (`skill/scripts/VERSION`) | `pnpm run test:skill-behavior` | ~5 min, bills the provider keys in `.env` |
+| `skill/` changes that affect a completed build or the finish handoff (new-work flow, agents, finish review, documentation) | `pnpm run test:skill-workflow` | bills a provider key; its test harness needs Playwright Chromium (`npx playwright install chromium` once) |
 
-For verb-level behavior changes in `crates/`, run focused crate tests and `cargo test --workspace`, then `cargo build --release -p impeccino`. Run `IMPECCINO_BIN="$PWD/target/release/impeccino" bun run test` to exercise the changed source rather than an older downloaded release. Add a new oracle case when the contract grows and review golden changes by hand.
+For verb-level behavior changes in `crates/`, run focused crate tests and `cargo test --workspace`, then `cargo build --release -p impeccino`. Run `IMPECCINO_BIN="$PWD/target/release/impeccino" pnpm run test` to exercise the changed source rather than an older downloaded release. Add a new oracle case when the contract grows and review golden changes by hand.
 
 
 
@@ -161,9 +161,9 @@ For verb-level behavior changes in `crates/`, run focused crate tests and `cargo
 `tests/skill-behavior/scenarios.test.mjs` is the LLM-backed safety net for edits to `skill/SKILL.md` and the Setup-adjacent reference files (`init.md`, `document.md`, `new-work.md`, sub-command refs). It inlines the source `skill/SKILL.md` into the system prompt of a real LLM, gives the agent `bash` / `read` / `write` / `list` tools scoped to a temp workspace, and asserts on the tool-call trace — not on the model's free-form output. The trace is the source of truth. The end-to-end flows live in the separate opt-in `skill-workflow` suite (`tests/skill-workflow/full-build.test.mjs`, `finish-handoff.test.mjs`), which reuses this harness, gives the agent screenshot tools backed by Playwright Chromium in the test harness, and asserts on completed builds, fresh captures, and documentation artifacts.
 
 ```bash
-bun run test:skill-behavior                                        # full suite, ~5 min, ~$0.50-1.50 across providers
-IMPECCINO_SKILL_BEHAVIOR_MODELS=gemini-3.7-flash bun run test:skill-behavior   # scope to one provider
-IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 bun run test:skill-behavior    # dump per-scenario trace JSON to stderr (use when iterating)
+pnpm run test:skill-behavior                                        # full suite, ~5 min, ~$0.50-1.50 across providers
+IMPECCINO_SKILL_BEHAVIOR_MODELS=gemini-3.7-flash pnpm run test:skill-behavior   # scope to one provider
+IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 pnpm run test:skill-behavior    # dump per-scenario trace JSON to stderr (use when iterating)
 ```
 
 **Frontier tiers, more than one family.** The lineup is `DEFAULT_MODELS` in `tests/skill-behavior/providers.mjs`, currently `claude-sonnet-5`, `gpt-5.6-terra`, and `gemini-3.7-flash`. `gpt-5.6-luna` and `deepseek-v4-flash` were dropped in 2026-08: below the frontier tier they fail scenarios for model-floor reasons rather than skill-text defects, and a suite that is always red is a suite nobody reads. **Don't substitute Claude alone**: many of the most useful findings come from divergence between families, so keep at least two. The dropped models stay selectable via `IMPECCINO_SKILL_BEHAVIOR_MODELS` when a Setup or routing change warrants a wider sweep.
@@ -213,7 +213,7 @@ Workflow for either component:
 
 1. Bump the manifest version (see Versioning above).
 2. Commit and push.
-3. Run `bun run release:<engine|skill>`. Preview first with `node scripts/release.mjs <component> --dry-run`.
+3. Run `pnpm run release:<engine|skill>`. Preview first with `node scripts/release.mjs <component> --dry-run`.
 
 The script refuses to run if the working tree is dirty, HEAD is ahead of origin, or the tag already exists. The engine release only tags and pushes; `release-engine.yml` builds the five binaries, attests each, and publishes them as one immutable release. Binaries are not code-signed. Skill releases attach nothing.
 
@@ -223,9 +223,9 @@ If you need to fix release notes after the fact: `gh release edit <tag> --notes-
 
 The skill launcher resolves the engine binary for the pinned version in `skill/scripts/VERSION`, so the order is:
 
-1. `bun run release:engine` publishes `engine-v<version>`.
-2. `bun run pin:engine` (`scripts/pin-engine.mjs`) downloads the five assets, verifies each build attestation with `gh attestation verify` (needs the signed-in `gh` CLI), and writes `skill/scripts/engine.sha256`. Commit it together with the `VERSION` bump; skill managers pin commits, so a bump must point at a published and pinned engine.
-3. `bun run release:skill`, which refuses without pins for the engine version (`node scripts/pin-engine.mjs --check` checks them offline).
+1. `pnpm run release:engine` publishes `engine-v<version>`.
+2. `pnpm run pin:engine` (`scripts/pin-engine.mjs`) downloads the five assets, verifies each build attestation with `gh attestation verify` (needs the signed-in `gh` CLI), and writes `skill/scripts/engine.sha256`. Commit it together with the `VERSION` bump; skill managers pin commits, so a bump must point at a published and pinned engine.
+3. `pnpm run release:skill`, which refuses without pins for the engine version (`node scripts/pin-engine.mjs --check` checks them offline).
 
 The launchers and `fetch-engine.mjs` accept a download only if it matches `engine.sha256`; a version without pins is refused, so local engine work runs through `IMPECCINO_BIN` ([ADR 0010](docs/adr/0010-launcher-fetches-the-engine.md)).
 
@@ -242,12 +242,12 @@ All commands live under `/impeccino`. To add a new one:
 5. Add it to the `pin` verb's valid-command list (`crates/context`) and record the pin/unpin oracle case
 6. Add its metadata (description + argumentHint) to `skill/scripts/command-metadata.json`
 
-`bun run check` counts commands from the router table automatically. Update the command count in **all** of these locations when the total changes:
+`pnpm run check` counts commands from the router table automatically. Update the command count in **all** of these locations when the total changes:
 
 - `README.md` — intro, command count, commands table
 - `AGENTS.md` — intro command count
 
-`checkCounts` in `scripts/check.js` flags stale numeric counts in these files and fails `bun run check` if any disagree with the router table.
+`checkCounts` in `scripts/check.js` flags stale numeric counts in these files and fails `pnpm run check` if any disagree with the router table.
 
 ## Adding or modifying anti-pattern detection rules
 
@@ -263,7 +263,7 @@ The rule logic lives in `crates/core`; the detector ships 61 rules. Source-file 
 | `tests/oracle/vectors/calls/` | Frozen function-level vectors; replayed by `crates/core/tests/vectors.rs` through `impeccino_core::vectors::call` |
 | `skill/SKILL.md` and `reference/*.md` | Hand-edited if the rule introduces new design guidance |
 
-Order for a new rule: fixture here first, registry row in `crates/foundation/src/registry.rs`, the check in `crates/core` against that fixture (text engine and, where it applies, the static HTML engine), oracle case + golden, then `cargo build --release -p impeccino` and `IMPECCINO_BIN="$PWD/target/release/impeccino" bun run test`. `bun run check` reads the rule count from `crates/foundation/src/registry.rs` and validates the counts quoted in `README.md` and `AGENTS.md`.
+Order for a new rule: fixture here first, registry row in `crates/foundation/src/registry.rs`, the check in `crates/core` against that fixture (text engine and, where it applies, the static HTML engine), oracle case + golden, then `cargo build --release -p impeccino` and `IMPECCINO_BIN="$PWD/target/release/impeccino" pnpm run test`. `pnpm run check` reads the rule count from `crates/foundation/src/registry.rs` and validates the counts quoted in `README.md` and `AGENTS.md`.
 
 ### Rule packs (downstream crates adding rules)
 

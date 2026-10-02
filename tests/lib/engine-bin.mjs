@@ -2,7 +2,7 @@
  * Locate the impeccino engine binary for tests that drive verbs end to end.
  *
  * Order: $IMPECCINO_BIN, then skill/scripts/bin/<os>-<arch>/impeccino[.exe]
- * (what `bun run fetch:engine` writes), then target/release/impeccino[.exe]
+ * (what `pnpm run fetch:engine` writes), then target/release/impeccino[.exe]
  * (what `cargo build --release -p impeccino` writes, so a local source build
  * is picked up without any extra step). Returns null when none exists so a
  * suite can skip cleanly instead of failing on a machine without the engine.
@@ -33,7 +33,7 @@ export function findEngineBinary() {
 }
 
 export const ENGINE_MISSING_MESSAGE =
-  'engine binary not found: run `cargo build --release -p impeccino` or `bun run fetch:engine`, or set IMPECCINO_BIN';
+  'engine binary not found: run `cargo build --release -p impeccino` or `pnpm run fetch:engine`, or set IMPECCINO_BIN';
 
 /** Environment the launcher would export for the binary when run from this repo's skill dir. */
 export function engineEnv(bin, extra = {}) {

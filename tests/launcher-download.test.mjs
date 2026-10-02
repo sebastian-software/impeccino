@@ -6,7 +6,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { test } from 'node:test';
+import { test } from 'vitest';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WINDOWS = process.platform === 'win32';
@@ -18,7 +18,7 @@ const HASH = createHash('sha256').update(PAYLOAD).digest('hex');
 
 async function exercise(t, scenario) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccino-launcher-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.onTestFinished(() => fs.rmSync(root, { recursive: true, force: true }));
   const scripts = path.join(root, 'skill scripts');
   const home = path.join(root, 'home');
   const cache = path.join(root, 'cache');
@@ -109,7 +109,7 @@ async function exercise(t, scenario) {
     res.end(scenario === 'empty-download' ? '' : PAYLOAD);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  t.after(() => new Promise(resolve => server.close(resolve)));
+  t.onTestFinished(() => new Promise(resolve => server.close(resolve)));
   // Keep system tools, but exclude user/npm PATH candidates and all launcher
   // overrides so the test cannot accidentally execute an installed engine.
   const env = {

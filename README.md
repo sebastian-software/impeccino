@@ -103,8 +103,8 @@ The skill includes explicit guidance on what to avoid:
 | --- | --- |
 | [`skill/`](skill/) | **The skill.** This folder is what you install, unchanged, in every harness. `SKILL.md` holds the setup flow, the design laws, and the command router; `reference/` has one playbook per command plus shared playbooks; `agents/` has the two shipped roles (finish reviewer and documenter) as Claude Code agent files; `scripts/` holds the launcher (`impeccino`, `impeccino.cmd`), the pinned engine version (`VERSION`), and command metadata. |
 | [`crates/`](crates/) | **The engine.** A Rust workspace that builds the `impeccino` binary behind every skill command: project context, the 61-rule detector for source files and rendered pages (`detect <url>` through agent-browser), the design hook, and `doctor`. It is one native binary with no WebAssembly build. Release binaries are published as `engine-v<version>` GitHub releases; the launcher fetches the one named in `skill/scripts/VERSION`. |
-| [`tests/`](tests/) | Bun and Node suites, the oracle corpus that pins every engine verb's output (`tests/oracle/`), and opt-in LLM-backed behavior and workflow checks. |
-| [`scripts/`](scripts/) | Tooling: `check.js` (`bun run check`), the release script, engine fetch and release checks, and the test runner. There is no skill build. |
+| [`tests/`](tests/) | Vitest suites, the oracle corpus that pins every engine verb's output (`tests/oracle/`), and opt-in LLM-backed behavior and workflow checks. |
+| [`scripts/`](scripts/) | Tooling: `check.js` (`pnpm run check`), the release script, engine fetch and release checks, and the test runner. There is no skill build. |
 | [`docs/`](docs/) | Developer documentation, the editorial style guide, harness notes, and the [Light ADRs](docs/adr/README.md). |
 
 ## How Impeccino differs from Impeccable

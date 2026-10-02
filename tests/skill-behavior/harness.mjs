@@ -392,7 +392,7 @@ export function makeTools(workspace, extraEnv = {}, simulatedUser = {}, { contex
 // frontier model; the thorough path was measured near 580s. generateText
 // takes no timeout of its own, so a provider socket that stalls mid-stream
 // keeps the fetch — and therefore the whole node process — alive indefinitely,
-// past node's own `--test-timeout` (which cancels the test but not the open
+// past the test runner's own timeout (which cancels the test but not the open
 // handle). We attach a real AbortSignal instead: on expiry the underlying
 // fetch is aborted, the socket closes, the turn throws, and the scenario
 // fails-and-continues so the sweep still produces a per-provider tally. The

@@ -1,4 +1,4 @@
-import { it } from 'node:test';
+import { it } from 'vitest';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -377,7 +377,7 @@ it('context-only routing tools reject shell searches and compound commands befor
   }
 });
 
-it('successful-loader controls accept a workspace-relative target', { skip: !process.env.IMPECCINO_BIN }, async () => {
+it.skipIf(!process.env.IMPECCINO_BIN)('successful-loader controls accept a workspace-relative target', async () => {
   const workspace = prepareWorkspace({ files: { 'index.html': '<html></html>' } });
   try {
     const { tools } = makeTools(workspace, {}, {}, { contextOnlyBash: true });

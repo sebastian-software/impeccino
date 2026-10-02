@@ -106,7 +106,7 @@ if (cfg.engineGated && process.env.IMPECCINO_SKIP_ENGINE_CHECK !== '1') {
     for (const m of result.missing) console.error(`    · ${m.what}\n        ${m.url}`);
     fail(
       `Refusing to release ${cfg.label} ${version}: engine v${engineVersion} is not fully published.\n` +
-      `  Publish engine v${engineVersion} first (bun run release:engine), then release the skill.\n` +
+      `  Publish engine v${engineVersion} first (pnpm run release:engine), then release the skill.\n` +
       '  See CLAUDE.md "Releases".'
     );
   }
@@ -227,5 +227,5 @@ async function releaseEngine() {
   console.log(`\n✓ Engine ${version} tagged as ${tag}`);
   console.log(`\n→ Next step: watch the release-engine workflow (${REPO_URL}/actions/workflows/release-engine.yml).`);
   console.log(`  It publishes the five attested binaries as ${REPO_URL}/releases/tag/${tag}.`);
-  console.log('  Then pin them (bun run pin:engine), commit, and release the skill.');
+  console.log('  Then pin them (pnpm run pin:engine), commit, and release the skill.');
 }

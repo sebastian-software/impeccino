@@ -2,7 +2,7 @@
  * Provider-backed workflow contract tests. Unlike scenarios.test.mjs, these
  * assert the attended turns and writes that make init/redesign/refinement real.
  */
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -133,11 +133,11 @@ for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModel
 
   describe(`skill workflow contract :: ${modelId}`, () => {
     if (!keyPresent) {
-      it(`skipped — ${PROVIDERS[provider].envKey} is unset`, { skip: true }, () => {});
+      it.skip(`skipped — ${PROVIDERS[provider].envKey} is unset`, () => {});
       return;
     }
     if (!ENGINE_BIN) {
-      it(`skipped — ${ENGINE_MISSING_MESSAGE}`, { skip: true }, () => {});
+      it.skip(`skipped — ${ENGINE_MISSING_MESSAGE}`, () => {});
       return;
     }
     const model = getModel(modelId);

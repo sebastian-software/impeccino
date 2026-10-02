@@ -1,7 +1,8 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
+import { parse } from 'yaml';
 import { readFileSync } from 'node:fs';
 
-const workflow = Bun.YAML.parse(readFileSync(new URL('../.github/workflows/release-engine.yml', import.meta.url), 'utf8'));
+const workflow = parse(readFileSync(new URL('../.github/workflows/release-engine.yml', import.meta.url), 'utf8'));
 const action = (job, name) => job.steps.find(step => step.uses?.startsWith(`${name}@`));
 
 describe('engine release workflow', () => {

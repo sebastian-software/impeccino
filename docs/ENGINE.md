@@ -58,7 +58,7 @@ consumer names one crate: `impeccino_core::js`, `impeccino_core::color`,
 crates is about what a check is written against, not about who may see it.
 
 The detector ships 61 built-in rules, listed in
-`crates/foundation/src/registry.rs`; `bun run check` reads the count from
+`crates/foundation/src/registry.rs`; `pnpm run check` reads the count from
 there. Most run on source files, through the text engine (`crates/detect`)
 or the static HTML engine (`crates/html`). The rules that need layout run in
 `crates/core/src/browser` over a page snapshot (`SnapshotDom` in
@@ -76,9 +76,9 @@ cargo test --workspace
 IMPECCINO_BIN=target/release/impeccino node tests/oracle/run.mjs   # the behavior gate
 ```
 
-`bun run test` and the oracle find the binary through `IMPECCINO_BIN`, then
-`skill/scripts/bin/<os>-<arch>/` (`bun run fetch:engine` downloads the pinned
-release there; `IMPECCINO_BIN=target/release/impeccino bun run fetch:engine`
+`pnpm run test` and the oracle find the binary through `IMPECCINO_BIN`, then
+`skill/scripts/bin/<os>-<arch>/` (`pnpm run fetch:engine` downloads the pinned
+release there; `IMPECCINO_BIN=target/release/impeccino pnpm run fetch:engine`
 copies a local build), then `target/release/impeccino`, so a plain
 `cargo build --release -p impeccino` is enough.
 
@@ -151,7 +151,7 @@ Releases are tags with notes GitHub generates from the commits
 ([ADR 0014](adr/0014-releases-are-tags.md)). Two release kinds touch the
 runtime, in this order:
 
-1. **Engine** (`engine-v<version>`): `bun run release:engine` verifies
+1. **Engine** (`engine-v<version>`): `pnpm run release:engine` verifies
    the version and a clean tree, then tags and pushes;
    `.github/workflows/release-engine.yml` builds the five targets, attests
    each binary, and publishes them as an immutable release.

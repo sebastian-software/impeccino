@@ -7,10 +7,10 @@
  * process reaps it and a blocked event loop never reaps anything. Such a wait
  * always burns its whole grace period and always ends in a needless SIGKILL.
  *
- * Run with: node --test tests/process-group.test.mjs
+ * Run with: pnpm exec vitest run tests/process-group.test.mjs
  */
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import {
@@ -113,7 +113,8 @@ describe('killGroupSync', () => {
 });
 
 describe('createGroupShutdown', () => {
-  const posixOnly = { skip: POSIX ? false : 'process groups and SIGTERM are POSIX-only' };
+  // Process groups and SIGTERM are POSIX-only.
+  const posixOnly = { skip: !POSIX };
 
   function spy() {
     const codes = [];

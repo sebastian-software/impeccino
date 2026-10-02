@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, test, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import * as utils from '../scripts/lib/utils.js';

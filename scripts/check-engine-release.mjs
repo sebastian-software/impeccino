@@ -78,7 +78,7 @@ function report(result) {
     console.error(`      ${m.url}`);
   }
   console.error('');
-  console.error(`Publish engine v${version} (tag engine-v${version}, bun run release:engine)`);
+  console.error(`Publish engine v${version} (tag engine-v${version}, pnpm run release:engine)`);
   console.error('BEFORE releasing the skill. See CLAUDE.md "Releases".');
   console.error(`  release base: ${base}`);
 }

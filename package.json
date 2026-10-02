@@ -25,7 +25,7 @@
     "test:oracle": "node scripts/run-tests.mjs oracle",
     "test:skill-behavior": "node scripts/run-tests.mjs skill-behavior",
     "test:skill-workflow": "node scripts/run-tests.mjs skill-workflow",
-    "audit": "bun audit --audit-level=moderate",
+    "audit": "pnpm audit --audit-level=moderate",
     "release:skill": "node scripts/release.mjs skill",
     "release:engine": "node scripts/release.mjs engine",
     "check:engine-release": "node scripts/check-engine-release.mjs",
@@ -40,6 +40,9 @@
     "@babel/parser": "^8.0.4",
     "ai": "^7.0.14",
     "playwright": "^1.59.1",
+    "vitest": "^5.0.3",
+    "yaml": "^2.9.1",
     "zod": "^4.3.6"
-  }
+  },
+  "packageManager": "pnpm@11.28.2"
 }

@@ -4,12 +4,12 @@
  * deltas in tests/oracle/DELTAS.md.
  *
  * Skips cleanly when no binary is available: set IMPECCINO_BIN or run
- * `bun run fetch:engine` (which writes skill/scripts/bin/<os>-<arch>/).
+ * `pnpm run fetch:engine` (which writes skill/scripts/bin/<os>-<arch>/).
  *
- * Run with: node --test tests/oracle.test.mjs
- * Scope:    IMPECCINO_ORACLE_PREFIX=detect- node --test tests/oracle.test.mjs
+ * Run with: pnpm exec vitest run tests/oracle.test.mjs
+ * Scope:    IMPECCINO_ORACLE_PREFIX=detect- pnpm exec vitest run tests/oracle.test.mjs
  */
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -20,7 +20,7 @@ import { ENGINE_MISSING_MESSAGE, findEngineBinary } from './lib/engine-bin.mjs';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENGINE_BIN = findEngineBinary();
 
-describe('oracle corpus against the engine binary', { skip: ENGINE_BIN ? false : ENGINE_MISSING_MESSAGE }, () => {
+describe.skipIf(!ENGINE_BIN)('oracle corpus against the engine binary', () => {
   it('replays every recorded case with zero unreviewed differences', () => {
     const args = [path.join(REPO_ROOT, 'tests', 'oracle', 'run.mjs')];
     if (process.env.IMPECCINO_ORACLE_PREFIX) args.push(process.env.IMPECCINO_ORACLE_PREFIX);

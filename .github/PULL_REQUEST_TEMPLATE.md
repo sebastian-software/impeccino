@@ -4,8 +4,8 @@
 
 ## Checklist
 
-- [ ] `bun run check` passes
-- [ ] `bun run test` passes (and `cargo test --workspace` for engine changes)
+- [ ] `pnpm run check` passes
+- [ ] `pnpm run test` passes (and `cargo test --workspace` for engine changes)
 - [ ] Tested with at least one harness (Claude Code / Codex / Cursor / ...)
 - [ ] README / docs / ADRs updated if needed
 - [ ] I reviewed the full diff myself

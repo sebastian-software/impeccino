@@ -1,5 +1,5 @@
-# Dependencies (bun.lock is tracked; npm may write a package-lock.json as a
-# side effect of subprocesses)
+# Dependencies (pnpm-lock.yaml is tracked; npm may write a package-lock.json
+# as a side effect of subprocesses)
 node_modules/
 package-lock.json
 

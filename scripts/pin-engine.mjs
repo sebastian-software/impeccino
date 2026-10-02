@@ -2,7 +2,7 @@
 /**
  * Pin the published engine release into the skill: skill/scripts/engine.sha256.
  *
- * Run after `bun run release:engine` has published engine-v<VERSION>. For each
+ * Run after `pnpm run release:engine` has published engine-v<VERSION>. For each
  * of the five release binaries this script downloads the asset, checks its
  * GitHub build attestation (`gh attestation verify`: built by this repo's
  * release-engine workflow), and only then writes

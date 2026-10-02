@@ -35,7 +35,7 @@ export async function prepareBrowser(root) {
   try {
     browser = await chromium.launch({ headless: true, timeout: 15000 });
   } catch (error) {
-    throw new Error('Workflow browser preflight failed. Run `bunx playwright install chromium` before billed tests.', { cause: error });
+    throw new Error('Workflow browser preflight failed. Run `pnpm exec playwright install chromium` before billed tests.', { cause: error });
   }
   const blockedRequests = [];
   const server = http.createServer((req, res) => {

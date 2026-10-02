@@ -1,10 +1,11 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
+import { parse } from 'yaml';
 import { readFileSync, readdirSync } from 'node:fs';
 
 const directory = new URL('../.github/workflows/', import.meta.url);
 const workflows = Object.fromEntries(readdirSync(directory)
   .filter(name => /\.ya?ml$/.test(name))
-  .map(name => [name, Bun.YAML.parse(readFileSync(new URL(name, directory), 'utf8'))]));
+  .map(name => [name, parse(readFileSync(new URL(name, directory), 'utf8'))]));
 
 describe('workflow execution boundaries', () => {
   test('repository actions are pinned to full commit SHAs', () => {
