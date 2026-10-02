@@ -12,10 +12,11 @@ describe('skill scripts payload', () => {
   const scripts = skills[0]?.scripts ?? [];
   const names = new Set(scripts.map((s) => s.name));
 
-  test('ships only the launcher, VERSION, and command metadata', () => {
+  test('ships only the launcher, VERSION, engine pins, and command metadata', () => {
     // Browser-run assets and comp data left the skill with the features that
     // used them (docs/adr/0011, 0012); the skill carries no page JS or data.
-    expect([...names].sort()).toEqual(['VERSION', 'command-metadata.json', 'impeccino', 'impeccino.cmd']);
+    // engine.sha256 pins the release binaries the launcher downloads (0010).
+    expect([...names].sort()).toEqual(['VERSION', 'command-metadata.json', 'engine.sha256', 'impeccino', 'impeccino.cmd']);
   });
 
   test('never reads platform binaries as source', () => {
