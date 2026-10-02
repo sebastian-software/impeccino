@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Tags and publishes a GitHub release for one of the independently versioned
-// components: skill, cli, engine.
+// components: skill, engine.
 //
-// Usage: node scripts/release.mjs <skill|cli|engine> [--dry-run]
+// Usage: node scripts/release.mjs <skill|engine> [--dry-run]
 //
 // `engine` is different: it only tags `engine-v<version>` and pushes the
 // tag; .github/workflows/release-engine.yml builds the five binaries and
@@ -31,17 +31,6 @@ const COMPONENTS = {
     // The skill's launcher dead-ends without the engine release for the
     // pinned skill/scripts/VERSION. Enforce release order (D4).
     engineGated: true,
-    postReleaseHint: null,
-  },
-  cli: {
-    manifest: 'package.json',
-    tagPrefix: 'cli-v',
-    label: 'CLI',
-    // The npm shim resolves the engine binary through the @impeccable/cli-<os>-<arch>
-    // platform packages (pinned at skill/scripts/VERSION) and the dist channel; publishing
-    // it before those exist strands `npx impeccable`. Enforce release order (D4).
-    engineGated: true,
-    postReleaseHint: 'Run `npm publish` next to push the package to the npm registry.',
   },
   engine: {
     // Version comes from skill/scripts/VERSION, the file the launcher reads;
@@ -59,7 +48,7 @@ const dryRun = args.includes('--dry-run');
 const component = args.find((a) => !a.startsWith('--'));
 
 if (!component || !COMPONENTS[component]) {
-  console.error('usage: release.mjs <skill|cli|engine> [--dry-run]');
+  console.error('usage: release.mjs <skill|engine> [--dry-run]');
   process.exit(1);
 }
 const cfg = COMPONENTS[component];
@@ -102,12 +91,11 @@ const version = cfg.readVersion ? cfg.readVersion(manifestText) : JSON.parse(man
 if (!version) fail(`No version field in ${cfg.manifest}`);
 ok(`${cfg.label} ${version}`);
 
-// Release-order guard (triage decision D4). Engine-gated components refuse to
-// tag/publish until the engine release for the pinned skill/scripts/VERSION is fully
-// live: the five engine-v<version> release binaries + .sha256 and the five @impeccable/cli-<os>-<arch>
-// npm platform packages. Without this the launcher and the npm shim
-// dead-end. Set IMPECCABLE_SKIP_ENGINE_CHECK=1 only
-// when you know the assets exist and the registry probe is unreachable.
+// Release-order guard. The skill refuses to tag until the engine release for
+// the pinned skill/scripts/VERSION is live: the five engine-v<version> release
+// binaries + .sha256. Without them the launcher dead-ends. Set
+// IMPECCABLE_SKIP_ENGINE_CHECK=1 only when you know the assets exist and the
+// probe is unreachable.
 if (cfg.engineGated && process.env.IMPECCABLE_SKIP_ENGINE_CHECK !== '1') {
   const engineVersion = readEngineVersion(repoRoot);
   step(`Verifying engine v${engineVersion} release assets are published (D4 release-order guard)`);
@@ -117,9 +105,8 @@ if (cfg.engineGated && process.env.IMPECCABLE_SKIP_ENGINE_CHECK !== '1') {
     for (const m of result.missing) console.error(`    · ${m.what}\n        ${m.url}`);
     fail(
       `Refusing to release ${cfg.label} ${version}: engine v${engineVersion} is not fully published.\n` +
-      `  Publish engine v${engineVersion} (bun run release:engine) AND the five @impeccable/cli-<os>-<arch>\n` +
-      '  npm platform packages first. Ordering: engine release → platform packages → skill/CLI release.\n' +
-      '  See CLAUDE.md "Releases" and the engine repo docs/REVIEW-TRIAGE.md D4.'
+      `  Publish engine v${engineVersion} first (bun run release:engine), then release the skill.\n` +
+      '  See CLAUDE.md "Releases".'
     );
   }
   ok(`engine v${engineVersion} release assets all present`);
@@ -176,9 +163,6 @@ runMutating(
 
 console.log(`\n✓ ${cfg.label} ${version} released as ${tag}`);
 
-if (cfg.postReleaseHint) {
-  console.log(`\n→ Next step: ${cfg.postReleaseHint}`);
-}
 
 // The engine release: verify, tag, push. CI does the building and publishing
 // (release-engine.yml), so the maintainer's machine never needs five
@@ -189,13 +173,6 @@ async function releaseEngine() {
   const version = readEngineVersion(repoRoot);
   if (!/^\d+\.\d+\.\d+/.test(version)) fail(`skill/scripts/VERSION "${version}" is not a version`);
   ok(`Engine ${version}`);
-
-  step('Checking package.json optionalDependencies pin the same engine version');
-  const pkg = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
-  const pins = Object.entries(pkg.optionalDependencies || {}).filter(([name]) => name.startsWith('@impeccable/cli-'));
-  const wrong = pins.filter(([, range]) => String(range).replace(/^[^\d]*/, '') !== version);
-  if (wrong.length) fail(`package.json pins ${wrong.map(([n, r]) => `${n}@${r}`).join(', ')}; expected ${version}. Bump them with skill/scripts/VERSION.`);
-  ok(`${pins.length} platform package pins agree`);
 
   const tag = `${cfg.tagPrefix}${version}`;
 
@@ -236,5 +213,5 @@ async function releaseEngine() {
   console.log(`\n✓ Engine ${version} tagged as ${tag}`);
   console.log(`\n→ Next step: watch the release-engine workflow (${REPO_URL}/actions/workflows/release-engine.yml).`);
   console.log(`  It publishes the five binaries + .sha256 as ${REPO_URL}/releases/tag/${tag}.`);
-  console.log('  Then publish the five @impeccable/cli-<os>-<arch> npm platform packages with `bun run release:platform-packages`, then release the CLI/skill.');
+  console.log('  Then release the skill.');
 }

@@ -8,7 +8,7 @@ This branch has diverged far enough from upstream Impeccable (0001 to 0016) that
 
 ## Decision
 
-"Impeccino" ("the little Impeccable") is recorded as the working name. Nothing is renamed yet: the skill, the `/impeccable` command, the binary, the crates, the npm package, environment variables, the `.impeccable/` project folder, and inline `impeccable-disable` comments all keep their current names.
+"Impeccino" ("the little Impeccable") is recorded as the working name. Nothing is renamed yet: the skill, the `/impeccable` command, the binary, the crates, environment variables, the `.impeccable/` project folder, and inline `impeccable-disable` comments all keep their current names.
 
 ## Consequences
 

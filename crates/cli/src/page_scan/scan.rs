@@ -4,7 +4,7 @@
 //! an image, read a pixel, take a screenshot) is a request sent through
 //! [`PageIo`]. The decisions all stay here and in `impeccable_core`: this is
 //! the former URL engine's scan (`crates/browser`, docs/adr/0011) with the
-//! Chrome DevTools connection replaced by agent-browser (docs/adr/0018).
+//! Chrome DevTools connection replaced by agent-browser (docs/adr/0016).
 
 use impeccable_core::browser::driver::{collect_browser_findings, serialize_findings};
 use impeccable_core::browser::page_checks::measure_hidden_text_dom;

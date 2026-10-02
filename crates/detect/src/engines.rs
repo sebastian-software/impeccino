@@ -60,7 +60,7 @@ pub trait HtmlEngine {
 
 /// The URL engine (`cli/engine/engines/browser/detect-url.mjs`
 /// `detectUrl(url, options)` and `createBrowserDetector()`). Implemented over
-/// agent-browser in `crates/cli/src/page_scan` (docs/adr/0018).
+/// agent-browser in `crates/cli/src/page_scan` (docs/adr/0016).
 pub trait UrlEngine {
     /// A single-URL scan (`detectUrl`: `waitUntil: 'networkidle0'`, `settleMs: 0`).
     fn detect_url(&self, url: &str, options: &ScanOptions) -> Result<Vec<Finding>, EngineError>;

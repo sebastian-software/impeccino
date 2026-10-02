@@ -170,16 +170,10 @@ jobs:
           IMPECCABLE_BIN: ${{ github.workspace }}/target/release/impeccable
         run: node tests/oracle/run.mjs
 
-  # Release-order guard (triage decision D4). Verifies that the engine release for
-  # the pinned skill/scripts/VERSION is fully published — the five dist binaries + .sha256
-  # AND the five @impeccable/cli-<os>-<arch> npm platform packages — before a skill
-  # release/merge that depends on them. The launcher, npm shim, and
-  # `impeccable install` all dead-end without those assets.
-  #
-  # A hard gate since engine-v0.1.0 shipped: the assets for the pinned
-  # skill/scripts/VERSION must exist before a skill/CLI release or a merge that bumps the
-  # pin, or the launcher, the npm shim and `impeccable install` dead-end.
-  # release.mjs hard-fails `release:skill`/`release:cli` on the same check.
+  # Release-order guard: the engine release for the pinned skill/scripts/VERSION
+  # (five binaries + .sha256) must exist before a skill release or a merge that
+  # bumps the pin, or the launcher dead-ends. release.mjs hard-fails
+  # `release:skill` on the same check.
   engine-release-ready:
     runs-on: ubuntu-latest
     steps:
@@ -199,7 +193,7 @@ jobs:
         # Only when the check itself failed, so a checkout or setup failure keeps its own error.
         if: failure() && steps.check.outcome == 'failure'
         run: |
-          echo "::error title=Engine release not ready::The engine release for v$(cat skill/scripts/VERSION) is not fully published (engine-v$(cat skill/scripts/VERSION) release assets and/or the @impeccable/cli-<os>-<arch> npm platform packages). Publish the engine (bun run release:engine) and the platform packages (bun run release:platform-packages) before bumping skill/scripts/VERSION on main or releasing the skill/CLI."
+          echo "::error title=Engine release not ready::The engine release for v$(cat skill/scripts/VERSION) is not fully published (engine-v$(cat skill/scripts/VERSION) release assets). Publish the engine (bun run release:engine) before bumping skill/scripts/VERSION or releasing the skill."
 
   test:
     runs-on: ubuntu-latest

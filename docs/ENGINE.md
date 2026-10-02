@@ -5,7 +5,7 @@ launcher next to the skill (`skill/scripts/impeccable`, `impeccable.cmd`)
 finds or downloads one static binary per platform and execs it. That binary
 is built from this repo's Cargo workspace. There is no Node at runtime, and
 nothing in the engine runs in a browser
-([ADR 0011](adr/0011-nothing-runs-in-the-browser.md)).
+([ADR 0011](adr/0011-no-own-browser-stack.md)).
 
 This page is the map for anyone building or changing the runtime. The
 observable behavior of every verb is pinned byte-for-byte by the oracle
@@ -22,7 +22,7 @@ extension ([ADR 0013](adr/0013-no-wasm-or-browser-extension.md)).
 ```
 Cargo.toml              the workspace (crates/*), release profile
 rust-toolchain.toml     the toolchain channel (stable)
-skill/scripts/VERSION   which engine release the launcher / npm shim download
+skill/scripts/VERSION   which engine release the launcher downloads
 crates/
   cli          the `impeccable` binary: verb router, exit codes, the
                "was removed" answer for retired verbs
@@ -48,7 +48,7 @@ The verbs: `context`, `doctor`, `pin`, `surface-brief`, `critique-storage`,
 `comp-spec`, `comp-diff`, `font-match`, `build-phase`, `capture-server`,
 `embed-prompt`) print a "was removed" message and exit 1, so an older skill
 copy that calls one gets a clear answer
-([ADR 0011](adr/0011-nothing-runs-in-the-browser.md),
+([ADR 0011](adr/0011-no-own-browser-stack.md),
 [ADR 0012](adr/0012-no-image-comps.md)). `detect` refuses URLs with a
 pointer to the harness's browser tool.
 
@@ -66,7 +66,7 @@ or the static HTML engine (`crates/html`). The rules that need layout run in
 agent-browser (`crates/cli/src/page_scan`), installs the measurement script
 `crates/cli/assets/page-snapshot.js` in the page, answers the rules' hit
 tests with the live page over agent-browser's DevTools endpoint, and falls
-back to screenshot pixels for contrast it cannot decide (docs/adr/0018).
+back to screenshot pixels for contrast it cannot decide (docs/adr/0016).
 
 Build and test:
 
@@ -152,13 +152,12 @@ Releases are tags with notes GitHub generates from the commits
 runtime, in this order:
 
 1. **Engine** (`engine-v<version>`): `bun run release:engine` verifies
-   the version, the npm platform-package pins and a clean tree, then tags and
-   pushes; `.github/workflows/release-engine.yml` builds the five targets and
-   publishes the binaries with `.sha256` sidecars. The launcher and the npm
-   shim download from
-   `github.com/pbakaus/impeccable/releases/download/engine-v<X>/`.
-2. **npm platform packages**, then the **skill** and **CLI** releases, which
-   `scripts/check-engine-release.mjs` gates on the engine release.
+   the version and a clean tree, then tags and pushes;
+   `.github/workflows/release-engine.yml` builds the five targets and
+   publishes the binaries with `.sha256` sidecars, which the launcher
+   downloads and verifies.
+2. **Skill** (`skill-v<version>`), which `scripts/check-engine-release.mjs`
+   gates on the engine release.
 
 CI runs the workspace build and tests (`rust`, `rust-windows`) and replays the
 oracle against a release build from the checkout under test.

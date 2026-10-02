@@ -11,7 +11,7 @@ build (0003), two files would drift.
 ## Decision
 
 `skill/scripts/VERSION` is the only engine pin. Release, fetch, CI, and the
-release-engine workflow read it; a test pins the npm platform packages to it.
+release-engine workflow read it; a test keeps the workspace `Cargo.toml` version equal to it.
 
 ## Consequences
 

@@ -1,5 +1,5 @@
 // The page measurement `impeccable detect <url>` runs in a page agent-browser
-// holds (docs/adr/0018). Pure measurement: it reads the DOM, computed
+// holds (docs/adr/0016). Pure measurement: it reads the DOM, computed
 // styles, rects, and viewport once and serializes them, and the engine runs
 // the rendered-page rules natively over the result (see
 // crates/foundation/src/browser/snapshot.rs for the consumer and the field

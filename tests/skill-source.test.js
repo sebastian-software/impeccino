@@ -22,12 +22,13 @@ describe('skill scripts payload', () => {
     expect([...names].filter((n) => n.startsWith('bin/'))).toEqual([]);
   });
 
-  test('the launcher is executable and the npm platform pins match VERSION', () => {
+  test('the launcher is executable and VERSION matches the engine crates', () => {
     const launcher = scripts.find((s) => s.name === 'impeccable');
     expect(launcher.mode & 0o111).not.toBe(0);
     const version = scripts.find((s) => s.name === 'VERSION').content.trim();
-    const pins = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8')).optionalDependencies;
-    for (const pinned of Object.values(pins)) expect(pinned).toBe(version);
+    // `impeccable --version` prints the crate version; the launcher pins VERSION.
+    const cargo = fs.readFileSync(path.join(ROOT_DIR, 'Cargo.toml'), 'utf-8');
+    expect(cargo.match(/^version = "([^"]+)"/m)[1]).toBe(version);
   });
 });
 
@@ -36,7 +37,7 @@ describe('universal skill source', () => {
   const SKILL_DIR = path.join(ROOT, 'skill');
   const markdown = utils.readFilesRecursive(SKILL_DIR);
 
-  test('carries spec frontmatter plus the harness keys runtimes tolerate (ADR 0019)', () => {
+  test('carries spec frontmatter plus the harness keys runtimes tolerate (ADR 0008)', () => {
     const { frontmatter } = utils.parseFrontmatter(fs.readFileSync(path.join(SKILL_DIR, 'SKILL.md'), 'utf-8'));
     // Spec fields, plus Claude Code's `user-invocable` and `argument-hint`.
     // `allowed-tools` stays out: Claude Code then blocks non-interactive activation.

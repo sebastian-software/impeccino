@@ -22,7 +22,7 @@ metadata:
 Your skill instructions here...
 ```
 
-Frontmatter uses the [Agent Skills spec](https://agentskills.io/specification) fields plus the harness keys runtimes tolerate (ADR 0019):
+Frontmatter uses the [Agent Skills spec](https://agentskills.io/specification) fields plus the harness keys runtimes tolerate (ADR 0008):
 
 - `name` (required): skill identifier (1-64 chars, lowercase, numbers, hyphens)
 - `description` (required): what the skill provides (1-1024 chars)
@@ -51,7 +51,7 @@ bun run test:skill-workflow   # Opt-in: provider-backed completed workflows; the
 
 The skill-behavior suite runs the models in `DEFAULT_MODELS` (`tests/skill-behavior/providers.mjs`) with the source `skill/SKILL.md` inlined as the system prompt and a workspace-scoped `bash`/`read`/`write`/`list` tool set. It then asserts on the tool-call trace, not on free-form output. Use it whenever you edit `skill/SKILL.md`'s Setup section or any Setup-touching reference (`init.md`, `document.md`, `new-work.md`, sub-command refs). Per-scenario assertions and the current baseline live in `tests/skill-behavior/README.md`. Provider keys live in repo-root `.env` (gitignored); missing keys skip cleanly.
 
-Impeccable itself runs nothing in a browser ([ADR 0011](adr/0011-nothing-runs-in-the-browser.md)). The skill-workflow suite uses Playwright Chromium only inside its test harness, standing in for the browser tool a real harness provides.
+Impeccable itself runs nothing in a browser ([ADR 0011](adr/0011-no-own-browser-stack.md)). The skill-workflow suite uses Playwright Chromium only inside its test harness, standing in for the browser tool a real harness provides.
 
 ## Best Practices
 
@@ -92,10 +92,9 @@ impeccable/
     scripts/                       # Launcher, engine VERSION pin, command metadata
     agents/                        # Claude Code agent files for the shipped roles
   crates/                          # Engine binary (Rust workspace); see docs/ENGINE.md
-  cli/                             # Standalone `impeccable` detector CLI (npm package)
   scripts/
     check.js                       # Repository checks (`bun run check`)
-    release.mjs                    # Per-component release tags (engine, skill, cli)
+    release.mjs                    # Per-component release tags (engine, skill)
   tests/                           # Bun and Node test suites; tests/oracle/ is the engine's behavioral contract
   docs/
     adr/                           # Light ADRs

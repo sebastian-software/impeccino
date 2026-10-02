@@ -184,7 +184,7 @@ fn agent_browser_available(env: &Env) -> bool {
 }
 
 /// Say at session start, not at the first failed scan, that rendered-page
-/// detection is unavailable (docs/adr/0018).
+/// detection is unavailable (docs/adr/0016).
 fn append_rendered_detector_availability(parts: &mut Vec<String>, ctx: &Ctx, env: &Env, provider: &Provider) {
     if is_native(ctx.platform.as_deref()) || agent_browser_available(env) {
         return;

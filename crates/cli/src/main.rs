@@ -25,7 +25,6 @@ fn main() {
 }
 
 fn run(args: &[String], io: &mut Io) -> i32 {
-    // cli/bin/cli.js dispatch: help / version / detect / ignores
     let Some(verb) = args.first().map(String::as_str) else {
         io.out(impeccable_detect::ROOT_USAGE);
         return 0;
@@ -37,7 +36,7 @@ fn run(args: &[String], io: &mut Io) -> i32 {
             0
         }
         "--version" | "-v" => {
-            io.out(&format!("{CLI_VERSION}\n"));
+            io.out(&format!("{VERSION}\n"));
             0
         }
         // Launcher handshake: a cheap discriminator so the launchers can tell
@@ -55,8 +54,8 @@ fn run(args: &[String], io: &mut Io) -> i32 {
             io.out(impeccable_detect::ROOT_USAGE);
             0
         }
-        // Impeccable no longer installs itself (docs/adr/0003): a skill manager
-        // or a plain copy of skill/ places it in each harness.
+        // Impeccable no longer installs itself (docs/adr/0003): Dalo or
+        // skills.sh places skill/ in each harness.
         "skills" | "install" | "link" | "update" | "check" => {
             io.err(SELF_INSTALL_RETIRED);
             1
@@ -103,12 +102,8 @@ const RETIRED_VERBS: &[&str] = &[
 
 const SELF_INSTALL_RETIRED: &str = "Impeccable no longer installs or updates itself.\n\nInstall the skill with Dalo:\n  dalo source add impeccable https://github.com/swernerx/impeccable.git --ref light --subpath skill\n  dalo sync\nor with skills.sh:\n  npx skills add https://github.com/swernerx/impeccable/tree/light\n";
 
-/// The npm `impeccable` package version `cli.js --version` prints (its
-/// `package.json`), tracked separately from the crate version.
-pub const CLI_VERSION: &str = "4.0.0";
-
 /// The engines wired into `impeccable detect`: the static HTML engine
-/// (crates/html) and URL scans through agent-browser (docs/adr/0018).
+/// (crates/html) and URL scans through agent-browser (docs/adr/0016).
 fn engines() -> impeccable_detect::Engines<'static> {
     static HTML: impeccable_html::StaticHtmlEngine = impeccable_html::StaticHtmlEngine {
         // The shipped binary carries the built-in rules only.

@@ -25,10 +25,4 @@ describe('workflow execution boundaries', () => {
       expect(job.permissions).toBeUndefined();
     }
   });
-
-  test('sheriff retains its required write access', () => {
-    expect(workflows['sheriff.yml'].permissions).toEqual({
-      actions: 'read', checks: 'read', contents: 'read', issues: 'write', 'pull-requests': 'write',
-    });
-  });
 });

@@ -3,7 +3,7 @@
 Source of truth for what each AI coding harness supports in terms of agent skills.
 Reference for how harnesses treat skills, subagents, and hooks. Impeccable no longer installs into these harnesses itself (see adr/0003); install-path and hook-manifest notes below describe the harnesses, not an installer.
 
-Impeccable runs nothing in the browser ([ADR 0011](adr/0011-nothing-runs-in-the-browser.md)). Screenshots and rendered checks come from the harness's own browser tool (Claude in Chrome, Playwright MCP, the Codex Browser, and similar), and decisions go through the host's structured question tool. When a harness has no browser tool, the skill asks the user for the captures or names the fallback signal it used.
+Impeccable runs nothing in the browser ([ADR 0011](adr/0011-no-own-browser-stack.md)). Screenshots and rendered checks come from the harness's own browser tool (Claude in Chrome, Playwright MCP, the Codex Browser, and similar), and decisions go through the host's structured question tool. When a harness has no browser tool, the skill asks the user for the captures or names the fallback signal it used.
 
 Last verified: 2026-04-28 (subagent landscape spot-checked 2026-06-28; Mistral Vibe row verified 2026-07-16; Grok Build skills row verified 2026-07-21; Grok Build hook stdin captured 2026-08-24; DeepSeek Harness row verified 2026-09-06)
 

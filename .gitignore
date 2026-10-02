@@ -1,84 +1,35 @@
-# Dependencies
+# Dependencies (bun.lock is tracked; npm may write a package-lock.json as a
+# side effect of subprocesses)
 node_modules/
-
-# npm lockfile (project uses bun.lock; npm may regenerate this as a side
-# effect of npm subprocesses, but it should not be tracked)
 package-lock.json
 
-# Generated files
-dist/
-build/
-
-# Build artifacts
-*.log
-
-# Cargo (the Rust workspace; Cargo.lock IS tracked, it pins the engine build)
+# Cargo (Cargo.lock IS tracked, it pins the engine build)
 /target/
 
-# OS files
+*.log
+tmp/
+
+# OS and editor files
 .DS_Store
 Thumbs.db
-
-# IDE
 .vscode/
 .idea/
-
-# Claude Code local state
-.claude/projects/
-.claude/scheduled_tasks.lock
-.claude/settings.local.json
 
 # Environment
 .env
 .env.local
 
-# Cloudflare
-.wrangler/
-
-# Impeccable-owned project files are split: generated sidecars/config may be
-# tracked, but runtime recovery state and local assets should stay local.
-# Ephemeral hook cache/state, at the project root and inside generated harness
-# skill dirs (**/skills/impeccable/scripts/.impeccable/). Anchored patterns
-# would miss the nested copies the build/hook writes.
+# Impeccable project state while developing here: runtime state and per-run
+# critique snapshots stay local; config.json and critique/ignore.md are shared.
 **/.impeccable/hook.cache.json
-.impeccable/history/
-.impeccable/config.local.json
 **/.impeccable/hook.pending.json
-.impeccable/provider-smoke/
-src/__impeccable_provider_smoke_*.html
-# Per-run critique snapshots are local artifacts. ignore.md (also under
-# this dir) carries deferrals the user may want to share, so it's
-# explicitly re-included below.
+.impeccable/config.local.json
 .impeccable/critique/*
 !.impeccable/critique/ignore.md
 
 # Engine binaries: fetched per platform (scripts/fetch-engine.mjs), never tracked.
 # The launcher next to them (skill/scripts/impeccable) is the tracked file.
 skill/scripts/bin/
-**/skills/impeccable/scripts/bin/
-
-# Legacy design context (pre-v3.1, auto-migrated to PRODUCT.md by load-context.mjs)
-.impeccable.md
-# Note: PRODUCT.md is INTENTIONALLY tracked in this repo as a reference
-# implementation for users installing impeccable. Users of impeccable in
-# their own projects can choose whether to track PRODUCT.md and DESIGN.md.
-
-# Evals (private, commercial)
-evals/
-tests/evals-v2/
-
-# Video backlog & scripts (local working files, not for distribution)
-videos/
-
-# Talk decks & speaker materials (local working files, not for distribution)
-talks/
-
-# Generated sub-pages (legacy, now replaced by Astro content collections)
-
-# World design-system cards live in R2 (functions/worlds/cards); only the
-# manifest is tracked. Generate: bun run world-cards; upload: world-cards:publish.
-
-# Build artifacts written to site/public/ so Astro copies them to build/
 
 # Harness folders at the repo root are local developer state, never shipped:
 # skill/ itself is the install payload for every harness.
@@ -87,7 +38,6 @@ talks/
 /.claude/
 /.codex/
 /.cursor/
-/.dsh/
 /.gemini/
 /.grok/
 /.hermes/
@@ -97,19 +47,5 @@ talks/
 /.qoder/
 /.rovodev/
 /.trae/
-/.trae-cn/
 /.veto/
 /.vibe/
-.astro/
-
-# Local-only scratch for exploratory scripts, parked pages, and unused asset candidates.
-tmp/
-
-# Isolated ablation staging (impeccable-evals copies the built staged skill here
-# per rule, removes one rule, points a worker at it). Throwaway; never committed.
-.ablate-stage/
-
-# Local scratch from iterating on the OG card (weight comparisons, intermediate
-# PNGs, the old card backup). The canonical generator is `bun run og-image`
-# (scripts/generate-og-image.js); this dir is throwaway and safe to delete.
-.og-build/

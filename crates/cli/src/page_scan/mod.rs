@@ -1,5 +1,5 @@
 //! `impeccable detect <url>`: the detector's rendered-page rules, measured in
-//! a page that agent-browser holds (docs/adr/0018).
+//! a page that agent-browser holds (docs/adr/0016).
 //!
 //! Impeccable ships no browser. It drives `agent-browser`, the headless
 //! browser CLI agents already use: `open` the URL, install the read-only

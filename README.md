@@ -100,7 +100,6 @@ Visit [the Neo Mirai case study](https://impeccable.style/cases/neo-mirai) to se
 | --- | --- |
 | [`skill/`](skill/) | **The skill.** This folder is what you install, unchanged, in every harness. `SKILL.md` holds the setup flow, the design laws, and the command router; `reference/` has one playbook per command plus shared playbooks; `agents/` has the two shipped roles (finish reviewer and documenter) as Claude Code agent files; `scripts/` holds the launcher (`impeccable`, `impeccable.cmd`), the pinned engine version (`VERSION`), and command metadata. |
 | [`crates/`](crates/) | **The engine.** A Rust workspace that builds the `impeccable` binary behind every skill command: project context, the 61-rule detector for source files and rendered pages (`detect <url>` through agent-browser), the design hook, and `doctor`. It is one native binary with no WebAssembly build. Release binaries are published as `engine-v<version>` GitHub releases; the launcher fetches the one named in `skill/scripts/VERSION`. |
-| [`cli/`](cli/) | **The npm package** `impeccable`: a small shim that runs the engine for `npx impeccable detect` without an AI harness. It does not install the skill. |
 | [`tests/`](tests/) | Bun and Node suites, the oracle corpus that pins every engine verb's output (`tests/oracle/`), and opt-in LLM-backed behavior and workflow checks. |
 | [`scripts/`](scripts/) | Tooling: `check.js` (`bun run check`), the release script, engine fetch and release checks, and the test runner. There is no skill build. |
 | [`docs/`](docs/) | Developer documentation, the editorial style guide, harness notes, and the [Light ADRs](docs/adr/README.md). |
@@ -115,22 +114,22 @@ The upstream repository compiles the skill into 19 harness-specific variants, co
 | --- | --- | --- | --- |
 | Skill source | `SKILL.src.md` with placeholders and provider blocks, compiled per harness | `skill/` is one universal skill; harness notes are labelled paragraphs | [0001](docs/adr/0001-one-universal-skill-folder.md) |
 | Generated files | 19 harness folders and two plugin subtrees committed, synced by a workflow | Nothing generated is tracked | [0002](docs/adr/0002-no-generated-output-in-git.md) |
-| Installation | `npx impeccable install / update / link / check` with a signed `universal.zip` | Dalo, or skills.sh for people without Dalo | [0003](docs/adr/0003-no-self-installer.md), [0020](docs/adr/0020-install-with-dalo-or-skills-sh.md) |
+| Installation | `npx impeccable install / update / link / check` with a signed `universal.zip` | Dalo, or skills.sh for people without Dalo | [0003](docs/adr/0003-no-self-installer.md) |
 | Updates | `context` checks impeccable.style and suggests an update | No update check; the installer of the skill owns updates | [0004](docs/adr/0004-no-update-check.md) |
-| Distribution | Claude Code, Grok, Cursor, and OpenAI plugins, VS Code extension | No marketplace or editor packages | [0005](docs/adr/0005-no-marketplace-packages.md) |
+| Distribution | Claude Code, Grok, Cursor, and OpenAI plugins, VS Code extension, the npm detector CLI | No marketplace, editor, or npm packages | [0005](docs/adr/0005-no-marketplace-packages.md) |
 | Subagents | Compiled into Claude, Codex, Cursor, and Copilot formats plus fallback copies | Claude Code agent files in `skill/agents/`; other hosts spawn a general-purpose subagent with the same instructions | [0006](docs/adr/0006-agents-as-claude-code-files.md) |
 | Hooks | Merged into project settings at install time | Opt-in per project with `/impeccable hooks on` | [0007](docs/adr/0007-hooks-are-a-project-opt-in.md) |
-| Frontmatter | Claude-only keys in the Claude variant | Spec fields plus `user-invocable` and `argument-hint`, which every runtime tolerates | [0019](docs/adr/0019-frontmatter-carries-tolerated-harness-keys.md) |
+| Frontmatter | Claude-only keys in the Claude variant | Spec fields plus `user-invocable` and `argument-hint`, which every runtime tolerates | [0008](docs/adr/0008-frontmatter-carries-tolerated-harness-keys.md) |
 | Engine pin | Root `ENGINE_VERSION`, copied by the build | `skill/scripts/VERSION` only | [0009](docs/adr/0009-engine-version-in-one-file.md) |
 | Engine binary | Fetched by the installer or the launcher | Still fetched by the launcher, for now | [0010](docs/adr/0010-launcher-fetches-the-engine.md) |
-| Browser | Live mode in the user's dev server, a local decision page, a component review page, URL scans over headless Chrome | Impeccable drives no browser; the agent uses its harness's browser tool for screenshots and the structured question tool for decisions; `detect` scans files and directories | [0011](docs/adr/0011-nothing-runs-in-the-browser.md) |
-| Rendered-page rules | Run in the live overlay, the extension, or URL scans over Impeccable's own Chrome connection | `detect <url>` drives agent-browser: a read-only measurement in the page, the same rules evaluated natively, screenshot pixels for the rest | [0016](docs/adr/0016-rendered-page-rules-via-the-harness-browser.md), [0018](docs/adr/0018-rendered-pages-through-agent-browser.md) |
+| Browser | Live mode in the user's dev server, a local decision page, a component review page, URL scans over its own Chrome connection | No browser stack of its own: screenshots come from the agent's browser, decisions from the structured question tool | [0011](docs/adr/0011-no-own-browser-stack.md) |
+| Rendered-page rules | Run in the live overlay, the extension, or URL scans over Impeccable's own Chrome connection | `detect <url>` drives agent-browser: a read-only measurement in the page, the same rules evaluated natively, screenshot pixels for the rest | [0016](docs/adr/0016-rendered-pages-through-agent-browser.md) |
 | Build path | Comp-first (image-generated mock, comp fidelity tooling) or code-first, chosen by `buildPath` | Code-led build only, carried by the direction contract | [0012](docs/adr/0012-no-image-comps.md) |
 | Rule engine targets | Native binary plus a WebAssembly build for the browser extension and the in-page overlay | One native binary; no WebAssembly build, no browser extension | [0013](docs/adr/0013-no-wasm-or-browser-extension.md) |
-| Releases | Changelog entry in the website repository, rendered into the release notes | Per-component tags (`skill-v`, `cli-v`, `engine-v`) with notes GitHub generates from the commits | [0014](docs/adr/0014-releases-are-tags.md) |
+| Releases | Changelog entry in the website repository, rendered into the release notes; Windows binaries signed with the upstream maintainer's certificate | Per-component tags (`skill-v`, `engine-v`) with notes GitHub generates from the commits; binaries verified by checksum | [0014](docs/adr/0014-releases-are-tags.md) |
 | Docs | Finished plans, port contracts, release notes, and demos kept in `docs/` | `docs/` holds current guidance and ADRs; the oracle corpus is the behavioral contract; history lives in git | [0015](docs/adr/0015-history-lives-in-git.md) |
 
-Unchanged: the design guidance itself, every command that does not need a browser or an image model (22 commands; `live` and `generate` are gone), the engine's context, hook, and file detector, and the npm detector CLI. The detector keeps all 61 rules: the nine that need a rendered page now run through `detect <url>` and agent-browser ([ADR 0018](docs/adr/0018-rendered-pages-through-agent-browser.md); first attempt: [ADR 0016](docs/adr/0016-rendered-page-rules-via-the-harness-browser.md)).
+Unchanged: the design guidance itself, every command that does not need a browser or an image model (22 commands; `live` and `generate` are gone), and the engine's context, hook, and detector. The detector keeps all 61 rules: the nine that need a rendered page now run through `detect <url>` and agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)).
 
 **Verified so far.** `skill/` linked into a scratch project loads in Claude Code and in Codex: both resolve and run the launcher, and Codex names commands with `$`. The Rust workspace tests, the core suite, and the full oracle corpus against an engine built from this branch pass.
 
@@ -138,7 +137,7 @@ Unchanged: the design guidance itself, every command that does not need a browse
 
 ## Installation
 
-`skill/` is the whole skill, in one form for every harness, like an app bundle you drag into place. Impeccable has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)); install it with Dalo or skills.sh ([ADR 0020](docs/adr/0020-install-with-dalo-or-skills-sh.md)).
+`skill/` is the whole skill, in one form for every harness, like an app bundle you drag into place. Impeccable has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)); install it with Dalo or skills.sh ([ADR 0003](docs/adr/0003-no-self-installer.md)).
 
 The skill needs no runtime. Its launcher (`scripts/impeccable`, plus `impeccable.cmd` for Windows) runs the Impeccable engine, a self-contained binary that is downloaded once on first run into `~/.impeccable/bin/` for the version pinned in `skill/scripts/VERSION`. Rendered-page scans (`detect <url>`) also need [agent-browser](https://github.com/vercel-labs/agent-browser).
 
@@ -226,7 +225,7 @@ Hook surfaces the engine manages:
 
 The hook also understands Grok Build's events, and `context` recognizes a Grok manifest at `.grok/hooks/impeccable.json`; `hooks on` does not write that one. Gemini CLI has no hook manifest anymore ([ADR 0012](docs/adr/0012-no-image-comps.md)); the skill asks for a manual detector run there.
 
-Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. Hook lifecycle settings live under the `hook` key of `.impeccable/config.json`; detector ignores live under `detector`, shared by `/impeccable hooks` and `npx impeccable detect`.
+Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. Hook lifecycle settings live under the `hook` key of `.impeccable/config.json`; detector ignores live under `detector`, shared by `/impeccable hooks` and `impeccable detect`.
 
 In Claude Code, command hooks run independently of model-tool approval, so the first edit or Stop event can download and cache the engine even if the session denies the model's launcher command. Review hooks before unattended runs; to disable all Claude Code hooks for a run, pass `--settings '{"disableAllHooks": true}'`.
 
@@ -236,18 +235,15 @@ Full hook docs: [impeccable.style/docs/hooks](https://impeccable.style/docs/hook
 
 The Stop pass suppresses confirmed pre-existing findings when a verified before-edit baseline is available (currently Claude Edit/Write results for text scans). Other findings are marked new or attribution unknown; unknown is not evidence that your session caused the problem. Explicit `detect` scans remain unchanged.
 
-## CLI
+## Detector without an agent
 
-Impeccable includes a standalone CLI for detecting anti-patterns without an AI harness. `npx impeccable` is a small shim that runs the same engine binary the skill uses (installed as a platform-specific optional dependency, or fetched once into `~/.impeccable/bin/`); Node is needed only for `npx` itself, and you can also download the binary directly and put it on your PATH. The CLI does not install the skill.
+The detector is part of the skill's engine; there is no separate CLI package. To run it in CI or a terminal, call the launcher of an installed skill (it fetches the engine on first run), or download the binary for your platform from the `engine-v<version>` release:
 
 ```bash
-npx impeccable detect src/                   # scan a directory
-npx impeccable detect index.html             # scan an HTML file
-npx impeccable detect --json .               # CI-friendly JSON output
-npx impeccable detect --no-config src/       # raw scan, ignoring project config/context
-npx impeccable ignores list                  # show detector ignores
-npx impeccable ignores add-file "src/legacy/**"
-npx impeccable ignores add-value overused-font Inter --reason "Brand font"
+.claude/skills/impeccable/scripts/impeccable detect src/          # scan a directory
+.claude/skills/impeccable/scripts/impeccable detect --json .      # CI-friendly JSON output
+.claude/skills/impeccable/scripts/impeccable ignores list         # show detector ignores
+.claude/skills/impeccable/scripts/impeccable ignores add-file "src/legacy/**"
 ```
 
 The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (low contrast, cramped padding, tiny text, skipped headings, and more). `detect` reads files, directories, and URLs. For a URL (`http`, `https`, or `file`), it loads the page headlessly through [agent-browser](https://github.com/vercel-labs/agent-browser) and adds the rules that need layout (line length, text overflow and occlusion, viewport edges, heading rhythm), rendered contrast including text over images, and script errors: `impeccable detect --viewport 390x844 http://localhost:3000/`. Set `AGENT_BROWSER_SESSION` to scan in a session that is already signed in. Rendered scans need agent-browser installed (`npm install -g agent-browser && agent-browser install`); source scans do not.
@@ -285,7 +281,6 @@ Full detector docs: [impeccable.style/docs/detector](https://impeccable.style/do
 Join the community and ecosystem conversations:
 
 - GitHub Discussions: file bugs, request features, and help newcomers.
-- [Impeccable on npm](https://www.npmjs.com/package/impeccable): grab the CLI, follow releases, and star the package.
 - Follow @pbakaus on Twitter for release notes, sample lint reports, and video highlights of new rules.
 
 ## Contributing

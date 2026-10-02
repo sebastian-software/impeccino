@@ -15,14 +15,14 @@ There is **one** user-invocable skill, `impeccable`, with **22 commands** undern
 
 The skill has no runtime of its own. Every command the skill text runs is `"<skill-base-dir>/scripts/impeccable" <verb>` (Setup step 1 says `impeccable context`; `impeccable.cmd` is the Windows twin for shells without `sh`). `skill/scripts/impeccable` is a POSIX `sh` launcher: it execs `$IMPECCABLE_BIN` if set, else the sibling `scripts/bin/<os>-<arch>/impeccable[.exe]`, else `~/.impeccable/bin/impeccable`, else the version-pinned user cache `~/.impeccable/bin/<VERSION>/`, else `impeccable` on PATH, and as a last resort downloads the pinned version into that cache. It exports `IMPECCABLE_SKILL_DIR` (the skill dir, for `reference/*.md` and `command-metadata.json`) and `IMPECCABLE_SELF` (how the binary spells itself in the commands it prints).
 
-The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the root, `crates/*`; `cargo build --release -p impeccable`). Its verbs are `context`, `doctor`, `pin`, `surface-brief`, `critique-storage`, `palette`, `signals` (alias of context-signals), `concept-seed`, `detect` (files and directories only), `ignores`, `hook`, `hook-before-edit`, and `hooks` (alias of hook-admin). The browser and comp verbs (`live*`, `detect-csp`, `serve-question`, `component-review`, `generate-image`, `comp-spec`, `comp-diff`, `font-match`, `build-phase`, `capture-server`, `embed-prompt`) print a "was removed" message and exit 1 ([ADR 0011](docs/adr/0011-nothing-runs-in-the-browser.md), [ADR 0012](docs/adr/0012-no-image-comps.md)). Observable behavior is pinned by `tests/oracle/`, which is the behavioral contract ([ADR 0015](docs/adr/0015-history-lives-in-git.md)). **Read `docs/ENGINE.md` before touching `crates/`**: it maps the crates.
+The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the root, `crates/*`; `cargo build --release -p impeccable`). Its verbs are `context`, `doctor`, `pin`, `surface-brief`, `critique-storage`, `palette`, `signals` (alias of context-signals), `concept-seed`, `detect` (files, directories, and URLs through agent-browser), `ignores`, `hook`, `hook-before-edit`, and `hooks` (alias of hook-admin). The browser and comp verbs (`live*`, `detect-csp`, `serve-question`, `component-review`, `generate-image`, `comp-spec`, `comp-diff`, `font-match`, `build-phase`, `capture-server`, `embed-prompt`) print a "was removed" message and exit 1 ([ADR 0011](docs/adr/0011-no-own-browser-stack.md), [ADR 0012](docs/adr/0012-no-image-comps.md)). Observable behavior is pinned by `tests/oracle/`, which is the behavioral contract ([ADR 0015](docs/adr/0015-history-lives-in-git.md)). **Read `docs/ENGINE.md` before touching `crates/`**: it maps the crates.
 
 - **The rule engine is in the workspace.** Every `check_*` / `scan_*` lives in `crates/core`, Apache-2.0 like everything else; `crates/foundation` holds what they are written against (JS semantics, color, the registry, inline ignores, the plain-data input and output types) and `crates/core` re-exports it, so consumers name one crate. The engine is one native binary: there is no WebAssembly build, no in-page bundle, and no DOM layer ([ADR 0013](docs/adr/0013-no-wasm-or-browser-extension.md)). There is no build-time download and no exact toolchain pin: `cargo build --release -p impeccable` works offline on stable.
-- **`skill/scripts/VERSION`** pins the engine release (`engine-v<X>` on this repo's GitHub Releases, built by `.github/workflows/release-engine.yml` when `bun run release:engine` pushes the tag). The launcher reads it to name the download and the cache dir (ADR 0009); `cli/bin/cli.js` reads the same version from `package.json`'s `optionalDependencies`. Bumping it is a release-time decision, like the other manifest versions.
-- **Binaries are never tracked.** `skill/scripts/bin/` and `**/skills/impeccable/scripts/bin/` are gitignored, so `skill/` ships launcher-only and users get the binary on first run (ADR 0010).
+- **`skill/scripts/VERSION`** pins the engine release (`engine-v<X>` on this repo's GitHub Releases, built by `.github/workflows/release-engine.yml` when `bun run release:engine` pushes the tag). The launcher reads it to name the download and the cache dir (ADR 0009); the workspace `Cargo.toml` version must match it (`impeccable --version` prints the crate version, and a test checks the two agree). Bumping it is a release-time decision, like the other manifest versions.
+- **Binaries are never tracked.** `skill/scripts/bin/` is gitignored, so `skill/` ships launcher-only and users get the binary on first run (ADR 0010).
 - **Tests get a binary** from `IMPECCABLE_BIN`, then `skill/scripts/bin/<os-arch>/` (`bun run fetch:engine`; `IMPECCABLE_BIN=<local build> bun run fetch:engine` copies a local build there), then `target/release/impeccable` from a plain `cargo build --release -p impeccable`. `tests/lib/engine-bin.mjs` is the one resolver; suites that need the binary skip cleanly without it.
 - **The oracle is the behavior gate.** `tests/oracle/` holds goldens recorded from the JS scripts before they left the tree, plus reviewed deltas in `DELTAS.md`; `tests/oracle.test.mjs` replays them against the binary in `bun run test`. New cases are recorded from the binary (`record.mjs --bin`) and reviewed by hand. `tests/oracle/vectors/calls/` is the frozen function-level snapshot; it cannot be regenerated.
-- **What stays JavaScript here:** the repository and test tooling and the npm shim. Nothing in Impeccable runs in a browser ([ADR 0011](docs/adr/0011-nothing-runs-in-the-browser.md)); the agent uses its harness's browser tool (Claude in Chrome, Playwright MCP, the Codex Browser) for screenshots and the host's structured question tool for decisions.
+- **What stays JavaScript here:** the repository and test tooling. Impeccable injects nothing into the user's running app ([ADR 0011](docs/adr/0011-no-own-browser-stack.md)); screenshots come from agent-browser or the harness's browser tool, decisions from the host's structured question tool, and `detect <url>` measures rendered pages through agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)).
 
 **Do not add standalone skills** unless there's a strong reason. The consolidation was deliberate: the `/` menu pollution problem is real and gets worse as users install more plugins.
 
@@ -103,7 +103,7 @@ Editorial brief is at `docs/STYLE.md`. Read it before editing the READMEs or any
 
 `bun run check`'s `validateProse` step (in `scripts/check.js`) enforces a denylist: em dashes (`—` and HTML entities), the `--` em-dash substitute, `load-bearing`, `highest-leverage`, `biggest unlock`, `seamless`, `robust`, `delve`, `elevate`, `empower`, `underscore`, `pivotal`, `tapestry`, `data-driven`, `reflex defaults`, `collapses into monoculture`, `in today's`, `gone are the days`, `whether you're`, `let's dive in`, `in summary`, `in conclusion`, `moreover`, `furthermore`. Each rule prints a rationale and a suggested replacement when it fires. **Do not silently work around the regex.** If a banned word has earned a real meaning here, raise it as a `docs/STYLE.md` amendment.
 
-`validateProse` scans `README.md` and `README.npm.md`; site copy is validated in impeccable-site.
+`validateProse` scans `README.md` and the docs.
 
 **`skill/` is checked too, by a second gate.** `validateProse` skips it because the full ruleset does not fit LLM-facing reference instructions. `validateSkillProse` then scans `skill/**/*.md` (markdown only, not the launcher under `skill/scripts/`) and fails the build on em dashes plus the subset of phrases with no technical reading: `load-bearing`, `highest-leverage`, `biggest unlock`, `reflex defaults`, `collapses into monoculture`, `data-driven`, `delve`, `tapestry`, `in today's`, `gone are the days`, `let's dive in`, `in summary`, `in conclusion`. The words it does *not* enforce in `skill/` (`seamless`, `robust`, `elevate`, and friends) are the ones with legitimate technical uses. Net effect: an em dash in `skill/reference/*.md` fails `bun run check`; an em dash in a `scripts/*.js` code comment does not.
 
@@ -126,7 +126,7 @@ There are no build-time placeholders or provider blocks. Write skill text that h
 - The launcher is `"<skill-base-dir>/scripts/impeccable" <verb>`, quoted because install paths can contain spaces. Agents never load SKILL.md, so the parent passes them `<scripts-path>`.
 - Questions go through "the host's structured question tool", not a named tool.
 - Harness- or model-specific guidance is a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`).
-- SKILL.md frontmatter uses the Agent Skills spec fields plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0019); keep `allowed-tools` out, since Claude Code then blocks non-interactive activation.
+- SKILL.md frontmatter uses the Agent Skills spec fields plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0008); keep `allowed-tools` out, since Claude Code then blocks non-interactive activation.
 - Agents are plain Claude Code agent files in `skill/agents/`; SKILL.md's "Shipped agents" section covers hosts that lack them.
 
 `tests/skill-source.test.js` pins these rules. Nothing generated is tracked (ADR 0002).
@@ -155,7 +155,7 @@ Unit tests (skill source rules, release tooling, workflows) run via `bun test`. 
 
 ### The runner ends what it starts
 
-`scripts/run-tests.mjs` runs each suite command as its own process-group leader, ends that group on `SIGINT` / `SIGTERM` / `SIGHUP`, and SIGKILLs it when it exceeds the wall-clock cap (`IMPECCABLE_TEST_WALL_CLOCK_MS`, or a suite's `wallClockMs`), so a suite blocked in a synchronous call still ends. Nothing in the runner may use `spawnSync`: a blocked event loop cannot run those handlers. The live-server reaper and leak check that used to sit here left with live mode ([ADR 0011](docs/adr/0011-nothing-runs-in-the-browser.md)).
+`scripts/run-tests.mjs` runs each suite command as its own process-group leader, ends that group on `SIGINT` / `SIGTERM` / `SIGHUP`, and SIGKILLs it when it exceeds the wall-clock cap (`IMPECCABLE_TEST_WALL_CLOCK_MS`, or a suite's `wallClockMs`), so a suite blocked in a synchronous call still ends. Nothing in the runner may use `spawnSync`: a blocked event loop cannot run those handlers. The live-server reaper and leak check that used to sit here left with live mode ([ADR 0011](docs/adr/0011-no-own-browser-stack.md)).
 
 ### Which opt-in suite a change owes
 
@@ -194,28 +194,24 @@ IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1 bun run test:skill-behavior    # dump per-sc
 
 ## CLI
 
-`cli/` is the npm package `impeccable`, now a thin shim: `cli/bin/cli.js` locates the engine binary (`IMPECCABLE_BIN`, then the `@impeccable/cli-<os>-<arch>` optional dependency pinned at `skill/scripts/VERSION`, then `~/.impeccable/bin/<version>/`, then a checksum-verified download into that cache) and execs it with argv. The verbs users see (`detect`, `ignores`, `help`) are the binary's; `install`, `update`, `check`, `link`, and the legacy `skills` namespace only print a retirement notice ([ADR 0003](docs/adr/0003-no-self-installer.md)). `cli/platform-packages/<os>-<arch>/package.json` are the templates the engine release publishes; the version pinned in `package.json` `optionalDependencies` must equal `skill/scripts/VERSION`.
+The `impeccable` binary is the skill's engine; there is no separate npm package ([ADR 0005](docs/adr/0005-no-marketplace-packages.md)). To run the detector without an agent (for example in CI), call the launcher of an installed skill or a downloaded release binary:
 
 ```bash
-npx impeccable detect [file-or-dir...]          # detect anti-patterns
-npx impeccable detect --json src/               # JSON output
-npx impeccable --help                           # show help
+<skill-dir>/scripts/impeccable detect src/              # detect anti-patterns
+<skill-dir>/scripts/impeccable detect --json src/       # JSON output
+<skill-dir>/scripts/impeccable detect http://localhost:3000/   # rendered page, needs agent-browser
 ```
 
-The package exports no JS detector API (`main` / `exports` are gone), and `detect` refuses URLs with a pointer to the harness's browser tool ([ADR 0011](docs/adr/0011-nothing-runs-in-the-browser.md)).
+`install`, `update`, `check`, `link`, and the legacy `skills` namespace only print the install routes ([ADR 0003](docs/adr/0003-no-self-installer.md)).
 
 ## Versioning
 
 **Feature PRs do not bump versions.** Bumping is a release step, not part of the change that earns the release: a version in a feature branch conflicts with every other open branch. Land the code first; the maintainer bumps when cutting the release. This holds even though the "Bump when: ..." notes below name the source dirs — those say *which* component a change belongs to, not *when* to edit the manifest. The only PR that touches a manifest version is one whose purpose is the release itself.
 
-There are three independently versioned components: the engine, the CLI, and the skill ([ADR 0014](docs/adr/0014-releases-are-tags.md)). Only bump the one(s) that actually changed:
+There are two independently versioned components: the engine and the skill ([ADR 0014](docs/adr/0014-releases-are-tags.md)). Only bump the one(s) that actually changed:
 
-**Engine** (`skill/scripts/VERSION`):
-- The engine release the launcher downloads and the npm shim's `optionalDependencies` pin. Bump it when a new engine release is published and keep `package.json` `optionalDependencies` at the same version; `tests/skill-source.test.js` fails on a mismatch.
-
-**CLI** (npm package):
-- `package.json` → `version`
-- Bump when: CLI shim code changes (`cli/bin/cli.js`, `cli/platform-packages/`)
+**Engine** (`skill/scripts/VERSION`, and the workspace `Cargo.toml` version to match):
+- The engine release the launcher downloads. Bump both together; `tests/skill-source.test.js` fails on a mismatch.
 
 **Skill**:
 - `skill/SKILL.md` → `metadata.version`
@@ -225,27 +221,23 @@ After bumping, see **Releases** below for how to tag and publish.
 
 ## Releases
 
-A release is an annotated tag per component: `engine-v`, `skill-v`, `cli-v`. GitHub generates the notes from the commits since that component's previous tag ([ADR 0014](docs/adr/0014-releases-are-tags.md)), so commit messages are the release notes and should describe user-facing impact. No website changelog is involved.
+A release is an annotated tag per component: `engine-v` and `skill-v`. GitHub generates the notes from the commits since that component's previous tag ([ADR 0014](docs/adr/0014-releases-are-tags.md)), so commit messages are the release notes and should describe user-facing impact.
 
-Workflow for any component:
+Workflow for either component:
 
 1. Bump the manifest version (see Versioning above).
-2. Commit and push to `main`.
-3. Run `bun run release:<engine|skill|cli>`. Preview first with `node scripts/release.mjs <component> --dry-run`.
+2. Commit and push.
+3. Run `bun run release:<engine|skill>`. Preview first with `node scripts/release.mjs <component> --dry-run`.
 
-The script refuses to run if the working tree is dirty, HEAD is ahead of origin, or the tag already exists. The engine release only tags and pushes; `release-engine.yml` builds and publishes the binaries. Skill releases attach nothing. CLI releases print a reminder to run `npm publish` separately.
+The script refuses to run if the working tree is dirty, HEAD is ahead of origin, or the tag already exists. The engine release only tags and pushes; `release-engine.yml` builds the five binaries and publishes them with `.sha256` sidecars. Binaries are not code-signed; the launcher verifies the checksum. Skill releases attach nothing.
 
 If you need to fix release notes after the fact: `gh release edit <tag> --notes-file <md>`.
 
-### Release order is mechanically enforced (triage decision D4)
+### Release order is enforced
 
-The skill launcher and the npm shim (`cli/bin/cli.js`) resolve the engine binary for the pinned version in `skill/scripts/VERSION`. Nothing they do works until the engine release exists first. **The order is: publish the engine release, then the platform packages, then release/merge the skill (or CLI):**
+The skill launcher resolves the engine binary for the pinned version in `skill/scripts/VERSION`, so the engine release must exist first: publish `engine-v<version>`, then release the skill or merge a branch that bumps `skill/scripts/VERSION` (skill managers pin commits, so a bump must point at a published engine).
 
-1. Publish engine `engine-v<version>`: `bun run release:engine` tags and pushes; `release-engine.yml` builds the five `impeccable-<os>-<arch>[.exe]` binaries plus a `.sha256` beside each and publishes the release on this repo. The whole workspace builds from source, so nothing has to ship ahead of it.
-2. Publish the five `@impeccable/cli-<os>-<arch>@<version>` npm platform packages.
-3. Only then tag/publish the skill or CLI release, and only then merge a branch that bumps `skill/scripts/VERSION`: skill managers pin `main` commits, so a bump on `main` must point at a published engine.
-
-`scripts/check-engine-release.mjs` verifies step 1 and 2 for the pinned version (ranged-GET each release asset, registry-probe each npm package; honors `IMPECCABLE_DOWNLOAD_BASE`). It exits non-zero and names exactly which assets are missing. `scripts/release.mjs` runs it as a hard gate before tagging the **skill** and **CLI** components and refuses to proceed when any asset is absent. `IMPECCABLE_SKIP_ENGINE_CHECK=1` bypasses the gate only for the case where the assets exist but the registry probe is unreachable. CI's `engine-release-ready` job runs the same script as a hard gate, so missing release assets fail CI.
+`scripts/check-engine-release.mjs` verifies the five binaries and their `.sha256` sidecars for the pinned version (ranged GET per asset; honors `IMPECCABLE_DOWNLOAD_BASE`) and names exactly what is missing. `scripts/release.mjs` runs it as a hard gate before tagging the skill. `IMPECCABLE_SKIP_ENGINE_CHECK=1` bypasses it only when the assets exist but the probe is unreachable. CI's `engine-release-ready` job runs the same check.
 
 ## Adding New Commands
 
@@ -270,7 +262,7 @@ All commands live under `/impeccable`. To add a new one:
 
 ## Adding or modifying anti-pattern detection rules
 
-The rule logic lives in `crates/core`; the detector ships 61 rules. Source-file rules run in the text and static HTML engines; rules that need layout run in `crates/core/src/browser` over a page snapshot that `impeccable detect <url>` measures through agent-browser ([ADR 0018](docs/adr/0018-rendered-pages-through-agent-browser.md)). There is no WebAssembly build or bundle to refresh ([ADR 0013](docs/adr/0013-no-wasm-or-browser-extension.md)); when a rendered-page rule reads a new computed-style property, add it to both `STYLE_PROPS` in `crates/foundation/src/browser/snapshot.rs` and `crates/cli/assets/page-snapshot.js` (a test checks they agree). Everything a rule change touches:
+The rule logic lives in `crates/core`; the detector ships 61 rules. Source-file rules run in the text and static HTML engines; rules that need layout run in `crates/core/src/browser` over a page snapshot that `impeccable detect <url>` measures through agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)). There is no WebAssembly build or bundle to refresh ([ADR 0013](docs/adr/0013-no-wasm-or-browser-extension.md)); when a rendered-page rule reads a new computed-style property, add it to both `STYLE_PROPS` in `crates/foundation/src/browser/snapshot.rs` and `crates/cli/assets/page-snapshot.js` (a test checks they agree). Everything a rule change touches:
 
 | Where | What it is |
 |---|---|
@@ -282,7 +274,7 @@ The rule logic lives in `crates/core`; the detector ships 61 rules. Source-file 
 | `tests/oracle/vectors/calls/` | Frozen function-level vectors; replayed by `crates/core/tests/vectors.rs` through `impeccable_core::vectors::call` |
 | `skill/SKILL.md` and `reference/*.md` | Hand-edited if the rule introduces new design guidance |
 
-Order for a new rule: fixture here first, registry row in `crates/foundation/src/registry.rs`, the check in `crates/core` against that fixture (text engine and, where it applies, the static HTML engine), oracle case + golden, then `cargo build --release -p impeccable` and `IMPECCABLE_BIN="$PWD/target/release/impeccable" bun run test`. `bun run check` reads the rule count from `crates/foundation/src/registry.rs` and validates the counts quoted in `README.md`, `README.npm.md`, and `AGENTS.md`.
+Order for a new rule: fixture here first, registry row in `crates/foundation/src/registry.rs`, the check in `crates/core` against that fixture (text engine and, where it applies, the static HTML engine), oracle case + golden, then `cargo build --release -p impeccable` and `IMPECCABLE_BIN="$PWD/target/release/impeccable" bun run test`. `bun run check` reads the rule count from `crates/foundation/src/registry.rs` and validates the counts quoted in `README.md` and `AGENTS.md`.
 
 ### Rule packs (downstream crates adding rules)
 

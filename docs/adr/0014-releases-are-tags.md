@@ -8,7 +8,7 @@
 
 ## Decision
 
-A release is an annotated tag per component (`skill-v`, `cli-v`, `engine-v`). GitHub generates the notes from the commits since the component's previous tag. No component builds or uploads artifacts in the release script; engine binaries are built by `release-engine.yml`.
+A release is an annotated tag per component (`skill-v`, `engine-v`). GitHub generates the notes from the commits since the component's previous tag. No component builds or uploads artifacts in the release script; engine binaries are built by `release-engine.yml`.
 
 ## Consequences
 

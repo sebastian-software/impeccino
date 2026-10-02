@@ -41,17 +41,13 @@ function checkCounts(rootDir, skills) {
     commandCount = activeCommands.length;
   }
 
-  // Count detection rules from the rule registry as `cargo xtask bundle`
-  // emits it. crates/live/assets/antipatterns.json is tracked, so a fresh
-  // checkout has it; extension/detector/antipatterns.json is the gitignored
-  // extension copy and only stands in for an older tree. With neither, the
-  // detection-count check is skipped rather than guessed.
+  // Count detection rules from the registry (crates/foundation/src/registry.rs).
+  // Without it, the detection-count check is skipped rather than guessed.
   const { count: detectionCount, reason: detectionReason } = readDetectionRuleCount(rootDir);
 
   // Validate counts in key files
   const filesToCheck = [
     'README.md',
-    'README.npm.md',
     'AGENTS.md',
   ];
 
@@ -148,7 +144,6 @@ function validateSkillFrontmatter(skills) {
 function validateProse(rootDir) {
   const targets = [
     'README.md',
-    'README.npm.md',
   ];
   const extensions = new Set(['.html', '.md', '.js', '.mjs', '.css', '.astro']);
   // The slop catalog documents every antipattern by example, so it must
