@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="12 4 176 194" width="176" height="194" role="img" aria-label="Impeccino">
+  <title>Impeccino</title>
+  <g stroke="#141207" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="100" cy="118" r="40" fill="#f2d9a6"/>
+    <ellipse cx="85" cy="106" rx="10" ry="12" fill="#ffffff" stroke-width="5"/>
+    <ellipse cx="115" cy="106" rx="10" ry="12" fill="#ffffff" stroke-width="5"/>
+    <circle cx="90" cy="109" r="5" fill="#141207" stroke="none"/>
+    <circle cx="120" cy="109" r="5" fill="#141207" stroke="none"/>
+    <path d="M60 88 C62 58 82 28 116 10 C122 7 129 12 124 18 C134 40 140 62 140 88 Z" fill="#3fb0a9"/>
+    <path d="M54 86 Q100 74 146 86 L148 98 Q100 86 52 98 Z" fill="#2a7470"/>
+    <rect x="18" y="124" width="164" height="70" rx="18" fill="#ffb900"/>
+    <path d="M112 127 L83.5 191" fill="none"/>
+    <circle cx="40" cy="127" r="7" fill="#f2d9a6" stroke-width="5"/>
+    <circle cx="53" cy="124" r="7" fill="#f2d9a6" stroke-width="5"/>
+    <circle cx="66" cy="127" r="7" fill="#f2d9a6" stroke-width="5"/>
+    <circle cx="134" cy="127" r="7" fill="#f2d9a6" stroke-width="5"/>
+    <circle cx="147" cy="124" r="7" fill="#f2d9a6" stroke-width="5"/>
+    <circle cx="160" cy="127" r="7" fill="#f2d9a6" stroke-width="5"/>
+    <circle cx="100" cy="124" r="15" fill="#e0563a"/>
+  </g>
+  <circle cx="95" cy="119" r="4" fill="#f29a80"/>
+</svg>
