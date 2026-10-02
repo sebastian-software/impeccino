@@ -139,7 +139,7 @@ describe('release.mjs guards', () => {
     assert.match(stdout, /Skill 1\.2\.3/);
     assert.match(stdout, /tag is free/);
     assert.match(stdout, /\[dry-run\] git tag -a skill-v1\.2\.3/);
-    assert.match(stdout, /\[dry-run\] gh release create skill-v1\.2\.3/);
+    assert.match(stdout, /\[dry-run\] gh release create skill-v1\.2\.3 --verify-tag/);
     assert.match(stdout, /gh release create skill-v1\.2\.3 [^\n]*--generate-notes/);
     assert.doesNotMatch(stdout, /universal\.zip|1Password|changelog/);
   });

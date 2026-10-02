@@ -195,9 +195,19 @@ runMutating(`git push origin ${tag}`);
 
 step(`Creating GitHub release ${tag}`);
 const notesStart = previousTag ? ` --notes-start-tag ${previousTag}` : '';
-runMutating(
-  `gh release create ${tag} --title "${cfg.label} ${version}" --generate-notes${notesStart}`
-);
+// GitHub can take a moment to see a tag that was just pushed; retry briefly
+// instead of leaving a pushed tag without its release.
+const createRelease = `gh release create ${tag} --verify-tag --title "${cfg.label} ${version}" --generate-notes${notesStart}`;
+for (let attempt = 1; ; attempt++) {
+  try {
+    runMutating(createRelease);
+    break;
+  } catch (err) {
+    if (attempt === 4) fail(`Could not create the GitHub release for ${tag}; the tag is pushed. Retry with:\n  ${createRelease}`);
+    console.log(`  gh release create failed (attempt ${attempt}); retrying in ${attempt * 3}s`);
+    execSync(`sleep ${attempt * 3}`);
+  }
+}
 
 console.log(`\n✓ ${cfg.label} ${version} released as ${tag}`);
 
