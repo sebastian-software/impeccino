@@ -1,8 +1,11 @@
 #!/bin/sh
 # Impeccino launcher. Runs the platform binary shipped next to this script:
 #   <this dir>/bin/<os>-<arch>/impeccino
-# Order: $IMPECCINO_BIN, the sibling binary, ~/.impeccino/bin/impeccino,
-# the version-pinned cache, then `impeccino` on PATH. Never needs Node.
+# Order: $IMPECCINO_BIN, the sibling binary, <cache>/bin/impeccino,
+# the version-pinned cache <cache>/bin/<VERSION>/, then `impeccino` on PATH.
+# <cache> is the per-user cache: $XDG_CACHE_HOME/impeccino when that is an
+# absolute path, else ~/.cache/impeccino (on Windows shells,
+# %LOCALAPPDATA%\impeccino, shared with impeccino.cmd). Never needs Node.
 # The unversioned home binary and the PATH candidate are validated with the
 # engine-probe handshake first: the retired 3.x npm CLI also installed a bin
 # named `impeccino`, and exec'ing it would fail every verb with
@@ -63,18 +66,26 @@ if [ -f "$bin" ]; then
   # Lost the executable bit in transit (zip extraction, some copiers).
   chmod +x "$bin" 2>/dev/null && exec "$bin" "$@"
 fi
-# On Windows (an MSYS/Git Bash shell) the cached names carry .exe so this
-# launcher and impeccino.cmd share one cache.
+# On Windows (an MSYS/Git Bash shell) the cached names carry .exe and the
+# cache sits under %LOCALAPPDATA%, so this launcher and impeccino.cmd share
+# one cache.
 exe=""
 [ "$os" = windows ] && exe=".exe"
-home_bin="${HOME:-/nonexistent}/.impeccino/bin/impeccino$exe"
+case "${XDG_CACHE_HOME:-}" in
+  /*) user_cache="$XDG_CACHE_HOME/impeccino" ;;
+  *) user_cache="${HOME:-/nonexistent}/.cache/impeccino" ;;
+esac
+if [ "$os" = windows ] && [ -n "${LOCALAPPDATA:-}" ]; then
+  user_cache="$(cygpath -u "$LOCALAPPDATA" 2>/dev/null || printf '%s' "$LOCALAPPDATA")/impeccino"
+fi
+home_bin="$user_cache/bin/impeccino$exe"
 if [ -z "$probing" ] && [ -x "$home_bin" ] && probe_ok "$home_bin"; then
   exec "$home_bin" "$@"
 fi
 # Version-pinned user cache, filled by the download below.
 version=""
 [ -f "$dir/VERSION" ] && version=$(tr -d '[:space:]' < "$dir/VERSION")
-cache_root="${IMPECCINO_HOME:-${HOME:-/nonexistent}/.impeccino}"
+cache_root="${IMPECCINO_HOME:-$user_cache}"
 cached="$cache_root/bin/$version/impeccino$exe"
 if [ -n "$version" ] && [ -x "$cached" ]; then
   exec "$cached" "$@"

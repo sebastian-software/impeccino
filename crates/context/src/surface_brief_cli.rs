@@ -1,4 +1,5 @@
-//! JS: surface-brief.mjs -> `impeccino surface-brief`
+//! `impeccino surface-brief`: read and write one surface's section of
+//! SURFACES.md (see `surface_briefs`).
 
 use crate::context::resolve_project_root;
 use crate::jsp;
@@ -10,9 +11,8 @@ use serde_json::{Map, Value};
 
 fn summary(brief: &SurfaceBrief, project_root: &str) -> Value {
     let mut m = Map::new();
-    m.insert("slug".into(), brief.slug.clone().map(Value::String).unwrap_or(Value::Null));
-    m.insert("path".into(), Value::String(jsp::to_posix(&jsp::relative("/", project_root, brief.path.as_deref().unwrap_or("")))));
-    m.insert("primaryTarget".into(), brief.primary_target.clone().map(Value::String).unwrap_or(Value::Null));
+    m.insert("path".into(), Value::String(jsp::to_posix(&jsp::relative("/", project_root, &brief.path))));
+    m.insert("primaryTarget".into(), Value::String(brief.primary_target.clone()));
     m.insert("relatedTargets".into(), Value::Array(brief.related_targets.iter().cloned().map(Value::String).collect()));
     Value::Object(m)
 }
@@ -36,11 +36,11 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     };
     match command {
         Some("path") => {
-            let Some(fp) = surface_brief_path_for_target(target, &project_root) else {
+            if normalize_surface_target(target, &project_root).is_none() {
                 io.err("surface brief path requires a concrete target\n");
                 return 1;
-            };
-            io.out(&format!("{}\n", rel_out(&fp)));
+            }
+            io.out(&format!("{}\n", rel_out(&surfaces_path(&project_root))));
             0
         }
         Some("list") => {
@@ -51,7 +51,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         Some("read") => {
             let result = resolve_surface_brief(&project_root, target);
             if let Some(b) = result.brief {
-                io.out(&b.text);
+                io.out(&format!("{}\n", b.text));
                 return 0;
             }
             if !result.candidates.is_empty() {

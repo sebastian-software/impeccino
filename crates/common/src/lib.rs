@@ -8,6 +8,7 @@
 
 pub mod jsp;
 pub mod proc;
+pub mod project_files;
 
 use std::collections::HashMap;
 use std::ffi::OsString;

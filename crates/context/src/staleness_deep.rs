@@ -6,12 +6,12 @@ use crate::jsp;
 use crate::signals::git_run;
 use crate::staleness::{check_native_platform_evidence, finding, js_truthy, to_relative, unique_roots, Finding};
 use crate::util::{exists, js_trim, read_json, safe_read};
+use impeccino_core::inline_ignores::parse_design_waivers;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
 
 const VISUAL_SOURCE_DIRS: [&str; 7] = ["src", "app", "pages", "components", "site", "styles", "public"];
-const LEGACY_LIVE_PATHS: [&str; 2] = [".impeccino-live.json", ".impeccino-live"];
 
 fn git(args: &[&str], cwd: &str) -> Option<String> {
     git_run(args, cwd, true, Some(5000))
@@ -118,78 +118,27 @@ fn wrap_ticks(items: &[String]) -> String {
     items.iter().map(|k| format!("`{}`", k)).collect::<Vec<_>>().join(", ")
 }
 
-/// JS String(x) for config list entries.
-fn js_string(v: &Value) -> String {
-    match v {
-        Value::Null => "null".to_string(),
-        Value::String(s) => s.clone(),
-        other => crate::critique_storage::js_string_value(other),
+/// Project-wide waivers in DESIGN.md (`<!-- impeccino-disable <rule> -->`)
+/// that name a rule the detector does not have.
+pub fn check_design_waivers(design: Option<&str>, design_path: Option<&str>, known_rule_ids: Option<&[String]>) -> Vec<Finding> {
+    let (Some(design), Some(known)) = (design.filter(|d| !d.is_empty()), known_rule_ids) else { return vec![] };
+    let unknown: Vec<String> = parse_design_waivers(design).into_iter().filter(|r| !known.contains(r)).collect();
+    if unknown.is_empty() {
+        return vec![];
     }
-}
-
-/// JS: checkDetectorIgnores
-pub fn check_detector_ignores(project_root: &str, known_rule_ids: Option<&[String]>) -> Vec<Finding> {
-    let mut out = Vec::new();
-    if project_root.is_empty() {
-        return out;
-    }
-    for name in ["config.json", "config.local.json"] {
-        let fp = jsp::join(&[project_root, ".impeccino", name]);
-        let Some(raw) = read_json(&fp) else { continue };
-        let Some(detector) = raw.get("detector") else { continue };
-        if !js_truthy(detector) || !(detector.is_object() || detector.is_array()) {
-            continue;
-        }
-        let rel = to_relative(Some(&fp), project_root).unwrap();
-        if let (Some(known), Some(rules)) = (known_rule_ids, detector.get("ignoreRules").and_then(|v| v.as_array())) {
-            let unknown: Vec<String> = rules
-                .iter()
-                .map(|r| js_trim(&js_string_or_empty(r)).to_lowercase())
-                .filter(|r| !r.is_empty() && r != "*" && !known.contains(r))
-                .collect();
-            if !unknown.is_empty() {
-                out.push(finding(
-                    "detector-ignore-rules-unknown",
-                    "config.json",
-                    Some(rel.clone()),
-                    "mention",
-                    format!(
-                        "{} ignores rule id(s) the detector does not have: {}. Either the rule was renamed or removed, or the id was mistyped and has never suppressed anything.",
-                        rel,
-                        wrap_ticks(&unknown)
-                    ),
-                    "Report the exact ids. Removing them is safe; keeping a dead ignore hides that the rule is gone.".to_string(),
-                ));
-            }
-        }
-        if let Some(files) = detector.get("ignoreFiles").and_then(|v| v.as_array()) {
-            let missing: Vec<String> = files
-                .iter()
-                .map(|e| js_trim(&js_string_or_empty(e)).to_string())
-                .filter(|e| !e.is_empty() && !e.contains('*') && !exists(&jsp::join(&[project_root, e])))
-                .collect();
-            if !missing.is_empty() {
-                out.push(finding(
-                    "detector-ignore-files-missing",
-                    "config.json",
-                    Some(rel.clone()),
-                    "mention",
-                    format!("{} ignores file path(s) that no longer exist: {}.", rel, wrap_ticks(&missing)),
-                    "Ask whether the file moved (repoint the entry) or was deleted (drop it). A stale entry silently stops covering the file that replaced it.".to_string(),
-                ));
-            }
-        }
-    }
-    out
-}
-
-/// `String(rule || '')`
-fn js_string_or_empty(v: &Value) -> String {
-    if js_truthy(v) {
-        js_string(v)
-    } else {
-        String::new()
-    }
+    let shown = design_path.filter(|p| !p.is_empty()).unwrap_or("DESIGN.md");
+    vec![finding(
+        "design-waiver-unknown-rule",
+        "DESIGN.md",
+        design_path.map(|s| s.to_string()),
+        "mention",
+        format!(
+            "{} waives rule id(s) the detector does not have: {}. Either the rule was renamed or removed, or the id was mistyped and has never waived anything.",
+            shown,
+            wrap_ticks(&unknown)
+        ),
+        "Report the exact ids. Fix a typo in place; drop a waiver whose rule is gone, keeping the design rule it sat next to.".to_string(),
+    )]
 }
 
 fn collect_hook_commands(v: &Value, out: &mut Vec<String>) {
@@ -243,7 +192,6 @@ pub fn check_hook_installation(project_root: &str, repo_root: Option<&str>, prov
         return out;
     }
     let roots = unique_roots(project_root, repo_root);
-    let mut installed_at: Option<String> = None;
     for root in &roots {
         for rel in manifests {
             let mp = jsp::join(&[root, rel]);
@@ -258,7 +206,7 @@ pub fn check_hook_installation(project_root: &str, repo_root: Option<&str>, prov
                 continue;
             }
             let base = if project_root.is_empty() { root.as_str() } else { project_root };
-            installed_at = to_relative(Some(&mp), base);
+            let installed_at = to_relative(Some(&mp), base);
             let broken: Vec<&String> = commands
                 .iter()
                 .filter(|c| {
@@ -284,53 +232,7 @@ pub fn check_hook_installation(project_root: &str, repo_root: Option<&str>, prov
             }
         }
     }
-    if let Some(ia) = installed_at {
-        for root in &roots {
-            for name in ["config.json", "config.local.json"] {
-                let cp = jsp::join(&[root, ".impeccino", name]);
-                let Some(raw) = read_json(&cp) else { continue };
-                let Some(hook) = raw.get("hook") else { continue };
-                if js_truthy(hook) && hook.get("enabled") == Some(&Value::Bool(false)) {
-                    let base = if project_root.is_empty() { root.as_str() } else { project_root };
-                    out.push(finding(
-                        "hook-enabled-conflict",
-                        "config.json",
-                        to_relative(Some(&cp), base),
-                        "mention",
-                        format!(
-                            "{} installs the design hook while this config sets `hook.enabled: false`, so the hook fires and then declines to scan.",
-                            ia
-                        ),
-                        "Ask which was intended: `impeccino hooks on` to enable, or `impeccino hooks off` to uninstall the manifest entry as well.".to_string(),
-                    ));
-                    return out;
-                }
-            }
-        }
-    }
     out
-}
-
-/// JS: checkLegacyLiveState
-pub fn check_legacy_live_state(project_root: &str) -> Vec<Finding> {
-    if project_root.is_empty() {
-        return vec![];
-    }
-    let present: Vec<&str> = LEGACY_LIVE_PATHS.iter().copied().filter(|rel| exists(&jsp::join(&[project_root, rel]))).collect();
-    if present.is_empty() {
-        return vec![];
-    }
-    vec![finding(
-        "legacy-live-state",
-        "live state",
-        Some(present.join(", ")),
-        "auto",
-        format!(
-            "Live-mode state sits in retired location(s): {}. Current live mode writes under `.impeccino/live/`.",
-            present.iter().map(|r| format!("`{}`", r)).collect::<Vec<_>>().join(", ")
-        ),
-        "These are read only through backward-compatible fallbacks and are safe to delete once no live session is running. No user decision is needed.".to_string(),
-    )]
 }
 
 pub struct WorkspaceRow {

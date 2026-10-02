@@ -63,10 +63,9 @@ pub struct Resolved {
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct BriefSummary {
-    pub slug: Option<String>,
     pub path: String,
     #[serde(rename = "primaryTarget")]
-    pub primary_target: Option<String>,
+    pub primary_target: String,
     #[serde(rename = "relatedTargets")]
     pub related_targets: Vec<String>,
 }
@@ -118,14 +117,13 @@ pub fn load_context(cwd: &str, options: &TargetOptions, env: &Env) -> Ctx {
         design_context_dir: resolved.design_path.as_deref().map(jsp::dirname),
         has_surface_brief: brief.is_some(),
         surface_brief: brief.as_ref().map(|b| b.text.clone()),
-        surface_brief_path: brief.as_ref().and_then(|b| b.path.as_deref()).map(|p| jsp::relative(&abs_cwd, &abs_cwd, p)),
+        surface_brief_path: brief.as_ref().map(|b| jsp::relative(&abs_cwd, &abs_cwd, &b.path)),
         surface_brief_reason: sr.reason,
         surface_brief_candidates: sr
             .candidates
             .iter()
             .map(|b| BriefSummary {
-                slug: b.slug.clone(),
-                path: jsp::relative(&abs_cwd, &abs_cwd, b.path.as_deref().unwrap_or("")),
+                path: jsp::relative(&abs_cwd, &abs_cwd, &b.path),
                 primary_target: b.primary_target.clone(),
                 related_targets: b.related_targets.clone(),
             })
@@ -497,7 +495,7 @@ pub fn discover_target_candidates(repo_root: &str, env: &Env) -> Vec<TargetCandi
     let mut entries: Vec<(String, String)> = order
         .into_iter()
         .filter(|rel| !rel.is_empty() && !rel.starts_with(".."))
-        .filter(|rel| is_selectable_candidate(repo_root, rel, &groups))
+        .filter(|rel| is_selectable_candidate(rel, &groups))
         .map(|rel| {
             let root = roots.get(&rel).cloned().unwrap();
             (rel, root)
@@ -704,21 +702,9 @@ fn resolve_workspace_project_root(repo_root: &str, target_dir: &str) -> Option<S
     Some(repo_root.to_string())
 }
 
-fn is_selectable_candidate(repo_root: &str, rel: &str, groups: &[Vec<String>]) -> bool {
+fn is_selectable_candidate(rel: &str, groups: &[Vec<String>]) -> bool {
     let rel_segments: Vec<&str> = rel.split('/').filter(|s| !s.is_empty()).collect();
-    let impeccino = &groups[0];
-    let package = &groups[1];
-    if is_excluded_by_workspace_pattern(&rel_segments, impeccino) {
-        return false;
-    }
-    for pattern in impeccino {
-        if let Some(boundary) = project_root_from_workspace_pattern(repo_root, &rel_segments, pattern) {
-            let mut parts = vec![repo_root];
-            parts.extend(rel_segments.iter());
-            return jsp::resolve(&boundary, &[]) == jsp::resolve(&jsp::join(&parts), &[]);
-        }
-    }
-    !is_excluded_by_workspace_pattern(&rel_segments, package)
+    !groups.iter().any(|patterns| is_excluded_by_workspace_pattern(&rel_segments, patterns))
 }
 
 fn is_excluded_by_workspace_pattern(rel_segments: &[&str], patterns: &[String]) -> bool {
@@ -823,29 +809,11 @@ pub fn read_project_pattern_groups(repo_root: &str) -> Vec<Vec<String>> {
     package.extend(read_pnpm_workspaces(repo_root));
     package.extend(read_lerna_workspaces(repo_root));
     let package: Vec<String> = package.into_iter().filter(|p| !p.is_empty()).collect();
-    vec![read_impeccino_project_roots(repo_root), package]
+    vec![package]
 }
 
 fn read_project_patterns(repo_root: &str) -> Vec<String> {
     read_project_pattern_groups(repo_root).into_iter().flatten().collect()
-}
-
-/// JS: readImpeccinoProjectRoots
-pub fn read_impeccino_project_roots(repo_root: &str) -> Vec<String> {
-    let mut patterns = Vec::new();
-    for name in ["config.json", "config.local.json"] {
-        let Some(cfg) = read_json(&jsp::join(&[repo_root, ".impeccino", name])) else { continue };
-        let Some(arr) = cfg.get("projectRoots").and_then(|v| v.as_array()) else { continue };
-        for entry in arr {
-            if let Some(s) = entry.as_str() {
-                let t = js_trim(s);
-                if !t.is_empty() {
-                    patterns.push(t.to_string());
-                }
-            }
-        }
-    }
-    patterns
 }
 
 /// JS array-of-strings coercion for workspace patterns: non-string entries

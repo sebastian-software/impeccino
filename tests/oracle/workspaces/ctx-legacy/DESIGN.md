@@ -8,3 +8,5 @@ name: Legacy
 
 ## Typography
 **Body Font:** Inter
+
+**Legacy waivers.** <!-- impeccino-disable gradient-text, not-a-real-rule -- carried over from the old config -->

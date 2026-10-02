@@ -340,3 +340,67 @@ mod tests {
         assert_eq!(iso_from_ms(1778610600123.0), "2026-05-12T18:30:00.123Z");
     }
 }
+
+/// The per-user cache directory (`<cache>/impeccino`, see
+/// `impeccino_common::project_files::user_cache_dir`), read from the verb's
+/// environment. Falls back to `<homedir>/.cache/impeccino` when the env
+/// names no home, the way `homedir` falls back to the process home.
+pub fn user_cache_dir(env: &Env) -> String {
+    impeccino_common::project_files::user_cache_dir(|k| env.get(k).cloned())
+        .unwrap_or_else(|| crate::jsp::join(&[&homedir(env), ".cache", "impeccino"]))
+}
+
+/// `Number(str)`
+pub fn js_number(s: &str) -> f64 {
+    let t = js_trim(s);
+    if t.is_empty() {
+        return 0.0;
+    }
+    if t == "Infinity" || t == "+Infinity" {
+        return f64::INFINITY;
+    }
+    if t == "-Infinity" {
+        return f64::NEG_INFINITY;
+    }
+    if let Some(h) = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")) {
+        return i64::from_str_radix(h, 16).map(|v| v as f64).unwrap_or(f64::NAN);
+    }
+    // Reject things Rust accepts but JS doesn't (e.g. "nan", "inf")
+    if t.chars().any(|c| c.is_ascii_alphabetic() && c != 'e' && c != 'E') {
+        return f64::NAN;
+    }
+    t.parse::<f64>().unwrap_or(f64::NAN)
+}
+
+fn js_number_value_string(n: &serde_json::Number) -> String {
+    if let Some(i) = n.as_i64() {
+        return i.to_string();
+    }
+    if let Some(u) = n.as_u64() {
+        return u.to_string();
+    }
+    js_number_to_string(n.as_f64().unwrap_or(0.0))
+}
+
+/// `String(value)` for a JSON value: arrays join with ',', objects read
+/// "[object Object]" (used where JS coerces sidecar and config fields).
+pub fn js_string_value(v: &Value) -> String {
+    match v {
+        Value::Array(a) => a
+            .iter()
+            .map(|e| match e {
+                Value::Null => String::new(),
+                Value::String(s) => s.clone(),
+                Value::Bool(b) => b.to_string(),
+                Value::Number(n) => js_number_value_string(n),
+                other => js_string_value(other),
+            })
+            .collect::<Vec<_>>()
+            .join(","),
+        Value::Object(_) => "[object Object]".to_string(),
+        Value::String(s) => s.clone(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => js_number_value_string(n),
+        Value::Null => "null".to_string(),
+    }
+}

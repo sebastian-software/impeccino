@@ -1,18 +1,20 @@
 /**
  * Corpus for the context-and-helper verbs: `context`, `doctor`, `pin`,
- * `surface-brief`, `critique-storage`, `palette`, `context-signals`,
- * `concept-seed`.
+ * `surface-brief`, `palette`, `context-signals`, `concept-seed`, and the
+ * removed `critique-storage`.
  *
  * Workspaces (tests/oracle/workspaces/ctx-*):
  *   ctx-empty          package.json only
  *   ctx-visual-only    index.html + src/*.css, no PRODUCT.md
  *   ctx-product-only   stamped PRODUCT.md (web), visual code, no DESIGN.md
- *   ctx-full           PRODUCT.md + DESIGN.md + sidecar v2 + two briefs + critique + buildPath comp
+ *   ctx-full           PRODUCT.md + DESIGN.md + DESIGN.json v2 + SURFACES.md with two briefs
  *   ctx-native-ios     PRODUCT.md `## Platform` ios, no visual code
  *   ctx-adaptive       PRODUCT.md `## Platform` "ios, android"
  *   ctx-bad-platform   PRODUCT.md `## Platform` flutter + pubspec.yaml
- *   ctx-monorepo       pnpm-workspace + apps/a (own PRODUCT/DESIGN) + apps/b (inherits) + projectRoots
- *   ctx-legacy         unstamped PRODUCT.md with ## Register, DESIGN.json sidecar v1, bad config, orphan brief
+ *   ctx-monorepo       pnpm-workspace + apps/a (own PRODUCT/DESIGN) + apps/b (inherits)
+ *   ctx-legacy         unstamped PRODUCT.md with ## Register, DESIGN.json sidecar v1, a DESIGN.md
+ *                      waiver naming an unknown rule, an orphan brief in SURFACES.md, and a
+ *                      leftover `.impeccino/` from the layout before docs/adr/0020
  *   ctx-signals        git-initialised in setup() with fixed author/committer dates
  *   ctx-pin            .claude/.agents/.cursor skills dirs with impeccino installed
  *
@@ -51,13 +53,12 @@ const BASE_ENV = {
   IMPECCINO_IMAGE_GEN_FAKE: null,
   IMPECCINO_QUESTION_DISABLED: null,
   IMPECCINO_QUESTION_FORCE: null,
-  IMPECCINO_CRITIQUE_META: null,
   CI: null,
   SSH_CONNECTION: null,
 };
 const env = (extra = {}) => ({ ...BASE_ENV, ...extra });
 
-const IMPECCINO_FILES = ['.impeccino/**', 'PRODUCT.md', 'DESIGN.md', 'DESIGN.json', '.impeccino-live.json'];
+const IMPECCINO_FILES = ['SURFACES.md', 'PRODUCT.md', 'DESIGN.md', 'DESIGN.json', '.impeccino/**'];
 
 // ---- setup helpers ---------------------------------------------------------
 
@@ -89,14 +90,17 @@ const claudeStopHook = (ws, rel) => write(
 const T_OLD = new Date('2026-01-01T00:00:00Z');
 const T_NEW = new Date('2026-06-01T00:00:00Z');
 const touch = (abs, when) => { if (fs.existsSync(abs)) fs.utimesSync(abs, when, when); };
-const sidecarNewer = (ws) => { touch(path.join(ws, 'DESIGN.md'), T_OLD); touch(path.join(ws, '.impeccino/design.json'), T_NEW); };
-const sidecarOlder = (ws) => { touch(path.join(ws, 'DESIGN.md'), T_NEW); touch(path.join(ws, 'DESIGN.json'), T_OLD); touch(path.join(ws, '.impeccino/design.json'), T_OLD); };
+const sidecarNewer = (ws) => { touch(path.join(ws, 'DESIGN.md'), T_OLD); touch(path.join(ws, 'DESIGN.json'), T_NEW); };
+const sidecarOlder = (ws) => { touch(path.join(ws, 'DESIGN.md'), T_NEW); touch(path.join(ws, 'DESIGN.json'), T_OLD); };
 
-// ctx-legacy carries `.impeccino-live.json` (gitignored in this repo, so it
-// is written at stage time) and a DESIGN.md newer than its legacy sidecar.
-const legacySetup = (ws) => {
-  write(ws, '.impeccino-live.json', JSON.stringify({ port: 4310, sessions: [] }, null, 2) + '\n');
-  sidecarOlder(ws);
+// ctx-legacy carries a DESIGN.md newer than its sidecar.
+const legacySetup = (ws) => sidecarOlder(ws);
+
+// What an install from before docs/adr/0020 left at a project root.
+const leftoverStateDir = (ws) => {
+  write(ws, '.impeccino/config.json', JSON.stringify({ detector: { ignoreRules: ['side-tab'] } }, null, 2) + '\n');
+  write(ws, '.impeccino/design.json', JSON.stringify({ schemaVersion: 2 }) + '\n');
+  write(ws, '.impeccino/surfaces/src-app-tsx.md', '---\nprimary_target: "src/App.tsx"\n---\n\n# Surface brief: App\n');
 };
 
 const GIT_ENV = {
@@ -207,16 +211,6 @@ const cases = [
     env: env({ IMPECCINO_PROVIDER_ID: 'claude-code' }),
   },
   {
-    id: 'context-hook-at-enclosing-git-root-disabled', verb: 'context', workspace: 'ctx-empty', cwd: 'web',
-    setup: (ws) => {
-      gitBoundary(ws, '.');
-      write(ws, 'web/PRODUCT.md', '# Nested web product\n');
-      claudeStopHook(ws, '.');
-      write(ws, '.impeccino/config.local.json', JSON.stringify({ hook: { enabled: false } }) + '\n');
-    },
-    env: env({ IMPECCINO_PROVIDER_ID: 'claude-code' }),
-  },
-  {
     id: 'context-hook-not-borrowed-from-caller', verb: 'context', workspace: 'ctx-empty', cwd: 'apps/marketing',
     args: ['--target', `${WS}/apps/dashboard/src/App.jsx`],
     setup: (ws) => {
@@ -260,18 +254,8 @@ const cases = [
   },
   { id: 'context-legacy', verb: 'context', workspace: 'ctx-legacy', setup: legacySetup, env: env(), files: IMPECCINO_FILES },
   { id: 'context-hook-disabled-env', verb: 'context', workspace: 'ctx-product-only', env: env({ IMPECCINO_HOOK_DISABLED: 'yes' }), files: IMPECCINO_FILES },
-  {
-    id: 'context-hook-disabled-config', verb: 'context', workspace: 'ctx-product-only',
-    setup: (ws) => write(ws, '.impeccino/config.json', JSON.stringify({ hook: { enabled: false } }, null, 2) + '\n'),
-    env: env(), files: IMPECCINO_FILES,
-  },
   { id: 'context-openai-key', verb: 'context', workspace: 'ctx-product-only', env: env({ OPENAI_API_KEY: 'sk-oracle' }), files: IMPECCINO_FILES },
   { id: 'context-no-staleness-check-env', verb: 'context', workspace: 'ctx-legacy', setup: legacySetup, env: env({ IMPECCINO_NO_STALENESS_CHECK: '1' }), files: IMPECCINO_FILES },
-  {
-    id: 'context-no-staleness-check-config', verb: 'context', workspace: 'ctx-legacy',
-    setup: (ws) => { legacySetup(ws); write(ws, '.impeccino/config.local.json', JSON.stringify({ stalenessCheck: false }, null, 2) + '\n'); },
-    env: env(), files: IMPECCINO_FILES,
-  },
   {
     // Tier-1 throttling: the first boot reports mention/route findings, the
     // second boot within a week reports only `auto` ones. Both steps share
@@ -292,16 +276,6 @@ const cases = [
   { id: 'context-dir-override-relative', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'ctx/PRODUCT.md', '# Rel\n\n<!-- impeccino:product-schema 1 -->\n\n## Positioning\nRelative override.\n'), env: env({ IMPECCINO_CONTEXT_DIR: 'ctx' }), files: IMPECCINO_FILES },
   { id: 'context-dir-override-ignored-when-project-has-product', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'elsewhere/PRODUCT.md', '# Should not load\n'), env: env({ IMPECCINO_CONTEXT_DIR: `${WS}/elsewhere` }), files: IMPECCINO_FILES },
   { id: 'context-dir-override-missing', verb: 'context', workspace: 'ctx-empty', env: env({ IMPECCINO_CONTEXT_DIR: `${WS}/nowhere` }), files: IMPECCINO_FILES },
-  {
-    id: 'context-build-path-local-over-shared', verb: 'context', workspace: 'ctx-full',
-    setup: (ws) => { sidecarNewer(ws); write(ws, '.impeccino/config.local.json', JSON.stringify({ buildPath: 'code' }, null, 2) + '\n'); },
-    env: env(), files: IMPECCINO_FILES,
-  },
-  {
-    id: 'context-build-path-invalid-ignored', verb: 'context', workspace: 'ctx-full',
-    setup: (ws) => { sidecarNewer(ws); write(ws, '.impeccino/config.local.json', JSON.stringify({ buildPath: 'fast' }, null, 2) + '\n'); },
-    env: env(), files: IMPECCINO_FILES,
-  },
   { id: 'context-fallback-dir-docs', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'docs/PRODUCT.md', '# Docs product\n\n<!-- impeccino:product-schema 1 -->\n\n## Positioning\nLives under docs/.\n'), env: env(), files: IMPECCINO_FILES },
   // `product.md` is found through the case-insensitive lookup of PRODUCT.md on
   // macOS and Windows and reported under the canonical name; on a
@@ -314,8 +288,14 @@ const cases = [
   { id: 'context-android', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccino:product-schema 1 -->\n\n## Platform\n\nAndroid\n\n## Positioning\nNative android.\n'), env: env(), files: IMPECCINO_FILES },
   { id: 'context-adaptive-word', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccino:product-schema 1 -->\n\n## Platform\n\nadaptive\n\n## Positioning\nAdaptive keyword.\n'), env: env(), files: IMPECCINO_FILES },
   { id: 'context-native-evidence-web', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'ios/Podfile', "platform :ios, '15.0'\n"), env: env(), files: IMPECCINO_FILES },
-  { id: 'context-build-path-unset-with-surfaces', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccino/surfaces/src-app-tsx.md', '---\nversion: 1\nslug: "src-app-tsx"\nprimary_target: "src/App.tsx"\nrelated_targets: []\n---\n\n# Surface brief: App\n'), env: env(), files: IMPECCINO_FILES },
-  { id: 'context-project-roots-match-nothing', verb: 'context', workspace: 'ctx-monorepo', setup: (ws) => write(ws, '.impeccino/config.json', JSON.stringify({ projectRoots: ['services/*'] }, null, 2) + '\n'), env: env(), files: IMPECCINO_FILES },
+  { id: 'context-surfaces-only-brief', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'SURFACES.md', '# Surfaces\n\n## src/App.tsx\n<!-- impeccino:surface {"target":"src/App.tsx","related":[]} -->\n\nMode: Operate\n'), env: env(), files: IMPECCINO_FILES },
+  // A `.impeccino/` left by the layout before docs/adr/0020: one mention,
+  // through the same throttle as every boot finding.
+  { id: 'context-legacy-state-dir', verb: 'context', workspace: 'ctx-product-only', setup: leftoverStateDir, env: env(), files: IMPECCINO_FILES, steps: [{}, {}] },
+  // The home directory is never reported: older launchers cached the engine
+  // in ~/.impeccino/.
+  { id: 'context-legacy-state-dir-home-skipped', verb: 'context', workspace: 'ctx-product-only', setup: leftoverStateDir, env: env({ HOME: WS }), files: IMPECCINO_FILES },
+  { id: 'context-legacy-state-dir-no-staleness-check', verb: 'context', workspace: 'ctx-product-only', setup: leftoverStateDir, env: env({ IMPECCINO_NO_STALENESS_CHECK: '1' }), files: IMPECCINO_FILES },
   { id: 'context-hook-manifest-source-provider', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccino/scripts/hook.mjs' }] }] } }, null, 2) + '\n'), env: env(), files: IMPECCINO_FILES },
   // Upgrade path (triage E8): a v3 install left a `.claude/settings.local.json`
   // naming the retired `node .../hook.mjs` script. Under the real provider the
@@ -345,13 +325,13 @@ const cases = [
     id: 'doctor-order-boot-and-deep', verb: 'doctor', workspace: 'ctx-empty',
     setup: (ws) => {
       write(ws, 'PRODUCT.md', '# Product\n\n## Register\n\nbrand\n\n## Users\nDesigners.\n');
-      write(ws, 'DESIGN.md', '---\nname: Example\n---\n\n# Design System: Example\n');
-      write(ws, '.impeccino/design.json', JSON.stringify({ schemaVersion: 1 }));
-      write(ws, '.impeccino/config.json', JSON.stringify({ unknownSetting: true }));
+      write(ws, 'DESIGN.md', '---\nname: Example\n---\n\n# Design System: Example\n\n<!-- impeccino-disable no-such-rule -->\n');
+      write(ws, 'DESIGN.json', JSON.stringify({ schemaVersion: 1 }));
+      leftoverStateDir(ws);
     },
     args: ['--json'], env: env(),
   },
-  { id: 'doctor-full-sidecar-stale', verb: 'doctor', workspace: 'ctx-full', setup: (ws) => { touch(path.join(ws, 'DESIGN.md'), T_NEW); touch(path.join(ws, '.impeccino/design.json'), T_OLD); }, args: ['--json'], env: env() },
+  { id: 'doctor-full-sidecar-stale', verb: 'doctor', workspace: 'ctx-full', setup: (ws) => { touch(path.join(ws, 'DESIGN.md'), T_NEW); touch(path.join(ws, 'DESIGN.json'), T_OLD); }, args: ['--json'], env: env() },
   { id: 'doctor-native-ios-text', verb: 'doctor', workspace: 'ctx-native-ios', env: env() },
   { id: 'doctor-native-ios-json', verb: 'doctor', workspace: 'ctx-native-ios', args: ['--json'], env: env() },
   { id: 'doctor-adaptive-text', verb: 'doctor', workspace: 'ctx-adaptive', env: env() },
@@ -363,17 +343,11 @@ const cases = [
   { id: 'doctor-monorepo-target-a', verb: 'doctor', workspace: 'ctx-monorepo', args: ['--json', '--target', 'apps/a'], env: env() },
   { id: 'doctor-monorepo-target-b', verb: 'doctor', workspace: 'ctx-monorepo', args: ['--target', 'apps/b/src/App.tsx'], env: env() },
   { id: 'doctor-monorepo-child-cwd', verb: 'doctor', workspace: 'ctx-monorepo', cwd: 'apps/a', args: ['--json'], env: env() },
-  { id: 'doctor-monorepo-roots-match-nothing', verb: 'doctor', workspace: 'ctx-monorepo', setup: (ws) => write(ws, '.impeccino/config.json', JSON.stringify({ projectRoots: ['services/*'] }, null, 2) + '\n'), env: env() },
   { id: 'doctor-legacy-text', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, env: env(), files: IMPECCINO_FILES },
   { id: 'doctor-legacy-json', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--json'], env: env(), files: IMPECCINO_FILES },
   { id: 'doctor-legacy-fix', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--fix'], env: env(), files: IMPECCINO_FILES },
   { id: 'doctor-legacy-fix-json', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--fix', '--json'], env: env(), files: IMPECCINO_FILES },
   { id: 'doctor-legacy-fix-twice', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--fix'], env: env(), files: IMPECCINO_FILES, steps: [{}, {}, { args: ['--json'] }] },
-  {
-    id: 'doctor-legacy-fix-no-overwrite', verb: 'doctor', workspace: 'ctx-legacy',
-    setup: (ws) => { legacySetup(ws); write(ws, '.impeccino/design.json', JSON.stringify({ schemaVersion: 2 }) + '\n'); },
-    args: ['--fix'], env: env(), files: IMPECCINO_FILES,
-  },
   {
     // Unstamped PRODUCT.md that already has a v4 section: --fix stamps it.
     id: 'doctor-fix-stamps-product', verb: 'doctor', workspace: 'ctx-product-only',
@@ -384,14 +358,14 @@ const cases = [
   { id: 'doctor-target-missing-value', verb: 'doctor', workspace: 'ctx-full', setup: sidecarNewer, args: ['--json', '--target'], env: env() },
   { id: 'doctor-target-eq-empty', verb: 'doctor', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target='], env: env() },
   { id: 'doctor-target-file', verb: 'doctor', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target=src/pages/index.astro'], env: env() },
-  { id: 'doctor-hook-conflict', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, '.impeccino/config.json', JSON.stringify({ hook: { enabled: false } }, null, 2) + '\n'); write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccino/scripts/hook.mjs' }] }] } }, null, 2) + '\n'); }, args: ['--json'], env: env() },
-  { id: 'doctor-legacy-live-dir', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccino-live/sessions/s1.json', '{}\n'), args: ['--fix'], env: env() },
+  { id: 'doctor-legacy-state-dir', verb: 'doctor', workspace: 'ctx-product-only', setup: leftoverStateDir, env: env(), files: IMPECCINO_FILES, steps: [{}, { args: ['--fix', '--json'] }] },
   { id: 'doctor-design-seed-marker', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'DESIGN.md', "<!-- SEED: established with the user before implementation; re-run /impeccino document once there's code to capture the actual tokens and components. -->\n# Seed\n\n## Colors\n- **Ink** (#111): Text.\n\n## Typography\n**Body Font:** Inter\n"), args: ['--json'], env: env() },
   { id: 'doctor-design-coverage-missing-all', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'DESIGN.md', '# Thin\n\nNo canonical sections at all.\n'), env: env() },
-  { id: 'doctor-sidecar-schema-missing', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, 'DESIGN.md', '# D\n\n## Colors\n- x\n\n## Typography\n- y\n\n## Components\n- z\n'); write(ws, '.impeccino/design.json', '{"title":"x"}\n'); sidecarNewer(ws); }, args: ['--json'], env: env() },
-  { id: 'doctor-config-local-and-shared', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, '.impeccino/config.json', '{"buildPath":"comp","detector":{"ignoreRules":["*","GRADIENT-TEXT"]}}\n'); write(ws, '.impeccino/config.local.json', '{"buildPath":"maybe","nope":1}\n'); }, env: env() },
-  { id: 'doctor-config-malformed', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccino/config.json', '{not json'), env: env() },
-  { id: 'doctor-config-array', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccino/config.json', '[1,2]\n'), env: env() },
+  { id: 'doctor-sidecar-schema-missing', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, 'DESIGN.md', '# D\n\n## Colors\n- x\n\n## Typography\n- y\n\n## Components\n- z\n'); write(ws, 'DESIGN.json', '{"title":"x"}\n'); sidecarNewer(ws); }, args: ['--json'], env: env() },
+  // The sidecar lives next to DESIGN.md, wherever DESIGN.md lives.
+  { id: 'doctor-sidecar-next-to-docs-design', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, 'docs/DESIGN.md', '# D\n\n## Colors\n- x\n\n## Typography\n- y\n\n## Components\n- z\n'); write(ws, 'docs/DESIGN.json', '{"title":"x"}\n'); write(ws, 'DESIGN.json', '{"schemaVersion":2}\n'); }, args: ['--json'], env: env() },
+  // Project-wide waivers live in DESIGN.md; the deep pass validates their ids.
+  { id: 'doctor-design-waiver-ids', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'DESIGN.md', '# D\n\n## Colors\n- x\n\n## Typography\n- y\n\n## Components\n- z\n\n<!-- impeccino-disable GRADIENT-TEXT, side-tabs -- typo for side-tab -->\n<!-- impeccino-disable -->\n'), env: env() },
   { id: 'doctor-hook-script-missing', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.json', JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'node "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs"' }] }] } }, null, 2) + '\n'), args: ['--json'], env: env() },
   { id: 'doctor-hook-script-present', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, '.claude/settings.json', JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccino/scripts/hook.mjs' }] }] } }, null, 2) + '\n'); write(ws, '.claude/skills/impeccino/scripts/hook.mjs', '// present\n'); }, args: ['--json'], env: env() },
   {
@@ -481,15 +455,15 @@ const cases = [
   { id: 'surface-brief-read-route-prefixed', verb: 'surface-brief', workspace: 'ctx-full', args: ['read', 'route:/pricing/'], env: env() },
   { id: 'surface-brief-read-not-found', verb: 'surface-brief', workspace: 'ctx-full', args: ['read', 'src/pages/about.astro'], env: env() },
   { id: 'surface-brief-read-no-target-ambiguous', verb: 'surface-brief', workspace: 'ctx-full', args: ['read'], env: env() },
-  { id: 'surface-brief-read-no-target-only-brief', verb: 'surface-brief', workspace: 'ctx-full', setup: (ws) => fs.rmSync(path.join(ws, '.impeccino/surfaces/route-pricing.md')), args: ['read'], env: env() },
+  { id: 'surface-brief-read-no-target-only-brief', verb: 'surface-brief', workspace: 'ctx-legacy', args: ['read'], env: env() },
   { id: 'surface-brief-read-none', verb: 'surface-brief', workspace: 'ctx-empty', args: ['read', 'src/x.tsx'], env: env() },
   { id: 'surface-brief-read-invalid-target', verb: 'surface-brief', workspace: 'ctx-full', args: ['read', 'route:../etc'], env: env() },
-  { id: 'surface-brief-read-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'apps/a/.impeccino/surfaces/src-app-tsx.md', '---\nversion: 1\nslug: "src-app-tsx"\nprimary_target: "src/App.tsx"\nrelated_targets: []\n---\n\n# Surface brief: A\n'), args: ['read', 'apps/a/src/App.tsx'], env: env() },
+  { id: 'surface-brief-read-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'apps/a/SURFACES.md', '# Surfaces\n\n## src/App.tsx\n<!-- impeccino:surface {"target":"src/App.tsx","related":[]} -->\n\nMode: Operate\n'), args: ['read', 'apps/a/src/App.tsx'], env: env() },
   { id: 'surface-brief-write-usage', verb: 'surface-brief', workspace: 'ctx-full', args: ['write', 'src/pages/about.astro'], env: env() },
   {
     id: 'surface-brief-write-read-list', verb: 'surface-brief', workspace: 'ctx-full',
-    setup: (ws) => write(ws, 'body.md', '# Surface brief: About\n\n## Mode\nRead\n\nTell the story.\n\n'),
-    env: env(), files: ['.impeccino/surfaces/**'],
+    setup: (ws) => write(ws, 'body.md', 'Mode: Read\n\n### Product strategy\nTell the story.\n\n'),
+    env: env(), files: ['SURFACES.md'],
     steps: [
       { args: ['write', 'src/pages/about.astro', `${WS}/body.md`, 'src/components/Team.astro', 'src/pages/about.astro', 'src/components/Team.astro'] },
       { args: ['read', 'src/components/Team.astro'] },
@@ -498,48 +472,45 @@ const cases = [
       { args: ['read', 'src/components/Team.astro'] },
     ],
   },
-  { id: 'surface-brief-write-route', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'Root route brief.'), args: ['write', '/', `${WS}/body.md`, 'route:/home/'], env: env(), files: ['.impeccino/surfaces/**'] },
-  { id: 'surface-brief-write-url', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'URL brief.'), args: ['write', 'https://example.com/pricing/#plans', `${WS}/body.md`], env: env(), files: ['.impeccino/surfaces/**'] },
-  { id: 'surface-brief-write-invalid-target', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'x'), args: ['write', '../outside.astro', `${WS}/body.md`], env: env(), files: ['.impeccino/surfaces/**'] },
-  { id: 'surface-brief-write-missing-body', verb: 'surface-brief', workspace: 'ctx-empty', args: ['write', 'src/x.tsx', `${WS}/nope.md`], env: env(), files: ['.impeccino/surfaces/**'] },
-  { id: 'surface-brief-write-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'body.md', 'Child brief.'), args: ['write', 'apps/b/src/App.tsx', `${WS}/body.md`], env: env(), files: ['**/.impeccino/surfaces/**'] },
-
-  // ======================================================================
-  // critique-storage
-  // ======================================================================
-  { id: 'critique-usage', verb: 'critique-storage', workspace: 'ctx-full', env: env() },
-  { id: 'critique-unknown', verb: 'critique-storage', workspace: 'ctx-full', args: ['delete', 'x'], env: env() },
-  { id: 'critique-slug-path', verb: 'critique-storage', workspace: 'ctx-full', args: ['slug', 'src/pages/index.astro'], env: env() },
-  { id: 'critique-slug-url', verb: 'critique-storage', workspace: 'ctx-full', args: ['slug', 'http://localhost:3000/pricing'], env: env() },
-  { id: 'critique-slug-passthrough', verb: 'critique-storage', workspace: 'ctx-full', args: ['slug', 'already-a-slug'], env: env() },
-  { id: 'critique-slug-dot', verb: 'critique-storage', workspace: 'ctx-full', args: ['slug', '.'], env: env() },
-  { id: 'critique-slug-empty', verb: 'critique-storage', workspace: 'ctx-full', args: ['slug', '   '], env: env() },
-  { id: 'critique-slug-missing', verb: 'critique-storage', workspace: 'ctx-full', args: ['slug'], env: env() },
-  { id: 'critique-slug-long', verb: 'critique-storage', workspace: 'ctx-full', args: ['slug', 'src/very/deeply/nested/directory/structure/with/many/segments/component-name.tsx'], env: env() },
-  { id: 'critique-slug-outside', verb: 'critique-storage', workspace: 'ctx-full', args: ['slug', '../other/Page.tsx'], env: env() },
-  { id: 'critique-latest-none', verb: 'critique-storage', workspace: 'ctx-empty', args: ['latest', 'src/x.tsx'], env: env() },
-  { id: 'critique-latest-existing', verb: 'critique-storage', workspace: 'ctx-full', args: ['latest', 'src/pages/index.astro'], env: env() },
-  { id: 'critique-latest-other-slug', verb: 'critique-storage', workspace: 'ctx-full', args: ['latest', 'route-pricing'], env: env() },
-  { id: 'critique-trend-existing', verb: 'critique-storage', workspace: 'ctx-full', args: ['trend', 'src-pages-index-astro'], env: env() },
-  { id: 'critique-trend-none', verb: 'critique-storage', workspace: 'ctx-full', args: ['trend', 'nothing-here', '3'], env: env() },
-  { id: 'critique-write-usage', verb: 'critique-storage', workspace: 'ctx-full', args: ['write', 'src/pages/index.astro'], env: env() },
+  // `/` resolves the project root to the filesystem root (#710), where
+  // SURFACES.md cannot be written; the OS names that failure differently
+  // (read-only on macOS, permission denied on Linux).
+  { id: 'surface-brief-write-route', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'Root route brief.'), args: ['write', '/', `${WS}/body.md`, 'route:/home/'], env: env(), files: ['SURFACES.md'],
+    normalize: [['(?:Read-only file system|Permission denied) \\(os error \\d+\\)', 'g', '<UNWRITABLE>']] },
+  { id: 'surface-brief-write-url', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'URL brief.'), args: ['write', 'https://example.com/pricing/#plans', `${WS}/body.md`], env: env(), files: ['SURFACES.md'] },
+  { id: 'surface-brief-write-invalid-target', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'x'), args: ['write', '../outside.astro', `${WS}/body.md`], env: env(), files: ['SURFACES.md'] },
+  { id: 'surface-brief-write-missing-body', verb: 'surface-brief', workspace: 'ctx-empty', args: ['write', 'src/x.tsx', `${WS}/nope.md`], env: env(), files: ['SURFACES.md'] },
+  { id: 'surface-brief-write-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'body.md', 'Child brief.'), args: ['write', 'apps/b/src/App.tsx', `${WS}/body.md`], env: env(), files: ['**/SURFACES.md'] },
+  // Writing one surface replaces exactly its own section: the other sections,
+  // the preamble, and a hand-written note inside a section stay byte for byte.
   {
-    // The snapshot filename carries the wall clock, so files are not
-    // snapshotted; latest/trend afterwards prove the round trip. The written
-    // path is masked by normalize() (see lib.mjs, critique stamps).
-    id: 'critique-write-then-read', verb: 'critique-storage', workspace: 'ctx-empty',
-    setup: (ws) => { write(ws, 'body.md', '# Critique\n\nScore 81/100.\n\n'); write(ws, 'body2.md', 'Second pass.\n'); },
-    env: env({ IMPECCINO_CRITIQUE_META: JSON.stringify({ total_score: 81, p0_count: 0, p1_count: 2, target: 'src/App.tsx', note: 'ratio 3:1 #hero', slug: 'ignored', timestamp: 'ignored' }) }),
+    id: 'surface-brief-write-replaces-one-section', verb: 'surface-brief', workspace: 'ctx-full',
+    setup: (ws) => {
+      fs.appendFileSync(path.join(ws, 'SURFACES.md'), '\n### Direction contract\nTHESIS: a price list that reads like a menu.\n\n## Notes kept by hand\nThe pricing page also ships in German.\n');
+      write(ws, 'home.md', 'Mode: Persuade\n\n### Direction contract\nTHESIS: the install command is the hero.\nFINISH: unreviewed and undocumented is unfinished.\n');
+      write(ws, 'about.md', 'Mode: Read\n');
+    },
+    env: env(), files: ['SURFACES.md'],
     steps: [
-      { args: ['write', 'src/App.tsx', `${WS}/body.md`] },
-      { args: ['latest', 'src/App.tsx'] },
-      { args: ['write', 'src-app-tsx', `${WS}/body2.md`], env: env({ IMPECCINO_CRITIQUE_META: '{not json' }) },
-      { args: ['latest', 'src-app-tsx'] },
-      { args: ['trend', 'src/App.tsx'] },
-      { args: ['trend', 'src/App.tsx', '1'] },
+      { args: ['write', 'src/pages/index.astro', `${WS}/home.md`, '/'] },
+      { args: ['write', 'src/pages/about.astro', `${WS}/about.md`] },
+      { args: ['read', 'route:/'] },
+      { args: ['read', 'route:/pricing'] },
+      { args: ['list'] },
     ],
   },
-  { id: 'critique-write-monorepo-child', verb: 'critique-storage', workspace: 'ctx-monorepo', cwd: 'apps/a', setup: (ws) => write(ws, 'body.md', 'Child critique.\n'), args: ['write', 'src/App.tsx', `${WS}/body.md`], env: env(), steps: [{}, { args: ['latest', 'src/App.tsx'] }, { args: ['latest', 'src/App.tsx'], cwd: 'apps/b' }] },
+  // Markers are the authority: a body heading, or a marker inside a code
+  // fence, never starts a section of its own.
+  {
+    id: 'surface-brief-read-fenced-marker', verb: 'surface-brief', workspace: 'ctx-empty',
+    setup: (ws) => write(ws, 'SURFACES.md', '# Surfaces\n\n## index.html\n<!-- impeccino:surface {"target":"index.html","related":[]} -->\n\n## How a marker looks\n```md\n## other.html\n<!-- impeccino:surface {"target":"other.html","related":[]} -->\n```\n'),
+    env: env(), steps: [{ args: ['list'] }, { args: ['read', 'index.html'] }, { args: ['read', 'other.html'] }],
+  },
+
+  // ======================================================================
+  // critique-storage (removed: critiques are not archived, docs/adr/0020)
+  // ======================================================================
+  { id: 'critique-storage-removed', verb: 'critique-storage', workspace: 'ctx-full', args: ['latest', 'src/pages/index.astro'], env: env() },
 
   // ======================================================================
   // palette
@@ -557,10 +528,8 @@ const cases = [
   // ======================================================================
   { id: 'signals-empty', verb: 'context-signals', workspace: 'ctx-empty', env: env() },
   { id: 'signals-visual-only', verb: 'context-signals', workspace: 'ctx-visual-only', env: env() },
-  { id: 'signals-full-with-critique', verb: 'context-signals', workspace: 'ctx-full', setup: sidecarNewer, env: env() },
+  { id: 'signals-full', verb: 'context-signals', workspace: 'ctx-full', setup: sidecarNewer, env: env() },
   { id: 'signals-native-ios', verb: 'context-signals', workspace: 'ctx-native-ios', env: env() },
-  { id: 'signals-critique-legacy-keys', verb: 'context-signals', workspace: 'ctx-empty', setup: (ws) => write(ws, '.impeccino/critique/2026-02-02T02-02-02Z__x.md', '---\nscore: "88"\np0: 0\np1: 2\ntimestamp: "2026-02-02T02:02:02.000Z"\nslug: x\n---\nbody\n'), env: env() },
-  { id: 'signals-critique-blank-keys', verb: 'context-signals', workspace: 'ctx-empty', setup: (ws) => write(ws, '.impeccino/critique/2026-02-02T02-02-02Z__x.md', '---\ntotal_score: n/a\nslug: x\n---\nbody\n'), env: env() },
   { id: 'signals-git-clean-main', verb: 'context-signals', workspace: 'ctx-signals', setup: gitInit, env: env() },
   { id: 'signals-git-dirty-main', verb: 'context-signals', workspace: 'ctx-signals', setup: gitDirty, env: env() },
   { id: 'signals-git-feature-branch', verb: 'context-signals', workspace: 'ctx-signals', setup: gitFeature, env: env() },

@@ -27,7 +27,7 @@ use crate::util::{exists, js_string, re, read_json, read_text, ANY, WS};
 const DESIGN_NAMES: &[&str] = &["DESIGN.md", "Design.md", "design.md"];
 
 const FALLBACK_DIRS: &[&str] = &[".agents/context", "docs"];
-const PROJECT_ROOT_MARKERS: &[&str] = &[".git", "package.json", ".impeccino"];
+const PROJECT_ROOT_MARKERS: &[&str] = &[".git", "package.json"];
 const COLOR_CHANNEL_TOLERANCE: f64 = 6.0;
 const SHADOW_ALPHA_TOLERANCE: f64 = 0.02;
 const RADIUS_TOLERANCE_PX: f64 = 0.5;
@@ -190,23 +190,15 @@ pub fn resolve_design_md_path(cwd: &str) -> Option<DesignMdPath> {
     None
 }
 
-/// JS: design-system.mjs#resolveDesignSidecarPath
-pub fn resolve_design_sidecar_path(cwd: &str, context_dir: &str) -> Option<String> {
-    let candidates = [
-        jsp::join(&[cwd, ".impeccino", "design.json"]),
-        jsp::join(&[cwd, "DESIGN.json"]),
-        jsp::join(&[context_dir, "DESIGN.json"]),
-    ];
-    for (index, candidate) in candidates.iter().enumerate() {
-        let first = candidates
-            .iter()
-            .position(|c| c == candidate)
-            .unwrap_or(index);
-        if first == index && exists(candidate) {
-            return Some(candidate.clone());
-        }
+/// The DESIGN.md sidecar: `DESIGN.json` in the directory that holds
+/// DESIGN.md (docs/adr/0020). `context_dir` is that directory.
+pub fn resolve_design_sidecar_path(_cwd: &str, context_dir: &str) -> Option<String> {
+    let candidate = jsp::join(&[context_dir, impeccino_common::project_files::DESIGN_SIDECAR_FILE]);
+    if exists(&candidate) {
+        Some(candidate)
+    } else {
+        None
     }
-    None
 }
 
 // ─── Frontmatter YAML subset ─────────────────────────────────────────────────
@@ -1100,25 +1092,9 @@ pub struct DesignRoot {
     pub has_design: bool,
 }
 
-/// JS: design-system.mjs#readWorkspacePatternGroups — Impeccino projectRoots
-/// govern any path they match (positive or negated); package-manager globs
-/// only apply to paths the Impeccino group does not match.
-fn read_workspace_pattern_groups(dir: &str) -> (Vec<String>, Vec<String>) {
-    let mut impeccino: Vec<String> = Vec::new();
-    for name in ["config.json", "config.local.json"] {
-        let roots = read_json(&jsp::join(&[dir, ".impeccino", name]))
-            .and_then(|v| v.get("projectRoots").cloned());
-        if let Some(Value::Array(roots)) = roots {
-            for entry in roots {
-                if let Value::String(s) = entry {
-                    let t = js::trim(&s);
-                    if !t.is_empty() {
-                        impeccino.push(t.to_string());
-                    }
-                }
-            }
-        }
-    }
+/// JS: design-system.mjs#readWorkspacePatterns — the package manager's
+/// workspace globs (package.json `workspaces`, lerna.json, pnpm-workspace.yaml).
+fn read_workspace_patterns(dir: &str) -> Vec<String> {
     let mut pkg: Vec<String> = Vec::new();
     let workspaces = read_json(&jsp::join(&[dir, "package.json"])).and_then(|v| v.get("workspaces").cloned());
     match &workspaces {
@@ -1164,14 +1140,7 @@ fn read_workspace_pattern_groups(dir: &str) -> (Vec<String>, Vec<String>) {
             }
         }
     }
-    (impeccino, pkg)
-}
-
-/// JS: design-system.mjs#readWorkspacePatterns
-fn read_workspace_patterns(dir: &str) -> Vec<String> {
-    let (mut a, mut b) = read_workspace_pattern_groups(dir);
-    a.append(&mut b);
-    a
+    pkg
 }
 
 const MONOREPO_MARKER_FILES: &[&str] = &["pnpm-workspace.yaml", "turbo.json", "nx.json", "lerna.json"];
@@ -1333,18 +1302,11 @@ fn monorepo_owns_path(root: &str, boundary_dir: &str) -> bool {
         Some(true)
     };
 
-    let (impeccino, pkg) = read_workspace_pattern_groups(root);
-    if let Some(from_impeccino) = group_owns(&impeccino) {
-        return from_impeccino;
-    }
+    let pkg = read_workspace_patterns(root);
     if let Some(from_pkg) = group_owns(&pkg) {
         return from_pkg;
     }
-    if impeccino
-        .iter()
-        .chain(pkg.iter())
-        .any(|pattern| !normalize_workspace_pattern(pattern).starts_with('!'))
-    {
+    if pkg.iter().any(|pattern| !normalize_workspace_pattern(pattern).starts_with('!')) {
         return false;
     }
     rel_segments.len() >= 2 && MONOREPO_FALLBACK_PROJECT_DIRS.contains(&rel_segments[0])
@@ -2282,20 +2244,13 @@ mod tests {
     }
 
     #[test]
-    fn monorepo_lerna_and_impeccino_project_roots() {
+    fn monorepo_lerna_project_roots() {
         let d = TempDir::new("lerna");
         d.write("DESIGN.md", DESIGN_MD);
         d.write("lerna.json", "{\"packages\":[\"modules/*\"]}");
         d.write("modules/web/package.json", "{\"name\":\"web\"}");
         let found = root_of(&d, "modules/web", &far_home()).unwrap();
         assert_eq!((found.dir, found.has_design), (d.path(), true));
-
-        let i = TempDir::new("iroots");
-        i.write("DESIGN.md", DESIGN_MD);
-        i.write(".impeccino/config.json", "{\"projectRoots\":[\"sites/*\"]}");
-        i.write("sites/docs/package.json", "{\"name\":\"docs\"}");
-        let found = root_of(&i, "sites/docs", &far_home()).unwrap();
-        assert_eq!((found.dir, found.has_design), (i.path(), true));
     }
 
     #[test]
@@ -2425,22 +2380,6 @@ mod tests {
         assert_eq!((nested.dir, nested.has_design), (d.path(), true));
         let vendor = root_of(&d, "vendor/tool", &far_home()).unwrap();
         assert_eq!((vendor.dir.clone(), vendor.has_design), (d.join("vendor/tool"), false));
-    }
-
-    #[test]
-    fn impeccino_project_roots_beat_package_manager_negation() {
-        // 47e41195: projectRoots govern a path they match even when
-        // package-manager workspaces exclude it.
-        let d = TempDir::new("irootswin");
-        d.write("DESIGN.md", DESIGN_MD);
-        d.write(".impeccino/config.json", "{\"projectRoots\":[\"sites/*\"]}");
-        d.write(
-            "package.json",
-            "{\"name\":\"mono\",\"workspaces\":[\"sites/*\",\"!sites/docs\"]}",
-        );
-        d.write("sites/docs/package.json", "{\"name\":\"docs\"}");
-        let found = root_of(&d, "sites/docs", &far_home()).unwrap();
-        assert_eq!((found.dir, found.has_design), (d.path(), true));
     }
 
     #[test]

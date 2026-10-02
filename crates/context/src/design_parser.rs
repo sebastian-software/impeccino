@@ -178,12 +178,12 @@ fn parse_scalar(raw: &str) -> Value {
     }
     let d = s.strip_prefix('-').unwrap_or(s);
     if !d.is_empty() && d.chars().all(|ch| ch.is_ascii_digit()) {
-        return crate::util::js_num(crate::critique_storage::js_number(s));
+        return crate::util::js_num(crate::util::js_number(s));
     }
     // /^-?\d*\.\d+$/
     if let Some((a, b)) = d.split_once('.') {
         if a.chars().all(|ch| ch.is_ascii_digit()) && !b.is_empty() && b.chars().all(|ch| ch.is_ascii_digit()) {
-            return crate::util::js_num(crate::critique_storage::js_number(s));
+            return crate::util::js_num(crate::util::js_number(s));
         }
     }
     Value::String(s.to_string())

@@ -8,16 +8,15 @@ use impeccino_core::findings::Finding;
 use impeccino_core::registry::{filter_by_scopes, rule_scopes};
 use serde_json::Value;
 
-use crate::config::{
-    filter_detection_findings, read_detection_config, should_ignore_detection_file, DetectionConfig,
-};
-use crate::design_system::{load_design_system_for_target, DesignSystemCache};
+use crate::design_decisions::DesignDecisionsCache;
+use crate::design_system::{design_system_start_dir, load_design_system_for_target, DesignSystemCache};
 use crate::detect_text::{detect_text, TextOptions};
 use crate::engines::{EngineError, Engines, ScanOptions};
 use crate::file_system::{
     build_import_graph_reporting, detect_framework_config, is_html_path, is_port_listening,
-    walk_dir_reporting,
+    walk_dir_skipping,
 };
+use crate::project_ignores::ProjectIgnores;
 use crate::jsp;
 use crate::util::{exists, re, D};
 
@@ -30,10 +29,11 @@ Options:
   --quiet             In text mode, only print the final findings count
   --scope <name>      Only report rules in the given design domain
                       (type, layout). Comma-separated.
-  --no-config         Do not apply project config, detector ignores, inline
-                      ignore comments, or DESIGN.md
+  --no-config         Scan raw: ignore DESIGN.md (tokens, waivers, declared
+                      fonts) and in-file ignore comments
   --no-inline-ignores Do not honor in-file impeccino-disable* ignore comments
-  --no-design-system  Do not load local DESIGN.md / .impeccino/design.json context
+  --no-design-system  Do not load DESIGN.md / DESIGN.json tokens for the
+                      design-system rules (waivers still apply)
   --no-advisory       Suppress advisory findings entirely (e.g. em-dash overuse)
   --help              Show this help message
 
@@ -52,10 +52,15 @@ Exit status:
   2  Scan completed with primary findings
   Operational failure takes precedence when a multi-target scan is partial.
 
-Project config:
-  Respects .impeccino/config.json and .impeccino/config.local.json detector
-  settings: detector.ignoreRules, detector.ignoreFiles, detector.ignoreValues,
-  and detector.designSystem.enabled.
+Project decisions (there is no config file):
+  Inside a git repository, scans skip files git ignores (.gitignore,
+  .git/info/exclude) and files .gitattributes marks linguist-generated or
+  linguist-vendored, the same files the design hook leaves alone.
+  DESIGN.md is the project's record of deliberate choices:
+    <!-- impeccino-disable side-tab: the ledger rule -->
+  anywhere in DESIGN.md turns a rule off for every file it governs, and a
+  font DESIGN.md declares (typography, or DESIGN.json) never counts as an
+  overused font.
 
 Inline ignores:
   In-file comments waive a finding where it lives and travel with the file:
@@ -230,7 +235,11 @@ struct Ctx<'a> {
     engines: &'a Engines<'a>,
     cwd: String,
     home: String,
-    config: DetectionConfig,
+    /// False under `--no-config`: DESIGN.md waivers and declared values are
+    /// not applied.
+    decisions_enabled: bool,
+    decisions: DesignDecisionsCache,
+    ignores: ProjectIgnores,
     json_mode: bool,
     quiet_mode: bool,
     design_system_enabled: bool,
@@ -247,6 +256,27 @@ impl<'a> Ctx<'a> {
     fn report_local_scan_failure(&mut self, target: &str, message: &str) {
         self.had_operational_failure = true;
         self.io.err(&format!("Error: cannot scan {target}: {message}\n"));
+    }
+
+    /// Drop the findings DESIGN.md settles for the file (or, with no local
+    /// path, for the scan's cwd): project-wide waivers and declared fonts.
+    fn apply_decisions(&mut self, local_path: Option<&str>, findings: Vec<Finding>) -> Vec<Finding> {
+        if !self.decisions_enabled || findings.is_empty() {
+            return findings;
+        }
+        let mut decisions = match local_path {
+            Some(p) => {
+                let start = design_system_start_dir(p, &self.cwd);
+                self.decisions.for_dir(&start, &self.cwd, &self.home)
+            }
+            None => self.decisions.for_dir(&self.cwd.clone(), &self.cwd, &self.home),
+        };
+        // A file no DESIGN.md governs (a fixture or page outside the
+        // project) takes the decisions of the directory the scan runs in.
+        if decisions.source.is_none() && local_path.is_some() {
+            decisions = self.decisions.for_dir(&self.cwd.clone(), &self.cwd, &self.home);
+        }
+        decisions.apply(findings)
     }
 
     fn scan_options_for(&mut self, local_path: Option<&str>) -> ScanOptions {
@@ -313,12 +343,13 @@ impl<'a> Ctx<'a> {
             if let Some(fp) = fp {
                 if !fp.is_empty() && exists(&fp) {
                     let opts = self.scan_options_for(Some(&fp));
-                    return self.detect_local_file(&fp, &opts);
+                    let found = self.detect_local_file(&fp, &opts)?;
+                    return Ok(self.apply_decisions(Some(&fp), found));
                 }
             }
         }
         let opts = self.scan_options_for(None);
-        Ok(detect_text(
+        let found = detect_text(
             &input,
             "<stdin>",
             &TextOptions {
@@ -327,7 +358,8 @@ impl<'a> Ctx<'a> {
                 inline_ignores: opts.inline_ignores,
                 rule_pack: opts.rule_pack,
             },
-        ))
+        );
+        Ok(self.apply_decisions(None, found))
     }
 }
 
@@ -418,11 +450,6 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
     }
     let config_enabled = !has(&args, "--no-config");
     let cwd = io.cwd.to_string_lossy().into_owned();
-    let detection_config = if config_enabled {
-        read_detection_config(&cwd)
-    } else {
-        DetectionConfig::raw()
-    };
     let scopes_valid = rule_scopes().join(", ");
     let mut scopes: Vec<String> = Vec::new();
     let mut i = 0;
@@ -497,9 +524,7 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
         ));
         return Err(Exit(1));
     }
-    let design_system_enabled = config_enabled
-        && !has(&args, "--no-design-system")
-        && detection_config.design_system_not_disabled();
+    let design_system_enabled = config_enabled && !has(&args, "--no-design-system");
     let inline_ignores_enabled = config_enabled && !has(&args, "--no-inline-ignores");
     let base = ScanOptions {
         inline_ignores: inline_ignores_enabled,
@@ -533,7 +558,9 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
         engines,
         cwd: cwd.clone(),
         home,
-        config: detection_config,
+        decisions_enabled: config_enabled,
+        decisions: DesignDecisionsCache::new(),
+        ignores: ProjectIgnores::new(),
         json_mode,
         quiet_mode,
         design_system_enabled,
@@ -586,7 +613,6 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
         result?;
     }
 
-    all = filter_detection_findings(all, &ctx.config);
     let scope_refs: Vec<&str> = scopes.iter().map(|s| s.as_str()).collect();
     all = filter_by_scopes(all, &scope_refs, |f: &Finding| f.antipattern.as_str());
     if no_advisory {
@@ -671,8 +697,8 @@ fn scan_targets(
             if browser_setup_failed {
                 continue;
             }
+            let local = if FILE_URL_RE.is_match(target) { file_url_to_local_path(target) } else { None };
             let url_options = if FILE_URL_RE.is_match(target) {
-                let local = file_url_to_local_path(target);
                 ctx.scan_options_for(local.as_deref())
             } else {
                 ctx.base.clone()
@@ -687,7 +713,10 @@ fn scan_targets(
                 ),
             };
             match result {
-                Ok(f) => all.extend(f),
+                Ok(f) => {
+                    let kept = ctx.apply_decisions(local.as_deref(), f);
+                    all.extend(kept);
+                }
                 Err(e) => {
                     ctx.had_operational_failure = true;
                     ctx.io.err(&format!("Error: {}\n", e.message));
@@ -729,16 +758,19 @@ fn scan_targets(
                     ctx.io.err(&msg);
                 }
             }
-            let cwd = ctx.cwd.clone();
             // Unreadable directories and files are reported, not silently
-            // skipped, and each one forces exit 1 (#711).
+            // skipped, and each one forces exit 1 (#711). What git ignores,
+            // and what .gitattributes marks generated or vendored, is left
+            // out of the walk.
             let mut walk_failures: Vec<(String, String)> = Vec::new();
-            let files: Vec<String> = walk_dir_reporting(&resolved, &mut |dir, err| {
-                walk_failures.push((dir.to_string(), node_scan_error(dir, err)));
-            })
-            .into_iter()
-            .filter(|f| !should_ignore_detection_file(f, &cwd, &ctx.config))
-            .collect();
+            let ignores = &ctx.ignores;
+            let files: Vec<String> = walk_dir_skipping(
+                &resolved,
+                &mut |dir, err| {
+                    walk_failures.push((dir.to_string(), node_scan_error(dir, err)));
+                },
+                &|path, is_dir| ignores.is_skipped(path, is_dir),
+            );
             for (dir, message) in walk_failures {
                 ctx.report_local_scan_failure(&dir, &message);
             }
@@ -782,7 +814,7 @@ fn scan_targets(
                     continue;
                 }
                 let opts = ctx.scan_options_for(Some(file));
-                let mut file_findings = match ctx.detect_local_file(file, &opts) {
+                let file_findings = match ctx.detect_local_file(file, &opts) {
                     Ok(f) => f,
                     Err(e) => {
                         let message = e.message.clone();
@@ -790,6 +822,7 @@ fn scan_targets(
                         continue;
                     }
                 };
+                let mut file_findings = ctx.apply_decisions(Some(file), file_findings);
                 if let Some((_, importers)) = imported_by_map.iter().find(|(k, _)| k == file) {
                     if !importers.is_empty() {
                         let names: Vec<Value> = importers
@@ -805,13 +838,18 @@ fn scan_targets(
                 all.extend(file_findings);
             }
         } else if stat.is_file() {
-            let cwd = ctx.cwd.clone();
-            if should_ignore_detection_file(&resolved, &cwd, &ctx.config) {
+            // Same rule as the walk and the design hook: a file git ignores,
+            // or one .gitattributes marks generated or vendored, is not the
+            // project's own source, even when named on the command line.
+            if ctx.ignores.is_skipped(&resolved, false) {
                 continue;
             }
             let opts = ctx.scan_options_for(Some(&resolved));
             match ctx.detect_local_file(&resolved, &opts) {
-                Ok(f) => all.extend(f),
+                Ok(f) => {
+                    let kept = ctx.apply_decisions(Some(&resolved), f);
+                    all.extend(kept);
+                }
                 Err(e) => {
                     let message = e.message.clone();
                     ctx.report_local_scan_failure(target, &message);

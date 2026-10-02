@@ -3,12 +3,25 @@
  * Workspace: hook-project (package.json, PRODUCT.md web, UI files with and
  * without findings). Multi-step cases share one staged workspace so the
  * session cache carries between steps.
+ *
+ * Hook state lives in the user cache (docs/adr/0020), which the harness puts
+ * under the isolated home: `.oracle-home/.cache/impeccino/projects/<PROJECT>/`.
+ * The snapshot also lists the retired `.impeccino/`, so a golden would show
+ * it if anything wrote project-local state again.
  */
 
 import fs from 'node:fs';
 
 const WS = '<WS>';
-const CACHE_FILES = ['.impeccino/**', '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json', '.github/hooks/impeccino.json'];
+const CACHE_FILES = ['.oracle-home/.cache/impeccino/**', '.impeccino/**', '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json', '.github/hooks/impeccino.json'];
+const write = (ws, rel, body) => {
+  const abs = `${ws}/${rel}`;
+  fs.mkdirSync(abs.slice(0, abs.lastIndexOf('/')), { recursive: true });
+  fs.writeFileSync(abs, body);
+};
+// A `.git` directory marking the repository root, so the project's
+// .gitignore and .gitattributes apply.
+const gitRepo = (ws) => fs.mkdirSync(`${ws}/.git`, { recursive: true });
 
 const claudeEdit = (file, extra = {}) => ({
   session_id: 's1', cwd: WS, hook_event_name: 'PostToolUse', tool_name: 'Edit',
@@ -75,36 +88,38 @@ export default [
   { id: 'hook-harness-codex-apply-patch', verb: 'hook', workspace: 'hook-project', stdin: { session_id: 'c1', cwd: WS, hook_event_name: 'PostToolUse', tool_name: 'apply_patch', tool_input: { command: '*** Begin Patch\n*** Update File: src/components/Card.module.css\n@@\n-x\n+y\n*** End Patch' } }, files: CACHE_FILES },
   { id: 'hook-harness-cursor-shaped', verb: 'hook', workspace: 'hook-project', stdin: { conversation_id: 'cv1', workspace_roots: [WS], tool_name: 'Write', tool_input: { path: 'src/components/Card.module.css' } }, files: CACHE_FILES },
   { id: 'hook-harness-forced-github', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/components/Card.module.css'), env: { IMPECCINO_HOOK_HARNESS: 'github' }, files: CACHE_FILES },
-  { id: 'hook-audit-log', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/components/Card.module.css'), env: { IMPECCINO_HOOK_LOG: `${WS}/.impeccino/audit.ndjson` }, files: CACHE_FILES },
+  { id: 'hook-audit-log', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/components/Card.module.css'), env: { IMPECCINO_HOOK_LOG: `${WS}/logs/audit.ndjson` }, files: [...CACHE_FILES, 'logs/**'] },
   {
     id: 'hook-native-platform-skip', verb: 'hook', workspace: 'hook-project',
     setup: (ws) => fs.writeFileSync(`${ws}/PRODUCT.md`, '# P\n\n## Platform\nios\n'),
     stdin: claudeEdit('src/components/Card.module.css'), files: CACHE_FILES,
   },
+  // No config file (docs/adr/0020): DESIGN.md records project-wide waivers
+  // and declared fonts, and git metadata keeps files out.
   {
-    id: 'hook-config-disabled', verb: 'hook', workspace: 'hook-project',
-    setup: (ws) => { fs.mkdirSync(`${ws}/.impeccino`, { recursive: true }); fs.writeFileSync(`${ws}/.impeccino/config.json`, JSON.stringify({ hook: { enabled: false } }, null, 2) + '\n'); },
+    id: 'hook-design-md-waiver', verb: 'hook', workspace: 'hook-project',
+    setup: (ws) => write(ws, 'DESIGN.md', '# Design\n\n**The Signal Rule.** The title gradient is the brand mark. <!-- impeccino-disable gradient-text -- the brand mark -->\n'),
     stdin: claudeEdit('src/components/Card.module.css'), files: CACHE_FILES,
   },
   {
-    id: 'hook-config-ignore-rule', verb: 'hook', workspace: 'hook-project',
-    setup: (ws) => { fs.mkdirSync(`${ws}/.impeccino`, { recursive: true }); fs.writeFileSync(`${ws}/.impeccino/config.json`, JSON.stringify({ detector: { ignoreRules: ['gradient-text'] } }, null, 2) + '\n'); },
+    id: 'hook-design-md-declared-font', verb: 'hook', workspace: 'hook-project',
+    setup: (ws) => write(ws, 'DESIGN.md', '---\ntypography:\n  heading:\n    fontFamily: Inter\n---\n# Design\n'),
+    stdin: claudeEdit('src/components/Card.tsx'), env: { IMPECCINO_HOOK_HARNESS: 'github' }, files: CACHE_FILES,
+  },
+  {
+    id: 'hook-gitignored-file', verb: 'hook', workspace: 'hook-project',
+    setup: (ws) => { gitRepo(ws); write(ws, '.gitignore', 'src/components/\n'); },
     stdin: claudeEdit('src/components/Card.module.css'), files: CACHE_FILES,
   },
   {
-    id: 'hook-config-ignore-file', verb: 'hook', workspace: 'hook-project',
-    setup: (ws) => { fs.mkdirSync(`${ws}/.impeccino`, { recursive: true }); fs.writeFileSync(`${ws}/.impeccino/config.json`, JSON.stringify({ detector: { ignoreFiles: ['src/components/**'] } }, null, 2) + '\n'); },
+    id: 'hook-linguist-generated-file', verb: 'hook', workspace: 'hook-project',
+    setup: (ws) => { gitRepo(ws); write(ws, '.gitattributes', 'src/components/*.css linguist-generated\n'); },
     stdin: claudeEdit('src/components/Card.module.css'), files: CACHE_FILES,
   },
   {
-    id: 'hook-config-per-edit-all', verb: 'hook', workspace: 'hook-project',
-    setup: (ws) => { fs.mkdirSync(`${ws}/.impeccino`, { recursive: true }); fs.writeFileSync(`${ws}/.impeccino/config.json`, JSON.stringify({ hook: { perEditRules: 'all' } }, null, 2) + '\n'); },
-    stdin: claudeEdit('src/components/Card.tsx'), files: CACHE_FILES,
-  },
-  {
-    id: 'hook-config-max-findings-1', verb: 'hook', workspace: 'hook-project',
-    setup: (ws) => { fs.mkdirSync(`${ws}/.impeccino`, { recursive: true }); fs.writeFileSync(`${ws}/.impeccino/config.json`, JSON.stringify({ hook: { perEditRules: 'all', limits: { maxFindings: 1, maxChars: 8000 } } }, null, 2) + '\n'); },
-    stdin: claudeEdit('src/page.html'), files: CACHE_FILES,
+    id: 'hbe-gitignored-file', verb: 'hook-before-edit', workspace: 'hook-project',
+    setup: (ws) => { gitRepo(ws); write(ws, '.gitignore', 'src/generated/\n'); },
+    stdin: { hook_event_name: 'preToolUse', conversation_id: 'cv1', workspace_roots: [WS], tool_name: 'Write', tool_input: { path: 'src/generated/x.css', content: '.t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n' } }, files: CACHE_FILES,
   },
   // Session flows
   {
@@ -193,43 +208,30 @@ export default [
   { id: 'hadmin-on', verb: 'hook-admin', workspace: 'hook-project', args: ['on'], files: CACHE_FILES },
   { id: 'hadmin-on-twice', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, steps: [{ args: ['on'] }, { args: ['on'] }, { args: ['status'] }] },
   { id: 'hadmin-off-then-status', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, steps: [{ args: ['off'] }, { args: ['status'] }, { args: ['on'] }, { args: ['status'] }] },
-  { id: 'hadmin-ignore-rule', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-rule', 'Side-Tab', '--reason', 'because', 'reasons'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-rule-missing', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-rule'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-rule-overused-font', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-rule', 'overused-font'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-rule-overused-font-all', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-rule', 'overused-font', '--all-values'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-rule-unknown-flag', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-rule', 'side-tab', '--nope'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-file', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-file', 'src/legacy/**'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-file-local', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-file', 'src/legacy/**', '--local'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-file-both-scopes', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-file', 'a/**', '--local', '--shared'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-file-reason', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-file', 'a/**', '--reason', 'x'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-file-two-globs', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-file', 'a/**', 'b/**'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-file-none', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-file'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font', 'Inter'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-multiword', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font', 'Space', 'Grotesk', '--reason', 'user confirmed:', 'brand'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-scoped', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'design-system-font-size', '*', '--file', 'src/z.js', '--files=src/a.js', '--file', 'src/a.js'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-wildcard-unscoped', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'design-system-font-size', '*'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-wildcard-unscoped-font', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font', '*'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-file-missing-glob', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font', 'Inter', '--file'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-file-empty', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font', 'Inter', '--file='], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-file-flag-as-glob', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font', 'Inter', '--file', '--local'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-local', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font', 'Inter', '--local'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-missing', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-unknown-flag', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font', 'Inter', '--wat'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-twice-updates-reason', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, steps: [{ args: ['ignore-value', 'overused-font', 'Inter'] }, { args: ['ignore-value', 'overused-font', 'inter', '--reason=second'] }, { args: ['status'] }] },
-  // upstream be87f5eb (#662): exact values for rules that cannot extract one are inert and refused
-  { id: 'hadmin-ignore-value-inert-exact', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'cramped-padding', 'padding: 4px 8px'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-inert-scoped', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'side-tab', 'Inter', '--file', 'a.css'], files: CACHE_FILES },
-  { id: 'hadmin-ignore-value-inert-then-wildcard', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, steps: [{ args: ['ignore-value', 'cramped-padding', 'padding: 4px 8px'] }, { args: ['ignore-value', 'cramped-padding', '*', '--file', 'index.html'] }, { args: ['status'] }] },
-  { id: 'hadmin-reset-empty', verb: 'hook-admin', workspace: 'hook-project', args: ['reset'], files: CACHE_FILES },
-  { id: 'hadmin-full-cycle', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, steps: [{ args: ['ignore-rule', 'side-tab'] }, { args: ['ignore-file', 'x/**', '--local'] }, { args: ['ignore-value', 'overused-font', 'Inter'] }, { args: ['status'] }, { args: ['reset'] }, { args: ['status'] }] },
+  // ignore-rule / ignore-file / ignore-value wrote the retired config file.
+  { id: 'hadmin-ignore-rule-removed', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-rule', 'side-tab'], files: CACHE_FILES },
+  { id: 'hadmin-ignore-file-removed', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-file', 'src/legacy/**'], files: CACHE_FILES },
+  { id: 'hadmin-ignore-value-removed', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-value', 'overused-font', 'Inter'], files: CACHE_FILES },
   {
-    id: 'hadmin-legacy-migration', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES,
-    setup: (ws) => { fs.mkdirSync(`${ws}/.impeccino`, { recursive: true }); fs.writeFileSync(`${ws}/.impeccino/config.json`, JSON.stringify({ hook: { enabled: true, quiet: true, ignoreRules: ['legacy-rule'], advisoryRules: 'include', consent: 'accepted' }, other: { keep: 1 } }, null, 2) + '\n'); },
-    steps: [{ args: ['status'] }, { args: ['ignore-rule', 'side-tab'] }, { args: ['status'] }],
+    id: 'hadmin-status-design-waivers', verb: 'hook-admin', workspace: 'hook-project', args: ['status'], files: CACHE_FILES,
+    setup: (ws) => write(ws, 'DESIGN.md', '---\ntypography:\n  body:\n    fontFamily: Inter\n---\n# Design\n\n<!-- impeccino-disable side-tab, glow -- ledger rails and the signal halo -->\n'),
   },
+  { id: 'hadmin-reset-empty', verb: 'hook-admin', workspace: 'hook-project', args: ['reset'], files: CACHE_FILES },
+  // `reset` removes the hook entries `on` wrote and the session cache.
   {
-    id: 'hadmin-malformed-config', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES,
-    setup: (ws) => { fs.mkdirSync(`${ws}/.impeccino`, { recursive: true }); fs.writeFileSync(`${ws}/.impeccino/config.json`, '{ nope'); },
+    id: 'hadmin-on-hook-reset', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES,
+    steps: [
+      { args: ['on'] },
+      { verb: 'hook', stdin: claudeEdit('src/components/Card.module.css') },
+      { args: ['status'] },
+      { args: ['reset'] },
+      { args: ['status'] },
+    ],
+  },
+  // A hook in Claude Code's team-shared settings.json is named, never edited.
+  {
+    id: 'hadmin-off-shared-settings', verb: 'hook-admin', workspace: 'hook-project', files: [...CACHE_FILES, '.claude/settings.json'],
+    setup: (ws) => write(ws, '.claude/settings.json', JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: '"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino" hook' }] }] } }, null, 2) + '\n'),
     steps: [{ args: ['status'] }, { args: ['off'] }],
   },
   {

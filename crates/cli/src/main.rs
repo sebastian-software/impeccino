@@ -49,7 +49,11 @@ fn run(args: &[String], io: &mut Io) -> i32 {
             0
         }
         "detect" => impeccino_detect::run_detect(rest, io, &engines()),
-        "ignores" | "ignore" => impeccino_detect::run_ignores(rest, io),
+        // There is no config file to hold ignores any more (docs/adr/0020).
+        "ignores" | "ignore" => {
+            io.err(IGNORES_RETIRED);
+            1
+        }
         "help" => {
             io.out(impeccino_detect::ROOT_USAGE);
             0
@@ -65,7 +69,12 @@ fn run(args: &[String], io: &mut Io) -> i32 {
         "pin" => impeccino_context::run_pin(rest, io),
         "palette" => impeccino_context::run_palette(rest, io),
         "surface-brief" => impeccino_context::run_surface_brief(rest, io),
-        "critique-storage" => impeccino_context::run_critique_storage(rest, io),
+        // Critiques are no longer archived (docs/adr/0020): the report lives in
+        // the chat, and polish runs its own pass.
+        "critique-storage" => {
+            io.err("\"critique-storage\" was removed: Impeccino no longer archives critiques. The critique report lives in the chat; polish runs its own pass and takes findings you hand it.\n");
+            1
+        }
         "signals" | "context-signals" => impeccino_context::run_signals(rest, io),
         "doctor" => impeccino_context::run_doctor(rest, io),
         "concept-seed" => impeccino_context::run_concept_seed(rest, io),
@@ -99,6 +108,8 @@ const RETIRED_VERBS: &[&str] = &[
     "detect-csp", "embed-prompt", "generate-image", "serve-question", "component-review",
     "comp-spec", "comp-diff", "font-match", "capture-server", "build-phase",
 ];
+
+const IGNORES_RETIRED: &str = "\"ignores\" was removed: Impeccino keeps no config file.\n\nRecord deliberate choices where the project keeps its design decisions:\n  DESIGN.md      <!-- impeccino-disable <rule-id>: reason --> waives a rule for the whole project;\n                 a font declared under typography never counts as an overused font\n  .gitignore     files git ignores are not scanned; .gitattributes linguist-generated\n                 or linguist-vendored does the same for checked-in files\n  in the file    an impeccino-disable comment waives one file, line, or next line\n";
 
 const SELF_INSTALL_RETIRED: &str = "Impeccino no longer installs or updates itself.\n\nInstall the skill with Dalo:\n  dalo source add impeccino https://github.com/sebastian-software/impeccino.git --subpath skill\n  dalo sync\nor with skills.sh:\n  npx skills add sebastian-software/impeccino\n";
 

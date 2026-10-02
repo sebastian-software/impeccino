@@ -1,15 +1,38 @@
-//! JS: lib/surface-briefs.mjs
+//! Surface briefs: one top-level `SURFACES.md` per project, one section per
+//! surface (docs/adr/0020-project-state-is-top-level-files.md).
+//!
+//! A section is a `## <target>` heading followed directly by a marker line
+//! that carries the normalized targets as JSON:
+//!
+//! ```text
+//! ## src/pages/index.astro
+//! <!-- impeccino:surface {"target":"src/pages/index.astro","related":["route:/"]} -->
+//!
+//! Mode: Persuade
+//! ...
+//! ```
+//!
+//! The marker, not the heading, is the authority: a section runs from its
+//! heading to the heading of the next marked section, so a brief body may
+//! carry headings of its own (`### Direction contract`, even another `##`).
+//! Markers inside fenced code blocks are ignored. `write` replaces exactly
+//! the section whose marker names the primary target, or appends one, and
+//! leaves every other byte of the other sections alone.
 
 use crate::jsp;
-use crate::target_slug::{legacy_slug_from_target, slug_from_target};
 use crate::url;
-use crate::util::{exists, js_trim, read_dir_names, safe_read};
-use serde_json::{Map, Value};
+use crate::util::{exists, js_trim, safe_read};
+use impeccino_common::project_files::SURFACES_FILE;
+use serde_json::Value;
 
-pub const SURFACE_BRIEF_VERSION: u32 = 1;
+const MARKER_PREFIX: &str = "<!-- impeccino:surface ";
+const MARKER_SUFFIX: &str = "-->";
 
-pub fn get_surface_brief_dir(project_root: &str) -> String {
-    jsp::join(&[project_root, ".impeccino", "surfaces"])
+const DEFAULT_PREAMBLE: &str = "# Surfaces\n\nPer-surface strategy: each section holds one surface's mode, direction contract, and other decisions that belong to that route or artifact alone. `impeccino surface-brief write` replaces a section by the target named in its marker comment. Edit the prose freely, but keep each heading and the marker line below it together.";
+
+/// `<project root>/SURFACES.md`.
+pub fn surfaces_path(project_root: &str) -> String {
+    jsp::join(&[project_root, SURFACES_FILE])
 }
 
 fn normalize_route_target(route: &str) -> Option<String> {
@@ -76,175 +99,144 @@ pub fn normalize_surface_target(target: Option<&str>, project_root: &str) -> Opt
     Some(jsp::to_posix(&rel))
 }
 
-/// JS: surfaceBriefPathForTarget
-pub fn surface_brief_path_for_target(target: Option<&str>, project_root: &str) -> Option<String> {
-    let normalized = normalize_surface_target(target, project_root)?;
-    let slug_input = match normalized.strip_prefix("route:") {
-        Some(rest) => format!("route{}", rest),
-        None => normalized.clone(),
-    };
-    let slug = slug_from_target(Some(&slug_input), project_root)?;
-    Some(jsp::join(&[&get_surface_brief_dir(project_root), &format!("{}.md", slug)]))
-}
-
-fn legacy_surface_brief_path_for_target(target: Option<&str>, project_root: &str) -> Option<String> {
-    let normalized = normalize_surface_target(target, project_root)?;
-    let slug_input = match normalized.strip_prefix("route:") {
-        Some(rest) => format!("route{}", rest),
-        None => normalized.clone(),
-    };
-    let slug = legacy_slug_from_target(Some(&slug_input), project_root)?;
-    Some(jsp::join(&[&get_surface_brief_dir(project_root), &format!("{}.md", slug)]))
-}
-
 #[derive(Debug, Clone)]
 pub struct SurfaceBrief {
-    pub path: Option<String>,
+    /// Absolute path of the SURFACES.md that holds this brief.
+    pub path: String,
+    /// The whole section: heading, marker, and body.
     pub text: String,
+    /// The section body below the marker, trimmed.
     pub body: String,
-    pub meta: Map<String, Value>,
-    pub slug: Option<String>,
-    pub primary_target: Option<String>,
+    pub primary_target: String,
     pub related_targets: Vec<String>,
+    /// Primary first, then related.
     pub targets: Vec<String>,
 }
 
-fn is_json_start(raw: &str) -> bool {
-    raw.starts_with('[') || raw.starts_with('{') || raw.starts_with('"')
+/// One marked section of SURFACES.md.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Section {
+    /// Heading through the end of the body, trailing whitespace trimmed.
+    pub raw: String,
+    pub target: String,
+    pub related: Vec<String>,
+    pub body: String,
 }
 
-fn is_json_scalar(raw: &str) -> bool {
-    if raw == "true" || raw == "false" || raw == "null" {
-        return true;
-    }
-    // -?\d+(\.\d+)?
-    let s = raw.strip_prefix('-').unwrap_or(raw);
-    let mut parts = s.splitn(2, '.');
-    let int = parts.next().unwrap_or("");
-    if int.is_empty() || !int.chars().all(|c| c.is_ascii_digit()) {
-        return false;
-    }
-    match parts.next() {
-        None => true,
-        Some(f) => !f.is_empty() && f.chars().all(|c| c.is_ascii_digit()),
-    }
+/// SURFACES.md split into the text before the first section and the sections.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SurfacesDoc {
+    pub preamble: String,
+    pub sections: Vec<Section>,
 }
 
-/// Split frontmatter per /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/ .
-/// Returns (inner, match_len).
-pub fn split_frontmatter(text: &str) -> Option<(String, usize)> {
-    let after_open = if let Some(r) = text.strip_prefix("---\r\n") {
-        (r, 5)
-    } else if let Some(r) = text.strip_prefix("---\n") {
-        (r, 4)
-    } else {
+/// The marker's targets, or None when the line is not a well-formed marker.
+fn parse_marker(line: &str) -> Option<(String, Vec<String>)> {
+    let t = line.trim();
+    let inner = t.strip_prefix(MARKER_PREFIX)?.strip_suffix(MARKER_SUFFIX)?;
+    let v: Value = serde_json::from_str(inner.trim()).ok()?;
+    let target = v.get("target")?.as_str()?.trim().to_string();
+    if target.is_empty() {
         return None;
-    };
-    let (rest, open_len) = after_open;
-    // find the earliest "\r?\n---" followed by "\r?\n" or end
-    let bytes = rest.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'\n' && rest[i + 1..].starts_with("---") {
-            let inner_end = if i > 0 && bytes[i - 1] == b'\r' { i - 1 } else { i };
-            let after = &rest[i + 4..];
-            let tail_len = if after.starts_with("\r\n") {
-                Some(2)
-            } else if after.starts_with('\n') {
-                Some(1)
-            } else if after.is_empty() {
-                Some(0)
-            } else {
-                None
-            };
-            if let Some(t) = tail_len {
-                let inner = rest[..inner_end].to_string();
-                return Some((inner, open_len + i + 4 + t));
-            }
-        }
-        i += 1;
     }
-    None
+    let related = match v.get("related") {
+        Some(Value::Array(a)) => a.iter().filter_map(|x| x.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+        _ => Vec::new(),
+    };
+    Some((target, related))
 }
 
-/// JS: parseSurfaceBrief(text, filePath)
-pub fn parse_surface_brief(text: &str, file_path: Option<&str>) -> SurfaceBrief {
-    let mut meta = Map::new();
-    let fm = split_frontmatter(text);
-    if let Some((inner, _)) = &fm {
-        for line in inner.split('\n') {
-            let line = line.strip_suffix('\r').unwrap_or(line);
-            let Some(colon) = line.find(':') else { continue };
-            let key = js_trim(&line[..colon]);
-            let raw = js_trim(&line[colon + 1..]);
-            if key.is_empty() {
-                continue;
-            }
-            if is_json_start(raw) || is_json_scalar(raw) {
-                if let Ok(v) = serde_json::from_str::<Value>(raw) {
-                    meta.insert(key.to_string(), v);
-                    continue;
-                }
-            }
-            let mut v = raw;
-            // /^['"]|['"]$/g : strip one leading and one trailing quote
-            if v.starts_with('\'') || v.starts_with('"') {
-                v = &v[1..];
-            }
-            if v.ends_with('\'') || v.ends_with('"') {
-                v = &v[..v.len() - 1];
-            }
-            meta.insert(key.to_string(), Value::String(v.to_string()));
+fn is_fence(line: &str) -> bool {
+    let t = line.trim_start();
+    t.starts_with("```") || t.starts_with("~~~")
+}
+
+/// Parse SURFACES.md text. Line endings are normalized to `\n`.
+pub fn parse_surfaces(text: &str) -> SurfacesDoc {
+    let text = text.replace("\r\n", "\n");
+    let lines: Vec<&str> = text.split('\n').collect();
+    // (start line, marker line, target, related)
+    let mut starts: Vec<(usize, usize, String, Vec<String>)> = Vec::new();
+    let mut in_fence = false;
+    for (i, line) in lines.iter().enumerate() {
+        if is_fence(line) {
+            in_fence = !in_fence;
+            continue;
         }
-    }
-    let primary_target = meta.get("primary_target").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let related_targets: Vec<String> = meta
-        .get("related_targets")
-        .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
-        .unwrap_or_default();
-    let body = match &fm {
-        Some((_, len)) => js_trim(&text[*len..]).to_string(),
-        None => js_trim(text).to_string(),
-    };
-    let slug = match meta.get("slug").and_then(|v| v.as_str()) {
-        Some(s) => Some(s.to_string()),
-        None => file_path.map(|p| jsp::basename_ext(p, ".md")),
-    };
-    let mut targets: Vec<String> = Vec::new();
-    if let Some(p) = &primary_target {
-        if !p.is_empty() {
-            targets.push(p.clone());
+        if in_fence {
+            continue;
         }
+        let Some((target, related)) = parse_marker(line) else { continue };
+        let start = if i > 0 && lines[i - 1].starts_with("## ") { i - 1 } else { i };
+        // A heading already claimed by the previous marker cannot start
+        // another section; fall back to the marker line itself.
+        let start = match starts.last() {
+            Some((_, prev_marker, _, _)) if start <= *prev_marker => i,
+            _ => start,
+        };
+        starts.push((start, i, target, related));
     }
-    for r in &related_targets {
-        if !r.is_empty() {
-            targets.push(r.clone());
-        }
+    let preamble_end = starts.first().map(|s| s.0).unwrap_or(lines.len());
+    let preamble = lines[..preamble_end].join("\n").trim_end().to_string();
+    let mut sections = Vec::new();
+    for (n, (start, marker, target, related)) in starts.iter().enumerate() {
+        let end = starts.get(n + 1).map(|s| s.0).unwrap_or(lines.len());
+        let raw = lines[*start..end].join("\n").trim_end().to_string();
+        let body = js_trim(&lines[marker + 1..end].join("\n")).to_string();
+        sections.push(Section { raw, target: target.clone(), related: related.clone(), body });
     }
-    SurfaceBrief {
-        path: file_path.map(|s| s.to_string()),
-        text: text.to_string(),
-        body,
-        meta,
-        slug,
-        primary_target,
-        related_targets,
-        targets,
+    SurfacesDoc { preamble, sections }
+}
+
+/// JSON for the marker line; `>` is escaped so a target can never close the
+/// comment early.
+fn marker_json(target: &str, related: &[String]) -> String {
+    let v = serde_json::json!({ "target": target, "related": related });
+    serde_json::to_string(&v).unwrap().replace('>', "\\u003e")
+}
+
+/// The section text `write` produces for one surface.
+pub fn render_section(target: &str, related: &[String], body: &str) -> String {
+    let head = format!("## {}\n{}{} {}", target, MARKER_PREFIX, marker_json(target, related), MARKER_SUFFIX);
+    let body = js_trim(body);
+    if body.is_empty() {
+        head
+    } else {
+        format!("{}\n\n{}", head, body)
     }
 }
 
-/// JS: listSurfaceBriefs
+/// Serialize a parsed document: preamble, then every section, separated by
+/// one blank line.
+pub fn render_surfaces(doc: &SurfacesDoc) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    if !doc.preamble.is_empty() {
+        parts.push(&doc.preamble);
+    }
+    for s in &doc.sections {
+        parts.push(&s.raw);
+    }
+    format!("{}\n", parts.join("\n\n"))
+}
+
+/// Every brief in SURFACES.md, in file order. Empty when the file is missing.
 pub fn list_surface_briefs(project_root: &str) -> Vec<SurfaceBrief> {
-    let dir = get_surface_brief_dir(project_root);
-    let Some(names) = read_dir_names(&dir) else { return vec![] };
-    let mut names: Vec<String> = names.into_iter().filter(|n| n.ends_with(".md")).collect();
-    names.sort();
-    names
+    let path = surfaces_path(project_root);
+    let Some(text) = safe_read(&path) else { return vec![] };
+    parse_surfaces(&text)
+        .sections
         .into_iter()
-        .filter_map(|name| {
-            let fp = jsp::join(&[&dir, &name]);
-            safe_read(&fp).map(|t| parse_surface_brief(&t, Some(&fp)))
+        .map(|s| {
+            let mut targets = vec![s.target.clone()];
+            targets.extend(s.related.iter().cloned());
+            SurfaceBrief {
+                path: path.clone(),
+                text: s.raw,
+                body: s.body,
+                primary_target: s.target,
+                related_targets: s.related,
+                targets,
+            }
         })
         .collect()
 }
@@ -255,7 +247,9 @@ pub struct SurfaceResolution {
     pub reason: &'static str,
 }
 
-/// JS: resolveSurfaceBrief(projectRoot, target)
+/// Find the brief for `target`: the section whose primary target matches,
+/// else the one section that lists it as related. Without a target, the
+/// only brief, if there is exactly one.
 pub fn resolve_surface_brief(project_root: &str, target: Option<&str>) -> SurfaceResolution {
     let briefs = list_surface_briefs(project_root);
     let Some(target) = target.filter(|t| !t.is_empty()) else {
@@ -269,21 +263,10 @@ pub fn resolve_surface_brief(project_root: &str, target: Option<&str>) -> Surfac
     let Some(normalized) = normalize_surface_target(Some(target), project_root) else {
         return SurfaceResolution { brief: None, candidates: briefs, reason: "invalid-target" };
     };
-    let exact_path = surface_brief_path_for_target(Some(&normalized), project_root);
-    let legacy_path = legacy_surface_brief_path_for_target(Some(&normalized), project_root);
-    let exact = briefs
-        .iter()
-        .find(|b| b.path == exact_path && (b.targets.is_empty() || b.targets.contains(&normalized)))
-        .or_else(|| {
-            // Pre-hash long slugs can collide because they contain only the
-            // target suffix. Require the legacy brief's metadata to prove it
-            // belongs to this target before accepting that compatibility path.
-            briefs.iter().find(|b| b.path == legacy_path && b.targets.contains(&normalized))
-        });
-    if let Some(exact) = exact {
-        return SurfaceResolution { brief: Some(exact.clone()), candidates: briefs, reason: "slug" };
+    if let Some(exact) = briefs.iter().find(|b| b.primary_target == normalized) {
+        return SurfaceResolution { brief: Some(exact.clone()), candidates: briefs, reason: "primary" };
     }
-    let mapped: Vec<SurfaceBrief> = briefs.iter().filter(|b| b.targets.contains(&normalized)).cloned().collect();
+    let mapped: Vec<SurfaceBrief> = briefs.iter().filter(|b| b.related_targets.contains(&normalized)).cloned().collect();
     let n = mapped.len();
     SurfaceResolution {
         brief: if n == 1 { Some(mapped[0].clone()) } else { None },
@@ -292,7 +275,9 @@ pub fn resolve_surface_brief(project_root: &str, target: Option<&str>) -> Surfac
     }
 }
 
-/// JS: writeSurfaceBrief
+/// Write one surface's section into SURFACES.md: replace the section whose
+/// marker names the same primary target, or append a new one. Returns the
+/// file path.
 pub fn write_surface_brief(
     project_root: &str,
     primary_target: &str,
@@ -309,21 +294,22 @@ pub fn write_surface_brief(
             }
         }
     }
-    let slug = slug_from_target(Some(&normalized_primary), project_root);
-    let file_path = surface_brief_path_for_target(Some(&normalized_primary), project_root)
-        .ok_or_else(|| "surface brief requires a concrete project-relative primary target or URL".to_string())?;
-    let _ = std::fs::create_dir_all(jsp::dirname(&file_path));
-    let frontmatter = [
-        "---".to_string(),
-        format!("version: {}", SURFACE_BRIEF_VERSION),
-        format!("slug: {}", serde_json::to_string(&slug).unwrap()),
-        format!("primary_target: {}", serde_json::to_string(&normalized_primary).unwrap()),
-        format!("related_targets: {}", serde_json::to_string(&related).unwrap()),
-        "---".to_string(),
-    ]
-    .join("\n");
-    let content = format!("{}\n\n{}\n", frontmatter, js_trim(body));
-    std::fs::write(&file_path, content).map_err(|e| e.to_string())?;
+    let file_path = surfaces_path(project_root);
+    let mut doc = match safe_read(&file_path) {
+        Some(text) => parse_surfaces(&text),
+        None => SurfacesDoc { preamble: DEFAULT_PREAMBLE.to_string(), sections: vec![] },
+    };
+    let section = Section {
+        raw: render_section(&normalized_primary, &related, body),
+        target: normalized_primary.clone(),
+        related,
+        body: js_trim(body).to_string(),
+    };
+    match doc.sections.iter().position(|s| s.target == normalized_primary) {
+        Some(i) => doc.sections[i] = section,
+        None => doc.sections.push(section),
+    }
+    std::fs::write(&file_path, render_surfaces(&doc)).map_err(|e| e.to_string())?;
     Ok(file_path)
 }
 
@@ -334,68 +320,61 @@ mod tests {
 
     static TMP_SEQ: AtomicUsize = AtomicUsize::new(0);
 
-    #[test]
-    fn resolves_pre_hash_long_slug_briefs() {
+    fn tmp() -> String {
         let root = std::env::temp_dir().join(format!(
-            "impeccino-surface-legacy-{}-{}",
+            "impeccino-surfaces-{}-{}",
             std::process::id(),
             TMP_SEQ.fetch_add(1, Ordering::Relaxed)
         ));
-        let root = root.to_string_lossy().into_owned();
-        let target = "src/a-very-long-directory-structure-with-many-segments/component-name.tsx";
-        let legacy = legacy_surface_brief_path_for_target(Some(target), &root).unwrap();
-        let current = surface_brief_path_for_target(Some(target), &root).unwrap();
-        assert_ne!(legacy, current);
+        std::fs::create_dir_all(&root).unwrap();
+        root.to_string_lossy().into_owned()
+    }
 
-        std::fs::create_dir_all(get_surface_brief_dir(&root)).unwrap();
-        let normalized = normalize_surface_target(Some(target), &root).unwrap();
-        let legacy_body = format!(
-            "---\nprimary_target: {}\n---\n# Legacy brief\n",
-            serde_json::to_string(&normalized).unwrap()
-        );
-        std::fs::write(&legacy, legacy_body).unwrap();
+    #[test]
+    fn body_headings_and_fenced_markers_stay_inside_their_section() {
+        let text = "# Surfaces\n\nIntro.\n\n## a.html\n<!-- impeccino:surface {\"target\":\"a.html\",\"related\":[]} -->\n\n## Direction contract\nTHESIS: one.\n\n```md\n## b.html\n<!-- impeccino:surface {\"target\":\"b.html\"} -->\n```\n\n## c.html\n<!-- impeccino:surface {\"target\":\"c.html\",\"related\":[\"route:/c\"]} -->\n\nC body.\n";
+        let doc = parse_surfaces(text);
+        assert_eq!(doc.preamble, "# Surfaces\n\nIntro.");
+        assert_eq!(doc.sections.len(), 2);
+        assert_eq!(doc.sections[0].target, "a.html");
+        assert!(doc.sections[0].body.starts_with("## Direction contract"));
+        assert!(doc.sections[0].body.contains("b.html"), "fenced marker stays body text");
+        assert_eq!(doc.sections[1].related, vec!["route:/c".to_string()]);
+        assert_eq!(doc.sections[1].body, "C body.");
+        assert_eq!(render_surfaces(&doc), text);
+    }
 
-        let resolved = resolve_surface_brief(&root, Some(target));
-        assert_eq!(resolved.reason, "slug");
-        assert_eq!(resolved.brief.unwrap().path.as_deref(), Some(legacy.as_str()));
+    #[test]
+    fn malformed_markers_are_body_text() {
+        let doc = parse_surfaces("## a\n<!-- impeccino:surface {not json} -->\n## b\n<!-- impeccino:surface {\"related\":[]} -->\n");
+        assert!(doc.sections.is_empty());
+    }
 
-        std::fs::write(&current, "# Current brief\n").unwrap();
-        let resolved = resolve_surface_brief(&root, Some(target));
-        assert_eq!(resolved.brief.unwrap().path.as_deref(), Some(current.as_str()));
-
+    #[test]
+    fn write_replaces_exactly_one_section() {
+        let root = tmp();
+        write_surface_brief(&root, "a.html", &[], "A one.").unwrap();
+        write_surface_brief(&root, "b.html", &["route:/b/".to_string()], "B one.").unwrap();
+        write_surface_brief(&root, "c.html", &[], "C one.").unwrap();
+        let before = std::fs::read_to_string(surfaces_path(&root)).unwrap();
+        write_surface_brief(&root, "b.html", &[], "B two.\n\n### Direction contract\nTHESIS: two.").unwrap();
+        let after = std::fs::read_to_string(surfaces_path(&root)).unwrap();
+        let doc = parse_surfaces(&after);
+        assert_eq!(doc.sections.iter().map(|s| s.target.as_str()).collect::<Vec<_>>(), vec!["a.html", "b.html", "c.html"]);
+        assert!(doc.sections[1].related.is_empty());
+        assert!(doc.sections[1].body.ends_with("THESIS: two."));
+        let unchanged = |t: &str| parse_surfaces(&before).sections.into_iter().find(|s| s.target == t).unwrap().raw;
+        assert_eq!(doc.sections[0].raw, unchanged("a.html"));
+        assert_eq!(doc.sections[2].raw, unchanged("c.html"));
+        assert_eq!(resolve_surface_brief(&root, Some("b.html")).reason, "primary");
         let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]
-    fn rejects_unmapped_pre_hash_slug_collisions() {
-        let root = std::env::temp_dir().join(format!(
-            "impeccino-surface-legacy-collision-{}-{}",
-            std::process::id(),
-            TMP_SEQ.fetch_add(1, Ordering::Relaxed)
-        ));
-        let root = root.to_string_lossy().into_owned();
-        let target = "src/first-prefix-that-is-long-enough/a-very-long-shared-tail/component-name.tsx";
-        let collision = "src/second-prefix-that-is-long-enough/a-very-long-shared-tail/component-name.tsx";
-        let legacy = legacy_surface_brief_path_for_target(Some(target), &root).unwrap();
-        assert_eq!(legacy, legacy_surface_brief_path_for_target(Some(collision), &root).unwrap());
-        assert_ne!(
-            surface_brief_path_for_target(Some(target), &root),
-            surface_brief_path_for_target(Some(collision), &root)
-        );
-
-        std::fs::create_dir_all(get_surface_brief_dir(&root)).unwrap();
-        std::fs::write(&legacy, "# Unmapped legacy brief\n").unwrap();
-        assert_eq!(resolve_surface_brief(&root, Some(target)).reason, "not-found");
-
-        let normalized = normalize_surface_target(Some(target), &root).unwrap();
-        let legacy_body = format!(
-            "---\nprimary_target: {}\n---\n# Mapped legacy brief\n",
-            serde_json::to_string(&normalized).unwrap()
-        );
-        std::fs::write(&legacy, legacy_body).unwrap();
-        assert_eq!(resolve_surface_brief(&root, Some(target)).reason, "slug");
-        assert_eq!(resolve_surface_brief(&root, Some(collision)).reason, "not-found");
-
-        let _ = std::fs::remove_dir_all(&root);
+    fn markers_cannot_be_closed_by_a_target() {
+        let s = render_section("https://example.com/a-->b", &[], "x");
+        let doc = parse_surfaces(&s);
+        assert_eq!(doc.sections.len(), 1);
+        assert_eq!(doc.sections[0].target, "https://example.com/a-->b");
     }
 }

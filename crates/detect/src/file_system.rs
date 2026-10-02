@@ -66,6 +66,17 @@ pub fn walk_dir_reporting(
     dir: &str,
     on_read_error: &mut dyn FnMut(&str, &std::io::Error),
 ) -> Vec<String> {
+    walk_dir_skipping(dir, on_read_error, &|_, _| false)
+}
+
+/// `walk_dir_reporting` that also leaves out every entry `skip(path, is_dir)`
+/// accepts; a skipped directory is not descended into. The detector passes
+/// the project's own ignore rules here (`project_ignores`).
+pub fn walk_dir_skipping(
+    dir: &str,
+    on_read_error: &mut dyn FnMut(&str, &std::io::Error),
+    skip: &dyn Fn(&str, bool) -> bool,
+) -> Vec<String> {
     let mut files = Vec::new();
     let rd = match std::fs::read_dir(dir) {
         Ok(rd) => rd,
@@ -95,8 +106,10 @@ pub fn walk_dir_reporting(
         }
         let full = jsp::join(&[dir, &name]);
         if is_dir {
-            files.extend(walk_dir_reporting(&full, on_read_error));
-        } else if has_scannable_extension(&name) {
+            if !skip(&full, true) {
+                files.extend(walk_dir_skipping(&full, on_read_error, skip));
+            }
+        } else if has_scannable_extension(&name) && !skip(&full, false) {
             files.push(full);
         }
     }

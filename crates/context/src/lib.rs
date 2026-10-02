@@ -1,5 +1,5 @@
 //! Context and utility verbs: context, doctor, pin, surface-brief,
-//! critique-storage, palette, signals, concept-seed. Each verb is `run(args, io) -> exit code`.
+//! palette, signals, concept-seed. Each verb is `run(args, io) -> exit code`.
 
 pub mod jsp;
 pub mod util;
@@ -8,7 +8,6 @@ pub mod http;
 pub mod provider;
 pub mod hook_markers;
 pub mod target_args;
-pub mod target_slug;
 pub mod surface_briefs;
 pub mod artifact_schema;
 pub mod context;
@@ -22,9 +21,7 @@ pub use pin::run as run_pin;
 pub mod palette_data;
 pub mod palette;
 pub use palette::run as run_palette;
-pub mod critique_storage;
 pub mod surface_brief_cli;
-pub use critique_storage::run as run_critique_storage;
 pub use surface_brief_cli::run as run_surface_brief;
 pub mod signals;
 pub use signals::run as run_signals;

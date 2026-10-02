@@ -1,0 +1,7 @@
+{
+  "stdout": "",
+  "stderr": "\"critique-storage\" was removed: Impeccino no longer archives critiques. The critique report lives in the chat; polish runs its own pass and takes findings you hand it.\n",
+  "exit": 1,
+  "signal": null,
+  "files": {}
+}

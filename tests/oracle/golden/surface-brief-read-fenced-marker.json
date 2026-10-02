@@ -1,0 +1,23 @@
+{
+  "steps": [
+    {
+      "stdout": "[\n  {\n    \"path\": \"SURFACES.md\",\n    \"primaryTarget\": \"index.html\",\n    \"relatedTargets\": []\n  }\n]\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "## index.html\n<!-- impeccino:surface {\"target\":\"index.html\",\"related\":[]} -->\n\n## How a marker looks\n```md\n## other.html\n<!-- impeccino:surface {\"target\":\"other.html\",\"related\":[]} -->\n```\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "",
+      "stderr": "[\n  {\n    \"path\": \"SURFACES.md\",\n    \"primaryTarget\": \"index.html\",\n    \"relatedTargets\": []\n  }\n]\n",
+      "exit": 2,
+      "signal": null
+    }
+  ],
+  "files": {}
+}

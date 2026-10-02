@@ -191,6 +191,52 @@ pub fn apply_inline_ignores<F: IgnorableFinding>(
         .collect()
 }
 
+/// The text of every HTML comment outside fenced code blocks.
+fn html_comments(md: &str) -> Vec<String> {
+    let mut prose = String::new();
+    let mut in_fence = false;
+    for line in md.split('\n') {
+        let t = line.trim_start();
+        if t.starts_with("```") || t.starts_with("~~~") {
+            in_fence = !in_fence;
+            prose.push('\n');
+            continue;
+        }
+        if !in_fence {
+            prose.push_str(line);
+        }
+        prose.push('\n');
+    }
+    let mut out = Vec::new();
+    let mut rest = prose.as_str();
+    while let Some(start) = rest.find("<!--") {
+        let after = &rest[start + 4..];
+        let Some(end) = after.find("-->") else { break };
+        out.push(after[..end].to_string());
+        rest = &after[end + 3..];
+    }
+    out
+}
+
+/// Project-wide waivers recorded in DESIGN.md (docs/adr/0020): the rule ids
+/// of every `<!-- impeccino-disable <rule-id> [-- reason] -->` comment.
+/// Only HTML comments outside code fences count, so prose that explains the
+/// syntax waives nothing; the `-line` / `-next-line` variants have no
+/// meaning in a design document and are ignored; and a bare
+/// `impeccino-disable` (every rule) is not honored at project scope.
+pub fn parse_design_waivers(md: &str) -> Vec<String> {
+    let mut rules: Vec<String> = Vec::new();
+    for comment in html_comments(md) {
+        let one_line = comment.replace(['\n', '\r'], " ");
+        for rule in parse_inline_ignores(Some(&one_line)).file {
+            if rule != "*" && !rules.contains(&rule) {
+                rules.push(rule);
+            }
+        }
+    }
+    rules
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,5 +250,11 @@ mod tests {
         assert_eq!(d.next_line, vec![(4, vec!["bounce-easing".to_string()])]);
         let bare = parse_inline_ignores(Some("<!-- impeccino-disable -->"));
         assert_eq!(bare.file, vec!["*"]);
+    }
+
+    #[test]
+    fn design_waivers_come_from_comments_outside_fences() {
+        let md = "# Design\n\n## Named Rules\n\n**The Ink Rule.** Hairlines carry the grid. <!-- impeccino-disable side-tab, GRADIENT-TEXT -- the ledger rule -->\n\nWrite `impeccino-disable overused-font` to waive a rule.\n\n```md\n<!-- impeccino-disable bounce-easing -->\n```\n\n<!-- impeccino-disable -->\n<!--\nimpeccino-disable line-length: long legal copy\n-->\n";
+        assert_eq!(parse_design_waivers(md), vec!["side-tab", "gradient-text", "line-length"]);
     }
 }

@@ -2,7 +2,7 @@
 //! engines, ported from `cli/bin/cli.js`, `cli/engine/cli/main.mjs`,
 //! `cli/engine/node/file-system.mjs`, `cli/lib/impeccino-config.mjs`,
 //! `cli/engine/engines/regex/detect-text.mjs`, `cli/engine/design-system.mjs`,
-//! `cli/engine/profile/profiler.mjs`, and `cli/bin/commands/ignores.mjs`.
+//! and `cli/engine/profile/profiler.mjs`.
 //!
 //! Engine seams: [`engines::HtmlEngine`] (static HTML, crates/html) and
 //! [`engines::UrlEngine`] (browser, crates/browser). This crate never depends
@@ -12,13 +12,14 @@
 
 pub mod cli;
 pub mod config;
+pub mod design_decisions;
 pub mod design_system;
 pub mod detect_text;
 pub mod engines;
 pub mod file_system;
-pub mod ignores;
 pub mod jsp;
 pub mod profiler;
+pub mod project_ignores;
 pub mod regex_matchers;
 pub mod skills;
 pub mod util;
@@ -32,11 +33,6 @@ pub use engines::{
 /// `impeccino detect [args]` (`detectCli`). Returns the exit code.
 pub fn run_detect(args: &[String], io: &mut Io, engines: &Engines) -> i32 {
     cli::run_detect(args, io, engines)
-}
-
-/// `impeccino ignores [args]`.
-pub fn run_ignores(args: &[String], io: &mut Io) -> i32 {
-    ignores::run(args, io)
 }
 
 /// `impeccino skills [args]` and the top-level `help|install|link|update|check`.
@@ -61,7 +57,6 @@ pub const ROOT_USAGE: &str = "Usage: impeccino <command> [options]
 
 Commands:
   detect [file-or-dir-or-url...]   Scan for UI anti-patterns and design quality issues
-  ignores                          Manage detector ignore rules, files, and values
   help                             Show this help message
 
 Options:

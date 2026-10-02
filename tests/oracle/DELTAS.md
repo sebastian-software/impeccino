@@ -294,3 +294,69 @@ Concept-seed richness instruction scoped by mode (fix/operate-directions): the s
 - `seed-direction-local-count-5` (`--mode operate`): challengers 3 to 6 were relay desk, dial cabinet (interaction), pine gallery, dusk quarry (atmosphere); they are now placard row, crest register, stamp folio (graphic) and relay desk (interaction). Header, assigned index and every other line are unchanged.
 - `seed-surface-local`, `seed-surface-local-default-scope` (`--mode operate`, surface scope): the atmosphere pair frost arcade and salt terrace and the second interaction pick, signal tower, are gone; folio stand and banner press join placard row and poster wall, with meter row as the one interaction pick. The fixture catalog holds only four graphic duals, so this surface roll deals five challengers where it dealt six: a quota tier reuses its pool when it cannot fill its quota but never borrows another strength. The live catalog holds 16 graphic duals open to operate.
 - `seed-direction-local-operate` (new): an operate direction roll on `oracle-key-1`, five graphic and one interaction, no atmosphere.
+
+## Recorded 2026-10-02: project state is top-level files, no config file (docs/adr/0020)
+
+The engine reads no `.impeccino/` directory and no config file any more. Every
+case below was re-recorded from the binary after a line-level review of its
+golden diff; nothing else in stdout, stderr, exit status, or files moved.
+
+- Surface briefs live in one `SURFACES.md`, one marked section per surface.
+  `surface-brief-*`, `context-full*`, `context-no-agent-browser`: candidates
+  and `surfaceBriefPath` name `SURFACES.md`, the summaries drop `slug`, the
+  match reason `slug` is now `primary`, `read` prints the section (heading,
+  marker, body) instead of a frontmatter file, and `path` prints the
+  SURFACES.md path for any concrete target. `surface-brief-write-route` masks
+  the OS wording for the unwritable filesystem root as `<UNWRITABLE>`.
+  New: `surface-brief-write-replaces-one-section` (a write replaces only its
+  own section and keeps hand-written text in the others byte for byte),
+  `surface-brief-read-fenced-marker` (markers inside a code fence and body
+  headings never start a section), `context-surfaces-only-brief`.
+- The DESIGN.md sidecar is `DESIGN.json` next to DESIGN.md. `doctor-*`,
+  `context-legacy`: findings name `DESIGN.json`; the `design-sidecar-legacy-path`
+  auto-migration and the `doctor --fix` move are gone. New:
+  `doctor-sidecar-next-to-docs-design`.
+- No config file: the `config-unknown-keys`, `config-unknown-detector-keys`,
+  `detector-ignore-*`, `config-project-roots-match-nothing`, and
+  `hook-enabled-conflict` findings are gone, and so is `legacy-live-state`
+  (live mode is gone, docs/adr/0011). The deep pass validates the rule ids of
+  DESIGN.md waivers instead (`design-waiver-unknown-rule`; new
+  `doctor-design-waiver-ids`). A leftover `.impeccino/` is one `mention`
+  (`legacy-state-dir`), throttled like every boot finding and never reported
+  for the home directory. New: `context-legacy-state-dir`,
+  `context-legacy-state-dir-home-skipped`,
+  `context-legacy-state-dir-no-staleness-check`, `doctor-legacy-state-dir`.
+- `signals-*`: the `critique` key is gone with the critique archive.
+  `critique-storage` prints a "was removed" message and exits 1
+  (`critique-storage-removed`); every `critique-*` case was deleted.
+- `detect-help`, `cli-help`: the help names DESIGN.md waivers and git's own
+  ignore rules instead of the config files; `ignores` is no longer listed and
+  answers with a "was removed" message (`ignores-removed`).
+- `detect-config-*`: the workspace's config file became a DESIGN.md waiver
+  (`pulsing-dot`), a declared brand font (Inter, so neither `overused-font`
+  nor `design-system-font` fires for it), and a `.gitattributes`
+  `linguist-vendored` entry for `src/vendor/`. `detect-config-from-subdir` now
+  applies the decisions of the DESIGN.md that governs the file, where it used
+  to read the config of the cwd only. New: `detect-config-gitignored-dir`,
+  `detect-config-no-repo-vendor-scanned`.
+- Hook state lives in the user cache: every `hook-*` and `hbe-*` snapshot
+  shows `.oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json`
+  where it showed `.impeccino/hook.cache.json`, and the triage footer and the
+  per-finding hints name in-file `impeccino-disable` waivers and DESIGN.md
+  instead of `hooks ignore-value`. `hook-audit-log` logs to `logs/`. New:
+  `hook-design-md-waiver`, `hook-design-md-declared-font`,
+  `hook-gitignored-file`, `hook-linguist-generated-file`,
+  `hbe-gitignored-file`.
+- `hooks` admin: `on` installs the manifests and writes no config or consent
+  record, `off` removes the local hook entries, `status` reports the installed
+  manifests and the DESIGN.md waivers, `reset` removes hook entries and the
+  session cache. The `ignore-*` actions answer with a "was removed" message.
+  New: `hadmin-*-removed`, `hadmin-status-design-waivers`,
+  `hadmin-on-hook-reset`, `hadmin-off-shared-settings`. Deleted: every case
+  that wrote or read the config file.
+
+Re-recording also folded earlier engine wording into `context-full-target-route`,
+`context-monorepo-target-missing`, `doctor-help`, `doctor-legacy-text`,
+`surface-brief-write-route`, `hook-session-fresh-then-pending-then-stop`, and
+`hadmin-on`, so those ids no longer differ from their goldens; their entries
+above stay as history.

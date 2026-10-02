@@ -3,7 +3,7 @@
 use crate::context::*;
 use crate::jsp;
 use crate::provider::Provider;
-use crate::staleness::{collect_boot_findings, design_sidecar_candidates_for, BootExtras};
+use crate::staleness::{collect_boot_findings, design_sidecar_path_for, BootExtras};
 use crate::staleness_notice::{build_staleness_directive, filter_fresh_findings, staleness_check_disabled};
 use crate::target_args::{has_target_option, parse_target_options, TargetOptions};
 use crate::util::*;
@@ -39,25 +39,10 @@ fn value_has_hook_marker(v: &Value) -> bool {
     }
 }
 
-fn hook_enabled_at(root: &str, env: &Env) -> bool {
-    if truthy_env(env, "IMPECCINO_HOOK_DISABLED") {
-        return false;
-    }
-    let mut enabled = true;
-    for name in [".impeccino/config.json", ".impeccino/config.local.json"] {
-        if let Some(raw) = read_json(&jsp::join(&[root, name])) {
-            if let Some(hook) = raw.get("hook") {
-                if crate::staleness::js_truthy(hook) {
-                    if let Some(h) = hook.as_object() {
-                        if let Some(e) = h.get("enabled") {
-                            enabled = e != &Value::Bool(false);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    enabled
+/// The hook runs wherever it is installed; IMPECCINO_HOOK_DISABLED is the
+/// one switch that turns an installed hook off (docs/adr/0020).
+fn hook_disabled(env: &Env) -> bool {
+    truthy_env(env, "IMPECCINO_HOOK_DISABLED")
 }
 
 fn is_native(platform: Option<&str>) -> bool {
@@ -69,8 +54,7 @@ pub fn automatic_hook_mode(ctx: &Ctx, cwd: &str, env: &Env, provider: &Provider)
     if is_native(ctx.platform.as_deref()) {
         return "none";
     }
-    let active_root = jsp::resolve(if ctx.project_root.is_empty() { cwd } else { &ctx.project_root }, &[]);
-    if !hook_enabled_at(&active_root, env) {
+    if hook_disabled(env) {
         return "none";
     }
     // Gemini's manifest carries only the session and build-completion hooks,
@@ -80,12 +64,7 @@ pub fn automatic_hook_mode(ctx: &Ctx, cwd: &str, env: &Env, provider: &Provider)
     }
     let manifests = hook_manifests_for(&provider.id);
     for root in hook_manifest_search_roots(ctx, cwd, env) {
-        // A manifest can live above the resolved product. Honor the hook
-        // lifecycle config beside that manifest before treating it as active
-        // coverage (#710).
-        if !hook_enabled_at(&root, env) {
-            continue;
-        }
+        // A manifest can live above the resolved product (#710).
         for rel in manifests {
             if let Some(raw) = read_json(&jsp::join(&[&root, rel])) {
                 if let Some(h) = raw.get("hooks") {
@@ -195,36 +174,16 @@ fn append_rendered_detector_availability(parts: &mut Vec<String>, ctx: &Ctx, env
     ].join(" "));
 }
 
-fn project_roots_diagnostic(ctx: &Ctx, options: &TargetOptions, env: &Env) -> (Option<Vec<String>>, Vec<TargetCandidate>) {
-    if has_target_option(options) {
-        return (None, vec![]);
-    }
-    if !ctx.is_monorepo || ctx.repo_root.is_empty() {
-        return (None, vec![]);
-    }
-    if jsp::resolve(&ctx.project_root, &[]) != jsp::resolve(&ctx.repo_root, &[]) {
-        return (None, vec![]);
-    }
-    let patterns = read_impeccino_project_roots(&ctx.repo_root);
-    if patterns.is_empty() {
-        return (None, vec![]);
-    }
-    let cands = discover_target_candidates(&ctx.repo_root, env);
-    (Some(patterns), cands)
-}
-
-fn append_staleness_directive(parts: &mut Vec<String>, ctx: &Ctx, options: &TargetOptions, cwd: &str, env: &Env) {
+fn append_staleness_directive(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: &Env) {
     let project_root = if ctx.project_root.is_empty() { cwd.to_string() } else { ctx.project_root.clone() };
-    if staleness_check_disabled(env, &[Some(&project_root), Some(&ctx.repo_root)]) {
+    if staleness_check_disabled(env) {
         return;
     }
     let abs_cwd = jsp::resolve(cwd, &[]);
-    let (patterns, cands) = project_roots_diagnostic(ctx, options, env);
     let extras = BootExtras {
         abs_design_path: ctx.design_path.as_deref().map(|p| jsp::resolve(&abs_cwd, &[p])),
-        sidecar_candidates: design_sidecar_candidates_for(&project_root, Some(&ctx.context_dir)),
-        project_root_patterns: patterns,
-        target_candidates: cands,
+        sidecar_path: design_sidecar_path_for(&project_root, ctx.design_context_dir.as_deref()),
+        home: Some(homedir(env)),
     };
     let findings = collect_boot_findings(ctx, cwd, &extras);
     let fresh = filter_fresh_findings(env, findings, &project_root, now_ms());
@@ -419,7 +378,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         if should_warn_missing_target(&ctx, target_provided, target_exists) {
             parts.push(build_missing_target_directive(&provider));
         }
-        append_staleness_directive(&mut parts, &ctx, &options, &cwd, &env);
+        append_staleness_directive(&mut parts, &ctx, &cwd, &env);
         io.out(&format!("{}\n", parts.join("\n\n---\n\n")));
         return 0;
     }
@@ -451,7 +410,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             js_trim(&content)
         ));
     }
-    append_staleness_directive(&mut parts, &ctx, &options, &cwd, &env);
+    append_staleness_directive(&mut parts, &ctx, &cwd, &env);
     if ctx.platform.is_none() {
         if let Some(raw) = extract_section_value(ctx.product.as_deref(), "Platform") {
             if !raw.is_empty() {

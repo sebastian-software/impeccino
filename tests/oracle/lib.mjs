@@ -44,7 +44,7 @@ export const JS_VERBS = {
   ignores: ['node', path.join(REPO_ROOT, 'cli', 'bin', 'cli.js'), 'ignores'],
 };
 for (const script of [
-  'context', 'doctor', 'pin', 'surface-brief', 'critique-storage', 'palette',
+  'context', 'doctor', 'pin', 'surface-brief', 'palette',
   'context-signals', 'concept-seed',
   'hook', 'hook-before-edit', 'hook-admin',
 ]) {
@@ -93,8 +93,7 @@ export function stageWorkspace(name) {
 // or followed by anything but a name character (a separator, quote, dot,
 // whitespace, JSON punctuation).
 // A short home directory (`/root` in a container) is otherwise a substring of
-// ordinary words, and `.impeccino/live/roots.json` came out as
-// `.impeccino/live<HOME>s.json`.
+// ordinary words, and `live/roots.json` came out as `live<HOME>s.json`.
 function maskPath(text, needle, tag) {
   let out = '';
   let i = 0;
@@ -144,21 +143,20 @@ export function normalize(text, { ws, home = os.homedir() }) {
   // context-signals probes localhost dev-server ports (4321, 3000, 5173, ...);
   // whatever is listening on the recording machine is not part of the contract.
   out = out.replace(/"devServer": \{\s*"running": (?:true|false),\s*"ports": \[[^\]]*\]\s*\}/g, '"devServer": <DEV_SERVER_PROBE>');
-  // critique-storage stamps snapshots with the wall clock in dash form
-  // (2026-05-12T18-30-00Z), both in the file name (<stamp>__<slug>.md) and in
-  // the `timestamp:` frontmatter it writes.
-  out = out.replace(/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z/g, '<STAMP>');
   // A target given as an absolute path outside the workspace makes the verb
   // print the surface path relative to the root, which climbs as many levels
   // as the staged tmpdir is deep (7 on macOS, 2 on Linux). The climb is a
   // property of the machine, not of the verb.
-  out = out.replace(/(?:\.\.\/){2,}(?=\.impeccino\/)/g, '<UP_TO_ROOT>/');
+  out = out.replace(/(?:\.\.\/){2,}(?=SURFACES\.md)/g, '<UP_TO_ROOT>/');
+  // Hook state lives in a per-project dir of the user cache, named after the
+  // project's absolute path plus an 8-hex digest of it (docs/adr/0020).
+  out = normalizeProjectCacheDir(out);
   // Hook audit entries carry wall-clock durations.
   out = out.replace(/"durationMs":\s*\d+(?:\.\d+)?/g, '"durationMs": <MS>');
   // ISO timestamps and epoch millis are run-dependent.
   out = out.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z/g, '<ISO>');
   out = out.replace(/"(updatedAt|createdAt|checkedAt|lastCheck|lastChecked|timestamp|ts|mtimeMs|mtime|startedAt|endedAt)":\s*\d{10,}/g, '"$1": <EPOCH>');
-  // The staleness notice cache (~/.impeccino/staleness-check.json) keys epoch
+  // The staleness notice cache (<user cache>/impeccino/staleness-check.json) keys epoch
   // stamps by finding id: { projects: { "<root>": { "<finding-id>": ms } } }.
   out = out.replace(/"([a-z][a-z0-9-]*)":\s*1[6-9]\d{11}(?=[,}\s])/g, '"$1": <EPOCH>');
   // Live mode: server.json, the inject journal, and source locks record the
@@ -168,6 +166,11 @@ export function normalize(text, { ws, home = os.homedir() }) {
   out = out.replace(/\(pid \d+\)/g, '(pid <PID>)');
   out = out.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<UUID>');
   return out;
+}
+
+/** `<cache>/impeccino/projects/<slug>-<hash>/` -> `.../projects/<PROJECT>/`. */
+export function normalizeProjectCacheDir(text) {
+  return text.replace(/(impeccino[\\/]projects[\\/])[^\\/\s"'`]+-[0-9a-f]{8}(?=[\\/])/g, '$1<PROJECT>');
 }
 
 /**
@@ -282,7 +285,7 @@ export function runCase(c, { impl = 'js', bin = process.env.IMPECCINO_BIN } = {}
       signal: r.signal || null,
       ...(r.daemon ? { daemon: true } : {}),
     });
-    const filesNorm = Object.fromEntries(Object.entries(files).map(([k, v]) => [k, N(v)]));
+    const filesNorm = Object.fromEntries(Object.entries(files).map(([k, v]) => [normalizeProjectCacheDir(k), N(v)]));
     const daemonOut = daemons.length
       ? { daemon: daemons.map((d) => ({ stdout: N(d.stdout()), stderr: N(d.stderr()) })) }
       : {};
@@ -316,7 +319,10 @@ function buildInvocation(c, { impl, bin, ws, isolatedHome }) {
     // installed, so goldens do not depend on the recording machine's PATH.
     IMPECCINO_AGENT_BROWSER: process.execPath,
     DO_NOT_TRACK: '1',
-    ...(c.isolateHome === false ? {} : { HOME: isolatedHome, USERPROFILE: isolatedHome }),
+    // The per-user cache (hook state, the staleness throttle) follows the
+    // isolated home: XDG_CACHE_HOME and LOCALAPPDATA from the recording
+    // machine must not leak in.
+    ...(c.isolateHome === false ? {} : { HOME: isolatedHome, USERPROFILE: isolatedHome, XDG_CACHE_HOME: null, LOCALAPPDATA: null }),
     // What the launcher exports for the binary (see launcher/impeccino in the engine repo).
     ...(impl === 'bin' ? { IMPECCINO_SKILL_DIR: path.join(REPO_ROOT, 'skill'), IMPECCINO_SELF: bin } : {}),
     ...Object.fromEntries(Object.entries(c.env || {}).map(([k, v]) => [k, v == null ? v : sub(v)])),

@@ -1,0 +1,7 @@
+{
+  "stdout": "",
+  "stderr": "\"ignores\" was removed: Impeccino keeps no config file.\n\nRecord deliberate choices where the project keeps its design decisions:\n  DESIGN.md      <!-- impeccino-disable <rule-id>: reason --> waives a rule for the whole project;\n                 a font declared under typography never counts as an overused font\n  .gitignore     files git ignores are not scanned; .gitattributes linguist-generated\n                 or linguist-vendored does the same for checked-in files\n  in the file    an impeccino-disable comment waives one file, line, or next line\n",
+  "exit": 1,
+  "signal": null,
+  "files": {}
+}

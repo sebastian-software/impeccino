@@ -27,7 +27,7 @@ struct ApiBudget {
 
 impl ApiBudget {
     fn new(env: &Env) -> ApiBudget {
-        let ms = env.get("IMPECCINO_API_TIMEOUT").filter(|v| !v.is_empty()).map(|v| crate::critique_storage::js_number(v)).unwrap_or(4000.0);
+        let ms = env.get("IMPECCINO_API_TIMEOUT").filter(|v| !v.is_empty()).map(|v| crate::util::js_number(v)).unwrap_or(4000.0);
         let ms = if ms.is_nan() { 0.0 } else { ms.max(0.0) };
         ApiBudget { deadline: None, timeout: Duration::from_millis(ms as u64) }
     }
@@ -158,7 +158,7 @@ fn vs(v: &Value, key: &str) -> String {
         None => "undefined".to_string(),
         Some(Value::Null) => "null".to_string(),
         Some(Value::String(s)) => s.clone(),
-        Some(other) => crate::critique_storage::js_string_value(other),
+        Some(other) => crate::util::js_string_value(other),
     }
 }
 
@@ -192,7 +192,7 @@ fn value_str(v: &Value) -> String {
     match v {
         Value::String(s) => s.clone(),
         Value::Null => "null".to_string(),
-        other => crate::critique_storage::js_string_value(other),
+        other => crate::util::js_string_value(other),
     }
 }
 
@@ -521,7 +521,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         io.out("NO_PRODUCT_MD: the dice stay in the cup until product truth exists. Complete the init ask round and write PRODUCT.md first (reference/init.md), then re-run this exact command. Challengers fuse their form with facts from PRODUCT.md; without it every direction is ungrounded.\n");
         return 1;
     }
-    let num = |v: Option<Option<String>>| -> Option<f64> { v.map(|x| x.map(|s| crate::critique_storage::js_number(&s)).unwrap_or(f64::NAN)) };
+    let num = |v: Option<Option<String>>| -> Option<f64> { v.map(|x| x.map(|s| crate::util::js_number(&s)).unwrap_or(f64::NAN)) };
     let seed = SeedArgs {
         scope: match val("--scope") {
             None => Some("surface".to_string()),

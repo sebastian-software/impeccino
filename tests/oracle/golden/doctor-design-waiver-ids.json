@@ -1,0 +1,7 @@
+{
+  "stdout": "Impeccino doctor: <WS>\n\nworth saying (1):\n  design-waiver-unknown-rule  [DESIGN.md]\n    DESIGN.md waives rule id(s) the detector does not have: `side-tabs`. Either the rule was renamed or removed, or the id was mistyped and has never waived anything.\n    → Report the exact ids. Fix a typo in place; drop a waiver whose rule is gone, keeping the design rule it sat next to.\n\n",
+  "stderr": "",
+  "exit": 0,
+  "signal": null,
+  "files": {}
+}

@@ -1,9 +1,9 @@
 {
-  "stdout": ".impeccino/surfaces/example-com-pricing.md\n",
+  "stdout": "SURFACES.md\n",
   "stderr": "",
   "exit": 0,
   "signal": null,
   "files": {
-    ".impeccino/surfaces/example-com-pricing.md": "---\nversion: 1\nslug: \"example-com-pricing\"\nprimary_target: \"https://example.com/pricing\"\nrelated_targets: []\n---\n\nURL brief.\n"
+    "SURFACES.md": "# Surfaces\n\nPer-surface strategy: each section holds one surface's mode, direction contract, and other decisions that belong to that route or artifact alone. `impeccino surface-brief write` replaces a section by the target named in its marker comment. Edit the prose freely, but keep each heading and the marker line below it together.\n\n## https://example.com/pricing\n<!-- impeccino:surface {\"target\":\"https://example.com/pricing\",\"related\":[]} -->\n\nURL brief.\n"
   }
 }

@@ -1,0 +1,7 @@
+{
+  "stdout": "",
+  "stderr": "\"ignore-value\" was removed: Impeccino keeps no config file. Waive a rule for the whole project with <!-- impeccino-disable <rule>: reason --> in DESIGN.md, declare a deliberate font or color as a DESIGN.md token, keep generated files out with .gitignore or .gitattributes (linguist-generated), or waive one spot with an in-file impeccino-disable comment.\n",
+  "exit": 1,
+  "signal": null,
+  "files": {}
+}

@@ -34,7 +34,11 @@ set "run=%bin%"
 goto run
 :no_sibling
 
-set "home_bin=%USERPROFILE%\.impeccino\bin\impeccino.exe"
+rem The per-user cache: %LOCALAPPDATA%\impeccino (the sh launcher under an
+rem MSYS shell uses the same directory).
+set "user_cache=%LOCALAPPDATA%\impeccino"
+if not defined LOCALAPPDATA set "user_cache=%USERPROFILE%\AppData\Local\impeccino"
+set "home_bin=%user_cache%\bin\impeccino.exe"
 if not exist "%home_bin%" goto no_home_bin
 if defined IMPECCINO_LAUNCHER_PROBE goto no_home_bin
 call :probe "%home_bin%"
@@ -45,7 +49,7 @@ goto run
 
 set "version="
 if exist "%~dp0VERSION" set /p version=<"%~dp0VERSION"
-if not defined IMPECCINO_HOME set "IMPECCINO_HOME=%USERPROFILE%\.impeccino"
+if not defined IMPECCINO_HOME set "IMPECCINO_HOME=%user_cache%"
 set "cached=%IMPECCINO_HOME%\bin\%version%\impeccino.exe"
 if not defined version goto no_cache
 if not exist "%cached%" goto no_cache

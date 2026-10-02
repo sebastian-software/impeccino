@@ -1,6 +1,6 @@
 {
   "stdout": "",
-  "stderr": "Unknown action: bogus\nValid: status, on, off, ignore-rule, ignore-file, ignore-value, reset\n",
+  "stderr": "Unknown action: bogus\nValid: status, on, off, reset\n",
   "exit": 1,
   "signal": null,
   "files": {}

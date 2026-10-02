@@ -38,7 +38,7 @@ fn str_or_empty(v: Option<&Value>) -> String {
     match v {
         Some(Value::String(x)) => x.clone(),
         Some(Value::Null) | None => String::new(),
-        Some(other) => crate::critique_storage::js_string_value(other),
+        Some(other) => crate::util::js_string_value(other),
     }
 }
 
@@ -47,7 +47,7 @@ fn nullish_or_string(v: Option<&Value>) -> String {
     match v {
         None | Some(Value::Null) => String::new(),
         Some(Value::String(x)) => x.clone(),
-        Some(other) => crate::critique_storage::js_string_value(other),
+        Some(other) => crate::util::js_string_value(other),
     }
 }
 
@@ -479,7 +479,7 @@ fn str_or_empty_undefined(v: Option<&Value>) -> String {
         None => "undefined".to_string(),
         Some(Value::Null) => "null".to_string(),
         Some(Value::String(x)) => x.clone(),
-        Some(other) => crate::critique_storage::js_string_value(other),
+        Some(other) => crate::util::js_string_value(other),
     }
 }
 
