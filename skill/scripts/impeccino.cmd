@@ -183,7 +183,7 @@ exit /b 0
 :cooldown_active
 set "cooldown_active=0"
 set "IMPECCINO_COOLDOWN_FILE=%failure_marker%"
-"%powershell%" -NoProfile -NonInteractive -Command "$p=$env:IMPECCINO_COOLDOWN_FILE; $until=0L; $raw=Get-Content -Raw -LiteralPath $p -ErrorAction SilentlyContinue; if ($null -eq $raw) { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue; exit 0 }; if ([long]::TryParse($raw.Trim(), [ref]$until) -and $until -gt [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) { exit 2 }; Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue; exit 0" >nul 2>nul
+"%powershell%" -NoProfile -NonInteractive -Command "$p=$env:IMPECCINO_COOLDOWN_FILE; $until=0L; $raw=Get-Content -Raw -LiteralPath $p -ErrorAction SilentlyContinue; if ($null -eq $raw) { Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue; exit 0 }; if ([long]::TryParse($raw.Trim(), [ref]$until) -and $until -gt [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) { exit 2 }; Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue; exit 0" <nul >nul 2>nul
 set "cooldown_status=%ERRORLEVEL%"
 set "IMPECCINO_COOLDOWN_FILE="
 if "%cooldown_status%"=="2" set "cooldown_active=1"
@@ -191,7 +191,7 @@ exit /b 0
 
 :record_failure
 set "IMPECCINO_COOLDOWN_FILE=%failure_marker%"
-"%powershell%" -NoProfile -NonInteractive -Command "$p=$env:IMPECCINO_COOLDOWN_FILE; [IO.File]::WriteAllText($p, [string](([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())+300))" >nul 2>nul
+"%powershell%" -NoProfile -NonInteractive -Command "$p=$env:IMPECCINO_COOLDOWN_FILE; [IO.File]::WriteAllText($p, [string](([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())+300))" <nul >nul 2>nul
 set "IMPECCINO_COOLDOWN_FILE="
 exit /b 0
 

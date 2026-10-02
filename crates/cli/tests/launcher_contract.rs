@@ -78,6 +78,7 @@ fn cmd_launcher_asset_naming_matches_engine() {
     assert!(cmd.contains(r#"set "stage=%cache_dir%\impeccino-%RANDOM%%RANDOM%.part""#));
     assert!(cmd.contains(".impeccino-download-failed"));
     assert!(cmd.contains(r#"System32\WindowsPowerShell\v1.0\powershell.exe"#));
+    assert_eq!(cmd.matches(r#"<nul >nul 2>nul"#).count(), 2);
     assert!(!cmd.contains("npm i -g"));
 }
 
