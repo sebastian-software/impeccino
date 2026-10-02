@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/impeccino-logo-dark.svg">
+    <img src="docs/brand/impeccino-logo-light.svg" alt="Impeccino" width="440">
+  </picture>
+</p>
+
 # Impeccino
 
 Design guidance for AI coding agents. 1 skill, 22 commands, and 61 deterministic detector rules for AI-generated frontend design.
