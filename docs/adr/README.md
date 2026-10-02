@@ -27,6 +27,7 @@ the current state; git keeps the earlier versions.
 | [0016](0016-rendered-pages-through-agent-browser.md) | Rendered pages are measured through agent-browser |
 | [0017](0017-name-impeccino.md) | The project is called Impeccino |
 | [0018](0018-no-upstream-maintainer-tooling.md) | No upstream maintainer tooling |
+| [0019](0019-concept-seed-is-local.md) | `concept-seed` is local; no catalog service, no choice ping |
 
 Format: **Status**, **Date**, **Context**, **Decision**, **Consequences**,
 and, where it applies, **Revisit when**.

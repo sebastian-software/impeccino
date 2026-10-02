@@ -85,9 +85,9 @@ Impeccino writes files into user projects, so a released version has to cope wit
 
 **`doctor` is a utility command, not a design command.** It follows the `hooks` and `pin` pattern (a line in SKILL.md plus `reference/doctor.md`), not the Commands-table pattern. It is deliberately **not** in `IMPECCINO_SUB_COMMANDS`, `command-metadata.json`, `SKILL_CATEGORIES`, or the `pin` verb's valid-command list, and it does not count toward the 22. Keep maintenance tooling out of the design menu.
 
-## External service: the concept catalog
+## concept-seed is local
 
-`impeccino concept-seed` has no local catalog. It resolves data via `IMPECCINO_CATALOG_DIR` (tests, local experiments), then Impeccable's public roll API (`https://impeccable.style/api`, override with `IMPECCINO_API_URL`; card images from `IMPECCINO_CARD_BASE`), then a degraded promotion-only seed. Oracle cases run against `tests/fixtures/concept-catalog/`. The choice ping (`--chosen`) honors `DO_NOT_TRACK` and `IMPECCINO_NO_TELEMETRY` and only fires for API-dealt rolls. The catalog belongs to Impeccable's service; never copy its data into this repo.
+`impeccino concept-seed` assigns an index into the model's own ordered list of grounded directions (a surface round deals three) from a hash of the seed key. It has no catalog, makes no network calls, and sends no choice ping; `--chosen` and `--kind` answer with a "was removed" note ([ADR 0019](docs/adr/0019-concept-seed-is-local.md)). Impeccable's concept catalog belongs to its paid service: never fetch it or copy its data into this repo.
 
 ## Prose: read docs/STYLE.md before writing user-facing copy
 

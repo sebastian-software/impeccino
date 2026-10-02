@@ -15,4 +15,4 @@ The project is called Impeccino ("the little Impeccable") and lives in its own r
 - Projects that used Impeccable keep their PRODUCT.md and DESIGN.md (the names are unchanged), but `.impeccable/` files, `IMPECCABLE_*` variables, and `impeccable-disable` comments are not read. Rename them by hand.
 - The Apache-2.0 license and Impeccable's copyright notice stay; NOTICE.md and the README credit Impeccable.
 - Engine releases are published from the new repository; the launcher downloads from there.
-- `concept-seed` still uses Impeccable's public catalog API (`impeccable.style/api`).
+- `concept-seed` kept using Impeccable's public catalog API (`impeccable.style/api`) until [0019](0019-concept-seed-is-local.md) made it local.
