@@ -101,7 +101,7 @@ const RETIRED_VERBS: &[&str] = &[
     "comp-spec", "comp-diff", "font-match", "capture-server", "build-phase",
 ];
 
-const SELF_INSTALL_RETIRED: &str = "Impeccable no longer installs or updates itself.\n\nAdd the skill/ folder of https://github.com/pbakaus/impeccable with your skill\nmanager (for example Dalo), or copy it into your harness as skills/impeccable.\n";
+const SELF_INSTALL_RETIRED: &str = "Impeccable no longer installs or updates itself.\n\nInstall the skill with Dalo:\n  dalo source add impeccable https://github.com/swernerx/impeccable.git --ref light --subpath skill\n  dalo sync\nor with skills.sh:\n  npx skills add https://github.com/swernerx/impeccable/tree/light\n";
 
 /// The npm `impeccable` package version `cli.js --version` prints (its
 /// `package.json`), tracked separately from the crate version.

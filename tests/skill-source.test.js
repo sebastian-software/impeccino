@@ -36,12 +36,17 @@ describe('universal skill source', () => {
   const SKILL_DIR = path.join(ROOT, 'skill');
   const markdown = utils.readFilesRecursive(SKILL_DIR);
 
-  test('carries a real SKILL.md with only Agent Skills spec frontmatter', () => {
+  test('carries spec frontmatter plus the harness keys runtimes tolerate (ADR 0019)', () => {
     const { frontmatter } = utils.parseFrontmatter(fs.readFileSync(path.join(SKILL_DIR, 'SKILL.md'), 'utf-8'));
-    // Every harness reads these, and Codex's skill validator accepts only these.
-    const spec = new Set(['name', 'description', 'license', 'compatibility', 'metadata']);
-    for (const key of Object.keys(frontmatter)) expect(spec.has(key)).toBe(true);
+    // Spec fields, plus Claude Code's `user-invocable` and `argument-hint`.
+    // `allowed-tools` stays out: Claude Code then blocks non-interactive activation.
+    const allowed = new Set(['name', 'description', 'license', 'compatibility', 'metadata', 'user-invocable', 'argument-hint']);
+    for (const key of Object.keys(frontmatter)) expect(allowed.has(key)).toBe(true);
     expect(frontmatter.metadata.version).toBeTruthy();
+    // The hint names every command, and only those.
+    const commands = Object.keys(JSON.parse(fs.readFileSync(path.join(SKILL_DIR, 'scripts/command-metadata.json'), 'utf-8')));
+    const hinted = frontmatter['argument-hint'].replace(/\[target\]$/, '').replace(/[\[\]]/g, '').split(/[·|]/).map(s => s.trim()).filter(Boolean);
+    expect([...hinted].sort()).toEqual([...commands].sort());
   });
 
   test('leaves no build-time placeholders or provider blocks', () => {

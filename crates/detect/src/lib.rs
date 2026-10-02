@@ -68,8 +68,8 @@ Options:
   --help       Show this help message
   --version    Show version number
 
-The skill itself lives in skill/ of https://github.com/pbakaus/impeccable;
-add it with your skill manager (for example Dalo) or copy it.
+The skill itself lives in skill/ of https://github.com/swernerx/impeccable;
+install it with Dalo or skills.sh (npx skills add https://github.com/swernerx/impeccable/tree/light).
 ";
 
 /// The `impeccable init` mistake message (`cli.js`).

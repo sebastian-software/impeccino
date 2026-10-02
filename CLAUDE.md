@@ -4,7 +4,7 @@
 
 There is **one** user-invocable skill, `impeccable`, with **22 commands** underneath it. Users type `/impeccable polish`, `/impeccable audit`, etc. The skill is defined in `skill/`:
 
-- `SKILL.md` — frontmatter (Agent Skills spec fields only, with the auto-trigger-optimized description), shared design laws, and the **Commands** router table. `skill/` installs as-is in every harness; nothing in it is generated.
+- `SKILL.md` — frontmatter (Agent Skills spec fields plus `user-invocable` and `argument-hint`, with the auto-trigger-optimized description), shared design laws, and the **Commands** router table. `skill/` installs as-is in every harness; nothing in it is generated.
 - `agents/` — the two shipped roles (`impeccable-finish-reviewer`, `impeccable-documenter`) as Claude Code agent files. SKILL.md's **Shipped agents** section covers hosts without them.
 - `reference/` — one `<command>.md` per command (`audit.md`, `polish.md`, `critique.md`, etc.), the shared playbooks the router loads outside the command table (`new-work.md`, `craft-floor.md`, `operate.md`, `routing.md`), and the native platform references (`ios.md`, `android.md`). When a sub-command is matched, the router loads its reference file.
 - `scripts/command-metadata.json` — single source of truth for each command's description, argument hint, and (eventually) category. The engine's `pin` verb reads from this.
@@ -126,7 +126,7 @@ There are no build-time placeholders or provider blocks. Write skill text that h
 - The launcher is `"<skill-base-dir>/scripts/impeccable" <verb>`, quoted because install paths can contain spaces. Agents never load SKILL.md, so the parent passes them `<scripts-path>`.
 - Questions go through "the host's structured question tool", not a named tool.
 - Harness- or model-specific guidance is a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`).
-- SKILL.md frontmatter stays within the Agent Skills spec (`name`, `description`, `license`, `compatibility`, `metadata`); Codex's runtime ignores unknown keys, but its bundled skill validator (`quick_validate.py`, issue #701) flags them.
+- SKILL.md frontmatter uses the Agent Skills spec fields plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0019); keep `allowed-tools` out, since Claude Code then blocks non-interactive activation.
 - Agents are plain Claude Code agent files in `skill/agents/`; SKILL.md's "Shipped agents" section covers hosts that lack them.
 
 `tests/skill-source.test.js` pins these rules. Nothing generated is tracked (ADR 0002).

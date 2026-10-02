@@ -14,7 +14,7 @@ record with a new one instead of rewriting history.
 | [0005](0005-no-marketplace-packages.md) | No marketplace or editor packages |
 | [0006](0006-agents-as-claude-code-files.md) | Agents ship as Claude Code files with a generic-subagent fallback |
 | [0007](0007-hooks-are-a-project-opt-in.md) | Hooks are a per-project opt-in |
-| [0008](0008-spec-only-skill-frontmatter.md) | Skill frontmatter stays within the Agent Skills spec |
+| [0008](0008-spec-only-skill-frontmatter.md) | Skill frontmatter stays within the Agent Skills spec (superseded by 0019) |
 | [0009](0009-engine-version-in-one-file.md) | The engine version lives in `skill/scripts/VERSION` |
 | [0010](0010-launcher-fetches-the-engine.md) | The launcher still fetches the pinned engine |
 | [0011](0011-nothing-runs-in-the-browser.md) | Nothing runs in the browser; harnesses bring their own |
@@ -25,6 +25,8 @@ record with a new one instead of rewriting history.
 | [0016](0016-rendered-page-rules-via-the-harness-browser.md) | Rendered-page rules run through the harness's browser (superseded by 0018) |
 | [0017](0017-working-name-impeccino.md) | Working name "Impeccino" (proposed, not applied) |
 | [0018](0018-rendered-pages-through-agent-browser.md) | Rendered pages are measured through agent-browser |
+| [0019](0019-frontmatter-carries-tolerated-harness-keys.md) | Frontmatter carries harness keys that runtimes tolerate |
+| [0020](0020-install-with-dalo-or-skills-sh.md) | Install with Dalo or skills.sh |
 
 Format: **Status**, **Date**, **Context**, **Decision**, **Consequences**,
 and, where it applies, **Revisit when**.

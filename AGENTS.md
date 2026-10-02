@@ -19,7 +19,7 @@ Run `bun run check` after changing anything in `skill/` or user-facing counts.
 
 ## One Skill for Every Harness
 
-`skill/` is what skill managers (such as Dalo), submodules, and plain copies consume, unchanged. Impeccable has no installer, update check, or marketplace package (ADRs 0003 to 0005); hooks are a per-project opt-in through `/impeccable hooks on` (ADR 0007). `tests/skill-source.test.js` pins the rules below.
+`skill/` is what Dalo and skills.sh consume, unchanged (ADR 0020). Impeccable has no installer, update check, or marketplace package (ADRs 0003 to 0005); hooks are a per-project opt-in through `/impeccable hooks on` (ADR 0007). `tests/skill-source.test.js` pins the rules below.
 
 Write skill text so it holds in every harness:
 
@@ -27,7 +27,7 @@ Write skill text so it holds in every harness:
 - Run the launcher as `"<skill-base-dir>/scripts/impeccable" <verb>`, quoted, because install paths can contain spaces. Agents never see SKILL.md, so they receive `<scripts-path>` from the parent instead.
 - Ask through "the host's structured question tool", not a named tool.
 - Put harness- or model-specific guidance in a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`) instead of a build-time block.
-- Keep SKILL.md frontmatter to the Agent Skills spec fields (`name`, `description`, `license`, `compatibility`, `metadata`); Codex's runtime ignores unknown keys, but its bundled skill validator (`quick_validate.py`, issue #701) flags them. `metadata.version` is the skill version.
+- SKILL.md frontmatter uses the Agent Skills spec fields (`name`, `description`, `license`, `compatibility`, `metadata`) plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0019); strict validators such as Codex's `quick_validate.py` flag the extras, which is expected. Keep `allowed-tools` out. `metadata.version` is the skill version.
 
 Nothing generated is tracked (ADR 0002). If a change seems to need a derived file in git, derive it where it is consumed instead.
 

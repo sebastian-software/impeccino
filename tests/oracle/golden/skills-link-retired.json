@@ -1,6 +1,6 @@
 {
   "stdout": "",
-  "stderr": "Impeccable no longer installs or updates itself.\n\nAdd the skill/ folder of https://github.com/pbakaus/impeccable with your skill\nmanager (for example Dalo), or copy it into your harness as skills/impeccable.\n",
+  "stderr": "Impeccable no longer installs or updates itself.\n\nInstall the skill with Dalo:\n  dalo source add impeccable https://github.com/swernerx/impeccable.git --ref light --subpath skill\n  dalo sync\nor with skills.sh:\n  npx skills add https://github.com/swernerx/impeccable/tree/light\n",
   "exit": 1,
   "signal": null,
   "files": {}

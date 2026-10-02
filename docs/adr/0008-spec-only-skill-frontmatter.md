@@ -1,6 +1,6 @@
 # 0008: Skill frontmatter stays within the Agent Skills spec
 
-**Status:** Accepted · **Date:** 2026-10-01
+**Status:** Superseded by [0019](0019-frontmatter-carries-tolerated-harness-keys.md) · **Date:** 2026-10-01
 
 ## Context
 

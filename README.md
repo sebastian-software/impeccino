@@ -4,7 +4,7 @@ Design guidance for AI coding agents. 1 skill, 22 commands, and 61 deterministic
 
 > **About this branch.** This is `light`, an experimental fork of [pbakaus/impeccable](https://github.com/pbakaus/impeccable) by [Sebastian Werner](https://github.com/swernerx). It keeps the skill, the engine, and the detector, and removes everything that existed only to install and package the skill: per-harness variants, the self-installer, the update check, and the marketplace packages. It also drops the parts that ran in a browser or generated image comps: live mode, the decision and review pages, URL scans, the comp-first build path, the WebAssembly build, and the browser extension. Skill managers such as [Dalo](https://dalo.sh) take over placement, pinning, and updates. Read [What changed in this branch](#what-changed-in-this-branch) and the [Light ADRs](docs/adr/README.md) for the reasoning. It is not an official release.
 
-> **Quick start:** Add the `skill/` folder to your harness with a skill manager such as [Dalo](https://dalo.sh), or copy it in (see [Installation](#installation)), then run `/impeccable init` inside your AI coding tool. Full docs: [impeccable.style](https://impeccable.style).
+> **Quick start:** Install the skill with [Dalo](https://dalo.sh) or [skills.sh](https://skills.sh) (see [Installation](#installation)), then run `/impeccable init` inside your AI coding tool. Full docs: [impeccable.style](https://impeccable.style).
 
 ## Why Impeccable?
 
@@ -115,12 +115,12 @@ The upstream repository compiles the skill into 19 harness-specific variants, co
 | --- | --- | --- | --- |
 | Skill source | `SKILL.src.md` with placeholders and provider blocks, compiled per harness | `skill/` is one universal skill; harness notes are labelled paragraphs | [0001](docs/adr/0001-one-universal-skill-folder.md) |
 | Generated files | 19 harness folders and two plugin subtrees committed, synced by a workflow | Nothing generated is tracked | [0002](docs/adr/0002-no-generated-output-in-git.md) |
-| Installation | `npx impeccable install / update / link / check` with a signed `universal.zip` | A skill manager, a submodule, or a copy places `skill/` | [0003](docs/adr/0003-no-self-installer.md) |
+| Installation | `npx impeccable install / update / link / check` with a signed `universal.zip` | Dalo, or skills.sh for people without Dalo | [0003](docs/adr/0003-no-self-installer.md), [0020](docs/adr/0020-install-with-dalo-or-skills-sh.md) |
 | Updates | `context` checks impeccable.style and suggests an update | No update check; the installer of the skill owns updates | [0004](docs/adr/0004-no-update-check.md) |
 | Distribution | Claude Code, Grok, Cursor, and OpenAI plugins, VS Code extension | No marketplace or editor packages | [0005](docs/adr/0005-no-marketplace-packages.md) |
 | Subagents | Compiled into Claude, Codex, Cursor, and Copilot formats plus fallback copies | Claude Code agent files in `skill/agents/`; other hosts spawn a general-purpose subagent with the same instructions | [0006](docs/adr/0006-agents-as-claude-code-files.md) |
 | Hooks | Merged into project settings at install time | Opt-in per project with `/impeccable hooks on` | [0007](docs/adr/0007-hooks-are-a-project-opt-in.md) |
-| Frontmatter | Claude-only keys in the Claude variant | Agent Skills spec fields only | [0008](docs/adr/0008-spec-only-skill-frontmatter.md) |
+| Frontmatter | Claude-only keys in the Claude variant | Spec fields plus `user-invocable` and `argument-hint`, which every runtime tolerates | [0019](docs/adr/0019-frontmatter-carries-tolerated-harness-keys.md) |
 | Engine pin | Root `ENGINE_VERSION`, copied by the build | `skill/scripts/VERSION` only | [0009](docs/adr/0009-engine-version-in-one-file.md) |
 | Engine binary | Fetched by the installer or the launcher | Still fetched by the launcher, for now | [0010](docs/adr/0010-launcher-fetches-the-engine.md) |
 | Browser | Live mode in the user's dev server, a local decision page, a component review page, URL scans over headless Chrome | Impeccable drives no browser; the agent uses its harness's browser tool for screenshots and the structured question tool for decisions; `detect` scans files and directories | [0011](docs/adr/0011-nothing-runs-in-the-browser.md) |
@@ -138,41 +138,26 @@ Unchanged: the design guidance itself, every command that does not need a browse
 
 ## Installation
 
-`skill/` is the whole skill, in one form for every harness, like an app bundle you drag into place. Impeccable has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)): a skill manager, a submodule, or a plain copy puts the folder into your harness's skills directory as `impeccable`.
+`skill/` is the whole skill, in one form for every harness, like an app bundle you drag into place. Impeccable has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)); install it with Dalo or skills.sh ([ADR 0020](docs/adr/0020-install-with-dalo-or-skills-sh.md)).
 
-The skill needs no runtime. Its launcher (`scripts/impeccable`, plus `impeccable.cmd` for Windows) runs the Impeccable engine, a self-contained binary that is downloaded once on first run into `~/.impeccable/bin/` for the version pinned in `skill/scripts/VERSION`.
+The skill needs no runtime. Its launcher (`scripts/impeccable`, plus `impeccable.cmd` for Windows) runs the Impeccable engine, a self-contained binary that is downloaded once on first run into `~/.impeccable/bin/` for the version pinned in `skill/scripts/VERSION`. Rendered-page scans (`detect <url>`) also need [agent-browser](https://github.com/vercel-labs/agent-browser).
 
-### Option 1: Skill manager (recommended)
-
-Point your skill manager at this repository and the `skill/` folder. With [Dalo](https://dalo.sh):
+### Dalo (recommended)
 
 ```bash
-dalo source add-catalog impeccable https://github.com/pbakaus/impeccable.git
-dalo source select impeccable impeccable
+dalo source add impeccable https://github.com/swernerx/impeccable.git --ref light --subpath skill
 dalo sync
 ```
 
-The manager pins the commit, links the folder into every harness you use, and owns updates and removal. To give Claude Code the dedicated subagents, link `skill/agents/*.md` into `.claude/agents/` as well; without them the skill runs each role in a fresh general-purpose subagent.
+[Dalo](https://dalo.sh) pins the commit, links the skill into every harness you use, owns updates and removal, and gates the design hook behind its own approval. To give Claude Code the dedicated subagents, link `skill/agents/*.md` into `.claude/agents/` as well; without them the skill runs each role in a fresh general-purpose subagent.
 
-### Option 2: Git submodule
-
-```bash
-git submodule add https://github.com/pbakaus/impeccable .impeccable
-mkdir -p .claude/skills .agents/skills
-ln -s ../../.impeccable/skill .claude/skills/impeccable   # Claude Code
-ln -s ../../.impeccable/skill .agents/skills/impeccable   # Codex
-```
-
-Update with `git submodule update --remote .impeccable`.
-
-### Option 3: Copy
+### skills.sh
 
 ```bash
-cp -r skill your-project/.claude/skills/impeccable   # Claude Code
-cp -r skill your-project/.agents/skills/impeccable   # Codex
+npx skills add https://github.com/swernerx/impeccable/tree/light
 ```
 
-Use your harness's skills folder: `.claude/skills/` (Claude Code), `.agents/skills/` (Codex), `.cursor/skills/` (Cursor), `.github/skills/` (GitHub Copilot), `.gemini/skills/` (Gemini CLI), `.opencode/skills/` (OpenCode), `.grok/skills/` (Grok Build), or the user-level equivalent under `~`. Some harnesses gate project skills behind a trust step (for example `hermes skills trust`).
+[skills.sh](https://skills.sh) finds `skill/`, installs it as `impeccable` into the harness folders you pick (`-g` for user level), and updates it with `npx skills update`.
 
 ## Usage
 

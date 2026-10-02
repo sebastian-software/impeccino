@@ -22,12 +22,13 @@ metadata:
 Your skill instructions here...
 ```
 
-Frontmatter stays within the [Agent Skills spec](https://agentskills.io/specification) (ADR 0008):
+Frontmatter uses the [Agent Skills spec](https://agentskills.io/specification) fields plus the harness keys runtimes tolerate (ADR 0019):
 
 - `name` (required): skill identifier (1-64 chars, lowercase, numbers, hyphens)
 - `description` (required): what the skill provides (1-1024 chars)
-- `license`, `compatibility` (optional)
+- `license`, `compatibility` (optional); `compatibility` names what the machine needs
 - `metadata` (optional): `metadata.version` carries the skill version
+- `user-invocable`, `argument-hint`: Claude Code's slash-command entry and hint; other runtimes ignore them
 
 The body is the same for every harness (ADR 0001). Write the launcher as `"<skill-base-dir>/scripts/impeccable" <verb>`, commands as `/impeccable <command>`, questions as "the host's structured question tool", and harness- or model-specific guidance as a labelled paragraph (`In Codex: ...`).
 
