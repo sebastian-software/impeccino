@@ -5,17 +5,17 @@
 //! to their own file. One binary serves every harness, so both are resolved
 //! at run time:
 //!
-//! - **Skill dir**: `IMPECCABLE_SKILL_DIR` when set; otherwise walk up from the
+//! - **Skill dir**: `IMPECCINO_SKILL_DIR` when set; otherwise walk up from the
 //!   executable's path (the binary ships at `<skill>/scripts/bin/<target>/` or
-//!   is launched via `<skill>/scripts/impeccable`) until a directory holding
+//!   is launched via `<skill>/scripts/impeccino`) until a directory holding
 //!   `reference/ios.md` is found. `None` when neither works (source checkouts
-//!   running `target/debug/impeccable` need the env var).
-//! - **Provider id**: `IMPECCABLE_PROVIDER_ID` when set; otherwise derived from
-//!   the skill dir's harness folder (`<root>/.codex/skills/impeccable` ->
+//!   running `target/debug/impeccino` need the env var).
+//! - **Provider id**: `IMPECCINO_PROVIDER_ID` when set; otherwise derived from
+//!   the skill dir's harness folder (`<root>/.codex/skills/impeccino` ->
 //!   `codex`); otherwise `source`, exactly what the JS reads in a source
 //!   checkout. The command prefix is `$` for `codex`, `/` for everything else.
 //! - **Self command**: the text a directive prints where the JS printed
-//!   `node <scripts>/<script>.mjs`. `IMPECCABLE_SELF` when set (the launcher
+//!   `node <scripts>/<script>.mjs`. `IMPECCINO_SELF` when set (the launcher
 //!   exports it), else the executable path. Printed as `<self> <verb>`.
 
 use crate::jsp;
@@ -26,7 +26,7 @@ pub const SOURCE_PROVIDER: &str = "source";
 pub struct Provider {
     pub id: String,
     pub command_prefix: String,
-    /// `<prefix>impeccable`
+    /// `<prefix>impeccino`
     pub command: String,
     pub skill_dir: Option<String>,
     /// How to spell this binary in printed commands.
@@ -53,7 +53,7 @@ fn find_skill_dir_from(start: &str) -> Option<String> {
 }
 
 fn provider_from_skill_dir(skill_dir: &str) -> Option<&'static str> {
-    // <root>/<harness>/skills/impeccable
+    // <root>/<harness>/skills/impeccino
     let skills = jsp::dirname(skill_dir);
     if jsp::basename(&skills) != "skills" {
         return None;
@@ -83,11 +83,11 @@ fn provider_from_skill_dir(skill_dir: &str) -> Option<&'static str> {
 }
 
 pub fn detect(env: &Env, cwd: &str) -> Provider {
-    let skill_dir = match env.get("IMPECCABLE_SKILL_DIR").filter(|v| !v.trim().is_empty()) {
+    let skill_dir = match env.get("IMPECCINO_SKILL_DIR").filter(|v| !v.trim().is_empty()) {
         Some(v) => Some(jsp::resolve(cwd, &[v.trim()])),
         None => exe_path().and_then(|p| find_skill_dir_from(&jsp::dirname(&p))),
     };
-    let id = match env.get("IMPECCABLE_PROVIDER_ID").filter(|v| !v.trim().is_empty()) {
+    let id = match env.get("IMPECCINO_PROVIDER_ID").filter(|v| !v.trim().is_empty()) {
         Some(v) => v.trim().to_string(),
         None => skill_dir
             .as_deref()
@@ -96,10 +96,10 @@ pub fn detect(env: &Env, cwd: &str) -> Provider {
             .to_string(),
     };
     let command_prefix = if id == "codex" { "$" } else { "/" }.to_string();
-    let command = format!("{}impeccable", command_prefix);
-    let self_cmd = match env.get("IMPECCABLE_SELF").filter(|v| !v.trim().is_empty()) {
+    let command = format!("{}impeccino", command_prefix);
+    let self_cmd = match env.get("IMPECCINO_SELF").filter(|v| !v.trim().is_empty()) {
         Some(v) => v.trim().to_string(),
-        None => exe_path().unwrap_or_else(|| "impeccable".to_string()),
+        None => exe_path().unwrap_or_else(|| "impeccino".to_string()),
     };
     Provider { id, command_prefix, command, skill_dir, self_cmd }
 }

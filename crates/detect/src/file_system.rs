@@ -37,7 +37,7 @@ pub const HTML_EXTENSIONS: &[&str] = &[".html", ".htm"];
 
 /// JS: file-system.mjs#hasScannableExtension
 pub fn has_scannable_extension(filename: &str) -> bool {
-    let lower = impeccable_core::js::to_lower_case(filename);
+    let lower = impeccino_core::js::to_lower_case(filename);
     if SCANNABLE_EXTENSIONS.contains(&jsp::extname(&lower).as_str()) {
         return true;
     }
@@ -51,7 +51,7 @@ pub fn has_scannable_extension(filename: &str) -> bool {
 
 /// `HTML_EXTENSIONS.has(path.extname(filePath).toLowerCase())`.
 pub fn is_html_path(file_path: &str) -> bool {
-    HTML_EXTENSIONS.contains(&impeccable_core::js::to_lower_case(&jsp::extname(file_path)).as_str())
+    HTML_EXTENSIONS.contains(&impeccino_core::js::to_lower_case(&jsp::extname(file_path)).as_str())
 }
 
 /// JS: file-system.mjs#walkDir. Files in `readdirSync` order (the OS order,
@@ -113,7 +113,7 @@ static IMPORT_SPECIFIER_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
         .unwrap(),
         Regex::new(&format!(
             r#"@import{WS}+(?:url\({WS}*)?['"]?([^'");{WS_CHARS}]+)['"]?{WS}*\)?"#,
-            WS_CHARS = impeccable_core::js::WS_CHARS
+            WS_CHARS = impeccino_core::js::WS_CHARS
         ))
         .unwrap(),
         Regex::new(&format!(r#"@(?:use|forward){WS}+['"]([^'"]+)['"]"#)).unwrap(),
@@ -466,7 +466,7 @@ fn http_get_once(
     let _ = stream.set_read_timeout(Some(remaining));
     let _ = stream.set_write_timeout(Some(remaining));
     let req = format!(
-        "GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\nUser-Agent: impeccable\r\nAccept: */*\r\nConnection: close\r\n\r\n"
+        "GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\nUser-Agent: impeccino\r\nAccept: */*\r\nConnection: close\r\n\r\n"
     );
     stream.write_all(req.as_bytes()).ok()?;
     let mut buf = Vec::new();

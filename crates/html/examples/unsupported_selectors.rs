@@ -9,7 +9,7 @@ fn main() {
             continue;
         };
         let html = String::from_utf8_lossy(&bytes);
-        let list = impeccable_html::engine::unsupported_selectors(&html, path);
+        let list = impeccino_html::engine::unsupported_selectors(&html, path);
         if !list.is_empty() {
             println!("{}:", arg);
             for s in list {

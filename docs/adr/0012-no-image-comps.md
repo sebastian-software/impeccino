@@ -10,7 +10,7 @@ In practice the comps looked good and repeatedly did not survive the translation
 
 ## Decision
 
-Impeccable does not generate comps. The code-led build, carried by the direction contract (thesis, own world, first viewport, signature interaction), is the only build path. When a brief needs real imagery, the agent uses its harness's image tool directly; Impeccable has no image pipeline of its own.
+Impeccino does not generate comps. The code-led build, carried by the direction contract (thesis, own world, first viewport, signature interaction), is the only build path. When a brief needs real imagery, the agent uses its harness's image tool directly; Impeccino has no image pipeline of its own.
 
 Removed: the verbs above, `crates/comp` and `crates/comp-verbs`, the font index, the asset-producer agent, region maps and plates, decision comps, the `buildPath` setting and its directives, the image-tool probes in `context`, and the build-completion hook (including the Gemini hook manifest, which existed only for it).
 

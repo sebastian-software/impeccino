@@ -1,11 +1,11 @@
-//! JS: surface-brief.mjs -> `impeccable surface-brief`
+//! JS: surface-brief.mjs -> `impeccino surface-brief`
 
 use crate::context::resolve_project_root;
 use crate::jsp;
 use crate::surface_briefs::*;
 use crate::target_args::TargetOptions;
 use crate::util::{json_pretty, node_read_error};
-use impeccable_common::Io;
+use impeccino_common::Io;
 use serde_json::{Map, Value};
 
 fn summary(brief: &SurfaceBrief, project_root: &str) -> Value {
@@ -62,7 +62,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         }
         Some("write") => {
             let (Some(t), Some(bf)) = (target, body_file) else {
-                io.err("usage: impeccable surface-brief write <primary-target> <body-file>\n");
+                io.err("usage: impeccino surface-brief write <primary-target> <body-file>\n");
                 return 1;
             };
             let body = match std::fs::read(bf) {
@@ -84,7 +84,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             }
         }
         _ => {
-            io.err("usage: impeccable surface-brief <path|list|read|write> [target] [body-file] [related-target ...]\n");
+            io.err("usage: impeccino surface-brief <path|list|read|write> [target] [body-file] [related-target ...]\n");
             1
         }
     }

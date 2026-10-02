@@ -1,18 +1,18 @@
 //! Port of the `REGEX_MATCHERS` line matchers and `REGEX_ANALYZERS` page
 //! analyzers from `cli/engine/engines/regex/detect-text.mjs`.
 
-use impeccable_core::checks::css_scan::{
+use impeccino_core::checks::css_scan::{
     scan_css_text_for_glow, scan_css_text_for_marquee, scan_css_text_for_radial_halo,
 };
-use impeccable_core::color::is_neutral_color;
-use impeccable_core::constants::{EM_DASH_CHARS_PER_DASH, EM_DASH_FLOOR, OVERUSED_FONTS};
-use impeccable_core::checks::rules::find_solid_chromatic_bg;
-use impeccable_core::findings::{finding, Finding};
-use impeccable_core::fonts::extract_google_font_families;
-use impeccable_core::js::{
+use impeccino_core::color::is_neutral_color;
+use impeccino_core::constants::{EM_DASH_CHARS_PER_DASH, EM_DASH_FLOOR, OVERUSED_FONTS};
+use impeccino_core::checks::rules::find_solid_chromatic_bg;
+use impeccino_core::findings::{finding, Finding};
+use impeccino_core::fonts::extract_google_font_families;
+use impeccino_core::js::{
     self, ci, math_round, number_to_string, parse_float, string_to_number,
 };
-use impeccable_core::js_ext_a::{advance_utf16, slice_utf16_start, utf16_index, utf16_length};
+use impeccino_core::js_ext_a::{advance_utf16, slice_utf16_start, utf16_index, utf16_length};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -1406,7 +1406,7 @@ mod tests {
     }
 
     /// Cases recorded from origin/main's JS after #707; every expectation
-    /// here was produced by running `impeccable detect` on both engines.
+    /// here was produced by running `impeccino detect` on both engines.
     #[test]
     fn gray_on_color_scoping() {
         let g = |line: &str| run("gray-on-color", line);

@@ -12,7 +12,7 @@ The rule logic already runs natively over a serialized page snapshot (`SnapshotD
 
 ## Decision
 
-`impeccable detect <url>` scans the rendered page through agent-browser (`crates/cli/src/page_scan`, the `UrlEngine` slot of `detect`):
+`impeccino detect <url>` scans the rendered page through agent-browser (`crates/cli/src/page_scan`, the `UrlEngine` slot of `detect`):
 
 - agent-browser opens the URL in a session of its own (closed afterwards), or in `AGENT_BROWSER_SESSION`'s when that is set, for example a session that is already signed in.
 - The measurement script (`crates/cli/assets/page-snapshot.js`) and a small set of page operations are installed with `eval`. The scan asks the page one operation at a time over the DevTools endpoint agent-browser exposes (`get cdp-url`), with `agent-browser eval` as the fallback; every agent-browser command costs a fixed ~170 ms round trip through its daemon, and a scan asks a few hundred questions.

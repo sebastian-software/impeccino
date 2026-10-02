@@ -187,7 +187,7 @@ describe('generateYamlFrontmatter', () => {
 
   test('should quote strings containing colon-space (breaks plain scalars)', () => {
     const data = {
-      name: 'impeccable',
+      name: 'impeccino',
       description: 'Design fluency. Also handles: critique, audit. Commands: craft, polish.'
     };
 
@@ -445,11 +445,11 @@ Audit the code.`;
 
   test('should read skill with reference files', () => {
     const skillContent = `---
-name: impeccable
-description: Impeccable design skill
+name: impeccino
+description: Impeccino design skill
 ---
 
-Impeccable design instructions.`;
+Impeccino design instructions.`;
 
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
@@ -469,7 +469,7 @@ Impeccable design instructions.`;
     expect(refNames).toEqual(['color', 'typography']);
   });
 
-  test('should fall back to "impeccable" when frontmatter has no name', () => {
+  test('should fall back to "impeccino" when frontmatter has no name', () => {
     const skillDir = path.join(testRootDir, 'skill');
     ensureDir(skillDir);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), 'Just body, no frontmatter.');
@@ -477,7 +477,7 @@ Impeccable design instructions.`;
     const { skills } = readSourceFiles(testRootDir);
 
     expect(skills).toHaveLength(1);
-    expect(skills[0].name).toBe('impeccable');
+    expect(skills[0].name).toBe('impeccino');
   });
 
   test('should ignore non-md files in skill/reference', () => {

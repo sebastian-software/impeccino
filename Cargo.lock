@@ -431,34 +431,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "impeccable"
+name = "impeccino"
 version = "0.1.10"
 dependencies = [
- "impeccable-common",
- "impeccable-context",
- "impeccable-core",
- "impeccable-detect",
- "impeccable-hook",
- "impeccable-html",
+ "impeccino-common",
+ "impeccino-context",
+ "impeccino-core",
+ "impeccino-detect",
+ "impeccino-hook",
+ "impeccino-html",
  "png",
  "serde_json",
  "tungstenite",
 ]
 
 [[package]]
-name = "impeccable-common"
+name = "impeccino-common"
 version = "0.1.10"
 dependencies = [
  "libc",
 ]
 
 [[package]]
-name = "impeccable-context"
+name = "impeccino-context"
 version = "0.1.10"
 dependencies = [
  "flate2",
- "impeccable-common",
- "impeccable-core",
+ "impeccino-common",
+ "impeccino-core",
  "once_cell",
  "regex",
  "rustls-native-certs",
@@ -472,11 +472,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "impeccable-core"
+name = "impeccino-core"
 version = "0.1.10"
 dependencies = [
- "impeccable-core",
- "impeccable-foundation",
+ "impeccino-core",
+ "impeccino-foundation",
  "once_cell",
  "regex",
  "serde",
@@ -484,11 +484,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "impeccable-detect"
+name = "impeccino-detect"
 version = "0.1.10"
 dependencies = [
- "impeccable-common",
- "impeccable-core",
+ "impeccino-common",
+ "impeccino-core",
  "once_cell",
  "regex",
  "serde",
@@ -496,7 +496,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "impeccable-foundation"
+name = "impeccino-foundation"
 version = "0.1.10"
 dependencies = [
  "cssparser",
@@ -509,13 +509,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "impeccable-hook"
+name = "impeccino-hook"
 version = "0.1.10"
 dependencies = [
- "impeccable-common",
- "impeccable-context",
- "impeccable-core",
- "impeccable-detect",
+ "impeccino-common",
+ "impeccino-context",
+ "impeccino-core",
+ "impeccino-detect",
  "once_cell",
  "regex",
  "serde_json",
@@ -523,16 +523,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "impeccable-html"
+name = "impeccino-html"
 version = "0.1.10"
 dependencies = [
  "cssparser",
  "ego-tree",
  "html5ever",
- "impeccable-common",
- "impeccable-core",
- "impeccable-detect",
- "impeccable-html",
+ "impeccino-common",
+ "impeccino-core",
+ "impeccino-detect",
+ "impeccino-html",
  "indexmap",
  "once_cell",
  "regex",

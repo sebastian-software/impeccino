@@ -12,7 +12,7 @@ const REPO_ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 // and client-side network deadlines in place, a wedged tool or an orphaned
 // grandchild can keep a runner alive forever; this cap guarantees the sweep
 // terminates. Per-suite `wallClockMs` overrides it; the env var overrides both.
-const DEFAULT_WALL_CLOCK_MS = Number(process.env.IMPECCABLE_TEST_WALL_CLOCK_MS) || 1_200_000;
+const DEFAULT_WALL_CLOCK_MS = Number(process.env.IMPECCINO_TEST_WALL_CLOCK_MS) || 1_200_000;
 
 const args = process.argv.slice(2);
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Record goldens.
- *   node tests/oracle/record.mjs --bin [prefix]     # from the engine binary ($IMPECCABLE_BIN,
- *                                                   # or --bin=/path/to/impeccable)
+ *   node tests/oracle/record.mjs --bin [prefix]     # from the engine binary ($IMPECCINO_BIN,
+ *                                                   # or --bin=/path/to/impeccino)
  *   node tests/oracle/record.mjs [prefix]           # from the JS scripts (historical; the
  *                                                   # scripts left the tree with the launcher swap)
  * A prefix limits recording to ids starting with it (e.g. detect-);
@@ -18,12 +18,12 @@ import { allCases, runCase, writeGolden } from './lib.mjs';
 const argv = process.argv.slice(2);
 const binFlag = argv.find(a => a === '--bin' || a.startsWith('--bin='));
 const impl = binFlag ? 'bin' : 'js';
-const bin = binFlag?.includes('=') ? binFlag.split('=').slice(1).join('=') : process.env.IMPECCABLE_BIN;
+const bin = binFlag?.includes('=') ? binFlag.split('=').slice(1).join('=') : process.env.IMPECCINO_BIN;
 if (impl === 'bin' && !bin) {
-  process.stderr.write('record.mjs --bin needs IMPECCABLE_BIN or --bin=/path/to/impeccable\n');
+  process.stderr.write('record.mjs --bin needs IMPECCINO_BIN or --bin=/path/to/impeccino\n');
   process.exit(2);
 }
-if (impl === 'bin') process.env.IMPECCABLE_BIN = bin;
+if (impl === 'bin') process.env.IMPECCINO_BIN = bin;
 if (impl === 'js') {
   const { existsSync } = await import('node:fs');
   const { REPO_ROOT } = await import('./lib.mjs');

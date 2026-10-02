@@ -1,6 +1,6 @@
 # App A
 
-<!-- impeccable:product-schema 1 -->
+<!-- impeccino:product-schema 1 -->
 
 ## Platform
 

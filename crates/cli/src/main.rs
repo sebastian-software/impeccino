@@ -1,4 +1,4 @@
-//! `impeccable` binary: verb router.
+//! `impeccino` binary: verb router.
 //!
 //! Every skill script and CLI subcommand is a verb here. Verb crates expose
 //! `run(args: &[String], io: &mut Io) -> i32` (exit code) and never call
@@ -9,7 +9,7 @@
 
 use std::io::Write;
 
-use impeccable_common::Io;
+use impeccino_common::Io;
 
 mod page_scan;
 
@@ -26,13 +26,13 @@ fn main() {
 
 fn run(args: &[String], io: &mut Io) -> i32 {
     let Some(verb) = args.first().map(String::as_str) else {
-        io.out(impeccable_detect::ROOT_USAGE);
+        io.out(impeccino_detect::ROOT_USAGE);
         return 0;
     };
     let rest = &args[1..];
     match verb {
         "--help" | "-h" => {
-            io.out(impeccable_detect::ROOT_USAGE);
+            io.out(impeccino_detect::ROOT_USAGE);
             0
         }
         "--version" | "-v" => {
@@ -45,50 +45,50 @@ fn run(args: &[String], io: &mut Io) -> i32 {
         // candidate found on PATH or in the unversioned user cache. Kept out
         // of --help on purpose; not part of the user-facing contract.
         "engine-probe" => {
-            io.out(&format!("impeccable-engine {VERSION}\n"));
+            io.out(&format!("impeccino-engine {VERSION}\n"));
             0
         }
-        "detect" => impeccable_detect::run_detect(rest, io, &engines()),
-        "ignores" | "ignore" => impeccable_detect::run_ignores(rest, io),
+        "detect" => impeccino_detect::run_detect(rest, io, &engines()),
+        "ignores" | "ignore" => impeccino_detect::run_ignores(rest, io),
         "help" => {
-            io.out(impeccable_detect::ROOT_USAGE);
+            io.out(impeccino_detect::ROOT_USAGE);
             0
         }
-        // Impeccable no longer installs itself (docs/adr/0003): Dalo or
+        // Impeccino no longer installs itself (docs/adr/0003): Dalo or
         // skills.sh places skill/ in each harness.
         "skills" | "install" | "link" | "update" | "check" => {
             io.err(SELF_INSTALL_RETIRED);
             1
         }
         // skill scripts
-        "context" => impeccable_context::run_context(rest, io),
-        "pin" => impeccable_context::run_pin(rest, io),
-        "palette" => impeccable_context::run_palette(rest, io),
-        "surface-brief" => impeccable_context::run_surface_brief(rest, io),
-        "critique-storage" => impeccable_context::run_critique_storage(rest, io),
-        "signals" | "context-signals" => impeccable_context::run_signals(rest, io),
-        "doctor" => impeccable_context::run_doctor(rest, io),
-        "concept-seed" => impeccable_context::run_concept_seed(rest, io),
-        "hook" => impeccable_hook::run_hook(rest, io, engines().html),
-        "hook-before-edit" => impeccable_hook::run_hook_before_edit(rest, io, engines().html),
-        "hooks" | "hook-admin" => impeccable_hook::run_hook_admin(rest, io),
+        "context" => impeccino_context::run_context(rest, io),
+        "pin" => impeccino_context::run_pin(rest, io),
+        "palette" => impeccino_context::run_palette(rest, io),
+        "surface-brief" => impeccino_context::run_surface_brief(rest, io),
+        "critique-storage" => impeccino_context::run_critique_storage(rest, io),
+        "signals" | "context-signals" => impeccino_context::run_signals(rest, io),
+        "doctor" => impeccino_context::run_doctor(rest, io),
+        "concept-seed" => impeccino_context::run_concept_seed(rest, io),
+        "hook" => impeccino_hook::run_hook(rest, io, engines().html),
+        "hook-before-edit" => impeccino_hook::run_hook_before_edit(rest, io, engines().html),
+        "hooks" | "hook-admin" => impeccino_hook::run_hook_admin(rest, io),
         // Browser-run and image-comp verbs are gone (docs/adr/0011, 0012).
         v if v.starts_with("live") || RETIRED_VERBS.contains(&v) => {
-            io.err(&format!("\"{v}\" was removed: Impeccable no longer runs anything in the browser or builds image comps.\n"));
+            io.err(&format!("\"{v}\" was removed: Impeccino no longer runs anything in the browser or builds image comps.\n"));
             1
         }
-        // `npx impeccable src/` shorthand: a path-shaped, flag, URL, or existing
+        // `npx impeccino src/` shorthand: a path-shaped, flag, URL, or existing
         // first arg is a detect target (cli.js looksLikeDetectTarget).
-        v if impeccable_detect::looks_like_detect_target(v, &io.cwd.to_string_lossy()) => {
-            impeccable_detect::run_detect(args, io, &engines())
+        v if impeccino_detect::looks_like_detect_target(v, &io.cwd.to_string_lossy()) => {
+            impeccino_detect::run_detect(args, io, &engines())
         }
         "init" => {
-            io.err(impeccable_detect::INIT_MESSAGE);
+            io.err(impeccino_detect::INIT_MESSAGE);
             1
         }
         other => {
             io.err(&format!(
-                "Unknown command: \"{other}\"\n\nTo see a list of supported commands, run:\n  impeccable --help\n"
+                "Unknown command: \"{other}\"\n\nTo see a list of supported commands, run:\n  impeccino --help\n"
             ));
             1
         }
@@ -100,14 +100,14 @@ const RETIRED_VERBS: &[&str] = &[
     "comp-spec", "comp-diff", "font-match", "capture-server", "build-phase",
 ];
 
-const SELF_INSTALL_RETIRED: &str = "Impeccable no longer installs or updates itself.\n\nInstall the skill with Dalo:\n  dalo source add impeccable https://github.com/swernerx/impeccable.git --ref light --subpath skill\n  dalo sync\nor with skills.sh:\n  npx skills add https://github.com/swernerx/impeccable/tree/light\n";
+const SELF_INSTALL_RETIRED: &str = "Impeccino no longer installs or updates itself.\n\nInstall the skill with Dalo:\n  dalo source add impeccino https://github.com/sebastian-software/impeccino.git --subpath skill\n  dalo sync\nor with skills.sh:\n  npx skills add sebastian-software/impeccino\n";
 
-/// The engines wired into `impeccable detect`: the static HTML engine
+/// The engines wired into `impeccino detect`: the static HTML engine
 /// (crates/html) and URL scans through agent-browser (docs/adr/0016).
-fn engines() -> impeccable_detect::Engines<'static> {
-    static HTML: impeccable_html::StaticHtmlEngine = impeccable_html::StaticHtmlEngine {
+fn engines() -> impeccino_detect::Engines<'static> {
+    static HTML: impeccino_html::StaticHtmlEngine = impeccino_html::StaticHtmlEngine {
         // The shipped binary carries the built-in rules only.
         static_rule_pack: None,
     };
-    impeccable_detect::Engines { html: &HTML, url: Some(&page_scan::AgentBrowserEngine) }
+    impeccino_detect::Engines { html: &HTML, url: Some(&page_scan::AgentBrowserEngine) }
 }

@@ -48,19 +48,19 @@ async function runTurn({ checkpoint, ...options }) {
       : checkpoint ? (trace) => fileLoaded(trace, checkpoint) : undefined });
 }
 
-const CRAFT_PROMPT = '/impeccable craft a landing page for the project in this workspace';
+const CRAFT_PROMPT = '/impeccino craft a landing page for the project in this workspace';
 function projectCodeReads(trace) {
   return trace.toolCalls.filter((call) => call.name === 'read' && call.succeeded
     && /\.(css|svelte|tsx?|jsx?|astro)$/i.test(call.input.path)
     && !call.input.path.includes('.claude/skills/')).map((call) => call.input.path);
 }
-const SHAPE_PROMPT = '/impeccable shape a landing page for the project in this workspace';
+const SHAPE_PROMPT = '/impeccino shape a landing page for the project in this workspace';
 const NATURAL_BUILD_PROMPT = 'Build a landing page for the project in this workspace.';
-const TEACH_PROMPT = '/impeccable teach';
+const TEACH_PROMPT = '/impeccino teach';
 const PRIMER_PROMPT =
-  'Take a quick look at the project. What context should guide later design work? Run the impeccable context loader once if you need to.';
+  'Take a quick look at the project. What context should guide later design work? Run the impeccino context loader once if you need to.';
 
-const VERBOSE = process.env.IMPECCABLE_SKILL_BEHAVIOR_VERBOSE === '1';
+const VERBOSE = process.env.IMPECCINO_SKILL_BEHAVIOR_VERBOSE === '1';
 
 function logTrace(label, scenario, model, trace, extras = {}) {
   if (!VERBOSE) return;
@@ -106,10 +106,10 @@ for (const modelId of resolveModelList()) {
           maxSteps: setupMaxSteps,
         });
         logTrace('S1', 'no-context', modelId, trace, { textSample: text.slice(0, 400) });
-        const loadCalls = bashCommandsMatching(trace, 'impeccable context');
+        const loadCalls = bashCommandsMatching(trace, 'impeccino context');
         assert.ok(
           loadCalls.length >= 1,
-          `expected agent to run impeccable context at least once; got ${loadCalls.length}.\n` +
+          `expected agent to run impeccino context at least once; got ${loadCalls.length}.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
         assert.ok(
@@ -140,10 +140,10 @@ for (const modelId of resolveModelList()) {
           maxSteps: setupMaxSteps,
         });
         logTrace('S2', 'product-only', modelId, trace, { textSample: text.slice(0, 400) });
-        const loadCalls = bashCommandsMatching(trace, 'impeccable context');
+        const loadCalls = bashCommandsMatching(trace, 'impeccino context');
         assert.ok(
           loadCalls.length >= 1 && loadCalls.length <= 3,
-          `expected 1-3 impeccable context invocations; got ${loadCalls.length}.\n` +
+          `expected 1-3 impeccino context invocations; got ${loadCalls.length}.\n` +
             `bashCommands: ${JSON.stringify(trace.bashCommands, null, 2)}`,
         );
         assert.ok(
@@ -169,10 +169,10 @@ for (const modelId of resolveModelList()) {
           maxSteps: setupMaxSteps,
         });
         logTrace('S3', 'product-and-design', modelId, trace, { textSample: text.slice(0, 400) });
-        const loadCalls = bashCommandsMatching(trace, 'impeccable context');
+        const loadCalls = bashCommandsMatching(trace, 'impeccino context');
         assert.ok(
           loadCalls.length >= 1 && loadCalls.length <= 3,
-          `expected 1-3 impeccable context invocations; got ${loadCalls.length}.\n` +
+          `expected 1-3 impeccino context invocations; got ${loadCalls.length}.\n` +
             `bashCommands: ${JSON.stringify(trace.bashCommands, null, 2)}`,
         );
         assert.ok(
@@ -181,7 +181,7 @@ for (const modelId of resolveModelList()) {
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
         // The skill tells the agent to also familiarize with the existing
-        // design system. DESIGN.md is bundled in impeccable context output, but
+        // design system. DESIGN.md is bundled in impeccino context output, but
         // exploring CSS / tokens / theme files or a directory listing
         // also counts.
         const designSignal =
@@ -204,7 +204,7 @@ for (const modelId of resolveModelList()) {
         files: { 'PRODUCT.md': PRODUCT_MD_SAMPLE, 'DESIGN.md': DESIGN_MD_SAMPLE },
       });
       try {
-        // Turn 1: prime the conversation so impeccable context gets run and its
+        // Turn 1: prime the conversation so impeccino context gets run and its
         // output enters the message history.
         const turn1 = await runTurn({
           checkpoint: (trace) => trace.bashOutputs.some((output) => output.startsWith('exit=0\n')),
@@ -214,10 +214,10 @@ for (const modelId of resolveModelList()) {
           maxSteps: setupMaxSteps,
         });
         logTrace('S4-T1', 'primer', modelId, turn1.trace, { textSample: turn1.text.slice(0, 200) });
-        const turn1Loads = bashCommandsMatching(turn1.trace, 'impeccable context');
+        const turn1Loads = bashCommandsMatching(turn1.trace, 'impeccino context');
         assert.ok(
           turn1Loads.length >= 1,
-          `primer turn should have run impeccable context. bash: ${JSON.stringify(turn1.trace.bashCommands, null, 2)}`,
+          `primer turn should have run impeccino context. bash: ${JSON.stringify(turn1.trace.bashCommands, null, 2)}`,
         );
 
         // Turn 2: the real ask. The skill says "skip if you've already
@@ -226,16 +226,16 @@ for (const modelId of resolveModelList()) {
           checkpoint: 'new-work.md',
           workspace,
           model,
-          userPrompt: 'Now, /impeccable craft a landing page based on what you saw.',
+          userPrompt: 'Now, /impeccino craft a landing page based on what you saw.',
           priorMessages: turn1.responseMessages,
           maxSteps: setupMaxSteps,
         });
         logTrace('S4-T2', 'follow-up', modelId, turn2.trace, { textSample: turn2.text.slice(0, 400) });
-        const turn2Loads = bashCommandsMatching(turn2.trace, 'impeccable context');
+        const turn2Loads = bashCommandsMatching(turn2.trace, 'impeccino context');
         assert.equal(
           turn2Loads.length,
           0,
-          `agent re-ran impeccable context on turn 2 despite it being in prior conversation. ` +
+          `agent re-ran impeccino context on turn 2 despite it being in prior conversation. ` +
             `bashCommands: ${JSON.stringify(turn2.trace.bashCommands, null, 2)}`,
         );
       } finally {
@@ -256,10 +256,10 @@ for (const modelId of resolveModelList()) {
           maxSteps: setupMaxSteps,
         });
         logTrace('S5', 'legacy-product', modelId, trace, { textSample: text.slice(0, 400) });
-        const loadCalls = bashCommandsMatching(trace, 'impeccable context');
+        const loadCalls = bashCommandsMatching(trace, 'impeccino context');
         assert.ok(
           loadCalls.length >= 1,
-          `expected impeccable context invocation; got ${loadCalls.length}.\n` +
+          `expected impeccino context invocation; got ${loadCalls.length}.\n` +
             `bashCommands: ${JSON.stringify(trace.bashCommands, null, 2)}`,
         );
         assert.ok(fileLoaded(trace, 'new-work.md'),
@@ -271,7 +271,7 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 6: sub-command routing (`/impeccable polish` loads polish.md)', async () => {
+    it('scenario 6: sub-command routing (`/impeccino polish` loads polish.md)', async () => {
       const workspace = prepareWorkspace({
         files: {
           'PRODUCT.md': PRODUCT_MD_SAMPLE,
@@ -284,13 +284,13 @@ for (const modelId of resolveModelList()) {
           checkpoint: 'polish.md',
           workspace,
           model,
-          userPrompt: '/impeccable polish index.html',
+          userPrompt: '/impeccino polish index.html',
           maxSteps: setupMaxSteps,
         });
         logTrace('S6', 'polish-routing', modelId, trace, { textSample: text.slice(0, 300) });
         assert.ok(
           fileLoaded(trace, 'polish.md'),
-          `agent should load polish.md when /impeccable polish is invoked.\n` +
+          `agent should load polish.md when /impeccino polish is invoked.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
       } finally {
@@ -298,7 +298,7 @@ for (const modelId of resolveModelList()) {
       }
     });
 
-    it('scenario 7: sub-command routing (`/impeccable audit` loads audit.md)', async () => {
+    it('scenario 7: sub-command routing (`/impeccino audit` loads audit.md)', async () => {
       const workspace = prepareWorkspace({
         files: {
           'PRODUCT.md': PRODUCT_MD_SAMPLE,
@@ -311,13 +311,13 @@ for (const modelId of resolveModelList()) {
           checkpoint: 'audit.md',
           workspace,
           model,
-          userPrompt: '/impeccable audit index.html',
+          userPrompt: '/impeccino audit index.html',
           maxSteps: setupMaxSteps,
         });
         logTrace('S7', 'audit-routing', modelId, trace, { textSample: text.slice(0, 300) });
         assert.ok(
           fileLoaded(trace, 'audit.md'),
-          `agent should load audit.md when /impeccable audit is invoked.\n` +
+          `agent should load audit.md when /impeccino audit is invoked.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
       } finally {
@@ -338,7 +338,7 @@ for (const modelId of resolveModelList()) {
           checkpoint: (trace) => projectCodeReads(trace).length > 0,
           workspace,
           model,
-          userPrompt: '/impeccable polish src/routes/+page.svelte',
+          userPrompt: '/impeccino polish src/routes/+page.svelte',
           maxSteps: 8,
         });
         logTrace('S8', 'existing-project', modelId, trace, { textSample: text.slice(0, 400) });
@@ -372,14 +372,14 @@ for (const modelId of resolveModelList()) {
           checkpoint: 'polish.md',
           workspace,
           model,
-          userPrompt: '/impeccable polish index.html',
+          userPrompt: '/impeccino polish index.html',
           maxSteps: setupMaxSteps,
         });
         logTrace('S10', 'scoped-no-product', modelId, trace, { textSample: text.slice(0, 400) });
         // Boot still runs.
         assert.ok(
-          bashCommandsMatching(trace, 'impeccable context').length >= 1,
-          `expected agent to run impeccable context at least once.\n` +
+          bashCommandsMatching(trace, 'impeccino context').length >= 1,
+          `expected agent to run impeccino context at least once.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
         // It must load the scoped command's own reference and get on with it.
@@ -396,7 +396,7 @@ for (const modelId of resolveModelList()) {
         assert.equal(
           initLoaded,
           false,
-          `scoped /impeccable polish on existing code should not divert into init.md when PRODUCT.md is missing.\n` +
+          `scoped /impeccino polish on existing code should not divert into init.md when PRODUCT.md is missing.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
       } finally {
@@ -416,8 +416,8 @@ for (const modelId of resolveModelList()) {
         });
         logTrace('S11', 'shape-no-context', modelId, trace, { textSample: text.slice(0, 400) });
         assert.ok(
-          bashCommandsMatching(trace, 'impeccable context').length >= 1,
-          `expected agent to run impeccable context at least once.\n` +
+          bashCommandsMatching(trace, 'impeccino context').length >= 1,
+          `expected agent to run impeccino context at least once.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
         assert.ok(
@@ -442,8 +442,8 @@ for (const modelId of resolveModelList()) {
         });
         logTrace('S12', 'natural-build-no-context', modelId, trace, { textSample: text.slice(0, 400) });
         assert.ok(
-          bashCommandsMatching(trace, 'impeccable context').length >= 1,
-          `expected agent to run impeccable context at least once.\n` +
+          bashCommandsMatching(trace, 'impeccino context').length >= 1,
+          `expected agent to run impeccino context at least once.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
         assert.ok(
@@ -470,8 +470,8 @@ for (const modelId of resolveModelList()) {
         });
         logTrace('S13', 'teach-no-context', modelId, trace, { textSample: text.slice(0, 400) });
         assert.ok(
-          bashCommandsMatching(trace, 'impeccable context').length >= 1,
-          `expected agent to run impeccable context at least once.\n` +
+          bashCommandsMatching(trace, 'impeccino context').length >= 1,
+          `expected agent to run impeccino context at least once.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
         const initLoaded =
@@ -479,7 +479,7 @@ for (const modelId of resolveModelList()) {
           bashCommandsMatching(trace, 'init.md').length > 0;
         assert.ok(
           initLoaded,
-          `/impeccable teach should behave like init and load init.md when PRODUCT.md is missing.\n` +
+          `/impeccino teach should behave like init and load init.md when PRODUCT.md is missing.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
       } finally {
@@ -488,7 +488,7 @@ for (const modelId of resolveModelList()) {
     });
 
     it('scenario 14: native iOS project (context loads ios.md)', async () => {
-      // PRODUCT.md sets `## Platform` to `ios`. impeccable context now reads and emits
+      // PRODUCT.md sets `## Platform` to `ios`. impeccino context now reads and emits
       // reference/ios.md itself, so native guidance enters the conversation
       // without relying on a second model-directed file read.
       const workspace = prepareWorkspace({
@@ -499,20 +499,20 @@ for (const modelId of resolveModelList()) {
           checkpoint: 'ios.md',
           workspace,
           model,
-          userPrompt: '/impeccable craft a tide detail screen for the project in this workspace',
+          userPrompt: '/impeccino craft a tide detail screen for the project in this workspace',
           maxSteps: provider === 'google' ? 8 : 6,
         });
         logTrace('S14', 'native-ios', modelId, trace, { textSample: text.slice(0, 400) });
-        const loadCalls = bashCommandsMatching(trace, 'impeccable context');
+        const loadCalls = bashCommandsMatching(trace, 'impeccino context');
         assert.ok(
           loadCalls.length >= 1,
-          `expected agent to run impeccable context at least once; got ${loadCalls.length}.\n` +
+          `expected agent to run impeccino context at least once; got ${loadCalls.length}.\n` +
             `bashCommands: ${JSON.stringify(trace.bashCommands, null, 2)}`,
         );
         // Proof the native reference itself entered the agent's view.
         assert.ok(
           trace.bashOutputs.some((o) => /# NATIVE PLATFORM REFERENCE: IOS \(reference\/ios\.md\)/.test(o)),
-          `impeccable context should have emitted reference/ios.md content (platform is ios).\n` +
+          `impeccino context should have emitted reference/ios.md content (platform is ios).\n` +
             `bashOutputs: ${JSON.stringify(trace.bashOutputs, null, 2)}`,
         );
       } finally {
@@ -535,13 +535,13 @@ for (const modelId of resolveModelList()) {
           checkpoint: 'audit.native.md',
           workspace,
           model,
-          userPrompt: '/impeccable audit the app in this workspace',
+          userPrompt: '/impeccino audit the app in this workspace',
           maxSteps: 6,
         });
         logTrace('S15', 'native-audit-variant', modelId, trace, { textSample: text.slice(0, 400) });
         assert.ok(
-          bashCommandsMatching(trace, 'impeccable context').length >= 1,
-          `expected agent to run impeccable context at least once.\n` +
+          bashCommandsMatching(trace, 'impeccino context').length >= 1,
+          `expected agent to run impeccino context at least once.\n` +
             `bashCommands: ${JSON.stringify(trace.bashCommands, null, 2)}`,
         );
         assert.ok(
@@ -564,7 +564,7 @@ for (const modelId of resolveModelList()) {
           const result = await runTurn({
             workspace,
             model,
-            userPrompt: "I'm joining this project. Where should I start with Impeccable?",
+            userPrompt: "I'm joining this project. Where should I start with Impeccino?",
             maxSteps: 8,
             contextOnlyBash: true,
           });
@@ -610,7 +610,7 @@ for (const modelId of resolveModelList()) {
           const { trace, stepTexts, finishReason, responseMessages } = await runTurn({
             workspace,
             model,
-            userPrompt: '/impeccable polish index.html. Keep this pass small: improve the button spacing only, preserving the page content and structure.',
+            userPrompt: '/impeccino polish index.html. Keep this pass small: improve the button spacing only, preserving the page content and structure.',
             maxSteps: 12,
             denyBash,
             contextOnlyBash: !denyBash,
@@ -619,7 +619,7 @@ for (const modelId of resolveModelList()) {
           logTrace('S19', denyBash ? 'denied-launcher' : 'successful-launcher', modelId, trace, { finishReason, text: allText });
           assert.notEqual(finishReason, 'length', 'a truncated response is not a completed fallback');
           if (denyBash) {
-            assert.ok(trace.toolCalls.some((call) => call.name === 'bash' && call.denied && /impeccable\s+context\b/.test(call.input.command)), 'must encounter an actual denied context attempt');
+            assert.ok(trace.toolCalls.some((call) => call.name === 'bash' && call.denied && /impeccino\s+context\b/.test(call.input.command)), 'must encounter an actual denied context attempt');
           } else {
             assert.ok(trace.bashOutputs.some((out) => out.startsWith('exit=0\n')), 'the control must execute the real context loader successfully');
           }
@@ -650,13 +650,13 @@ for (const modelId of resolveModelList()) {
         const { trace, stepTexts, finishReason, responseMessages } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccable document. Record the incumbent design system from index.html into DESIGN.md.',
+          userPrompt: '/impeccino document. Record the incumbent design system from index.html into DESIGN.md.',
           maxSteps: 14,
           denyBash: true,
         });
         logTrace('S19', 'denied-launcher-document', modelId, trace, { finishReason, text: stepTexts.join('\n') });
         assert.notEqual(finishReason, 'length', 'a truncated response is not a completed documentation pass');
-        assert.ok(trace.toolCalls.some((call) => call.name === 'bash' && call.denied && /impeccable\s+context\b/.test(call.input.command)), 'must encounter an actual denied context attempt');
+        assert.ok(trace.toolCalls.some((call) => call.name === 'bash' && call.denied && /impeccino\s+context\b/.test(call.input.command)), 'must encounter an actual denied context attempt');
         const designWriteIndex = trace.toolCalls.findIndex((call) => call.mutatedPaths.some((p) => /(?:^|\/)DESIGN\.md$/.test(p)));
         assert.ok(designWriteIndex >= 0, 'must still produce DESIGN.md, not stop at the refusal');
         const documentReadIndex = trace.toolCalls.findIndex((call) => call.name === 'read' && call.succeeded && /(?:^|\/)reference\/document\.md$/.test(call.input.path));
@@ -680,13 +680,13 @@ for (const modelId of resolveModelList()) {
         const { trace, text, stepTexts, finishReason, responseMessages } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccable polish index.html. Inspect the button spacing and propose a short plan only. Do not edit any files or implement the plan yet.',
+          userPrompt: '/impeccino polish index.html. Inspect the button spacing and propose a short plan only. Do not edit any files or implement the plan yet.',
           maxSteps: 12,
           denyBash: true,
         });
         logTrace('S19', 'denied-launcher-planning', modelId, trace, { finishReason, text: stepTexts.join('\n') });
         assert.notEqual(finishReason, 'length', 'a truncated response is not a completed plan');
-        assert.ok(trace.toolCalls.some((call) => call.name === 'bash' && call.denied && /impeccable\s+context\b/.test(call.input.command)), 'must encounter an actual denied context attempt');
+        assert.ok(trace.toolCalls.some((call) => call.name === 'bash' && call.denied && /impeccino\s+context\b/.test(call.input.command)), 'must encounter an actual denied context attempt');
         assert.deepEqual(readsMatching(trace, 'craft-floor.md'), [], 'planning-only work must not load the editing floor');
         assertAdviceOnly(trace, text);
         assertPlanningFallbackWarning(responseMessages);
@@ -704,7 +704,7 @@ for (const modelId of resolveModelList()) {
         const { trace, text } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccable polish index.html. Please do the polish pass now; afterward tell me which command would be useful next.',
+          userPrompt: '/impeccino polish index.html. Please do the polish pass now; afterward tell me which command would be useful next.',
           checkpoint: 'polish.md',
           maxSteps: 8,
           contextOnlyBash: true,

@@ -1,4 +1,4 @@
-use impeccable_html::{detect_html_source, DetectHtmlOptions};
+use impeccino_html::{detect_html_source, DetectHtmlOptions};
 use std::path::Path;
 
 fn count(body: &str) -> usize {

@@ -3,8 +3,8 @@
  *
  * Each scenario:
  *   1. Creates a temp workspace.
- *   2. Builds a neutral .claude/skills/impeccable into the workspace so
- *      the launcher (`scripts/impeccable`) resolves from the canonical path
+ *   2. Builds a neutral .claude/skills/impeccino into the workspace so
+ *      the launcher (`scripts/impeccino`) resolves from the canonical path
  *      the skill references, and points it at an engine binary.
  *   3. Optionally writes PRODUCT.md / DESIGN.md fixtures.
  *   4. Inlines SKILL.md as the system prompt (placeholders stripped to
@@ -85,7 +85,7 @@ function loadSkillBody() {
 // loader supplies a base-directory prefix; here it is workspace-relative
 // because the file tools reject absolute paths. Provider rewrite/loader
 // contracts are tested separately, not established by these behavior cases.
-export const SKILL_BODY = `Base directory for this skill (workspace-relative): .claude/skills/impeccable\n\n${loadSkillBody()}`;
+export const SKILL_BODY = `Base directory for this skill (workspace-relative): .claude/skills/impeccino\n\n${loadSkillBody()}`;
 
 /**
  * Create a temp workspace and prepopulate it.
@@ -95,16 +95,16 @@ export const SKILL_BODY = `Base directory for this skill (workspace-relative): .
  * - `files` lets the test seed PRODUCT.md / DESIGN.md (or anything else).
  *
  * The launcher in the staged scripts dir needs an engine binary. Every bash
- * call the agent makes gets `IMPECCABLE_BIN` (tests/lib/engine-bin.mjs:
- * `IMPECCABLE_BIN` or `skill/scripts/bin/<os>-<arch>/`), which the launcher
+ * call the agent makes gets `IMPECCINO_BIN` (tests/lib/engine-bin.mjs:
+ * `IMPECCINO_BIN` or `skill/scripts/bin/<os>-<arch>/`), which the launcher
  * honors first, so the staged skill works without a download.
  */
 export const ENGINE_BIN = findEngineBinary();
 export { ENGINE_MISSING_MESSAGE };
 
 export function prepareWorkspace({ files = {} } = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccable-skill-test-'));
-  stageSkill(path.join(dir, '.claude', 'skills', 'impeccable'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccino-skill-test-'));
+  stageSkill(path.join(dir, '.claude', 'skills', 'impeccino'));
   for (const [name, contents] of Object.entries(files)) {
     const target = path.join(dir, name);
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -155,7 +155,7 @@ function safeResolve(root, userPath) {
 }
 
 function isContextOnlyCommand(workspace, command) {
-  const match = command.trim().match(/^\.claude\/skills\/impeccable\/scripts\/impeccable context(?: --target(?: |=)(?:"([a-zA-Z0-9_./+ -]+)"|'([a-zA-Z0-9_./+ -]+)'|([a-zA-Z0-9_./+-]+)))?$/);
+  const match = command.trim().match(/^\.claude\/skills\/impeccino\/scripts\/impeccino context(?: --target(?: |=)(?:"([a-zA-Z0-9_./+ -]+)"|'([a-zA-Z0-9_./+ -]+)'|([a-zA-Z0-9_./+-]+)))?$/);
   if (!match) return false;
   const target = match[1] ?? match[2] ?? match[3];
   return target === undefined || (!target.startsWith('-') && typeof safeResolve(workspace, target) === 'string');
@@ -168,7 +168,7 @@ function execBash(workspace, command, timeoutMs = 20_000, extraEnv = {}) {
       .filter(([name]) => !/(?:^|_)(?:API_KEY|AUTH_TOKEN|ACCESS_TOKEN)$/.test(name)));
     const proc = spawn('bash', ['-lc', command], {
       cwd: workspace,
-      env: { ...shellEnv, ...(ENGINE_BIN ? { IMPECCABLE_BIN: ENGINE_BIN } : {}) },
+      env: { ...shellEnv, ...(ENGINE_BIN ? { IMPECCINO_BIN: ENGINE_BIN } : {}) },
     });
     let stdout = '';
     let stderr = '';
@@ -232,7 +232,7 @@ function defaultSimulatedAnswer(question) {
 }
 
 export function makeTools(workspace, extraEnv = {}, simulatedUser = {}, { contextOnlyBash = false, denyBash = false } = {}) {
-  const referenceDir = path.join(workspace, '.claude/skills/impeccable/reference');
+  const referenceDir = path.join(workspace, '.claude/skills/impeccino/reference');
   const references = fs.readdirSync(referenceDir, { recursive: true })
     .filter((file) => file.endsWith('.md'))
     .map((file) => ({ file: file.split(path.sep).join('/'), content: fs.readFileSync(path.join(referenceDir, file), 'utf8').trim() }));
@@ -259,8 +259,8 @@ export function makeTools(workspace, extraEnv = {}, simulatedUser = {}, { contex
   const tools = {
     bash: tool({
       description: contextOnlyBash
-        ? 'Only `.claude/skills/impeccable/scripts/impeccable context` with an optional `--target <workspace-relative path>` is allowed here. Use read/list for files and references; write remains available for requested edits.'
-        : 'Run a bash command in the workspace root. Use this to invoke skill commands (e.g. `.claude/skills/impeccable/scripts/impeccable context`).',
+        ? 'Only `.claude/skills/impeccino/scripts/impeccino context` with an optional `--target <workspace-relative path>` is allowed here. Use read/list for files and references; write remains available for requested edits.'
+        : 'Run a bash command in the workspace root. Use this to invoke skill commands (e.g. `.claude/skills/impeccino/scripts/impeccino context`).',
       inputSchema: z.object({
         command: z.string().describe('The bash command to execute.'),
       }),
@@ -277,7 +277,7 @@ export function makeTools(workspace, extraEnv = {}, simulatedUser = {}, { contex
         // Routing tests need the real context loader, not a general-purpose
         // shell on the host. Reject before execution (still record attempts).
         if (contextOnlyBash && !isContextOnlyCommand(workspace, command)) {
-          const out = 'Error: only `.claude/skills/impeccable/scripts/impeccable context` with an optional workspace-relative `--target` is allowed. Use read/list for files; references live at .claude/skills/impeccable/reference/.';
+          const out = 'Error: only `.claude/skills/impeccino/scripts/impeccino context` with an optional workspace-relative `--target` is allowed. Use read/list for files; references live at .claude/skills/impeccino/reference/.';
           trace.bashOutputs.push(out);
           return out;
         }
@@ -285,7 +285,7 @@ export function makeTools(workspace, extraEnv = {}, simulatedUser = {}, { contex
         const res = await execBash(workspace, command, 20_000, extraEnv);
         call.mutatedPaths = changedPaths(before, snapshotWorkspaceFiles(workspace));
         call.loadedFiles = references.filter(({ content }) => content && res.stdout.includes(content))
-          .map(({ file }) => `.claude/skills/impeccable/reference/${file}`);
+          .map(({ file }) => `.claude/skills/impeccino/reference/${file}`);
         const head = `exit=${res.exitCode}`;
         const body = (res.stdout ? `stdout:\n${res.stdout}` : '') + (res.stderr ? `\nstderr:\n${res.stderr}` : '');
         const out = `${head}\n${body}${res.truncated ? '\n[output truncated]' : ''}`;
@@ -352,7 +352,7 @@ export function makeTools(workspace, extraEnv = {}, simulatedUser = {}, { contex
     }),
     ask_user_question: tool({
       description:
-        'Ask the user 1-4 structured questions and wait for answers. Use this for required Impeccable init, visual-world selection, and task-concept checkpoints instead of asking in prose.',
+        'Ask the user 1-4 structured questions and wait for answers. Use this for required Impeccino init, visual-world selection, and task-concept checkpoints instead of asking in prose.',
       inputSchema: z.object({
         questions: z.array(z.object({
           header: z.string().optional(),
@@ -399,7 +399,7 @@ export function makeTools(workspace, extraEnv = {}, simulatedUser = {}, { contex
 // cap sits just under the 900s per-test timeout so a genuine slow-but-correct
 // run is never killed. The timer is unref'd (it must not keep the loop alive
 // after a healthy turn) and cleared on completion.
-const TURN_TIMEOUT_MS = Number(process.env.IMPECCABLE_SKILL_BEHAVIOR_TURN_TIMEOUT_MS) || 840_000;
+const TURN_TIMEOUT_MS = Number(process.env.IMPECCINO_SKILL_BEHAVIOR_TURN_TIMEOUT_MS) || 840_000;
 export async function runTurn({ workspace, model, userPrompt, priorMessages = [], maxSteps = 8, env = {}, simulatedUser = {}, timeoutMs = TURN_TIMEOUT_MS, contextOnlyBash = false, denyBash = false, stopAfter, additionalTools, environment = '' }) {
   const { tools, trace } = makeTools(workspace, env, simulatedUser, { contextOnlyBash, denyBash });
   if (additionalTools) Object.assign(tools, additionalTools(trace));
@@ -407,7 +407,7 @@ export async function runTurn({ workspace, model, userPrompt, priorMessages = []
     ...priorMessages,
     { role: 'user', content: userPrompt },
   ];
-  const traceDir = process.env.IMPECCABLE_SKILL_BEHAVIOR_TRACE_DIR;
+  const traceDir = process.env.IMPECCINO_SKILL_BEHAVIOR_TRACE_DIR;
   const tracePath = traceDir && path.join(traceDir, `${path.basename(workspace)}-${crypto.randomUUID()}.json`);
   const saveTrace = (details) => {
     if (!tracePath) return;

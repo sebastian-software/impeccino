@@ -35,7 +35,7 @@ function runRelease(cwd, ...args) {
       // The D4 engine release-order guard would otherwise probe the network for
       // published engine assets; these guards predate it and only exercise the
       // version and tag checks, so take its documented escape hatch.
-      env: { ...process.env, IMPECCABLE_SKIP_ENGINE_CHECK: '1' },
+      env: { ...process.env, IMPECCINO_SKIP_ENGINE_CHECK: '1' },
     });
     return { code: 0, stdout, stderr: '' };
   } catch (err) {
@@ -56,7 +56,7 @@ describe('release.mjs guards', () => {
   };
 
   before(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccable-release-'));
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccino-release-'));
     bareDir = path.join(root, 'origin.git');
     workDir = path.join(root, 'work');
     execFileSync('git', ['init', '--bare', bareDir]);
@@ -78,7 +78,7 @@ describe('release.mjs guards', () => {
     for (const dep of ['check-engine-release.mjs', 'fetch-engine.mjs']) {
       fs.copyFileSync(path.join(REPO_ROOT, 'scripts', dep), path.join(workDir, 'scripts', dep));
     }
-    write('skill/SKILL.md', '---\nname: impeccable\ndescription: Design.\nmetadata:\n  version: 1.2.3\n---\n\nBody.\n');
+    write('skill/SKILL.md', '---\nname: impeccino\ndescription: Design.\nmetadata:\n  version: 1.2.3\n---\n\nBody.\n');
     write('skill/scripts/VERSION', '0.1.0\n');
 
     git(workDir, 'add', '-A');
@@ -180,7 +180,7 @@ describe('release.mjs guards', () => {
   });
 
   it('refuses a skill release when SKILL.md carries no metadata.version', () => {
-    write('skill/SKILL.md', '---\nname: impeccable\ndescription: Design.\n---\n\nBody.\n');
+    write('skill/SKILL.md', '---\nname: impeccino\ndescription: Design.\n---\n\nBody.\n');
     git(workDir, 'add', '-A');
     git(workDir, 'commit', '-m', 'no version');
     git(workDir, 'push', 'origin', 'main');

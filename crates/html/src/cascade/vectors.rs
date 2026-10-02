@@ -1,5 +1,5 @@
 //! Vector-replay dispatch for `engines.static-html.css-cascade`, mirroring
-//! `impeccable_core::vectors::call` (`tests/vectors.rs` replays the recorded
+//! `impeccino_core::vectors::call` (`tests/vectors.rs` replays the recorded
 //! JS calls through it).
 
 use super::checks_shim::CustomProps;
@@ -14,9 +14,9 @@ use super::values::{
     css_prop_to_camel, extract_static_color, normalize_static_css_value, parse_static_color,
     split_css_list, split_css_tokens, static_color_to_css, StyleValues,
 };
-use impeccable_core::color::Rgba;
-use impeccable_core::js;
-use impeccable_core::vectors::{decode, encode, Js};
+use impeccino_core::color::Rgba;
+use impeccino_core::js;
+use impeccino_core::vectors::{decode, encode, Js};
 use serde_json::Value;
 
 pub const MODULE: &str = "engines.static-html.css-cascade";

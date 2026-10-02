@@ -2,16 +2,16 @@
 //! the Rust port and requires every one to match (mirrors
 //! `crates/core/tests/vectors.rs`). Vectors live in the public repo at
 //! `tests/oracle/vectors/calls/<module>/<fn>.jsonl` in this repo;
-//! `IMPECCABLE_PUBLIC_REPO` overrides the root for an out-of-tree checkout.
+//! `IMPECCINO_PUBLIC_REPO` overrides the root for an out-of-tree checkout.
 
-use impeccable_html::cascade::vectors::{call, KNOWN};
+use impeccino_html::cascade::vectors::{call, KNOWN};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 const MODULES: &[&str] = &["engines.static-html.css-cascade"];
 
-/// The repo root: this workspace is the public repo. `IMPECCABLE_PUBLIC_REPO`
+/// The repo root: this workspace is the public repo. `IMPECCINO_PUBLIC_REPO`
 /// overrides it for an out-of-tree checkout.
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
@@ -19,7 +19,7 @@ fn repo_root() -> PathBuf {
 
 fn vectors_dir() -> Option<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
-    if let Ok(p) = std::env::var("IMPECCABLE_PUBLIC_REPO") {
+    if let Ok(p) = std::env::var("IMPECCINO_PUBLIC_REPO") {
         candidates.push(PathBuf::from(p));
     }
     candidates.push(repo_root());
@@ -101,7 +101,7 @@ fn same(a: &Canon, b: &Canon) -> bool {
 fn replay_recorded_vectors() {
     let Some(dir) = vectors_dir() else {
         panic!(
-            "vectors dir not found; set IMPECCABLE_PUBLIC_REPO to a checkout of the public repo that has \
+            "vectors dir not found; set IMPECCINO_PUBLIC_REPO to a checkout of the public repo that has \
              tests/oracle/vectors/calls (generate with `node tests/oracle/vectors/record-calls.mjs`)"
         );
     };

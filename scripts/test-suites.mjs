@@ -64,7 +64,7 @@ export const SUITES = {
   // The verbs live in the engine binary; this repo pins its behavior with the
   // oracle goldens (tests/oracle) and drives its live-mode verbs over the
   // framework fixtures. Both skip when no binary is present (bun run
-  // fetch:engine, or IMPECCABLE_BIN).
+  // fetch:engine, or IMPECCINO_BIN).
   oracle: {
     description: 'Oracle corpus replay against the engine binary; skips without a binary.',
     triggers: [

@@ -1,6 +1,6 @@
 //! Integration tests for `::placeholder` contrast detection (#790).
 
-use impeccable_html::{detect_html_source, DetectHtmlOptions};
+use impeccino_html::{detect_html_source, DetectHtmlOptions};
 use std::path::Path;
 
 const ISSUER_REPRO: &str = r#"<!DOCTYPE html>
@@ -11,12 +11,12 @@ input { background: white; font-size: 16px; width: 200px; height: 40px; border: 
 <body><input placeholder="Search"></body></html>
 "#;
 
-fn scan(html: &str) -> Vec<impeccable_core::findings::Finding> {
+fn scan(html: &str) -> Vec<impeccino_core::findings::Finding> {
     detect_html_source(html, Path::new("/tmp/placeholder.html"), &DetectHtmlOptions::default())
 }
 
 fn repo_root() -> std::path::PathBuf {
-    std::env::var("IMPECCABLE_PUBLIC_REPO")
+    std::env::var("IMPECCINO_PUBLIC_REPO")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
 }

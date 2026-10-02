@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn command_with_non_utf8_env() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_impeccable"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_impeccino"));
     command.env("ABBR_TIPS_PROMPT", OsString::from_vec(vec![0xff]));
     command
 }

@@ -1,6 +1,6 @@
 # STYLE.md
 
-Editorial brief for impeccable.design. Read this before writing or editing user-facing copy: the homepage, sub-pages, command editorials, tutorials, and READMEs.
+Editorial brief for Impeccino's user-facing copy: the READMEs, docs, and anything else a reader sees.
 
 The bar: **for every paragraph, point to the sentence that makes it specifically yours.** If you can't, the paragraph is AI by default, even if a human typed it.
 
@@ -96,7 +96,7 @@ The above are the easy wins. The deeper issues require human judgment on every p
 - **Synthetic balance.** Pros and cons of equal length when one is clearly right. Write the recommendation; note real exceptions briefly.
 - **Hollow confidence.** "Powerful" without numbers. Replace with a concrete fact.
 - **Hedging stacks.** "It might potentially be useful to consider..." Each hedge is fine; stacked, they sound trained.
-- **Interchangeable copy.** Swap "Impeccable" for a competitor name. If nothing becomes false, the copy is generic.
+- **Interchangeable copy.** Swap "Impeccino" for a competitor name. If nothing becomes false, the copy is generic.
 
 ## When in doubt
 

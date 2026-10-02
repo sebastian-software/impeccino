@@ -2,17 +2,17 @@
 //!
 //! Every page operation (capture a snapshot, answer hit tests, scroll, load
 //! an image, read a pixel, take a screenshot) is a request sent through
-//! [`PageIo`]. The decisions all stay here and in `impeccable_core`: this is
+//! [`PageIo`]. The decisions all stay here and in `impeccino_core`: this is
 //! the former URL engine's scan (`crates/browser`, docs/adr/0011) with the
 //! Chrome DevTools connection replaced by agent-browser (docs/adr/0016).
 
-use impeccable_core::browser::driver::{collect_browser_findings, serialize_findings};
-use impeccable_core::browser::page_checks::measure_hidden_text_dom;
-use impeccable_core::browser::snapshot::{Facts, SnapshotDom};
-use impeccable_core::browser::visual::{self, CssPlan, Prepared, StackNode};
-use impeccable_core::browser::{BrowserConfig, Dom, ElId};
-use impeccable_core::checks::measures::{check_content_hidden_at_rest, ContentHiddenInput};
-use impeccable_core::color::Rgba;
+use impeccino_core::browser::driver::{collect_browser_findings, serialize_findings};
+use impeccino_core::browser::page_checks::measure_hidden_text_dom;
+use impeccino_core::browser::snapshot::{Facts, SnapshotDom};
+use impeccino_core::browser::visual::{self, CssPlan, Prepared, StackNode};
+use impeccino_core::browser::{BrowserConfig, Dom, ElId};
+use impeccino_core::checks::measures::{check_content_hidden_at_rest, ContentHiddenInput};
+use impeccino_core::color::Rgba;
 use serde_json::{json, Value};
 
 /// How many low-contrast candidates the visual pass analyzes, as the URL
@@ -167,7 +167,7 @@ fn live_scroll(io: &mut dyn PageIo) -> Result<(f64, f64), String> {
     Ok((out.get("x").and_then(Value::as_f64).unwrap_or(0.0), out.get("y").and_then(Value::as_f64).unwrap_or(0.0)))
 }
 
-fn media(dom: &SnapshotDom, el: ElId) -> impeccable_core::browser::snapshot::MediaInfo {
+fn media(dom: &SnapshotDom, el: ElId) -> impeccino_core::browser::snapshot::MediaInfo {
     dom.snap.get(el).and_then(|n| n.media.clone()).unwrap_or_default()
 }
 
@@ -548,7 +548,7 @@ fn wcag_ratio(a: (f64, f64, f64), b: (f64, f64, f64)) -> f64 {
     let lum = |(r, g, b): (f64, f64, f64)| {
         let ch = |c: f64| {
             let v = c / 255.0;
-            if v <= 0.03928 { v / 12.92 } else { impeccable_core::js::math_pow((v + 0.055) / 1.055, 2.4) }
+            if v <= 0.03928 { v / 12.92 } else { impeccino_core::js::math_pow((v + 0.055) / 1.055, 2.4) }
         };
         0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
     };
@@ -573,14 +573,14 @@ fn pixel_finding(m: &ContrastMetrics, candidate: &Value) -> Option<RawResult> {
         Some(t) if !t.is_empty() => format!(" \"{t}\""),
         _ => String::new(),
     };
-    let to_fixed = |v: f64| impeccable_core::js::to_fixed(v, 1);
+    let to_fixed = |v: f64| impeccino_core::js::to_fixed(v, 1);
     Some(RawResult::plain(
         "low-contrast",
         format!(
             "pixel contrast {}:1 median {}:1 (need {}:1) on {reason}{text}",
             to_fixed(m.p10),
             to_fixed(m.median),
-            impeccable_core::js::number_to_string(threshold)
+            impeccino_core::js::number_to_string(threshold)
         ),
     ))
 }

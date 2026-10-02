@@ -1,4 +1,4 @@
-//! JS: doctor.mjs -> `impeccable doctor`
+//! JS: doctor.mjs -> `impeccino doctor`
 
 use crate::artifact_schema::{read_product_schema_version, stamp_product_schema, PRODUCT_SCHEMA_VERSION};
 use crate::context::*;
@@ -7,7 +7,7 @@ use crate::staleness::*;
 use crate::staleness_deep::*;
 use crate::target_args::{parse_target_options, TargetOptions};
 use crate::util::{exists, json_pretty, opt_string, Env};
-use impeccable_common::Io;
+use impeccino_common::Io;
 use serde_json::{Map, Value};
 
 struct Flags {
@@ -33,11 +33,11 @@ fn parse_args(argv: &[String]) -> Result<(Flags, TargetOptions), String> {
 
 fn usage() -> String {
     [
-        "Usage: impeccable doctor [--json] [--fix] [--target <path>]",
+        "Usage: impeccino doctor [--json] [--fix] [--target <path>]",
         "",
-        "Report drift between this project's Impeccable artifacts and what the",
+        "Report drift between this project's Impeccino artifacts and what the",
         "installed version reads: PRODUCT.md, DESIGN.md and its sidecar,",
-        ".impeccable/config.json, surface briefs, and the design hook.",
+        ".impeccino/config.json, surface briefs, and the design hook.",
         "",
         "  --json           Emit findings as JSON.",
         "  --fix            Apply the mechanical migrations (severity \"auto\") only.",
@@ -60,7 +60,7 @@ fn read_project_root_patterns(repo_root: &str) -> Vec<String> {
     if repo_root.is_empty() {
         return vec![];
     }
-    read_impeccable_project_roots(repo_root)
+    read_impeccino_project_roots(repo_root)
 }
 
 fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> Report {
@@ -171,7 +171,7 @@ fn apply_fixes(report: &Report) -> Fixes {
 fn render_text(report: &Report, fixes: Option<&Fixes>, cwd: &str, command: &str, self_cmd: &str) -> String {
     let mut lines: Vec<String> = Vec::new();
     let pr = rel(&report.project_root, cwd);
-    lines.push(format!("Impeccable doctor: {}", if pr.is_empty() { "." } else { &pr }));
+    lines.push(format!("Impeccino doctor: {}", if pr.is_empty() { "." } else { &pr }));
     if report.ctx.is_monorepo {
         let rr = rel(&report.ctx.repo_root, cwd);
         lines.push(format!("Monorepo, repo root {}.", if rr.is_empty() { "." } else { &rr }));
@@ -237,12 +237,12 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     let env = io.env.clone();
     let provider = crate::provider::detect(&env, &cwd);
     // The printed fix command spells the launcher when the launcher exported
-    // IMPECCABLE_SELF, and the plain `impeccable` verb otherwise.
+    // IMPECCINO_SELF, and the plain `impeccino` verb otherwise.
     let self_cmd = env
-        .get("IMPECCABLE_SELF")
+        .get("IMPECCINO_SELF")
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| "impeccable".to_string());
+        .unwrap_or_else(|| "impeccino".to_string());
     let (flags, target) = match parse_args(args) {
         Ok(v) => v,
         Err(msg) => {

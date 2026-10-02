@@ -3,11 +3,11 @@
  * binary and asserts no case differs from its golden beyond the reviewed
  * deltas in tests/oracle/DELTAS.md.
  *
- * Skips cleanly when no binary is available: set IMPECCABLE_BIN or run
+ * Skips cleanly when no binary is available: set IMPECCINO_BIN or run
  * `bun run fetch:engine` (which writes skill/scripts/bin/<os>-<arch>/).
  *
  * Run with: node --test tests/oracle.test.mjs
- * Scope:    IMPECCABLE_ORACLE_PREFIX=detect- node --test tests/oracle.test.mjs
+ * Scope:    IMPECCINO_ORACLE_PREFIX=detect- node --test tests/oracle.test.mjs
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,11 +23,11 @@ const ENGINE_BIN = findEngineBinary();
 describe('oracle corpus against the engine binary', { skip: ENGINE_BIN ? false : ENGINE_MISSING_MESSAGE }, () => {
   it('replays every recorded case with zero unreviewed differences', () => {
     const args = [path.join(REPO_ROOT, 'tests', 'oracle', 'run.mjs')];
-    if (process.env.IMPECCABLE_ORACLE_PREFIX) args.push(process.env.IMPECCABLE_ORACLE_PREFIX);
+    if (process.env.IMPECCINO_ORACLE_PREFIX) args.push(process.env.IMPECCINO_ORACLE_PREFIX);
     const result = spawnSync(process.execPath, args, {
       cwd: REPO_ROOT,
       encoding: 'utf-8',
-      env: { ...process.env, IMPECCABLE_BIN: ENGINE_BIN },
+      env: { ...process.env, IMPECCINO_BIN: ENGINE_BIN },
       maxBuffer: 64 * 1024 * 1024,
     });
     const summary = (result.stdout || '').trim().split('\n').pop();

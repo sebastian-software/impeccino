@@ -1,7 +1,7 @@
 # The engine: the Rust runtime behind every skill verb
 
-Every command the skill text runs is `<skill-base-dir>/scripts/impeccable <verb>`. The
-launcher next to the skill (`skill/scripts/impeccable`, `impeccable.cmd`)
+Every command the skill text runs is `<skill-base-dir>/scripts/impeccino <verb>`. The
+launcher next to the skill (`skill/scripts/impeccino`, `impeccino.cmd`)
 finds or downloads one static binary per platform and execs it. That binary
 is built from this repo's Cargo workspace. There is no Node at runtime, and
 nothing in the engine runs in a browser
@@ -24,13 +24,13 @@ Cargo.toml              the workspace (crates/*), release profile
 rust-toolchain.toml     the toolchain channel (stable)
 skill/scripts/VERSION   which engine release the launcher downloads
 crates/
-  cli          the `impeccable` binary: verb router, exit codes, the
+  cli          the `impeccino` binary: verb router, exit codes, the
                "was removed" answer for retired verbs
   common       Io handle (stdout/stderr/stdin/env/cwd), path + process helpers
   context      context, doctor, staleness, signals, concept-seed, pin,
                palette, surface-brief, critique-storage
   hook         the design hook (hook, hook-before-edit, hooks / hook-admin)
-  detect       `impeccable detect` and `ignores`: file walk, config, ignores,
+  detect       `impeccino detect` and `ignores`: file walk, config, ignores,
                output, the text/regex engine
   html         the static HTML engine: parser, cascade, static document model,
                rule adapters
@@ -53,8 +53,8 @@ copy that calls one gets a clear answer
 pointer to the harness's browser tool.
 
 `crates/core` re-exports the foundation modules under its own paths, so every
-consumer names one crate: `impeccable_core::js`, `impeccable_core::color`,
-`impeccable_core::checks::rules::check_colors`. The split between the two
+consumer names one crate: `impeccino_core::js`, `impeccino_core::color`,
+`impeccino_core::checks::rules::check_colors`. The split between the two
 crates is about what a check is written against, not about who may see it.
 
 The detector ships 61 built-in rules, listed in
@@ -62,7 +62,7 @@ The detector ships 61 built-in rules, listed in
 there. Most run on source files, through the text engine (`crates/detect`)
 or the static HTML engine (`crates/html`). The rules that need layout run in
 `crates/core/src/browser` over a page snapshot (`SnapshotDom` in
-`crates/foundation/src/browser`): `impeccable detect <url>` drives
+`crates/foundation/src/browser`): `impeccino detect <url>` drives
 agent-browser (`crates/cli/src/page_scan`), installs the measurement script
 `crates/cli/assets/page-snapshot.js` in the page, answers the rules' hit
 tests with the live page over agent-browser's DevTools endpoint, and falls
@@ -71,19 +71,19 @@ back to screenshot pixels for contrast it cannot decide (docs/adr/0016).
 Build and test:
 
 ```bash
-cargo build --release -p impeccable      # target/release/impeccable
+cargo build --release -p impeccino      # target/release/impeccino
 cargo test --workspace
-IMPECCABLE_BIN=target/release/impeccable node tests/oracle/run.mjs   # the behavior gate
+IMPECCINO_BIN=target/release/impeccino node tests/oracle/run.mjs   # the behavior gate
 ```
 
-`bun run test` and the oracle find the binary through `IMPECCABLE_BIN`, then
+`bun run test` and the oracle find the binary through `IMPECCINO_BIN`, then
 `skill/scripts/bin/<os>-<arch>/` (`bun run fetch:engine` downloads the pinned
-release there; `IMPECCABLE_BIN=target/release/impeccable bun run fetch:engine`
-copies a local build), then `target/release/impeccable`, so a plain
-`cargo build --release -p impeccable` is enough.
+release there; `IMPECCINO_BIN=target/release/impeccino bun run fetch:engine`
+copies a local build), then `target/release/impeccino`, so a plain
+`cargo build --release -p impeccino` is enough.
 
 The frozen function-level vectors in `tests/oracle/vectors/calls/` replay
-through `impeccable_core::vectors::call` (`cargo test -p impeccable-core`),
+through `impeccino_core::vectors::call` (`cargo test -p impeccino-core`),
 which is the union of foundation's dispatch arms and the core's.
 
 ## Rule packs
@@ -96,10 +96,10 @@ enforces byte-for-byte.
 
 The traits:
 
-- `impeccable_core::rule_pack::RulePack` (object-safe, `Send + Sync + Debug`)
+- `impeccino_core::rule_pack::RulePack` (object-safe, `Send + Sync + Debug`)
   with one hook, defaulting to empty: `check_text(content, file_path, ext)`
   for the text engine.
-- `impeccable_html::StaticRulePack` with `check_document(doc, file_path)`.
+- `impeccino_html::StaticRulePack` with `check_document(doc, file_path)`.
   The `StaticDocument` model belongs to `crates/html`, and `detect` cannot
   name a type from a crate that depends on it, so the static engine's hook is
   a separate trait. A pack that covers HTML implements both.
@@ -109,7 +109,7 @@ The DOM hooks for the browser engines left with them
 
 Three steps for the downstream crate: declare `static ROWS: &[Antipattern]`
 with namespaced ids (`mypack/my-rule`) and return them from `registry()`;
-call `impeccable_core::rule_pack::install(&PACK)` once at startup, which is
+call `impeccino_core::rule_pack::install(&PACK)` once at startup, which is
 what makes `get_antipattern` resolve the pack's ids and therefore what gives
 its findings a name, description, category, and severity; then pass the pack
 to the engine being run.
@@ -126,7 +126,7 @@ Where each hook runs, and why there:
 - **Text engine** (`detect_text`): after every built-in matcher, style-block
   and CSS-in-JS pass, the design-system scan, the dedupe, and the page
   analyzers, and before inline ignores. Appending last keeps built-in output
-  identical, and being inside the waiver step means `impeccable-disable`
+  identical, and being inside the waiver step means `impeccino-disable`
   covers a pack's rules the same way it covers built-in ones.
 - **Static HTML engine** (`detect_html_source`): after the element rules, the
   design-system merge, the page-level checks and the pattern checks, again
@@ -142,8 +142,8 @@ never shadow a built-in rule. Registration is append-only and has no undo:
 a pack is a property of the process, not of a run.
 
 The design hook's immediate tier (the rule ids worth fixing at the edit site)
-lives in `impeccable_core::registry::IMMEDIATE_TIER_RULES`, which
-`impeccable-hook` reads, so there is one list.
+lives in `impeccino_core::registry::IMMEDIATE_TIER_RULES`, which
+`impeccino-hook` reads, so there is one list.
 
 ## Releases
 

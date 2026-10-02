@@ -21,7 +21,7 @@ use regex::Regex;
 
 /// The hit and option structs these checks are written against are shared;
 /// re-exported so `checks::rules` stays one path.
-pub use impeccable_foundation::rules::types::*;
+pub use impeccino_foundation::rules::types::*;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {

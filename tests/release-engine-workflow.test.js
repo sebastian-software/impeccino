@@ -14,8 +14,8 @@ describe('engine release workflow', () => {
 
   test('publishes every built binary with a sha256 sidecar', () => {
     expect(workflow.jobs.publish.needs).toBe('build');
-    expect(action(workflow.jobs.build, 'actions/upload-artifact').with.name).toBe('impeccable-${{ matrix.short }}');
-    expect(action(workflow.jobs.publish, 'actions/download-artifact').with.pattern).toBe('impeccable-*');
+    expect(action(workflow.jobs.build, 'actions/upload-artifact').with.name).toBe('impeccino-${{ matrix.short }}');
+    expect(action(workflow.jobs.publish, 'actions/download-artifact').with.pattern).toBe('impeccino-*');
     expect(workflow.jobs.publish.steps.find(step => step.name === 'Lay out release assets with checksums').run).toContain('sha256sum');
   });
 

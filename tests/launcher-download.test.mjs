@@ -17,7 +17,7 @@ const PAYLOAD = WINDOWS ? fs.readFileSync(COMSPEC) : Buffer.from('#!/bin/sh\nech
 const HASH = createHash('sha256').update(PAYLOAD).digest('hex');
 
 async function exercise(t, scenario) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccable-launcher-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccino-launcher-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const scripts = path.join(root, 'skill scripts');
   const home = path.join(root, 'home');
@@ -25,7 +25,7 @@ async function exercise(t, scenario) {
   fs.mkdirSync(scripts);
   fs.mkdirSync(home);
   fs.writeFileSync(path.join(scripts, 'VERSION'), '0.0.0-test\n');
-  const name = WINDOWS ? 'impeccable.cmd' : 'impeccable';
+  const name = WINDOWS ? 'impeccino.cmd' : 'impeccino';
   const launcher = path.join(scripts, name);
   fs.copyFileSync(path.join(ROOT, 'skill/scripts', name), launcher);
   const cacheDir = path.join(cache, 'bin', '0.0.0-test');
@@ -37,11 +37,11 @@ async function exercise(t, scenario) {
   }
   if (scenario === 'cache-write-failure') {
     fs.mkdirSync(cacheDir, { recursive: true });
-    if (WINDOWS) fs.mkdirSync(path.join(cacheDir, 'impeccable.exe.part'));
+    if (WINDOWS) fs.mkdirSync(path.join(cacheDir, 'impeccino.exe.part'));
   }
   if (scenario === 'cache-readonly-file') {
     fs.mkdirSync(cacheDir, { recursive: true });
-    const staging = path.join(cacheDir, 'impeccable.exe.part');
+    const staging = path.join(cacheDir, 'impeccino.exe.part');
     fs.writeFileSync(staging, 'read-only');
     fs.chmodSync(staging, 0o444);
   }
@@ -50,7 +50,7 @@ async function exercise(t, scenario) {
   if (!WINDOWS && scenario === 'cache-write-failure') {
     // The POSIX staging name contains the launcher's PID, so intercept the
     // preceding mkdir to place a directory at precisely that file path.
-    fs.writeFileSync(path.join(tools, 'mkdir'), '#!/bin/sh\n/bin/mkdir "$@" || exit $?\n/bin/mkdir "$IMPECCABLE_HOME/bin/0.0.0-test/.impeccable.part.$PPID"\n', { mode: 0o755 });
+    fs.writeFileSync(path.join(tools, 'mkdir'), '#!/bin/sh\n/bin/mkdir "$@" || exit $?\n/bin/mkdir "$IMPECCINO_HOME/bin/0.0.0-test/.impeccino.part.$PPID"\n', { mode: 0o755 });
   }
   if (!WINDOWS && ['hash-failure', 'removed-during-hash'].includes(scenario)) {
     fs.writeFileSync(path.join(tools, 'shasum'),
@@ -114,8 +114,8 @@ async function exercise(t, scenario) {
   const env = {
     PATH: WINDOWS ? `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}` : `${tools}:/usr/bin:/bin`,
     HOME: home, USERPROFILE: home, TEMP: root, TMP: root,
-    IMPECCABLE_HOME: cache,
-    IMPECCABLE_DOWNLOAD_BASE: `http://127.0.0.1:${server.address().port}`,
+    IMPECCINO_HOME: cache,
+    IMPECCINO_DOWNLOAD_BASE: `http://127.0.0.1:${server.address().port}`,
     ...(WINDOWS ? { SystemRoot: process.env.SystemRoot, ComSpec: COMSPEC, PROCESSOR_ARCHITECTURE: 'AMD64' } : {}),
   };
   const run = () => new Promise((resolve, reject) => {
@@ -153,8 +153,8 @@ for (const scenario of ['cache-directory-failure', 'cache-write-failure', 'downl
     assert.match(result.stderr, /engine 0\.0\.0-test/);
     assert.ok(result.stderr.includes(result.cacheDir), result.stderr);
     assert.match(result.stderr, /engine-probe/);
-    assert.match(result.stderr, /IMPECCABLE_HOME/);
-    assert.match(result.stderr, /IMPECCABLE_BIN/);
+    assert.match(result.stderr, /IMPECCINO_HOME/);
+    assert.match(result.stderr, /IMPECCINO_BIN/);
     if (['download-failure', 'transport-failure'].includes(scenario)) {
       assert.match(result.stderr, /could not download/);
       assert.match(result.stderr, /network/);
@@ -170,7 +170,7 @@ test('launcher downloads and runs a verified executable', async t => {
   const result = await exercise(t, 'valid');
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /verified-engine/);
-  assert.deepEqual(result.files, [WINDOWS ? 'impeccable.exe' : 'impeccable']);
+  assert.deepEqual(result.files, [WINDOWS ? 'impeccino.exe' : 'impeccino']);
   assert.equal(result.requests.length, 2);
 });
 

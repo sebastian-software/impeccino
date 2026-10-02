@@ -53,7 +53,7 @@
 {"args":[{"tag":"h1","fontSize":40,"headingText":"A perfectly ordinary headline that is reasonably long but set at a sane, readable size"}],"result":[]}
 {"args":[{"tag":"h1","fontSize":20,"headingText":"Top heading"}],"result":[]}
 {"args":[{"tag":"h1","fontSize":16,"headingText":"Visible hero headline stays readable"}],"result":[]}
-{"args":[{"tag":"h1","fontSize":28,"headingText":"Impeccable Test Product"}],"result":[]}
+{"args":[{"tag":"h1","fontSize":28,"headingText":"Impeccino Test Product"}],"result":[]}
 {"args":[{"tag":"h1","fontSize":32,"headingText":"Anti-Patterns: Should Flag"}],"result":[]}
 {"args":[{"tag":"h1","fontSize":24,"headingText":"Clean Patterns: Should Pass"}],"result":[]}
 {"args":[{"tag":"h1","fontSize":96,"headingText":"Trattoria da Nonna Lucia"}],"result":[]}

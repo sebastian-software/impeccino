@@ -34,4 +34,4 @@ assignees: ''
 
 ## Willing to work on this?
 
-<!-- If yes, say so here. Unless you are pbakaus or abdulwahabone, please wait for maintainer approval before opening a PR. -->
+<!-- If yes, say so here. -->

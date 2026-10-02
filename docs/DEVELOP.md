@@ -1,6 +1,6 @@
 # Developer Guide
 
-Documentation for contributors to Impeccable.
+Documentation for contributors to Impeccino.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Documentation for contributors to Impeccable.
 
 ```yaml
 ---
-name: impeccable
+name: impeccino
 description: What this skill provides
 license: Apache-2.0
 metadata:
@@ -30,7 +30,7 @@ Frontmatter uses the [Agent Skills spec](https://agentskills.io/specification) f
 - `metadata` (optional): `metadata.version` carries the skill version
 - `user-invocable`, `argument-hint`: Claude Code's slash-command entry and hint; other runtimes ignore them
 
-The body is the same for every harness (ADR 0001). Write the launcher as `"<skill-base-dir>/scripts/impeccable" <verb>`, commands as `/impeccable <command>`, questions as "the host's structured question tool", and harness- or model-specific guidance as a labelled paragraph (`In Codex: ...`).
+The body is the same for every harness (ADR 0001). Write the launcher as `"<skill-base-dir>/scripts/impeccino" <verb>`, commands as `/impeccino <command>`, questions as "the host's structured question tool", and harness- or model-specific guidance as a labelled paragraph (`In Codex: ...`).
 
 ## Checks
 
@@ -39,7 +39,7 @@ bun run check         # Count claims, skill frontmatter limits, prose gates
 bun run fetch:engine  # Pinned engine binary for this machine into skill/scripts/bin/
 ```
 
-To try an edit in a harness, link `skill/` into a project as `.claude/skills/impeccable` or `.agents/skills/impeccable`.
+To try an edit in a harness, link `skill/` into a project as `.claude/skills/impeccino` or `.agents/skills/impeccino`.
 
 ## Testing
 
@@ -51,7 +51,7 @@ bun run test:skill-workflow   # Opt-in: provider-backed completed workflows; the
 
 The skill-behavior suite runs the models in `DEFAULT_MODELS` (`tests/skill-behavior/providers.mjs`) with the source `skill/SKILL.md` inlined as the system prompt and a workspace-scoped `bash`/`read`/`write`/`list` tool set. It then asserts on the tool-call trace, not on free-form output. Use it whenever you edit `skill/SKILL.md`'s Setup section or any Setup-touching reference (`init.md`, `document.md`, `new-work.md`, sub-command refs). Per-scenario assertions and the current baseline live in `tests/skill-behavior/README.md`. Provider keys live in repo-root `.env` (gitignored); missing keys skip cleanly.
 
-Impeccable itself runs nothing in a browser ([ADR 0011](adr/0011-no-own-browser-stack.md)). The skill-workflow suite uses Playwright Chromium only inside its test harness, standing in for the browser tool a real harness provides.
+Impeccino itself runs nothing in a browser ([ADR 0011](adr/0011-no-own-browser-stack.md)). The skill-workflow suite uses Playwright Chromium only inside its test harness, standing in for the browser tool a real harness provides.
 
 ## Best Practices
 
@@ -85,7 +85,7 @@ Impeccable itself runs nothing in a browser ([ADR 0011](adr/0011-no-own-browser-
 ## Repository Structure
 
 ```
-impeccable/
+impeccino/
   skill/                           # The skill; installs as-is
     SKILL.md                       # Frontmatter, shared design laws, command router
     reference/                     # One <command>.md per command + shared playbooks
@@ -109,10 +109,10 @@ impeccable/
 ## Troubleshooting
 
 ### A harness does not pick up the skill
-- Check that the folder is named `impeccable` inside the harness's skills directory.
+- Check that the folder is named `impeccino` inside the harness's skills directory.
 - Some harnesses gate project skills behind a trust step; see [HARNESSES.md](HARNESSES.md).
 - Run `bun test tests/skill-source.test.js` to confirm the frontmatter and portability rules.
 
 ## Questions?
 
-Open an issue first. If a maintainer approves the direction, offer to follow up with a PR. Regular contributors `pbakaus` and `abdulwahabone` may open PRs directly.
+Open an issue before larger changes; small fixes can go straight to a PR.

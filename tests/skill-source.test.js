@@ -15,7 +15,7 @@ describe('skill scripts payload', () => {
   test('ships only the launcher, VERSION, and command metadata', () => {
     // Browser-run assets and comp data left the skill with the features that
     // used them (docs/adr/0011, 0012); the skill carries no page JS or data.
-    expect([...names].sort()).toEqual(['VERSION', 'command-metadata.json', 'impeccable', 'impeccable.cmd']);
+    expect([...names].sort()).toEqual(['VERSION', 'command-metadata.json', 'impeccino', 'impeccino.cmd']);
   });
 
   test('never reads platform binaries as source', () => {
@@ -23,10 +23,10 @@ describe('skill scripts payload', () => {
   });
 
   test('the launcher is executable and VERSION matches the engine crates', () => {
-    const launcher = scripts.find((s) => s.name === 'impeccable');
+    const launcher = scripts.find((s) => s.name === 'impeccino');
     expect(launcher.mode & 0o111).not.toBe(0);
     const version = scripts.find((s) => s.name === 'VERSION').content.trim();
-    // `impeccable --version` prints the crate version; the launcher pins VERSION.
+    // `impeccino --version` prints the crate version; the launcher pins VERSION.
     const cargo = fs.readFileSync(path.join(ROOT_DIR, 'Cargo.toml'), 'utf-8');
     expect(cargo.match(/^version = "([^"]+)"/m)[1]).toBe(version);
   });
@@ -61,7 +61,7 @@ describe('universal skill source', () => {
   test('never hardcodes one harness install path for the launcher', () => {
     for (const file of markdown) {
       const text = fs.readFileSync(file, 'utf-8');
-      expect(text).not.toMatch(/\.(claude|agents|cursor|github)\/skills\/impeccable\/scripts\/impeccable /);
+      expect(text).not.toMatch(/\.(claude|agents|cursor|github)\/skills\/impeccino\/scripts\/impeccino /);
     }
   });
 

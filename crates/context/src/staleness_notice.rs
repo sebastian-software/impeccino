@@ -8,9 +8,9 @@ use serde_json::{Map, Value};
 const RENOTIFY_INTERVAL_MS: f64 = 7.0 * 24.0 * 60.0 * 60.0 * 1000.0;
 
 fn cache_path(env: &Env) -> String {
-    match env.get("IMPECCABLE_STALENESS_CACHE").filter(|v| !v.is_empty()) {
+    match env.get("IMPECCINO_STALENESS_CACHE").filter(|v| !v.is_empty()) {
         Some(p) => p.clone(),
-        None => jsp::join(&[&homedir(env), ".impeccable", "staleness-check.json"]),
+        None => jsp::join(&[&homedir(env), ".impeccino", "staleness-check.json"]),
     }
 }
 
@@ -62,7 +62,7 @@ fn write_cache(env: &Env, cache: &Map<String, Value>) {
 
 /// JS: stalenessCheckDisabled(roots)
 pub fn staleness_check_disabled(env: &Env, roots: &[Option<&str>]) -> bool {
-    if env.get("IMPECCABLE_NO_STALENESS_CHECK").map(|v| !v.is_empty()).unwrap_or(false) {
+    if env.get("IMPECCINO_NO_STALENESS_CHECK").map(|v| !v.is_empty()).unwrap_or(false) {
         return true;
     }
     let mut value: Option<bool> = None;
@@ -72,7 +72,7 @@ pub fn staleness_check_disabled(env: &Env, roots: &[Option<&str>]) -> bool {
             continue;
         }
         for name in ["config.json", "config.local.json"] {
-            if let Some(raw) = read_json(&jsp::join(&[root, ".impeccable", name])) {
+            if let Some(raw) = read_json(&jsp::join(&[root, ".impeccino", name])) {
                 if let Some(b) = raw.as_object().and_then(|o| o.get("stalenessCheck")).and_then(|v| v.as_bool()) {
                     value = Some(b);
                 }
@@ -141,7 +141,7 @@ pub fn build_staleness_directive(findings: &[Finding]) -> Option<String> {
     let has_reportable = findings.iter().any(|f| f.severity != "auto");
     let mut lines = vec![
         format!("CONTEXT_STALE:\n{}", json_pretty(&Value::Array(payload))),
-        "Impeccable's own project files have drifted from what this version reads. Do not stop, reorder, or expand the requested task for any of this.".to_string(),
+        "Impeccino's own project files have drifted from what this version reads. Do not stop, reorder, or expand the requested task for any of this.".to_string(),
         "By severity: `auto` is a migration the next write to that file performs anyway, so apply it then and do not raise it with the user. `mention` gets one short line in your reply with the offered fix. `route` names the command that owns the repair; offer it, and run it only if the user asks.".to_string(),
         "A finding that reports a deprecated field is binding: treat that field as absent for every decision in this session, whatever value it holds.".to_string(),
     ];

@@ -2,14 +2,14 @@
  * Multi-provider model factory for the skill-behavior test harness.
  *
  * The default lineup stays on current, economical models so the entire
- * routing suite remains practical to run. Frontier quality is measured by
- * the sibling impeccable-evals harness; this suite measures skill protocol.
+ * routing suite remains practical to run. This suite measures skill
+ * protocol, not design quality.
  *
  * Anthropic and OpenAI use the Vercel AI SDK providers. Google uses
  * @ai-sdk/google for the same reason — uniform tool-use semantics across all
  * three keeps the harness tiny.
  *
- * .env is loaded from the repo root (copied from impeccable-evals). Tests
+ * .env is loaded from the repo root. Tests
  * skip cleanly when the matching key is unset rather than failing CI.
  */
 import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
@@ -94,7 +94,7 @@ export function getModel(modelId) {
  * is not the tier this suite is meant to measure. Setup and routing behavior is
  * exactly the kind of multi-step instruction-following that reasoning effort
  * moves, so pin it high rather than inherit whatever the default happens to be.
- * Override with IMPECCABLE_SKILL_BEHAVIOR_EFFORT=xhigh.
+ * Override with IMPECCINO_SKILL_BEHAVIOR_EFFORT=xhigh.
  */
 export function getProviderOptions(modelId) {
   let provider;
@@ -106,7 +106,7 @@ export function getProviderOptions(modelId) {
     return undefined;
   }
   if (provider === 'openai') {
-    const effort = process.env.IMPECCABLE_SKILL_BEHAVIOR_EFFORT || 'high';
+    const effort = process.env.IMPECCINO_SKILL_BEHAVIOR_EFFORT || 'high';
     return { openai: { reasoningEffort: effort } };
   }
   return undefined;
@@ -125,12 +125,12 @@ export function getProviderOptions(modelId) {
  * unfamiliar direction. Divergence between families is what surfaces the
  * non-obvious failures; the cheap tier just could not tell divergence from
  * its own floor:
- *   IMPECCABLE_SKILL_BEHAVIOR_MODELS=gpt-5.6-luna,deepseek-v4-flash
+ *   IMPECCINO_SKILL_BEHAVIOR_MODELS=gpt-5.6-luna,deepseek-v4-flash
  */
 export const DEFAULT_MODELS = ['claude-sonnet-5', 'gpt-5.6-terra', 'gemini-3.7-flash'];
 
 export function resolveModelList() {
-  const override = process.env.IMPECCABLE_SKILL_BEHAVIOR_MODELS;
+  const override = process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS;
   if (override && override.trim()) {
     return override.split(',').map((s) => s.trim()).filter(Boolean);
   }

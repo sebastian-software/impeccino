@@ -22,7 +22,7 @@ macro_rules! re {
 pub const HEADING_TAGS: &[&str] = &["h1", "h2", "h3", "h4", "h5", "h6"];
 
 /// JS: checks.mjs#KICKER_SKIP_SELECTOR.
-pub const KICKER_SKIP_SELECTOR: &str = "nav,form,table,thead,tbody,tfoot,figure,figcaption,ol,ul,li,[role=\"navigation\"],[aria-label*=\"breadcrumb\" i],[class*=\"breadcrumb\" i],[aria-hidden=\"true\"],[data-impeccable-allow-kickers]";
+pub const KICKER_SKIP_SELECTOR: &str = "nav,form,table,thead,tbody,tfoot,figure,figcaption,ol,ul,li,[role=\"navigation\"],[aria-label*=\"breadcrumb\" i],[class*=\"breadcrumb\" i],[aria-hidden=\"true\"],[data-impeccino-allow-kickers]";
 
 /// JS: checks.mjs#KICKER_CARD_CONTEXT_SELECTOR.
 pub const KICKER_CARD_CONTEXT_SELECTOR: &str =

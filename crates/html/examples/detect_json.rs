@@ -1,13 +1,13 @@
 //! Print the JS `detect --json` array for one HTML file through the static
 //! engine (no design system, inline ignores as `--no-config`: disabled).
 //!
-//!     cargo run -p impeccable-html --example detect_json -- path/to/file.html
+//!     cargo run -p impeccino-html --example detect_json -- path/to/file.html
 //!
 //! `--inline-ignores` re-enables the whole-file waivers. The regex engine's
 //! text-content analyzers are wired from the `detect` crate so the output can
 //! be diffed against the JS CLI directly.
 
-use impeccable_html::{detect_html, DetectHtmlOptions};
+use impeccino_html::{detect_html, DetectHtmlOptions};
 use std::path::Path;
 
 fn main() {
@@ -19,7 +19,7 @@ fn main() {
         std::process::exit(1);
     };
     let analyzers = |content: &str, file_path: &str| {
-        impeccable_detect::detect_text::run_text_content_analyzers(content, file_path, None)
+        impeccino_detect::detect_text::run_text_content_analyzers(content, file_path, None)
     };
     let opts = DetectHtmlOptions {
         inline_ignores_disabled: !inline,

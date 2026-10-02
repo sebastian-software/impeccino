@@ -339,7 +339,7 @@ fn resolve_local_context_dir(root: &str) -> Option<String> {
 }
 
 fn resolve_env_context_dir(cwd: &str, env: &Env) -> Option<String> {
-    let v = env.get("IMPECCABLE_CONTEXT_DIR")?;
+    let v = env.get("IMPECCINO_CONTEXT_DIR")?;
     let t = js_trim(v);
     if t.is_empty() {
         return None;
@@ -706,12 +706,12 @@ fn resolve_workspace_project_root(repo_root: &str, target_dir: &str) -> Option<S
 
 fn is_selectable_candidate(repo_root: &str, rel: &str, groups: &[Vec<String>]) -> bool {
     let rel_segments: Vec<&str> = rel.split('/').filter(|s| !s.is_empty()).collect();
-    let impeccable = &groups[0];
+    let impeccino = &groups[0];
     let package = &groups[1];
-    if is_excluded_by_workspace_pattern(&rel_segments, impeccable) {
+    if is_excluded_by_workspace_pattern(&rel_segments, impeccino) {
         return false;
     }
-    for pattern in impeccable {
+    for pattern in impeccino {
         if let Some(boundary) = project_root_from_workspace_pattern(repo_root, &rel_segments, pattern) {
             let mut parts = vec![repo_root];
             parts.extend(rel_segments.iter());
@@ -816,25 +816,25 @@ fn workspace_pattern_matches_rel(pattern: &str, rel_segments: &[&str]) -> bool {
     true
 }
 
-/// JS: readProjectPatternGroups -> [impeccablePatterns, packagePatterns]
+/// JS: readProjectPatternGroups -> [impeccinoPatterns, packagePatterns]
 pub fn read_project_pattern_groups(repo_root: &str) -> Vec<Vec<String>> {
     let mut package: Vec<String> = Vec::new();
     package.extend(read_package_workspaces(repo_root));
     package.extend(read_pnpm_workspaces(repo_root));
     package.extend(read_lerna_workspaces(repo_root));
     let package: Vec<String> = package.into_iter().filter(|p| !p.is_empty()).collect();
-    vec![read_impeccable_project_roots(repo_root), package]
+    vec![read_impeccino_project_roots(repo_root), package]
 }
 
 fn read_project_patterns(repo_root: &str) -> Vec<String> {
     read_project_pattern_groups(repo_root).into_iter().flatten().collect()
 }
 
-/// JS: readImpeccableProjectRoots
-pub fn read_impeccable_project_roots(repo_root: &str) -> Vec<String> {
+/// JS: readImpeccinoProjectRoots
+pub fn read_impeccino_project_roots(repo_root: &str) -> Vec<String> {
     let mut patterns = Vec::new();
     for name in ["config.json", "config.local.json"] {
-        let Some(cfg) = read_json(&jsp::join(&[repo_root, ".impeccable", name])) else { continue };
+        let Some(cfg) = read_json(&jsp::join(&[repo_root, ".impeccino", name])) else { continue };
         let Some(arr) = cfg.get("projectRoots").and_then(|v| v.as_array()) else { continue };
         for entry in arr {
             if let Some(s) = entry.as_str() {

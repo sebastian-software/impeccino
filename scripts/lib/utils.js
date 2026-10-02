@@ -6,7 +6,7 @@ import path from 'path';
 // excludes them from dist, and the harness-sync step preserves them across
 // the rm+recopy so local state isn't destroyed on every rebuild.
 // - config.json: legacy live-mode inject target list for existing projects.
-//   New installs write project config at .impeccable/live/config.json instead.
+//   New installs write project config at .impeccino/live/config.json instead.
 export const PER_PROJECT_SCRIPT_ARTIFACTS = new Set(['config.json']);
 
 // Platform binaries under `scripts/bin/<os>-<arch>/` are fetched per machine
@@ -208,7 +208,7 @@ export function readFilesRecursive(dir, fileList = []) {
 }
 
 /**
- * Read and parse the impeccable skill source.
+ * Read and parse the impeccino skill source.
  * The repo holds exactly one skill, flat at skill/. skill/ is also the
  * universal install payload, so it carries a real SKILL.md.
  * Returns { skills: [oneEntry] } so downstream array-shaped consumers stay happy.
@@ -271,7 +271,7 @@ export function readSourceFiles(rootDir) {
   }
 
   skills.push({
-    name: frontmatter.name || 'impeccable',
+    name: frontmatter.name || 'impeccino',
     description: frontmatter.description || '',
     license: frontmatter.license || '',
     compatibility: frontmatter.compatibility || '',

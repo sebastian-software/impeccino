@@ -1,32 +1,12 @@
-## Before opening
-
-This repo is issue-first for outside contributions. If you are not `pbakaus` or `abdulwahabone`, please link the issue where a maintainer approved or requested this PR. Unsolicited PRs may be closed without review.
-
-- Linked issue:
-- Contributor status:
-  - [ ] I am `pbakaus` or `abdulwahabone`
-  - [ ] A maintainer approved this PR in the linked issue
-
 ## Summary
 
-<!-- What does this PR change and why? -->
-
-## Type of change
-
-- [ ] New command
-- [ ] New / updated skill reference
-- [ ] New anti-pattern guidance
-- [ ] Bug fix
-- [ ] Documentation update
-- [ ] Build system / tooling
-- [ ] Other: 
+<!-- What does this PR change and why? Link the issue for larger changes. -->
 
 ## Checklist
 
-- [ ] Source files updated in `source/`
 - [ ] `bun run check` passes
-- [ ] `bun test` passes
-- [ ] Tested with at least one provider (Cursor / Claude Code / Gemini CLI / Codex / Copilot / Grok Build / Kiro / OpenCode / Qoder / Mistral Vibe)
-- [ ] README / DEVELOP.md updated if needed
-- [ ] I reviewed the full diff myself before requesting human review
-- [ ] I disclosed any AI assistance in this PR and related commits/comments, or no AI assistance was used
+- [ ] `bun run test` passes (and `cargo test --workspace` for engine changes)
+- [ ] Tested with at least one harness (Claude Code / Codex / Cursor / ...)
+- [ ] README / docs / ADRs updated if needed
+- [ ] I reviewed the full diff myself
+- [ ] I disclosed any AI assistance in this PR and related commits, or no AI assistance was used

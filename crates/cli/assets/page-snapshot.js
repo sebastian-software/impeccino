@@ -1,4 +1,4 @@
-// The page measurement `impeccable detect <url>` runs in a page agent-browser
+// The page measurement `impeccino detect <url>` runs in a page agent-browser
 // holds (docs/adr/0016). Pure measurement: it reads the DOM, computed
 // styles, rects, and viewport once and serializes them, and the engine runs
 // the rendered-page rules natively over the result (see
@@ -6,7 +6,7 @@
 // contract). Nothing in here decides anything about a design: no
 // thresholds, no rule names, no snippet strings.
 //
-// Exposed as `__impeccableSnapshot`:
+// Exposed as `__impeccinoSnapshot`:
 //   capture(options)        -> { json, elements, stats } | { error }
 //   answer(needs, elements) -> facts for the core (`hitTests` -> `hits`)
 //   idOf(el, elements)      -> the element's snapshot id (0 when absent)
@@ -195,8 +195,8 @@ function __snapStyleRuleAppliesToLiveMatches(rule, matches) {
   const style = rule?.style;
   if (!style || !matches?.length || typeof getComputedStyle !== 'function') return false;
   const sequence = ++__snapContainerProbeSequence;
-  const property = `--impeccable-container-probe-${sequence}-${Math.random().toString(36).slice(2)}`;
-  const value = `impeccable-container-active-${sequence}`;
+  const property = `--impeccino-container-probe-${sequence}-${Math.random().toString(36).slice(2)}`;
+  const value = `impeccino-container-active-${sequence}`;
   const previousValue = style.getPropertyValue(property);
   const previousPriority = style.getPropertyPriority(property);
   try { style.setProperty(property, value, 'important'); }
@@ -543,7 +543,7 @@ function __createDrawableIO() {
   };
 }
 
-const __impeccableSnapshot = {
+const __impeccinoSnapshot = {
   STYLE_PROPS: __SNAP_STYLE_PROPS,
   PSEUDO_PROPS: __SNAP_PSEUDO_PROPS,
   STATE_PSEUDOS: __SNAP_STATE_PSEUDOS,
@@ -551,7 +551,7 @@ const __impeccableSnapshot = {
   // Serialize the page. `options.maxElements` / `options.maxBytes` are the
   // guards (defaults 30k elements / 48 MB); `options.exclude(el)` skips a
   // subtree (the extension passes its own overlay nodes, exactly the nodes
-  // the rules skip through their `.impeccable-*` selectors anyway).
+  // the rules skip through their `.impeccino-*` selectors anyway).
   capture(options = {}) {
     const t0 = performance.now();
     const maxElements = options.maxElements || __SNAP_DEFAULT_MAX_ELEMENTS;
@@ -667,7 +667,7 @@ const __impeccableSnapshot = {
 
     // 3. Document-level facts.
     const docClone = root.cloneNode(true);
-    for (const node of docClone.querySelectorAll('[id^="impeccable-live-"]')) node.remove();
+    for (const node of docClone.querySelectorAll('[id^="impeccino-live-"]')) node.remove();
     const body = document.body;
     let bodyInnerText = null;
     if (body) {

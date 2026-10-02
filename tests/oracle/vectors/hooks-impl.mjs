@@ -61,8 +61,8 @@ export async function load(url, context, nextLoad) {
   let lastEnd = 0, m;
   while ((m = importRe.exec(source))) lastEnd = m.index + m[0].length;
   const inject = [
-    `\nimport { __wrap as __impeccableWrap } from ${JSON.stringify(new URL('./recorder.mjs', import.meta.url).href)};`,
-    ...wrapped.map(n => `const ${n} = __impeccableWrap(${JSON.stringify(modName)}, ${JSON.stringify(n)}, __orig_${n});`),
+    `\nimport { __wrap as __impeccinoWrap } from ${JSON.stringify(new URL('./recorder.mjs', import.meta.url).href)};`,
+    ...wrapped.map(n => `const ${n} = __impeccinoWrap(${JSON.stringify(modName)}, ${JSON.stringify(n)}, __orig_${n});`),
     '',
   ].join('\n');
   // Names that were `export function X` need an explicit export now.

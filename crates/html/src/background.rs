@@ -6,12 +6,12 @@
 
 use crate::cascade::StyleValues;
 use crate::dom::StaticElement;
-use impeccable_core::checks::measures::{parse_color_resolved, parse_radius_to_px, CustomProps};
-use impeccable_core::color::{
+use impeccino_core::checks::measures::{parse_color_resolved, parse_radius_to_px, CustomProps};
+use impeccino_core::color::{
     composite_color_over, is_no_paint_color_value, parse_any_color, parse_gradient_colors,
     parse_rgb, split_top_level_commas, Rgba,
 };
-use impeccable_core::js;
+use impeccino_core::js;
 use once_cell::sync::Lazy;
 use regex::Regex;
 

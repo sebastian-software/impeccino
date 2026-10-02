@@ -1,9 +1,9 @@
-//! Port of `cli/bin/commands/ignores.mjs`: `impeccable ignores <action>`.
+//! Port of `cli/bin/commands/ignores.mjs`: `impeccino ignores <action>`.
 //! Errors the JS throws surface through `cli.js`'s catch as the message on
 //! stderr with exit 1; `run` returns that exit code.
 
-use impeccable_common::Io;
-use impeccable_core::js;
+use impeccino_common::Io;
+use impeccino_core::js;
 
 use crate::config::{
     get_config_path, get_local_config_path, normalize_ignore_value, read_detection_config,
@@ -12,9 +12,9 @@ use crate::config::{
 };
 use crate::jsp;
 
-const USAGE: &str = "Usage: impeccable ignores <action> [options]
+const USAGE: &str = "Usage: impeccino ignores <action> [options]
 
-Manage detector ignores in .impeccable config.
+Manage detector ignores in .impeccino config.
 
 Actions:
   list                                  Show merged, shared, and local ignores
@@ -27,8 +27,8 @@ Actions:
   clear                                 Clear detector ignores in the selected scope
 
 Scope:
-  --shared                              Write .impeccable/config.json (default)
-  --local                               Write .impeccable/config.local.json
+  --shared                              Write .impeccino/config.json (default)
+  --local                               Write .impeccino/config.local.json
   --all                                 For remove/clear, apply to shared and local
 
 Value options:
@@ -36,10 +36,10 @@ Value options:
   --reason <text>                       Store or update a reason on add-value
 
 Examples:
-  impeccable ignores add-file \"src/legacy/**\"
-  impeccable ignores add-value overused-font Inter --reason \"Brand font\"
-  impeccable ignores add-value design-system-color \"*\" --file \"src/demo.css\"
-  impeccable ignores remove-value overused-font Inter
+  impeccino ignores add-file \"src/legacy/**\"
+  impeccino ignores add-value overused-font Inter --reason \"Brand font\"
+  impeccino ignores add-value design-system-color \"*\" --file \"src/demo.css\"
+  impeccino ignores remove-value overused-font Inter
 ";
 
 fn action_for(arg: &str) -> Option<&'static str> {
@@ -148,7 +148,7 @@ fn parse_value_args(args: &[String], allow_unscoped_wildcard: bool) -> R<ValueAr
     let value = normalize_ignore_value(&positionals.get(1..).unwrap_or(&[]).join(" "));
     if rule.is_empty() || value.is_empty() {
         return Err(
-            "Pass a rule id and value, e.g. impeccable ignores add-value overused-font Inter"
+            "Pass a rule id and value, e.g. impeccino ignores add-value overused-font Inter"
                 .to_string(),
         );
     }
@@ -230,7 +230,7 @@ fn list(cwd: &str) -> String {
     let shared = read_raw_detection_config(cwd, false);
     let local = read_raw_detection_config(cwd, true);
     [
-        "Impeccable detector ignores".to_string(),
+        "Impeccino detector ignores".to_string(),
         format!("  shared file: {}", rel_or_abs(cwd, &get_config_path(cwd))),
         format!(
             "  local file:  {}",
@@ -283,7 +283,7 @@ fn add_rule(cwd: &str, args: &[String]) -> R<String> {
     let scope = parse_scope(args, false)?;
     let (rule, all_values) = parse_rule_args(&scope.rest)?;
     if rule.is_empty() {
-        return Err("Pass a rule id, e.g. impeccable ignores add-rule side-tab".to_string());
+        return Err("Pass a rule id, e.g. impeccino ignores add-rule side-tab".to_string());
     }
     if rule == "overused-font" && !all_values {
         return Err("overused-font is value-specific by default. Use add-value overused-font <font>, or add-rule overused-font --all-values for broad suppression.".to_string());
@@ -304,7 +304,7 @@ fn add_file(cwd: &str, args: &[String]) -> R<String> {
     let scope = parse_scope(args, false)?;
     let glob = js::trim(scope.rest.first().map(String::as_str).unwrap_or("")).to_string();
     if glob.is_empty() {
-        return Err("Pass a glob, e.g. impeccable ignores add-file \"src/legacy/**\"".to_string());
+        return Err("Pass a glob, e.g. impeccino ignores add-file \"src/legacy/**\"".to_string());
     }
     let mut config = read_raw_detection_config(cwd, scope.local);
     if !config.ignore_files.contains(&glob) {
@@ -382,7 +382,7 @@ fn add_value(cwd: &str, args: &[String]) -> R<String> {
     // produce for this rule would silently match nothing (issue #662).
     if parsed.value != "*" && synthetic_ignore_value(&parsed.rule, &parsed.value).is_empty() {
         return Err(format!(
-            "{rule} has no extractable ignore value. Use impeccable ignores add-value {rule} \"*\" --file <glob> to suppress it in matching files.",
+            "{rule} has no extractable ignore value. Use impeccino ignores add-value {rule} \"*\" --file <glob> to suppress it in matching files.",
             rule = parsed.rule
         ));
     }
@@ -461,7 +461,7 @@ fn remove_rule(cwd: &str, args: &[String]) -> R<String> {
     remove_from_scopes(cwd, args, |config, rest| {
         let rule = js::to_lower_case(js::trim(rest.first().map(String::as_str).unwrap_or("")));
         if rule.is_empty() {
-            return Err("Pass a rule id, e.g. impeccable ignores remove-rule side-tab".to_string());
+            return Err("Pass a rule id, e.g. impeccino ignores remove-rule side-tab".to_string());
         }
         let before = config.ignore_rules.len();
         config.ignore_rules.retain(|e| *e != rule);
@@ -474,7 +474,7 @@ fn remove_file(cwd: &str, args: &[String]) -> R<String> {
         let glob = js::trim(rest.first().map(String::as_str).unwrap_or("")).to_string();
         if glob.is_empty() {
             return Err(
-                "Pass a glob, e.g. impeccable ignores remove-file \"src/legacy/**\"".to_string(),
+                "Pass a glob, e.g. impeccino ignores remove-file \"src/legacy/**\"".to_string(),
             );
         }
         let before = config.ignore_files.len();
@@ -537,7 +537,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     }
     let Some(action) = action_for(action_arg) else {
         io.err(&format!(
-            "Unknown ignores action: {action_arg}. Run \"impeccable ignores --help\".\n"
+            "Unknown ignores action: {action_arg}. Run \"impeccino ignores --help\".\n"
         ));
         return 1;
     };

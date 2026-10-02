@@ -1,9 +1,9 @@
-//! JS: skill/scripts/hook.mjs (`impeccable hook`) and hook-lib.mjs
+//! JS: skill/scripts/hook.mjs (`impeccino hook`) and hook-lib.mjs
 //! `runHook` / `runStopHook`: the PostToolUse per-edit pass and the Stop deep
 //! pass. Always exits 0; stdout is one JSON document or nothing.
 
-use impeccable_core::findings::Finding;
-use impeccable_core::js;
+use impeccino_core::findings::Finding;
+use impeccino_core::js;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 
@@ -69,7 +69,7 @@ pub fn run_hook(rt: &Runtime, stdin: &str) -> RunResult {
     audit.insert("ts".into(), Value::String(iso_now()));
     audit.insert("event".into(), Value::String("PostToolUse".into()));
 
-    if depth_is_set(rt.env("IMPECCABLE_HOOK_DEPTH")) || depth_is_set(rt.env("CLAUDE_HOOK_DEPTH")) {
+    if depth_is_set(rt.env("IMPECCINO_HOOK_DEPTH")) || depth_is_set(rt.env("CLAUDE_HOOK_DEPTH")) {
         return result(
             &audit,
             vec![
@@ -78,7 +78,7 @@ pub fn run_hook(rt: &Runtime, stdin: &str) -> RunResult {
             ],
         );
     }
-    if truthy(rt.env("IMPECCABLE_HOOK_DISABLED")) {
+    if truthy(rt.env("IMPECCINO_HOOK_DISABLED")) {
         return result(
             &audit,
             vec![
@@ -182,7 +182,7 @@ pub fn run_hook(rt: &Runtime, stdin: &str) -> RunResult {
     let mut suppression_winner: Option<String> = None;
     let mut clean_ack_deduped = false;
     let mut skipped_bytes: u64 = 0;
-    let quiet_mode = truthy(rt.env("IMPECCABLE_HOOK_QUIET")) || config.quiet;
+    let quiet_mode = truthy(rt.env("IMPECCINO_HOOK_QUIET")) || config.quiet;
     let mut detector_threw_any = false;
     let mut last_skip = "no-scannable-file";
     let mut live_preview_edit: Option<String> = None;
@@ -467,16 +467,16 @@ pub fn run_hook(rt: &Runtime, stdin: &str) -> RunResult {
         }
     }
 
-    // JS: an already-present `.impeccable/` dir marks a project that opted
+    // JS: an already-present `.impeccino/` dir marks a project that opted
     // in (issues #344, #305). An existing cache file also counts as opted
-    // in: under IMPECCABLE_CACHE_ROOT (issue #422) state lives outside the
+    // in: under IMPECCINO_CACHE_ROOT (issue #422) state lives outside the
     // project, so the project dir alone can't carry the marker — without
     // this, clean-edit editCount bumps would stop persisting the moment
     // state relocates. Under stock paths the cache sits inside
-    // `.impeccable/`, so the extra check changes nothing there.
+    // `.impeccino/`, so the extra check changes nothing there.
     if deferred_total > 0
         || (cache_dirty
-            && (exists(&jsp::join(&[&project_cwd, ".impeccable"])) || exists(&get_cache_path(&project_cwd))))
+            && (exists(&jsp::join(&[&project_cwd, ".impeccino"])) || exists(&get_cache_path(&project_cwd))))
     {
         persist_cache(rt, &project_cwd, &cache);
     }
@@ -593,7 +593,7 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
     audit.insert("ts".into(), Value::String(iso_now()));
     audit.insert("event".into(), Value::String("Stop".into()));
 
-    if depth_is_set(rt.env("IMPECCABLE_HOOK_DEPTH")) || depth_is_set(rt.env("CLAUDE_HOOK_DEPTH")) {
+    if depth_is_set(rt.env("IMPECCINO_HOOK_DEPTH")) || depth_is_set(rt.env("CLAUDE_HOOK_DEPTH")) {
         return result(
             &audit,
             vec![
@@ -602,7 +602,7 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
             ],
         );
     }
-    if truthy(rt.env("IMPECCABLE_HOOK_DISABLED")) {
+    if truthy(rt.env("IMPECCINO_HOOK_DISABLED")) {
         return result(
             &audit,
             vec![
@@ -882,8 +882,8 @@ fn is_stop_event(stdin: &str) -> bool {
     }
 }
 
-/// `impeccable hook` (hook.mjs main). Returns the exit code (always 0).
-pub fn run(rt: &Runtime, stdin: &str, io: &mut impeccable_common::Io) -> i32 {
+/// `impeccino hook` (hook.mjs main). Returns the exit code (always 0).
+pub fn run(rt: &Runtime, stdin: &str, io: &mut impeccino_common::Io) -> i32 {
     if let Ok(Value::Object(event)) = serde_json::from_str::<Value>(stdin) {
         // Events only the retired build phase subscribed to (docs/adr/0012);
         // manifests from older installs may still deliver them.
@@ -891,7 +891,7 @@ pub fn run(rt: &Runtime, stdin: &str, io: &mut impeccable_common::Io) -> i32 {
             return 0;
         }
     }
-    // JS: process.env.IMPECCABLE_HOOK_DEPTH = process.env.IMPECCABLE_HOOK_DEPTH || '1'
+    // JS: process.env.IMPECCINO_HOOK_DEPTH = process.env.IMPECCINO_HOOK_DEPTH || '1'
     // is exported for child processes; this binary spawns none, so the
     // pre-mutation snapshot in `rt.env` is the only value that matters.
     let result = if is_stop_event(stdin) {

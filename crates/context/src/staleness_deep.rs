@@ -11,7 +11,7 @@ use regex::Regex;
 use serde_json::{Map, Value};
 
 const VISUAL_SOURCE_DIRS: [&str; 7] = ["src", "app", "pages", "components", "site", "styles", "public"];
-const LEGACY_LIVE_PATHS: [&str; 2] = [".impeccable-live.json", ".impeccable-live"];
+const LEGACY_LIVE_PATHS: [&str; 2] = [".impeccino-live.json", ".impeccino-live"];
 
 fn git(args: &[&str], cwd: &str) -> Option<String> {
     git_run(args, cwd, true, Some(5000))
@@ -83,7 +83,7 @@ fn has_coverage_value(v: Option<&Value>) -> bool {
     }
 }
 
-const SEED_MARKER_TAIL: &str = "impeccable document once there's code to capture the actual tokens and components. -->";
+const SEED_MARKER_TAIL: &str = "impeccino document once there's code to capture the actual tokens and components. -->";
 
 /// JS: checkDesignCoverage
 pub fn check_design_coverage(design: Option<&str>, design_path: Option<&str>) -> Vec<Finding> {
@@ -134,7 +134,7 @@ pub fn check_detector_ignores(project_root: &str, known_rule_ids: Option<&[Strin
         return out;
     }
     for name in ["config.json", "config.local.json"] {
-        let fp = jsp::join(&[project_root, ".impeccable", name]);
+        let fp = jsp::join(&[project_root, ".impeccino", name]);
         let Some(raw) = read_json(&fp) else { continue };
         let Some(detector) = raw.get("detector") else { continue };
         if !js_truthy(detector) || !(detector.is_object() || detector.is_array()) {
@@ -279,7 +279,7 @@ pub fn check_hook_installation(project_root: &str, repo_root: Option<&str>, prov
                         ia,
                         broken.iter().map(|c| format!("`{}`", c)).collect::<Vec<_>>().join(", ")
                     ),
-                    "Reinstall with `impeccable hooks on`, which rewrites the manifest against the skill's current location.".to_string(),
+                    "Reinstall with `impeccino hooks on`, which rewrites the manifest against the skill's current location.".to_string(),
                 ));
             }
         }
@@ -287,7 +287,7 @@ pub fn check_hook_installation(project_root: &str, repo_root: Option<&str>, prov
     if let Some(ia) = installed_at {
         for root in &roots {
             for name in ["config.json", "config.local.json"] {
-                let cp = jsp::join(&[root, ".impeccable", name]);
+                let cp = jsp::join(&[root, ".impeccino", name]);
                 let Some(raw) = read_json(&cp) else { continue };
                 let Some(hook) = raw.get("hook") else { continue };
                 if js_truthy(hook) && hook.get("enabled") == Some(&Value::Bool(false)) {
@@ -301,7 +301,7 @@ pub fn check_hook_installation(project_root: &str, repo_root: Option<&str>, prov
                             "{} installs the design hook while this config sets `hook.enabled: false`, so the hook fires and then declines to scan.",
                             ia
                         ),
-                        "Ask which was intended: `impeccable hooks on` to enable, or `impeccable hooks off` to uninstall the manifest entry as well.".to_string(),
+                        "Ask which was intended: `impeccino hooks on` to enable, or `impeccino hooks off` to uninstall the manifest entry as well.".to_string(),
                     ));
                     return out;
                 }
@@ -326,7 +326,7 @@ pub fn check_legacy_live_state(project_root: &str) -> Vec<Finding> {
         Some(present.join(", ")),
         "auto",
         format!(
-            "Live-mode state sits in retired location(s): {}. Current live mode writes under `.impeccable/live/`.",
+            "Live-mode state sits in retired location(s): {}. Current live mode writes under `.impeccino/live/`.",
             present.iter().map(|r| format!("`{}`", r)).collect::<Vec<_>>().join(", ")
         ),
         "These are read only through backward-compatible fallbacks and are safe to delete once no live session is running. No user decision is needed.".to_string(),
@@ -430,7 +430,7 @@ pub fn check_workspaces(repo_root: &str, candidates: &[TargetCandidate]) -> (Vec
 
 /// JS: loadKnownRuleIds -> the bundled registry, lowercased ids.
 pub fn load_known_rule_ids() -> Option<Vec<String>> {
-    Some(impeccable_core::registry::ANTIPATTERNS.iter().map(|r| r.id.to_lowercase()).collect())
+    Some(impeccino_core::registry::ANTIPATTERNS.iter().map(|r| r.id.to_lowercase()).collect())
 }
 
 #[cfg(test)]
@@ -441,7 +441,7 @@ mod tests {
 
     fn tmp() -> String {
         let base = std::env::temp_dir().join(format!(
-            "impeccable-doctor-hook-{}-{}-{}",
+            "impeccino-doctor-hook-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
             // A per-process counter: Windows' clock is coarse enough that two
@@ -467,11 +467,11 @@ mod tests {
     fn hook_script_missing_resolves_launcher_and_legacy_forms() {
         let root = tmp();
         // Launcher form pointing at a launcher that exists: no finding.
-        write(&root, ".claude/skills/impeccable/scripts/impeccable", "#!/bin/sh\n");
+        write(&root, ".claude/skills/impeccino/scripts/impeccino", "#!/bin/sh\n");
         write(
             &root,
             ".claude/settings.local.json",
-            r#"{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook"}]}]}}"#,
+            r#"{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook"}]}]}}"#,
         );
         assert!(check_hook_installation(&root, None, "claude-code").is_empty());
 
@@ -479,7 +479,7 @@ mod tests {
         write(
             &root,
             ".claude/settings.local.json",
-            r#"{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"\"${CLAUDE_PROJECT_DIR}/.other/skills/impeccable/scripts/impeccable\" hook"}]}]}}"#,
+            r#"{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"\"${CLAUDE_PROJECT_DIR}/.other/skills/impeccino/scripts/impeccino\" hook"}]}]}}"#,
         );
         let f = check_hook_installation(&root, None, "claude-code");
         assert_eq!(f.len(), 1, "{f:?}");
@@ -489,11 +489,11 @@ mod tests {
         write(
             &root,
             ".claude/settings.local.json",
-            r#"{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs\""}]}]}}"#,
+            r#"{"hooks":{"PostToolUse":[{"hooks":[{"type":"command","command":"node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\""}]}]}}"#,
         );
         let f = check_hook_installation(&root, None, "claude-code");
         assert_eq!(f.len(), 1, "{f:?}");
-        write(&root, ".claude/skills/impeccable/scripts/hook.mjs", "");
+        write(&root, ".claude/skills/impeccino/scripts/hook.mjs", "");
         assert!(check_hook_installation(&root, None, "claude-code").is_empty());
         let _ = std::fs::remove_dir_all(&root);
     }

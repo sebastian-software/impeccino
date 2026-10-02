@@ -1,5 +1,5 @@
-//! `impeccable detect <url>` through agent-browser. The browser tests need
-//! `agent-browser` on PATH (or `IMPECCABLE_AGENT_BROWSER`) and skip without
+//! `impeccino detect <url>` through agent-browser. The browser tests need
+//! `agent-browser` on PATH (or `IMPECCINO_AGENT_BROWSER`) and skip without
 //! it; the scan logic itself is covered without a browser in
 //! `src/page_scan` unit tests.
 
@@ -9,7 +9,7 @@ use std::process::{Command, Output};
 use serde_json::Value;
 
 fn bin() -> &'static str {
-    env!("CARGO_BIN_EXE_impeccable")
+    env!("CARGO_BIN_EXE_impeccino")
 }
 
 fn fixture_url(name: &str) -> String {
@@ -18,13 +18,13 @@ fn fixture_url(name: &str) -> String {
 }
 
 fn temp_project(tag: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("impeccable-page-scan-{tag}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("impeccino-page-scan-{tag}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
 
 fn has_agent_browser() -> bool {
-    let bin = std::env::var("IMPECCABLE_AGENT_BROWSER").unwrap_or_else(|_| "agent-browser".into());
+    let bin = std::env::var("IMPECCINO_AGENT_BROWSER").unwrap_or_else(|_| "agent-browser".into());
     let found = Command::new(bin).arg("--version").output().is_ok_and(|o| o.status.success());
     if !found {
         eprintln!("skipped: agent-browser is not installed");
@@ -53,7 +53,7 @@ fn a_missing_agent_browser_is_reported_with_how_to_install_it() {
     let out = Command::new(bin())
         .args(["detect", "http://localhost:3000/"])
         .current_dir(&project)
-        .env("IMPECCABLE_AGENT_BROWSER", project.join("no-such-agent-browser"))
+        .env("IMPECCINO_AGENT_BROWSER", project.join("no-such-agent-browser"))
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
@@ -83,8 +83,8 @@ fn project_ignores_apply_to_page_findings() {
         return;
     }
     let project = temp_project("ignore");
-    std::fs::create_dir_all(project.join(".impeccable")).unwrap();
-    std::fs::write(project.join(".impeccable/config.json"), r#"{"detector":{"ignoreRules":["line-length"]}}"#).unwrap();
+    std::fs::create_dir_all(project.join(".impeccino")).unwrap();
+    std::fs::write(project.join(".impeccino/config.json"), r#"{"detector":{"ignoreRules":["line-length"]}}"#).unwrap();
     let (_, findings) = detect(&project, &fixture_url("quality.html"));
     assert!(!findings.is_empty());
     assert!(!ids(&findings).contains(&"line-length"));

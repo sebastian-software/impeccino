@@ -1,7 +1,7 @@
 //! The shared half of the in-page rule set: the DOM probe trait every engine
 //! implements ([`dom::Dom`]), the snapshot implementation and its selector
 //! engine, the test fake, and the plain-data types the browser checks take
-//! in and hand back. The checks themselves live in `impeccable-core`.
+//! in and hand back. The checks themselves live in `impeccino-core`.
 //!
 //! - `dom`: the [`dom::Dom`] trait, `ElId`, `Rect`, shared helpers.
 //! - `snapshot`: [`snapshot::SnapshotDom`], the trait over a serialized page
@@ -76,7 +76,7 @@ pub struct FindingGroup {
     pub findings: Vec<BrowserFinding>,
 }
 
-/// One `{ rule, value }` entry of `window.__IMPECCABLE_CONFIG__.disabledValues`:
+/// One `{ rule, value }` entry of `window.__IMPECCINO_CONFIG__.disabledValues`:
 /// a project `ignoreValues` waiver the live overlay resolved for this page
 /// (live-browser-ignores.js) and forwarded for the scan to apply where the
 /// findings are assembled. Rule and value are carried raw; the driver
@@ -88,7 +88,7 @@ pub struct DisabledValue {
 }
 
 /// JS `.filter(e => e && typeof e === 'object' && e.rule && e.value)` over
-/// whatever the page put on the config. `__IMPECCABLE_CONFIG__` arrives in
+/// whatever the page put on the config. `__IMPECCINO_CONFIG__` arrives in
 /// whatever state it was written in, so a hand-edited entry of the wrong
 /// shape is dropped rather than failing the parse of the whole config.
 fn de_disabled_values<'de, D>(de: D) -> Result<Vec<DisabledValue>, D::Error>
@@ -128,32 +128,32 @@ where
 }
 
 /// What the bundle passes into `collectBrowserFindings`: extension mode and
-/// the relevant slice of `window.__IMPECCABLE_CONFIG__`.
+/// the relevant slice of `window.__IMPECCINO_CONFIG__`.
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrowserConfig {
     #[serde(default)]
     pub extension_mode: bool,
-    /// `window.__IMPECCABLE_CONFIG__?.disabledRules || []` (only honored in
+    /// `window.__IMPECCINO_CONFIG__?.disabledRules || []` (only honored in
     /// extension mode, exactly as the JS reads it).
     #[serde(default)]
     pub disabled_rules: Vec<String>,
-    /// `window.__IMPECCABLE_CONFIG__?.disabledValues || []` (only honored in
+    /// `window.__IMPECCINO_CONFIG__?.disabledValues || []` (only honored in
     /// extension mode, exactly as the JS reads it). `disabled_rules` waives
     /// whole rules; these waive one reported value of one rule, which is how
     /// a project entry like `overused-font = "geist mono"` reaches the
     /// overlay. Serialized as `disabledValues`.
     #[serde(default, deserialize_with = "de_disabled_values")]
     pub disabled_values: Vec<DisabledValue>,
-    /// `window.__IMPECCABLE_CONFIG__?.skipScan === true` (only honored in
+    /// `window.__IMPECCINO_CONFIG__?.skipScan === true` (only honored in
     /// extension mode): the page is waived wholesale by detector.ignoreFiles,
     /// so every scan stage answers empty.
     #[serde(default)]
     pub skip_scan: bool,
-    /// `window.__IMPECCABLE_CONFIG__?.designSystem`, raw.
+    /// `window.__IMPECCINO_CONFIG__?.designSystem`, raw.
     #[serde(default)]
     pub design_system: Option<serde_json::Value>,
-    /// `window.__IMPECCABLE_CONFIG__?.lineLengthMax` (any JSON value; the JS
+    /// `window.__IMPECCINO_CONFIG__?.lineLengthMax` (any JSON value; the JS
     /// applies `|| 80`).
     #[serde(default)]
     pub line_length_max: Option<serde_json::Value>,
@@ -166,7 +166,7 @@ pub struct BrowserConfig {
 }
 
 impl BrowserConfig {
-    /// JS `(window.__IMPECCABLE_CONFIG__?.lineLengthMax) || 80`.
+    /// JS `(window.__IMPECCINO_CONFIG__?.lineLengthMax) || 80`.
     pub fn line_max(&self) -> f64 {
         match &self.line_length_max {
             Some(serde_json::Value::Number(n)) => {

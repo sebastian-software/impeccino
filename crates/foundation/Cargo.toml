@@ -1,5 +1,5 @@
 [package]
-name = "impeccable-foundation"
+name = "impeccino-foundation"
 version.workspace = true
 edition = "2021"
 # The helpers and plain-data types every rule check is written against.
@@ -9,7 +9,7 @@ publish.workspace = true
 [features]
 default = []
 # Vector dispatcher for this crate's arms of the recorded JS call vectors.
-# `impeccable-core`'s own `vectors` feature turns this on.
+# `impeccino-core`'s own `vectors` feature turns this on.
 vectors = []
 # The table-driven fake DOM for browser-rule tests.
 fake-dom = []

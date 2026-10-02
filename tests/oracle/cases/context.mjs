@@ -14,7 +14,7 @@
  *   ctx-monorepo       pnpm-workspace + apps/a (own PRODUCT/DESIGN) + apps/b (inherits) + projectRoots
  *   ctx-legacy         unstamped PRODUCT.md with ## Register, DESIGN.json sidecar v1, bad config, orphan brief
  *   ctx-signals        git-initialised in setup() with fixed author/committer dates
- *   ctx-pin            .claude/.agents/.cursor skills dirs with impeccable installed
+ *   ctx-pin            .claude/.agents/.cursor skills dirs with impeccino installed
  *
  * Only offline, deterministic paths are exercised: no roll API and no listening
  * server. Env vars that would change behaviour on the
@@ -35,29 +35,29 @@ const REPO = '<REPO>';
 // Env the recording machine may carry that would leak into output.
 const BASE_ENV = {
   OPENAI_API_KEY: null,
-  IMPECCABLE_CONTEXT_DIR: null,
-  IMPECCABLE_CATALOG_DIR: null,
-  IMPECCABLE_API_URL: null,
-  IMPECCABLE_STALENESS_CACHE: null,
-  IMPECCABLE_UPDATE_CACHE: null,
-  IMPECCABLE_NO_STALENESS_CHECK: null,
-  IMPECCABLE_HOOK_DISABLED: null,
-  IMPECCABLE_PROVIDER_ID: null,
+  IMPECCINO_CONTEXT_DIR: null,
+  IMPECCINO_CATALOG_DIR: null,
+  IMPECCINO_API_URL: null,
+  IMPECCINO_STALENESS_CACHE: null,
+  IMPECCINO_UPDATE_CACHE: null,
+  IMPECCINO_NO_STALENESS_CHECK: null,
+  IMPECCINO_HOOK_DISABLED: null,
+  IMPECCINO_PROVIDER_ID: null,
   OPENCODE_CONFIG_DIR: null,
   XDG_CONFIG_HOME: null,
-  IMPECCABLE_PALETTE_SEED: null,
-  IMPECCABLE_CONCEPT_SEED: null,
-  IMPECCABLE_COMPOSITIONS: null,
-  IMPECCABLE_IMAGE_GEN_FAKE: null,
-  IMPECCABLE_QUESTION_DISABLED: null,
-  IMPECCABLE_QUESTION_FORCE: null,
-  IMPECCABLE_CRITIQUE_META: null,
+  IMPECCINO_PALETTE_SEED: null,
+  IMPECCINO_CONCEPT_SEED: null,
+  IMPECCINO_COMPOSITIONS: null,
+  IMPECCINO_IMAGE_GEN_FAKE: null,
+  IMPECCINO_QUESTION_DISABLED: null,
+  IMPECCINO_QUESTION_FORCE: null,
+  IMPECCINO_CRITIQUE_META: null,
   CI: null,
   SSH_CONNECTION: null,
 };
 const env = (extra = {}) => ({ ...BASE_ENV, ...extra });
 
-const IMPECCABLE_FILES = ['.impeccable/**', 'PRODUCT.md', 'DESIGN.md', 'DESIGN.json', '.impeccable-live.json'];
+const IMPECCINO_FILES = ['.impeccino/**', 'PRODUCT.md', 'DESIGN.md', 'DESIGN.json', '.impeccino-live.json'];
 
 // ---- setup helpers ---------------------------------------------------------
 
@@ -80,7 +80,7 @@ const claudeStopHook = (ws, rel) => write(
   ws,
   path.join(rel, '.claude/settings.local.json'),
   JSON.stringify({
-    hooks: { Stop: [{ hooks: [{ command: '.claude/skills/impeccable/scripts/impeccable hook' }] }] },
+    hooks: { Stop: [{ hooks: [{ command: '.claude/skills/impeccino/scripts/impeccino hook' }] }] },
   }) + '\n',
 );
 
@@ -89,13 +89,13 @@ const claudeStopHook = (ws, rel) => write(
 const T_OLD = new Date('2026-01-01T00:00:00Z');
 const T_NEW = new Date('2026-06-01T00:00:00Z');
 const touch = (abs, when) => { if (fs.existsSync(abs)) fs.utimesSync(abs, when, when); };
-const sidecarNewer = (ws) => { touch(path.join(ws, 'DESIGN.md'), T_OLD); touch(path.join(ws, '.impeccable/design.json'), T_NEW); };
-const sidecarOlder = (ws) => { touch(path.join(ws, 'DESIGN.md'), T_NEW); touch(path.join(ws, 'DESIGN.json'), T_OLD); touch(path.join(ws, '.impeccable/design.json'), T_OLD); };
+const sidecarNewer = (ws) => { touch(path.join(ws, 'DESIGN.md'), T_OLD); touch(path.join(ws, '.impeccino/design.json'), T_NEW); };
+const sidecarOlder = (ws) => { touch(path.join(ws, 'DESIGN.md'), T_NEW); touch(path.join(ws, 'DESIGN.json'), T_OLD); touch(path.join(ws, '.impeccino/design.json'), T_OLD); };
 
-// ctx-legacy carries `.impeccable-live.json` (gitignored in this repo, so it
+// ctx-legacy carries `.impeccino-live.json` (gitignored in this repo, so it
 // is written at stage time) and a DESIGN.md newer than its legacy sidecar.
 const legacySetup = (ws) => {
-  write(ws, '.impeccable-live.json', JSON.stringify({ port: 4310, sessions: [] }, null, 2) + '\n');
+  write(ws, '.impeccino-live.json', JSON.stringify({ port: 4310, sessions: [] }, null, 2) + '\n');
   sidecarOlder(ws);
 };
 
@@ -159,52 +159,52 @@ const imagesSetup = (ws) => {
 };
 
 const CATALOG = `${REPO}/tests/fixtures/concept-catalog`;
-const seedEnv = (extra = {}) => env({ IMPECCABLE_CATALOG_DIR: CATALOG, IMPECCABLE_API_URL: 'http://127.0.0.1:9/api', IMPECCABLE_API_TIMEOUT: '300', ...extra });
-const degradedEnv = (extra = {}) => env({ IMPECCABLE_CATALOG_DIR: `${WS}/no-such-catalog`, IMPECCABLE_API_URL: 'http://127.0.0.1:9/api', IMPECCABLE_API_TIMEOUT: '300', ...extra });
+const seedEnv = (extra = {}) => env({ IMPECCINO_CATALOG_DIR: CATALOG, IMPECCINO_API_URL: 'http://127.0.0.1:9/api', IMPECCINO_API_TIMEOUT: '300', ...extra });
+const degradedEnv = (extra = {}) => env({ IMPECCINO_CATALOG_DIR: `${WS}/no-such-catalog`, IMPECCINO_API_URL: 'http://127.0.0.1:9/api', IMPECCINO_API_TIMEOUT: '300', ...extra });
 
 
 const cases = [
   // ======================================================================
   // context
   // ======================================================================
-  { id: 'context-empty', verb: 'context', workspace: 'ctx-empty', env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-visual-only', verb: 'context', workspace: 'ctx-visual-only', env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-product-only', verb: 'context', workspace: 'ctx-product-only', env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-full', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, env: env(), files: IMPECCABLE_FILES },
+  { id: 'context-empty', verb: 'context', workspace: 'ctx-empty', env: env(), files: IMPECCINO_FILES },
+  { id: 'context-visual-only', verb: 'context', workspace: 'ctx-visual-only', env: env(), files: IMPECCINO_FILES },
+  { id: 'context-product-only', verb: 'context', workspace: 'ctx-product-only', env: env(), files: IMPECCINO_FILES },
+  { id: 'context-full', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, env: env(), files: IMPECCINO_FILES },
   // No agent-browser: context says so up front instead of the first `detect <url>` failing.
-  { id: 'context-no-agent-browser', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, env: env({ IMPECCABLE_AGENT_BROWSER: '<WS>/no-such-agent-browser' }), files: IMPECCABLE_FILES },
-  { id: 'context-full-target-brief', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target', 'src/pages/index.astro'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-full-target-related', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['-t', 'src/components/Hero.astro'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-full-target-route', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target=/pricing'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-full-target-missing-file', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target', 'src/pages/nope.astro'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-full-target-last-wins', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target', 'src/pages/nope.astro', '--target', 'src/pages/index.astro'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-full-from-subdir', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, cwd: 'src/pages', env: env(), files: IMPECCABLE_FILES },
+  { id: 'context-no-agent-browser', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, env: env({ IMPECCINO_AGENT_BROWSER: '<WS>/no-such-agent-browser' }), files: IMPECCINO_FILES },
+  { id: 'context-full-target-brief', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target', 'src/pages/index.astro'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-full-target-related', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['-t', 'src/components/Hero.astro'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-full-target-route', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target=/pricing'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-full-target-missing-file', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target', 'src/pages/nope.astro'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-full-target-last-wins', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target', 'src/pages/nope.astro', '--target', 'src/pages/index.astro'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-full-from-subdir', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, cwd: 'src/pages', env: env(), files: IMPECCINO_FILES },
   { id: 'context-target-missing-value', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target'], env: env() },
   { id: 'context-target-eq-empty', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target='], env: env() },
   { id: 'context-target-followed-by-flag', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target', '--help'], env: env() },
-  { id: 'context-native-ios', verb: 'context', workspace: 'ctx-native-ios', env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-adaptive', verb: 'context', workspace: 'ctx-adaptive', env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-bad-platform', verb: 'context', workspace: 'ctx-bad-platform', env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-monorepo-root', verb: 'context', workspace: 'ctx-monorepo', env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-monorepo-target-a', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'apps/a/src/App.tsx'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-monorepo-target-b-inherits', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'apps/b'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-monorepo-target-dot', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', '.'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-monorepo-target-missing', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'apps/zzz/src/App.tsx'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-monorepo-from-child-cwd', verb: 'context', workspace: 'ctx-monorepo', cwd: 'apps/b', env: env(), files: IMPECCABLE_FILES },
+  { id: 'context-native-ios', verb: 'context', workspace: 'ctx-native-ios', env: env(), files: IMPECCINO_FILES },
+  { id: 'context-adaptive', verb: 'context', workspace: 'ctx-adaptive', env: env(), files: IMPECCINO_FILES },
+  { id: 'context-bad-platform', verb: 'context', workspace: 'ctx-bad-platform', env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-root', verb: 'context', workspace: 'ctx-monorepo', env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-target-a', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'apps/a/src/App.tsx'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-target-b-inherits', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'apps/b'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-target-dot', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', '.'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-target-missing', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'apps/zzz/src/App.tsx'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-from-child-cwd', verb: 'context', workspace: 'ctx-monorepo', cwd: 'apps/b', env: env(), files: IMPECCINO_FILES },
   // #706: a bare child name resolves to the one workspace candidate with that
   // name; an absolutized single-segment path that does not exist takes the
   // same route; an ambiguous or unknown name still reports the miss.
-  { id: 'context-monorepo-target-bare-name', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'a'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-monorepo-target-bare-name-abs', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', `${WS}/b`], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-monorepo-target-bare-unknown', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'zzz'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-monorepo-target-bare-from-child-cwd', verb: 'context', workspace: 'ctx-monorepo', cwd: 'apps/b', args: ['--target', 'a'], env: env(), files: IMPECCABLE_FILES },
+  { id: 'context-monorepo-target-bare-name', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'a'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-target-bare-name-abs', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', `${WS}/b`], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-target-bare-unknown', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'zzz'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-target-bare-from-child-cwd', verb: 'context', workspace: 'ctx-monorepo', cwd: 'apps/b', args: ['--target', 'a'], env: env(), files: IMPECCINO_FILES },
   // #710: the hook manifest can live at an enclosing git root, the lifecycle
   // config beside it is honored, and an explicit target never borrows a
   // manifest from the caller or an outer workspace across a git boundary.
   {
     id: 'context-hook-at-enclosing-git-root', verb: 'context', workspace: 'ctx-empty', cwd: 'web',
     setup: (ws) => { gitBoundary(ws, '.'); write(ws, 'web/PRODUCT.md', '# Nested web product\n'); claudeStopHook(ws, '.'); },
-    env: env({ IMPECCABLE_PROVIDER_ID: 'claude-code' }),
+    env: env({ IMPECCINO_PROVIDER_ID: 'claude-code' }),
   },
   {
     id: 'context-hook-at-enclosing-git-root-disabled', verb: 'context', workspace: 'ctx-empty', cwd: 'web',
@@ -212,9 +212,9 @@ const cases = [
       gitBoundary(ws, '.');
       write(ws, 'web/PRODUCT.md', '# Nested web product\n');
       claudeStopHook(ws, '.');
-      write(ws, '.impeccable/config.local.json', JSON.stringify({ hook: { enabled: false } }) + '\n');
+      write(ws, '.impeccino/config.local.json', JSON.stringify({ hook: { enabled: false } }) + '\n');
     },
-    env: env({ IMPECCABLE_PROVIDER_ID: 'claude-code' }),
+    env: env({ IMPECCINO_PROVIDER_ID: 'claude-code' }),
   },
   {
     id: 'context-hook-not-borrowed-from-caller', verb: 'context', workspace: 'ctx-empty', cwd: 'apps/marketing',
@@ -229,7 +229,7 @@ const cases = [
       write(ws, 'apps/dashboard/src/App.jsx', 'export default function App() { return "dashboard"; }\n');
       claudeStopHook(ws, 'apps/marketing');
     },
-    env: env({ IMPECCABLE_PROVIDER_ID: 'claude-code' }),
+    env: env({ IMPECCINO_PROVIDER_ID: 'claude-code' }),
   },
   {
     id: 'context-hook-not-borrowed-across-nested-git', verb: 'context', workspace: 'ctx-empty',
@@ -243,7 +243,7 @@ const cases = [
       write(ws, 'repos/standalone/PRODUCT.md', '# Standalone\n');
       write(ws, 'repos/standalone/src/App.jsx', 'export default function App() { return "standalone"; }\n');
     },
-    env: env({ IMPECCABLE_PROVIDER_ID: 'claude-code' }),
+    env: env({ IMPECCINO_PROVIDER_ID: 'claude-code' }),
   },
   {
     id: 'context-markerless-nested-git-target', verb: 'context', workspace: 'ctx-empty',
@@ -256,75 +256,75 @@ const cases = [
       claudeStopHook(ws, '.');
       write(ws, 'repos/standalone/src/App.jsx', 'export default function App() { return "standalone"; }\n');
     },
-    env: env({ IMPECCABLE_PROVIDER_ID: 'claude-code' }),
+    env: env({ IMPECCINO_PROVIDER_ID: 'claude-code' }),
   },
-  { id: 'context-legacy', verb: 'context', workspace: 'ctx-legacy', setup: legacySetup, env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-hook-disabled-env', verb: 'context', workspace: 'ctx-product-only', env: env({ IMPECCABLE_HOOK_DISABLED: 'yes' }), files: IMPECCABLE_FILES },
+  { id: 'context-legacy', verb: 'context', workspace: 'ctx-legacy', setup: legacySetup, env: env(), files: IMPECCINO_FILES },
+  { id: 'context-hook-disabled-env', verb: 'context', workspace: 'ctx-product-only', env: env({ IMPECCINO_HOOK_DISABLED: 'yes' }), files: IMPECCINO_FILES },
   {
     id: 'context-hook-disabled-config', verb: 'context', workspace: 'ctx-product-only',
-    setup: (ws) => write(ws, '.impeccable/config.json', JSON.stringify({ hook: { enabled: false } }, null, 2) + '\n'),
-    env: env(), files: IMPECCABLE_FILES,
+    setup: (ws) => write(ws, '.impeccino/config.json', JSON.stringify({ hook: { enabled: false } }, null, 2) + '\n'),
+    env: env(), files: IMPECCINO_FILES,
   },
-  { id: 'context-openai-key', verb: 'context', workspace: 'ctx-product-only', env: env({ OPENAI_API_KEY: 'sk-oracle' }), files: IMPECCABLE_FILES },
-  { id: 'context-no-staleness-check-env', verb: 'context', workspace: 'ctx-legacy', setup: legacySetup, env: env({ IMPECCABLE_NO_STALENESS_CHECK: '1' }), files: IMPECCABLE_FILES },
+  { id: 'context-openai-key', verb: 'context', workspace: 'ctx-product-only', env: env({ OPENAI_API_KEY: 'sk-oracle' }), files: IMPECCINO_FILES },
+  { id: 'context-no-staleness-check-env', verb: 'context', workspace: 'ctx-legacy', setup: legacySetup, env: env({ IMPECCINO_NO_STALENESS_CHECK: '1' }), files: IMPECCINO_FILES },
   {
     id: 'context-no-staleness-check-config', verb: 'context', workspace: 'ctx-legacy',
-    setup: (ws) => { legacySetup(ws); write(ws, '.impeccable/config.local.json', JSON.stringify({ stalenessCheck: false }, null, 2) + '\n'); },
-    env: env(), files: IMPECCABLE_FILES,
+    setup: (ws) => { legacySetup(ws); write(ws, '.impeccino/config.local.json', JSON.stringify({ stalenessCheck: false }, null, 2) + '\n'); },
+    env: env(), files: IMPECCINO_FILES,
   },
   {
     // Tier-1 throttling: the first boot reports mention/route findings, the
     // second boot within a week reports only `auto` ones. Both steps share
     // the isolated HOME, so the notice cache carries between them.
-    id: 'context-staleness-throttle', verb: 'context', workspace: 'ctx-legacy', setup: legacySetup, env: env(), files: IMPECCABLE_FILES,
+    id: 'context-staleness-throttle', verb: 'context', workspace: 'ctx-legacy', setup: legacySetup, env: env(), files: IMPECCINO_FILES,
     steps: [{}, {}],
   },
   {
     id: 'context-staleness-cache-env', verb: 'context', workspace: 'ctx-legacy', setup: legacySetup,
-    env: env({ IMPECCABLE_STALENESS_CACHE: `${WS}/.oracle-cache/notice.json` }), files: [...IMPECCABLE_FILES, '.oracle-cache/**'],
+    env: env({ IMPECCINO_STALENESS_CACHE: `${WS}/.oracle-cache/notice.json` }), files: [...IMPECCINO_FILES, '.oracle-cache/**'],
     steps: [{}, {}],
   },
   {
     id: 'context-dir-override', verb: 'context', workspace: 'ctx-empty',
-    setup: (ws) => { write(ws, 'elsewhere/PRODUCT.md', '# Elsewhere\n\n<!-- impeccable:product-schema 1 -->\n\n## Platform\n\nweb\n\n## Positioning\nFound through IMPECCABLE_CONTEXT_DIR.\n'); write(ws, 'elsewhere/DESIGN.md', '# Design: Elsewhere\n\n## Colors\n- **Ink** (#111): Text.\n'); },
-    env: env({ IMPECCABLE_CONTEXT_DIR: `${WS}/elsewhere` }), files: IMPECCABLE_FILES,
+    setup: (ws) => { write(ws, 'elsewhere/PRODUCT.md', '# Elsewhere\n\n<!-- impeccino:product-schema 1 -->\n\n## Platform\n\nweb\n\n## Positioning\nFound through IMPECCINO_CONTEXT_DIR.\n'); write(ws, 'elsewhere/DESIGN.md', '# Design: Elsewhere\n\n## Colors\n- **Ink** (#111): Text.\n'); },
+    env: env({ IMPECCINO_CONTEXT_DIR: `${WS}/elsewhere` }), files: IMPECCINO_FILES,
   },
-  { id: 'context-dir-override-relative', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'ctx/PRODUCT.md', '# Rel\n\n<!-- impeccable:product-schema 1 -->\n\n## Positioning\nRelative override.\n'), env: env({ IMPECCABLE_CONTEXT_DIR: 'ctx' }), files: IMPECCABLE_FILES },
-  { id: 'context-dir-override-ignored-when-project-has-product', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'elsewhere/PRODUCT.md', '# Should not load\n'), env: env({ IMPECCABLE_CONTEXT_DIR: `${WS}/elsewhere` }), files: IMPECCABLE_FILES },
-  { id: 'context-dir-override-missing', verb: 'context', workspace: 'ctx-empty', env: env({ IMPECCABLE_CONTEXT_DIR: `${WS}/nowhere` }), files: IMPECCABLE_FILES },
+  { id: 'context-dir-override-relative', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'ctx/PRODUCT.md', '# Rel\n\n<!-- impeccino:product-schema 1 -->\n\n## Positioning\nRelative override.\n'), env: env({ IMPECCINO_CONTEXT_DIR: 'ctx' }), files: IMPECCINO_FILES },
+  { id: 'context-dir-override-ignored-when-project-has-product', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'elsewhere/PRODUCT.md', '# Should not load\n'), env: env({ IMPECCINO_CONTEXT_DIR: `${WS}/elsewhere` }), files: IMPECCINO_FILES },
+  { id: 'context-dir-override-missing', verb: 'context', workspace: 'ctx-empty', env: env({ IMPECCINO_CONTEXT_DIR: `${WS}/nowhere` }), files: IMPECCINO_FILES },
   {
     id: 'context-build-path-local-over-shared', verb: 'context', workspace: 'ctx-full',
-    setup: (ws) => { sidecarNewer(ws); write(ws, '.impeccable/config.local.json', JSON.stringify({ buildPath: 'code' }, null, 2) + '\n'); },
-    env: env(), files: IMPECCABLE_FILES,
+    setup: (ws) => { sidecarNewer(ws); write(ws, '.impeccino/config.local.json', JSON.stringify({ buildPath: 'code' }, null, 2) + '\n'); },
+    env: env(), files: IMPECCINO_FILES,
   },
   {
     id: 'context-build-path-invalid-ignored', verb: 'context', workspace: 'ctx-full',
-    setup: (ws) => { sidecarNewer(ws); write(ws, '.impeccable/config.local.json', JSON.stringify({ buildPath: 'fast' }, null, 2) + '\n'); },
-    env: env(), files: IMPECCABLE_FILES,
+    setup: (ws) => { sidecarNewer(ws); write(ws, '.impeccino/config.local.json', JSON.stringify({ buildPath: 'fast' }, null, 2) + '\n'); },
+    env: env(), files: IMPECCINO_FILES,
   },
-  { id: 'context-fallback-dir-docs', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'docs/PRODUCT.md', '# Docs product\n\n<!-- impeccable:product-schema 1 -->\n\n## Positioning\nLives under docs/.\n'), env: env(), files: IMPECCABLE_FILES },
+  { id: 'context-fallback-dir-docs', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'docs/PRODUCT.md', '# Docs product\n\n<!-- impeccino:product-schema 1 -->\n\n## Positioning\nLives under docs/.\n'), env: env(), files: IMPECCINO_FILES },
   // `product.md` is found through the case-insensitive lookup of PRODUCT.md on
   // macOS and Windows and reported under the canonical name; on a
   // case-sensitive file system the fallback scan finds it as `product.md`.
   // Both are right for their host, so the case runs only where the golden
   // was recorded.
-  { id: 'context-lowercase-product-name', platforms: ['darwin', 'win32'], verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'product.md', '# lower\n\n<!-- impeccable:product-schema 1 -->\n\n## Positioning\nLowercase filename.\n'), env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-design-only', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'DESIGN.md', '---\nname: Only\n---\n# Design: Only\n\n## Colors\n- **Ink** (#111): Text.\n'), env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-empty-platform-section', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccable:product-schema 1 -->\n\n## Platform\n\n## Positioning\nEmpty platform section.\n'), env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-android', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccable:product-schema 1 -->\n\n## Platform\n\nAndroid\n\n## Positioning\nNative android.\n'), env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-adaptive-word', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccable:product-schema 1 -->\n\n## Platform\n\nadaptive\n\n## Positioning\nAdaptive keyword.\n'), env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-native-evidence-web', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'ios/Podfile', "platform :ios, '15.0'\n"), env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-build-path-unset-with-surfaces', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccable/surfaces/src-app-tsx.md', '---\nversion: 1\nslug: "src-app-tsx"\nprimary_target: "src/App.tsx"\nrelated_targets: []\n---\n\n# Surface brief: App\n'), env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-project-roots-match-nothing', verb: 'context', workspace: 'ctx-monorepo', setup: (ws) => write(ws, '.impeccable/config.json', JSON.stringify({ projectRoots: ['services/*'] }, null, 2) + '\n'), env: env(), files: IMPECCABLE_FILES },
-  { id: 'context-hook-manifest-source-provider', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccable/scripts/hook.mjs' }] }] } }, null, 2) + '\n'), env: env(), files: IMPECCABLE_FILES },
+  { id: 'context-lowercase-product-name', platforms: ['darwin', 'win32'], verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'product.md', '# lower\n\n<!-- impeccino:product-schema 1 -->\n\n## Positioning\nLowercase filename.\n'), env: env(), files: IMPECCINO_FILES },
+  { id: 'context-design-only', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'DESIGN.md', '---\nname: Only\n---\n# Design: Only\n\n## Colors\n- **Ink** (#111): Text.\n'), env: env(), files: IMPECCINO_FILES },
+  { id: 'context-empty-platform-section', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccino:product-schema 1 -->\n\n## Platform\n\n## Positioning\nEmpty platform section.\n'), env: env(), files: IMPECCINO_FILES },
+  { id: 'context-android', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccino:product-schema 1 -->\n\n## Platform\n\nAndroid\n\n## Positioning\nNative android.\n'), env: env(), files: IMPECCINO_FILES },
+  { id: 'context-adaptive-word', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccino:product-schema 1 -->\n\n## Platform\n\nadaptive\n\n## Positioning\nAdaptive keyword.\n'), env: env(), files: IMPECCINO_FILES },
+  { id: 'context-native-evidence-web', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'ios/Podfile', "platform :ios, '15.0'\n"), env: env(), files: IMPECCINO_FILES },
+  { id: 'context-build-path-unset-with-surfaces', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccino/surfaces/src-app-tsx.md', '---\nversion: 1\nslug: "src-app-tsx"\nprimary_target: "src/App.tsx"\nrelated_targets: []\n---\n\n# Surface brief: App\n'), env: env(), files: IMPECCINO_FILES },
+  { id: 'context-project-roots-match-nothing', verb: 'context', workspace: 'ctx-monorepo', setup: (ws) => write(ws, '.impeccino/config.json', JSON.stringify({ projectRoots: ['services/*'] }, null, 2) + '\n'), env: env(), files: IMPECCINO_FILES },
+  { id: 'context-hook-manifest-source-provider', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccino/scripts/hook.mjs' }] }] } }, null, 2) + '\n'), env: env(), files: IMPECCINO_FILES },
   // Upgrade path (triage E8): a v3 install left a `.claude/settings.local.json`
   // naming the retired `node .../hook.mjs` script. Under the real provider the
   // stale marker must NOT count as an active hook, so MANUAL_DETECTOR_REQUIRED
   // still fires (the launcher-era script no longer exists; the hook is dead).
-  { id: 'context-stale-hook-manifest', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'node "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs"' }] }] } }, null, 2) + '\n'), env: env({ IMPECCABLE_PROVIDER_ID: 'claude-code' }), files: IMPECCABLE_FILES },
+  { id: 'context-stale-hook-manifest', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'node "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs"' }] }] } }, null, 2) + '\n'), env: env({ IMPECCINO_PROVIDER_ID: 'claude-code' }), files: IMPECCINO_FILES },
   // Control: the launcher-era manifest still counts as an active hook, so
   // MANUAL_DETECTOR_REQUIRED is suppressed exactly as before.
-  { id: 'context-launcher-hook-active', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: '[ ! -f "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable" ] || "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable" hook' }] }] } }, null, 2) + '\n'), env: env({ IMPECCABLE_PROVIDER_ID: 'claude-code' }), files: IMPECCABLE_FILES },
+  { id: 'context-launcher-hook-active', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: '[ ! -f "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino" ] || "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino" hook' }] }] } }, null, 2) + '\n'), env: env({ IMPECCINO_PROVIDER_ID: 'claude-code' }), files: IMPECCINO_FILES },
 
   // ======================================================================
   // doctor
@@ -346,12 +346,12 @@ const cases = [
     setup: (ws) => {
       write(ws, 'PRODUCT.md', '# Product\n\n## Register\n\nbrand\n\n## Users\nDesigners.\n');
       write(ws, 'DESIGN.md', '---\nname: Example\n---\n\n# Design System: Example\n');
-      write(ws, '.impeccable/design.json', JSON.stringify({ schemaVersion: 1 }));
-      write(ws, '.impeccable/config.json', JSON.stringify({ unknownSetting: true }));
+      write(ws, '.impeccino/design.json', JSON.stringify({ schemaVersion: 1 }));
+      write(ws, '.impeccino/config.json', JSON.stringify({ unknownSetting: true }));
     },
     args: ['--json'], env: env(),
   },
-  { id: 'doctor-full-sidecar-stale', verb: 'doctor', workspace: 'ctx-full', setup: (ws) => { touch(path.join(ws, 'DESIGN.md'), T_NEW); touch(path.join(ws, '.impeccable/design.json'), T_OLD); }, args: ['--json'], env: env() },
+  { id: 'doctor-full-sidecar-stale', verb: 'doctor', workspace: 'ctx-full', setup: (ws) => { touch(path.join(ws, 'DESIGN.md'), T_NEW); touch(path.join(ws, '.impeccino/design.json'), T_OLD); }, args: ['--json'], env: env() },
   { id: 'doctor-native-ios-text', verb: 'doctor', workspace: 'ctx-native-ios', env: env() },
   { id: 'doctor-native-ios-json', verb: 'doctor', workspace: 'ctx-native-ios', args: ['--json'], env: env() },
   { id: 'doctor-adaptive-text', verb: 'doctor', workspace: 'ctx-adaptive', env: env() },
@@ -363,37 +363,37 @@ const cases = [
   { id: 'doctor-monorepo-target-a', verb: 'doctor', workspace: 'ctx-monorepo', args: ['--json', '--target', 'apps/a'], env: env() },
   { id: 'doctor-monorepo-target-b', verb: 'doctor', workspace: 'ctx-monorepo', args: ['--target', 'apps/b/src/App.tsx'], env: env() },
   { id: 'doctor-monorepo-child-cwd', verb: 'doctor', workspace: 'ctx-monorepo', cwd: 'apps/a', args: ['--json'], env: env() },
-  { id: 'doctor-monorepo-roots-match-nothing', verb: 'doctor', workspace: 'ctx-monorepo', setup: (ws) => write(ws, '.impeccable/config.json', JSON.stringify({ projectRoots: ['services/*'] }, null, 2) + '\n'), env: env() },
-  { id: 'doctor-legacy-text', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, env: env(), files: IMPECCABLE_FILES },
-  { id: 'doctor-legacy-json', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--json'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'doctor-legacy-fix', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--fix'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'doctor-legacy-fix-json', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--fix', '--json'], env: env(), files: IMPECCABLE_FILES },
-  { id: 'doctor-legacy-fix-twice', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--fix'], env: env(), files: IMPECCABLE_FILES, steps: [{}, {}, { args: ['--json'] }] },
+  { id: 'doctor-monorepo-roots-match-nothing', verb: 'doctor', workspace: 'ctx-monorepo', setup: (ws) => write(ws, '.impeccino/config.json', JSON.stringify({ projectRoots: ['services/*'] }, null, 2) + '\n'), env: env() },
+  { id: 'doctor-legacy-text', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, env: env(), files: IMPECCINO_FILES },
+  { id: 'doctor-legacy-json', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--json'], env: env(), files: IMPECCINO_FILES },
+  { id: 'doctor-legacy-fix', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--fix'], env: env(), files: IMPECCINO_FILES },
+  { id: 'doctor-legacy-fix-json', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--fix', '--json'], env: env(), files: IMPECCINO_FILES },
+  { id: 'doctor-legacy-fix-twice', verb: 'doctor', workspace: 'ctx-legacy', setup: legacySetup, args: ['--fix'], env: env(), files: IMPECCINO_FILES, steps: [{}, {}, { args: ['--json'] }] },
   {
     id: 'doctor-legacy-fix-no-overwrite', verb: 'doctor', workspace: 'ctx-legacy',
-    setup: (ws) => { legacySetup(ws); write(ws, '.impeccable/design.json', JSON.stringify({ schemaVersion: 2 }) + '\n'); },
-    args: ['--fix'], env: env(), files: IMPECCABLE_FILES,
+    setup: (ws) => { legacySetup(ws); write(ws, '.impeccino/design.json', JSON.stringify({ schemaVersion: 2 }) + '\n'); },
+    args: ['--fix'], env: env(), files: IMPECCINO_FILES,
   },
   {
     // Unstamped PRODUCT.md that already has a v4 section: --fix stamps it.
     id: 'doctor-fix-stamps-product', verb: 'doctor', workspace: 'ctx-product-only',
     setup: (ws) => write(ws, 'PRODUCT.md', '# Unstamped\n\n## Platform\n\nweb\n\n## Positioning\nHas a v4 section but no stamp.\n'),
-    args: ['--fix'], env: env(), files: IMPECCABLE_FILES, steps: [{}, {}],
+    args: ['--fix'], env: env(), files: IMPECCINO_FILES, steps: [{}, {}],
   },
-  { id: 'doctor-fix-clean', verb: 'doctor', workspace: 'ctx-full', setup: sidecarNewer, args: ['--fix'], env: env(), files: IMPECCABLE_FILES },
+  { id: 'doctor-fix-clean', verb: 'doctor', workspace: 'ctx-full', setup: sidecarNewer, args: ['--fix'], env: env(), files: IMPECCINO_FILES },
   { id: 'doctor-target-missing-value', verb: 'doctor', workspace: 'ctx-full', setup: sidecarNewer, args: ['--json', '--target'], env: env() },
   { id: 'doctor-target-eq-empty', verb: 'doctor', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target='], env: env() },
   { id: 'doctor-target-file', verb: 'doctor', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target=src/pages/index.astro'], env: env() },
-  { id: 'doctor-hook-conflict', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, '.impeccable/config.json', JSON.stringify({ hook: { enabled: false } }, null, 2) + '\n'); write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccable/scripts/hook.mjs' }] }] } }, null, 2) + '\n'); }, args: ['--json'], env: env() },
-  { id: 'doctor-legacy-live-dir', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccable-live/sessions/s1.json', '{}\n'), args: ['--fix'], env: env() },
-  { id: 'doctor-design-seed-marker', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'DESIGN.md', "<!-- SEED: established with the user before implementation; re-run /impeccable document once there's code to capture the actual tokens and components. -->\n# Seed\n\n## Colors\n- **Ink** (#111): Text.\n\n## Typography\n**Body Font:** Inter\n"), args: ['--json'], env: env() },
+  { id: 'doctor-hook-conflict', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, '.impeccino/config.json', JSON.stringify({ hook: { enabled: false } }, null, 2) + '\n'); write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccino/scripts/hook.mjs' }] }] } }, null, 2) + '\n'); }, args: ['--json'], env: env() },
+  { id: 'doctor-legacy-live-dir', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccino-live/sessions/s1.json', '{}\n'), args: ['--fix'], env: env() },
+  { id: 'doctor-design-seed-marker', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'DESIGN.md', "<!-- SEED: established with the user before implementation; re-run /impeccino document once there's code to capture the actual tokens and components. -->\n# Seed\n\n## Colors\n- **Ink** (#111): Text.\n\n## Typography\n**Body Font:** Inter\n"), args: ['--json'], env: env() },
   { id: 'doctor-design-coverage-missing-all', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, 'DESIGN.md', '# Thin\n\nNo canonical sections at all.\n'), env: env() },
-  { id: 'doctor-sidecar-schema-missing', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, 'DESIGN.md', '# D\n\n## Colors\n- x\n\n## Typography\n- y\n\n## Components\n- z\n'); write(ws, '.impeccable/design.json', '{"title":"x"}\n'); sidecarNewer(ws); }, args: ['--json'], env: env() },
-  { id: 'doctor-config-local-and-shared', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, '.impeccable/config.json', '{"buildPath":"comp","detector":{"ignoreRules":["*","GRADIENT-TEXT"]}}\n'); write(ws, '.impeccable/config.local.json', '{"buildPath":"maybe","nope":1}\n'); }, env: env() },
-  { id: 'doctor-config-malformed', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccable/config.json', '{not json'), env: env() },
-  { id: 'doctor-config-array', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccable/config.json', '[1,2]\n'), env: env() },
-  { id: 'doctor-hook-script-missing', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.json', JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'node "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs"' }] }] } }, null, 2) + '\n'), args: ['--json'], env: env() },
-  { id: 'doctor-hook-script-present', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, '.claude/settings.json', JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccable/scripts/hook.mjs' }] }] } }, null, 2) + '\n'); write(ws, '.claude/skills/impeccable/scripts/hook.mjs', '// present\n'); }, args: ['--json'], env: env() },
+  { id: 'doctor-sidecar-schema-missing', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, 'DESIGN.md', '# D\n\n## Colors\n- x\n\n## Typography\n- y\n\n## Components\n- z\n'); write(ws, '.impeccino/design.json', '{"title":"x"}\n'); sidecarNewer(ws); }, args: ['--json'], env: env() },
+  { id: 'doctor-config-local-and-shared', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, '.impeccino/config.json', '{"buildPath":"comp","detector":{"ignoreRules":["*","GRADIENT-TEXT"]}}\n'); write(ws, '.impeccino/config.local.json', '{"buildPath":"maybe","nope":1}\n'); }, env: env() },
+  { id: 'doctor-config-malformed', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccino/config.json', '{not json'), env: env() },
+  { id: 'doctor-config-array', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.impeccino/config.json', '[1,2]\n'), env: env() },
+  { id: 'doctor-hook-script-missing', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.json', JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'node "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs"' }] }] } }, null, 2) + '\n'), args: ['--json'], env: env() },
+  { id: 'doctor-hook-script-present', verb: 'doctor', workspace: 'ctx-product-only', setup: (ws) => { write(ws, '.claude/settings.json', JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccino/scripts/hook.mjs' }] }] } }, null, 2) + '\n'); write(ws, '.claude/skills/impeccino/scripts/hook.mjs', '// present\n'); }, args: ['--json'], env: env() },
   {
     id: 'doctor-design-drift', verb: 'doctor', workspace: 'ctx-signals',
     setup: (ws) => {
@@ -425,39 +425,39 @@ const cases = [
   { id: 'pin-unpin-nothing-pinned', verb: 'pin', workspace: 'ctx-pin', args: ['unpin', 'polish'], env: env(), files: ['.*/skills/**'] },
   { id: 'pin-unpin-skips-non-pinned', verb: 'pin', workspace: 'ctx-pin', args: ['unpin', 'audit'], env: env(), files: ['.*/skills/**'] },
   { id: 'pin-then-unpin', verb: 'pin', workspace: 'ctx-pin', env: env(), files: ['.*/skills/**'], steps: [{ args: ['pin', 'critique'] }, { args: ['pin', 'critique'] }, { args: ['unpin', 'critique'] }, { args: ['unpin', 'critique'] }] },
-  { id: 'pin-i-impeccable-alias', verb: 'pin', workspace: 'ctx-empty', setup: (ws) => write(ws, '.codex/skills/i-impeccable/SKILL.md', '---\nname: i-impeccable\n---\n'), args: ['pin', 'shape'], env: env(), files: ['.*/skills/**'] },
+  { id: 'pin-i-impeccino-alias', verb: 'pin', workspace: 'ctx-empty', setup: (ws) => write(ws, '.codex/skills/i-impeccino/SKILL.md', '---\nname: i-impeccino\n---\n'), args: ['pin', 'shape'], env: env(), files: ['.*/skills/**'] },
   // #483: OpenCode does not surface a pinned SKILL.md in its slash menu, so a
-  // pin there writes `commands/impeccable-<cmd>.md` instead, in the project
+  // pin there writes `commands/impeccino-<cmd>.md` instead, in the project
   // scope and in the user config dir, and never a `.opencode/skills/<cmd>`.
   {
     id: 'pin-opencode-project', verb: 'pin', workspace: 'ctx-empty',
-    setup: (ws) => write(ws, '.opencode/skills/impeccable/SKILL.md', '---\nname: impeccable\n---\n'),
+    setup: (ws) => write(ws, '.opencode/skills/impeccino/SKILL.md', '---\nname: impeccino\n---\n'),
     args: ['pin', 'polish'], env: env(), files: ['.*/skills/**', '.*/commands/**'],
   },
   {
     id: 'pin-opencode-user-scope', verb: 'pin', workspace: 'ctx-empty',
     args: ['pin', 'polish'],
     env: env({ OPENCODE_CONFIG_DIR: `${WS}/oc-config` }),
-    setup: (ws) => write(ws, 'oc-config/skills/impeccable/SKILL.md', '---\nname: impeccable\n---\n'),
+    setup: (ws) => write(ws, 'oc-config/skills/impeccino/SKILL.md', '---\nname: impeccino\n---\n'),
     files: ['oc-config/**'],
   },
   {
     id: 'pin-opencode-skips-foreign-command', verb: 'pin', workspace: 'ctx-empty',
     setup: (ws) => {
-      write(ws, '.opencode/skills/impeccable/SKILL.md', '---\nname: impeccable\n---\n');
-      write(ws, '.opencode/commands/impeccable-polish.md', '---\ndescription: hand written\n---\n');
+      write(ws, '.opencode/skills/impeccino/SKILL.md', '---\nname: impeccino\n---\n');
+      write(ws, '.opencode/commands/impeccino-polish.md', '---\ndescription: hand written\n---\n');
     },
     args: ['pin', 'polish'], env: env(), files: ['.*/skills/**', '.*/commands/**'],
   },
   {
     id: 'pin-opencode-then-unpin', verb: 'pin', workspace: 'ctx-empty',
-    setup: (ws) => write(ws, '.opencode/skills/impeccable/SKILL.md', '---\nname: impeccable\n---\n'),
+    setup: (ws) => write(ws, '.opencode/skills/impeccino/SKILL.md', '---\nname: impeccino\n---\n'),
     env: env(), files: ['.*/skills/**', '.*/commands/**'],
     steps: [{ args: ['pin', 'polish'] }, { args: ['unpin', 'polish'] }, { args: ['unpin', 'polish'] }],
   },
   {
     id: 'pin-opencode-unpin-skips-foreign', verb: 'pin', workspace: 'ctx-empty',
-    setup: (ws) => write(ws, '.opencode/commands/impeccable-polish.md', '---\ndescription: hand written\n---\n'),
+    setup: (ws) => write(ws, '.opencode/commands/impeccino-polish.md', '---\ndescription: hand written\n---\n'),
     args: ['unpin', 'polish'], env: env(), files: ['.*/skills/**', '.*/commands/**'],
   },
 
@@ -469,7 +469,7 @@ const cases = [
   { id: 'surface-brief-path-file', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'src/pages/index.astro'], env: env() },
   { id: 'surface-brief-path-route', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'route:/docs/intro/'], env: env() },
   { id: 'surface-brief-path-slash', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '/'], env: env() },
-  { id: 'surface-brief-path-url', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'https://Impeccable.Style/docs/audit/?x=1#top'], env: env() },
+  { id: 'surface-brief-path-url', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'https://Impeccino.Style/docs/audit/?x=1#top'], env: env() },
   { id: 'surface-brief-path-outside', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '../elsewhere/x.astro'], env: env() },
   { id: 'surface-brief-path-missing-target', verb: 'surface-brief', workspace: 'ctx-full', args: ['path'], env: env() },
   { id: 'surface-brief-path-from-subdir', verb: 'surface-brief', workspace: 'ctx-full', cwd: 'src', args: ['path', 'pages/index.astro'], env: env() },
@@ -481,15 +481,15 @@ const cases = [
   { id: 'surface-brief-read-route-prefixed', verb: 'surface-brief', workspace: 'ctx-full', args: ['read', 'route:/pricing/'], env: env() },
   { id: 'surface-brief-read-not-found', verb: 'surface-brief', workspace: 'ctx-full', args: ['read', 'src/pages/about.astro'], env: env() },
   { id: 'surface-brief-read-no-target-ambiguous', verb: 'surface-brief', workspace: 'ctx-full', args: ['read'], env: env() },
-  { id: 'surface-brief-read-no-target-only-brief', verb: 'surface-brief', workspace: 'ctx-full', setup: (ws) => fs.rmSync(path.join(ws, '.impeccable/surfaces/route-pricing.md')), args: ['read'], env: env() },
+  { id: 'surface-brief-read-no-target-only-brief', verb: 'surface-brief', workspace: 'ctx-full', setup: (ws) => fs.rmSync(path.join(ws, '.impeccino/surfaces/route-pricing.md')), args: ['read'], env: env() },
   { id: 'surface-brief-read-none', verb: 'surface-brief', workspace: 'ctx-empty', args: ['read', 'src/x.tsx'], env: env() },
   { id: 'surface-brief-read-invalid-target', verb: 'surface-brief', workspace: 'ctx-full', args: ['read', 'route:../etc'], env: env() },
-  { id: 'surface-brief-read-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'apps/a/.impeccable/surfaces/src-app-tsx.md', '---\nversion: 1\nslug: "src-app-tsx"\nprimary_target: "src/App.tsx"\nrelated_targets: []\n---\n\n# Surface brief: A\n'), args: ['read', 'apps/a/src/App.tsx'], env: env() },
+  { id: 'surface-brief-read-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'apps/a/.impeccino/surfaces/src-app-tsx.md', '---\nversion: 1\nslug: "src-app-tsx"\nprimary_target: "src/App.tsx"\nrelated_targets: []\n---\n\n# Surface brief: A\n'), args: ['read', 'apps/a/src/App.tsx'], env: env() },
   { id: 'surface-brief-write-usage', verb: 'surface-brief', workspace: 'ctx-full', args: ['write', 'src/pages/about.astro'], env: env() },
   {
     id: 'surface-brief-write-read-list', verb: 'surface-brief', workspace: 'ctx-full',
     setup: (ws) => write(ws, 'body.md', '# Surface brief: About\n\n## Mode\nRead\n\nTell the story.\n\n'),
-    env: env(), files: ['.impeccable/surfaces/**'],
+    env: env(), files: ['.impeccino/surfaces/**'],
     steps: [
       { args: ['write', 'src/pages/about.astro', `${WS}/body.md`, 'src/components/Team.astro', 'src/pages/about.astro', 'src/components/Team.astro'] },
       { args: ['read', 'src/components/Team.astro'] },
@@ -498,11 +498,11 @@ const cases = [
       { args: ['read', 'src/components/Team.astro'] },
     ],
   },
-  { id: 'surface-brief-write-route', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'Root route brief.'), args: ['write', '/', `${WS}/body.md`, 'route:/home/'], env: env(), files: ['.impeccable/surfaces/**'] },
-  { id: 'surface-brief-write-url', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'URL brief.'), args: ['write', 'https://example.com/pricing/#plans', `${WS}/body.md`], env: env(), files: ['.impeccable/surfaces/**'] },
-  { id: 'surface-brief-write-invalid-target', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'x'), args: ['write', '../outside.astro', `${WS}/body.md`], env: env(), files: ['.impeccable/surfaces/**'] },
-  { id: 'surface-brief-write-missing-body', verb: 'surface-brief', workspace: 'ctx-empty', args: ['write', 'src/x.tsx', `${WS}/nope.md`], env: env(), files: ['.impeccable/surfaces/**'] },
-  { id: 'surface-brief-write-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'body.md', 'Child brief.'), args: ['write', 'apps/b/src/App.tsx', `${WS}/body.md`], env: env(), files: ['**/.impeccable/surfaces/**'] },
+  { id: 'surface-brief-write-route', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'Root route brief.'), args: ['write', '/', `${WS}/body.md`, 'route:/home/'], env: env(), files: ['.impeccino/surfaces/**'] },
+  { id: 'surface-brief-write-url', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'URL brief.'), args: ['write', 'https://example.com/pricing/#plans', `${WS}/body.md`], env: env(), files: ['.impeccino/surfaces/**'] },
+  { id: 'surface-brief-write-invalid-target', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'x'), args: ['write', '../outside.astro', `${WS}/body.md`], env: env(), files: ['.impeccino/surfaces/**'] },
+  { id: 'surface-brief-write-missing-body', verb: 'surface-brief', workspace: 'ctx-empty', args: ['write', 'src/x.tsx', `${WS}/nope.md`], env: env(), files: ['.impeccino/surfaces/**'] },
+  { id: 'surface-brief-write-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'body.md', 'Child brief.'), args: ['write', 'apps/b/src/App.tsx', `${WS}/body.md`], env: env(), files: ['**/.impeccino/surfaces/**'] },
 
   // ======================================================================
   // critique-storage
@@ -529,11 +529,11 @@ const cases = [
     // path is masked by normalize() (see lib.mjs, critique stamps).
     id: 'critique-write-then-read', verb: 'critique-storage', workspace: 'ctx-empty',
     setup: (ws) => { write(ws, 'body.md', '# Critique\n\nScore 81/100.\n\n'); write(ws, 'body2.md', 'Second pass.\n'); },
-    env: env({ IMPECCABLE_CRITIQUE_META: JSON.stringify({ total_score: 81, p0_count: 0, p1_count: 2, target: 'src/App.tsx', note: 'ratio 3:1 #hero', slug: 'ignored', timestamp: 'ignored' }) }),
+    env: env({ IMPECCINO_CRITIQUE_META: JSON.stringify({ total_score: 81, p0_count: 0, p1_count: 2, target: 'src/App.tsx', note: 'ratio 3:1 #hero', slug: 'ignored', timestamp: 'ignored' }) }),
     steps: [
       { args: ['write', 'src/App.tsx', `${WS}/body.md`] },
       { args: ['latest', 'src/App.tsx'] },
-      { args: ['write', 'src-app-tsx', `${WS}/body2.md`], env: env({ IMPECCABLE_CRITIQUE_META: '{not json' }) },
+      { args: ['write', 'src-app-tsx', `${WS}/body2.md`], env: env({ IMPECCINO_CRITIQUE_META: '{not json' }) },
       { args: ['latest', 'src-app-tsx'] },
       { args: ['trend', 'src/App.tsx'] },
       { args: ['trend', 'src/App.tsx', '1'] },
@@ -548,8 +548,8 @@ const cases = [
   { id: 'palette-id-unknown', verb: 'palette', args: ['--id', 'no-such-seed'], env: env() },
   { id: 'palette-from-key', verb: 'palette', args: ['--from', 'oracle-fixture-key'], env: env() },
   { id: 'palette-from-key-2', verb: 'palette', args: ['--from', 'another key with spaces'], env: env() },
-  { id: 'palette-env-seed', verb: 'palette', args: [], env: env({ IMPECCABLE_PALETTE_SEED: 'env-seed-key' }) },
-  { id: 'palette-from-overrides-env', verb: 'palette', args: ['--from', 'oracle-fixture-key'], env: env({ IMPECCABLE_PALETTE_SEED: 'env-seed-key' }) },
+  { id: 'palette-env-seed', verb: 'palette', args: [], env: env({ IMPECCINO_PALETTE_SEED: 'env-seed-key' }) },
+  { id: 'palette-from-overrides-env', verb: 'palette', args: ['--from', 'oracle-fixture-key'], env: env({ IMPECCINO_PALETTE_SEED: 'env-seed-key' }) },
   { id: 'palette-id-overrides-from', verb: 'palette', args: ['--from', 'oracle-fixture-key', '--id', 'no-such-seed'], env: env() },
 
   // ======================================================================
@@ -559,8 +559,8 @@ const cases = [
   { id: 'signals-visual-only', verb: 'context-signals', workspace: 'ctx-visual-only', env: env() },
   { id: 'signals-full-with-critique', verb: 'context-signals', workspace: 'ctx-full', setup: sidecarNewer, env: env() },
   { id: 'signals-native-ios', verb: 'context-signals', workspace: 'ctx-native-ios', env: env() },
-  { id: 'signals-critique-legacy-keys', verb: 'context-signals', workspace: 'ctx-empty', setup: (ws) => write(ws, '.impeccable/critique/2026-02-02T02-02-02Z__x.md', '---\nscore: "88"\np0: 0\np1: 2\ntimestamp: "2026-02-02T02:02:02.000Z"\nslug: x\n---\nbody\n'), env: env() },
-  { id: 'signals-critique-blank-keys', verb: 'context-signals', workspace: 'ctx-empty', setup: (ws) => write(ws, '.impeccable/critique/2026-02-02T02-02-02Z__x.md', '---\ntotal_score: n/a\nslug: x\n---\nbody\n'), env: env() },
+  { id: 'signals-critique-legacy-keys', verb: 'context-signals', workspace: 'ctx-empty', setup: (ws) => write(ws, '.impeccino/critique/2026-02-02T02-02-02Z__x.md', '---\nscore: "88"\np0: 0\np1: 2\ntimestamp: "2026-02-02T02:02:02.000Z"\nslug: x\n---\nbody\n'), env: env() },
+  { id: 'signals-critique-blank-keys', verb: 'context-signals', workspace: 'ctx-empty', setup: (ws) => write(ws, '.impeccino/critique/2026-02-02T02-02-02Z__x.md', '---\ntotal_score: n/a\nslug: x\n---\nbody\n'), env: env() },
   { id: 'signals-git-clean-main', verb: 'context-signals', workspace: 'ctx-signals', setup: gitInit, env: env() },
   { id: 'signals-git-dirty-main', verb: 'context-signals', workspace: 'ctx-signals', setup: gitDirty, env: env() },
   { id: 'signals-git-feature-branch', verb: 'context-signals', workspace: 'ctx-signals', setup: gitFeature, env: env() },
@@ -589,12 +589,12 @@ const cases = [
   // (TIER_QUOTAS in roll_selection.rs, in parity with the site's roll API).
   { id: 'seed-direction-local-operate', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'operate', '--from', 'oracle-key-1'], env: seedEnv() },
   { id: 'seed-direction-local-unscoped', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'oracle-key-3'], env: seedEnv() },
-  { id: 'seed-direction-env-key', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction'], env: seedEnv({ IMPECCABLE_CONCEPT_SEED: 'oracle-key-1' }) },
+  { id: 'seed-direction-env-key', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction'], env: seedEnv({ IMPECCINO_CONCEPT_SEED: 'oracle-key-1' }) },
   { id: 'seed-surface-local', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'operate', '--from', 'oracle-key-1'], env: seedEnv() },
   { id: 'seed-surface-local-default-scope', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--mode', 'operate', '--from', 'oracle-key-1'], env: seedEnv() },
   { id: 'seed-surface-local-grain-flow', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'read', '--from', 'oracle-key-2', '--grain', 'flow', '--platform', 'ios'], env: seedEnv() },
-  { id: 'seed-surface-local-compositions', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'persuade', '--from', 'oracle-key-1', '--platform', 'web'], env: seedEnv({ IMPECCABLE_COMPOSITIONS: '1' }) },
-  { id: 'seed-surface-local-card-base', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'experience', '--from', 'oracle-key-4', '--reroll', '1'], env: seedEnv({ IMPECCABLE_CARD_BASE: 'https://cards.example/base/' }) },
+  { id: 'seed-surface-local-compositions', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'persuade', '--from', 'oracle-key-1', '--platform', 'web'], env: seedEnv({ IMPECCINO_COMPOSITIONS: '1' }) },
+  { id: 'seed-surface-local-card-base', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'experience', '--from', 'oracle-key-4', '--reroll', '1'], env: seedEnv({ IMPECCINO_CARD_BASE: 'https://cards.example/base/' }) },
   { id: 'seed-degraded-direction', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--mode', 'persuade', '--from', 'oracle-key-1'], env: degradedEnv() },
   { id: 'seed-degraded-surface', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'surface', '--mode', 'operate', '--from', 'oracle-key-1'], env: degradedEnv() },
   { id: 'seed-degraded-safer', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'oracle-key-1', '--reroll', '1', '--register', 'safer'], env: degradedEnv() },
@@ -602,9 +602,9 @@ const cases = [
   { id: 'seed-degraded-no-product-gate', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--scope', 'direction', '--from', 'k1'], env: degradedEnv() },
   { id: 'seed-chosen-telemetry-off', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'some-id', '--kind', 'challenger', '--from', 'k1', '--scope', 'direction'], env: seedEnv() },
   { id: 'seed-kind-assigned-telemetry-off', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--kind', 'assigned', '--from', 'k1', '--scope', 'direction'], env: seedEnv() },
-  { id: 'seed-chosen-bad-kind', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'x', '--kind', 'random', '--from', 'k1'], env: seedEnv({ IMPECCABLE_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
-  { id: 'seed-chosen-no-id-challenger', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--kind', 'challenger', '--from', 'k1'], env: seedEnv({ IMPECCABLE_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
-  { id: 'seed-chosen-api-unreachable', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'x', '--kind', 'pick', '--from', 'k1', '--scope', 'surface'], env: seedEnv({ IMPECCABLE_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
+  { id: 'seed-chosen-bad-kind', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'x', '--kind', 'random', '--from', 'k1'], env: seedEnv({ IMPECCINO_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
+  { id: 'seed-chosen-no-id-challenger', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--kind', 'challenger', '--from', 'k1'], env: seedEnv({ IMPECCINO_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
+  { id: 'seed-chosen-api-unreachable', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--chosen', 'x', '--kind', 'pick', '--from', 'k1', '--scope', 'surface'], env: seedEnv({ IMPECCINO_NO_TELEMETRY: null, DO_NOT_TRACK: null }) },
 
 ];
 

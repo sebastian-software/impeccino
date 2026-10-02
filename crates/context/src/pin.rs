@@ -1,8 +1,8 @@
-//! JS: pin.mjs -> `impeccable pin <pin|unpin> <command>`
+//! JS: pin.mjs -> `impeccino pin <pin|unpin> <command>`
 
 use crate::jsp;
 use crate::util::{exists, read_json, safe_read};
-use impeccable_common::Io;
+use impeccino_common::Io;
 
 /// `skill/scripts/command-metadata.json`, compiled in as the fallback when the
 /// skill directory is not known at run time.
@@ -18,8 +18,8 @@ pub const VALID_COMMANDS: [&str; 22] = [
     "harden", "onboard", "animate", "colorize", "typeset", "layout", "delight", "overdrive", "clarify",
     "adapt", "optimize",
 ];
-const PIN_MARKER: &str = "<!-- impeccable-pinned-skill -->";
-const OPENCODE_PIN_MARKER: &str = "<!-- impeccable-pinned-command -->";
+const PIN_MARKER: &str = "<!-- impeccino-pinned-skill -->";
+const OPENCODE_PIN_MARKER: &str = "<!-- impeccino-pinned-command -->";
 
 fn find_project_root(start: &str) -> String {
     let mut dir = jsp::resolve(start, &[]);
@@ -43,7 +43,7 @@ fn find_harness_dirs(project_root: &str) -> Vec<String> {
     let mut dirs = Vec::new();
     for h in HARNESS_DIRS {
         let skills = jsp::join(&[project_root, h, "skills"]);
-        if exists(&jsp::join(&[&skills, "impeccable"])) || exists(&jsp::join(&[&skills, "i-impeccable"])) {
+        if exists(&jsp::join(&[&skills, "impeccino"])) || exists(&jsp::join(&[&skills, "i-impeccino"])) {
             dirs.push(skills);
         }
     }
@@ -66,7 +66,7 @@ fn generate_pinned_skill(command: &str, metadata: &serde_json::Value, prefix: &s
         .and_then(|d| d.as_str())
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
-        .unwrap_or_else(|| format!("Shortcut for {}impeccable {}.", prefix, command));
+        .unwrap_or_else(|| format!("Shortcut for {}impeccino {}.", prefix, command));
     let hint = entry
         .and_then(|e| e.get("argumentHint"))
         .and_then(|d| d.as_str())
@@ -78,7 +78,7 @@ fn generate_pinned_skill(command: &str, metadata: &serde_json::Value, prefix: &s
         format!("argument-hint: \"{}\"\nuser-invocable: true", hint)
     };
     format!(
-        "---\nname: {command}\ndescription: \"{desc}\"\n{provider_fm}\n---\n\n{marker}\n\nThis is a pinned shortcut for `{prefix}impeccable {command}`.\n\nInvoke {prefix}impeccable {command}, passing along any arguments provided here, and follow its instructions.\n",
+        "---\nname: {command}\ndescription: \"{desc}\"\n{provider_fm}\n---\n\n{marker}\n\nThis is a pinned shortcut for `{prefix}impeccino {command}`.\n\nInvoke {prefix}impeccino {command}, passing along any arguments provided here, and follow its instructions.\n",
         command = command,
         desc = desc,
         provider_fm = provider_fm,
@@ -90,10 +90,10 @@ fn generate_pinned_skill(command: &str, metadata: &serde_json::Value, prefix: &s
 // OpenCode 1.18.10 does not honor `user-invocable: true` on SKILL.md
 // frontmatter (see docs/HARNESSES.md), so a pinned skill there shows up in
 // `opencode debug skill` but never in the slash menu. The fix is a sibling
-// `commands/impeccable-<cmd>.md` on the OpenCode command schema. The body
+// `commands/impeccino-<cmd>.md` on the OpenCode command schema. The body
 // loads the skill, runs the context verb, then reads the sub-command's
-// reference file, so `/impeccable-<cmd>` runs the same workflow
-// `/impeccable <cmd>` routes to.
+// reference file, so `/impeccino-<cmd>` runs the same workflow
+// `/impeccino <cmd>` routes to.
 //
 // JS: pin.mjs#generatePinnedOpencodeCommand. The JS body says
 // `node <skill-base-dir>/scripts/context.mjs`; the engine names its own
@@ -106,10 +106,10 @@ fn generate_pinned_opencode_command(command: &str, metadata: &serde_json::Value)
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string())
         .unwrap_or_else(|| {
-            format!("Impeccable sub-command shortcut; runs the {command} workflow via /impeccable.")
+            format!("Impeccino sub-command shortcut; runs the {command} workflow via /impeccino.")
         });
     format!(
-        "---\ndescription: \"{desc}\"\nagent: build\nsubtask: true\n---\n\n{marker}\n\nLoad the `impeccable` skill via the skill tool (name: \"impeccable\"), then run `<skill-base-dir>/scripts/impeccable context`, then load `<skill-base-dir>/reference/{command}.md` and follow it. `<skill-base-dir>` is the skill's base directory as reported by the skill tool response; substitute the actual absolute path before running or reading anything.\n\n$ARGUMENTS\n",
+        "---\ndescription: \"{desc}\"\nagent: build\nsubtask: true\n---\n\n{marker}\n\nLoad the `impeccino` skill via the skill tool (name: \"impeccino\"), then run `<skill-base-dir>/scripts/impeccino context`, then load `<skill-base-dir>/reference/{command}.md` and follow it. `<skill-base-dir>` is the skill's base directory as reported by the skill tool response; substitute the actual absolute path before running or reading anything.\n\n$ARGUMENTS\n",
         desc = desc,
         marker = OPENCODE_PIN_MARKER,
         command = command
@@ -129,7 +129,7 @@ fn opencode_user_config_dir(io: &Io) -> String {
 }
 
 /// JS: pin.mjs#findOpencodeCommandsDirs. The project-local dir when the
-/// project has the skill, plus the user config dir when Impeccable is
+/// project has the skill, plus the user config dir when Impeccino is
 /// installed globally. With `for_cleanup`, both are included even when the
 /// skill is gone, so unpin can still reach a pin a removed install left
 /// behind; removal stays safe because it is marker-guarded.
@@ -141,11 +141,11 @@ fn find_opencode_commands_dirs(project_root: &str, io: &Io, for_cleanup: bool) -
             dirs.push(dir);
         }
     };
-    if for_cleanup || exists(&jsp::join(&[project_root, ".opencode", "skills", "impeccable"])) {
+    if for_cleanup || exists(&jsp::join(&[project_root, ".opencode", "skills", "impeccino"])) {
         push(jsp::join(&[project_root, ".opencode", "commands"]));
     }
     let user_config = opencode_user_config_dir(io);
-    if for_cleanup || exists(&jsp::join(&[&user_config, "skills", "impeccable"])) {
+    if for_cleanup || exists(&jsp::join(&[&user_config, "skills", "impeccino"])) {
         push(jsp::join(&[&user_config, "commands"]));
     }
     dirs
@@ -158,7 +158,7 @@ fn write_pinned_opencode_command(
     metadata: &serde_json::Value,
     io: &mut Io,
 ) -> bool {
-    let command_file = jsp::join(&[commands_dir, &format!("impeccable-{command}.md")]);
+    let command_file = jsp::join(&[commands_dir, &format!("impeccino-{command}.md")]);
     if exists(&command_file) {
         let existing = safe_read(&command_file).unwrap_or_default();
         if !existing.contains(OPENCODE_PIN_MARKER) {
@@ -178,7 +178,7 @@ fn write_pinned_opencode_command(
 
 /// JS: pin.mjs#removePinnedOpencodeCommand
 fn remove_pinned_opencode_command(commands_dir: &str, command: &str, io: &mut Io) -> bool {
-    let command_file = jsp::join(&[commands_dir, &format!("impeccable-{command}.md")]);
+    let command_file = jsp::join(&[commands_dir, &format!("impeccino-{command}.md")]);
     if !exists(&command_file) {
         return false;
     }
@@ -215,7 +215,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     let action = args.first().cloned();
     let command = args.get(1).cloned();
     let (Some(action), Some(command)) = (action.filter(|a| !a.is_empty()), command.filter(|c| !c.is_empty())) else {
-        io.out("Usage: impeccable pin <pin|unpin> <command>\n");
+        io.out("Usage: impeccino pin <pin|unpin> <command>\n");
         io.out(&format!("\nAvailable commands: {}\n", VALID_COMMANDS.join(", ")));
         return 1;
     };
@@ -235,7 +235,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         let harness_dirs = find_harness_dirs(&root);
         let opencode_commands_dirs = find_opencode_commands_dirs(&root, io, false);
         if harness_dirs.is_empty() && opencode_commands_dirs.is_empty() {
-            io.out("No harness directories with impeccable installed found.\n");
+            io.out("No harness directories with impeccino installed found.\n");
             return 0;
         }
         let mut created = 0;
@@ -281,7 +281,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         let mut removed = 0;
         // OpenCode has its own cleanup path below; skip the skill loop here so
         // a stray `.opencode/skills/<cmd>/SKILL.md` written by an older
-        // Impeccable version is never silently dropped.
+        // Impeccino version is never silently dropped.
         for skills_dir in &harness_dirs {
             if is_opencode_skills_dir(skills_dir) {
                 continue;
@@ -313,7 +313,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         }
         if removed > 0 {
             io.out(&format!("\nUnpinned '{}' from {} location(s).\n", command, removed));
-            io.out(&format!("Use Impeccable's '{}' workflow directly to access it.\n", command));
+            io.out(&format!("Use Impeccino's '{}' workflow directly to access it.\n", command));
         } else {
             io.out(&format!("No pinned '{}' shortcut found.\n", command));
         }

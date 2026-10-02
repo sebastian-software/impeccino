@@ -4,7 +4,7 @@
 //! JS: css-cascade.mjs#STATIC_INHERITED_PROPS, #STATIC_DEFAULT_STYLE,
 //! #STATIC_PROP_MAP, #STATIC_NAMED_COLORS, #NAMED_COLORS, #BORDER_SHORTHAND_RE
 
-use impeccable_core::color::Rgba;
+use impeccino_core::color::Rgba;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -13,7 +13,7 @@ use regex::Regex;
 pub static BORDER_SHORTHAND_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(
         r"(?is)^([0-9]+(?:\.[0-9]+)?)px{ws}+(solid|dashed|dotted|double|groove|ridge|inset|outset){ws}+(.+)$",
-        ws = impeccable_core::js::WS
+        ws = impeccino_core::js::WS
     ))
     .expect("BORDER_SHORTHAND_RE")
 });

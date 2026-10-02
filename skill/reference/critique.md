@@ -8,7 +8,7 @@ Resolve one stable target, run two independent assessments, synthesize a design 
 - Assessment A and B MUST run as two isolated sub-agents whenever a sub-agent/Task tool is exposed. Running them inline in this context is "possible" but is NOT permitted; it is a degraded run. Inline is allowed ONLY when no sub-agent tool exists (or the user declined, on harnesses that ask).
 - If you degrade for any reason, the report's first line MUST be a banner: `⚠️ DEGRADED: single-context (<reason>)`. A silent degraded critique is a failed critique.
 - Assessment A must finish before detector findings enter the parent synthesis context. Detector output is deterministic, but it still anchors judgment.
-- A skipped detector is a failed critique run unless `impeccable detect` is missing, crashes after a real attempt, or the target has no source files in the workspace.
+- A skipped detector is a failed critique run unless `impeccino detect` is missing, crashes after a real attempt, or the target has no source files in the workspace.
 - Viewable targets require screenshots through the host's own browser tool when one is available.
 - Any local server started only for critique screenshots must run in the background, have a recorded stop method, and be stopped before final reporting unless the user asks to keep it.
 - The question is the LAST thing in the response. Write the entire report out first, then ask; nothing follows the question. Prose emitted after a structured question is withheld until the user answers it, so a report written after the question reads as if the critique never ran.
@@ -22,10 +22,10 @@ Resolve one stable target, run two independent assessments, synthesize a design 
    - "this page" -> the current URL or source file
 2. **Confirm the target slugs cleanly**:
    ```bash
-   "<skill-base-dir>/scripts/impeccable" critique-storage slug "<resolved-path-or-url>"
+   "<skill-base-dir>/scripts/impeccino" critique-storage slug "<resolved-path-or-url>"
    ```
    Every later command also accepts the resolved target directly and derives the same slug internally; never hand-write a slug. If this exits non-zero, skip persistence and trend for this run, but continue the critique.
-3. **Read `.impeccable/critique/ignore.md`** if it exists. Drop matching findings silently; it is the only prior-run input critique consumes.
+3. **Read `.impeccino/critique/ignore.md`** if it exists. Drop matching findings silently; it is the only prior-run input critique consumes.
 
 ### Assessment Orchestration
 
@@ -40,7 +40,7 @@ Sub-agent gate (all harnesses):
 Codex sub-agent gate (overrides the default above; Codex's permission model requires asking before spawning):
 - Asking is the normal path, not a degradation. Approving and spawning is the dual-agent path; do not emit the degraded banner just for asking.
 - If `spawn_agent` is exposed and the user explicitly allowed sub-agents, delegation, or parallel agent work, spawn A and B immediately.
-- If `spawn_agent` is exposed but the user did not explicitly allow sub-agents, ask exactly once: "Impeccable critique is designed to run two independent sub-agents for an unanchored assessment. May I use sub-agents for this critique?" Then stop until the user answers.
+- If `spawn_agent` is exposed but the user did not explicitly allow sub-agents, ask exactly once: "Impeccino critique is designed to run two independent sub-agents for an unanchored assessment. May I use sub-agents for this critique?" Then stop until the user answers.
 - If allowed, spawn A and B. If declined, run sequentially and lead the report with `⚠️ DEGRADED: single-context (sub-agents declined by user)`.
 - If `spawn_agent` is not exposed, do not ask; run sequentially and lead with `⚠️ DEGRADED: single-context (spawn_agent unavailable in this session)`.
 - If spawning fails after permission, run sequentially and lead with `⚠️ DEGRADED: single-context (sub-agent spawn failed: <exact error>)`.
@@ -67,7 +67,7 @@ Run the bundled detector on source files and capture screenshots with the host's
 
 CLI scan:
 ```bash
-"<skill-base-dir>/scripts/impeccable" detect --json <files>
+"<skill-base-dir>/scripts/impeccino" detect --json <files>
 ```
 
 - Pass the markup source files or directories that render the target; do not pass CSS-only files.
@@ -88,7 +88,7 @@ Codex Browser note: Use the Browser skill for the captures. Do not spend a Brows
 
 Return: CLI and rendered-page findings JSON/counts, screenshot paths with the rendered issues each shows, false positives, and skipped or failed steps with concrete reasons.
 
-After Assessment B returns usable CLI findings, reuse them. Do not rerun `impeccable detect` in the parent unless Assessment B failed, was truncated, or omitted count, rule names, or file locations.
+After Assessment B returns usable CLI findings, reuse them. Do not rerun `impeccino detect` in the parent unless Assessment B failed, was truncated, or omitted count, rule names, or file locations.
 
 Codex failure accounting: final Run Notes must include target slug, ignore list, assessment independence, CLI detector, browser screenshots, local-server cleanup, temp-file cleanup, and any fallback signal used. Do not run repo status checks, late API spelunking, or unrelated verification after the report is assembled.
 
@@ -98,7 +98,7 @@ Synthesize both assessments into a single report. Do NOT simply concatenate. Wea
 
 The chat response is the primary user-facing deliverable. Present the full structured critique below in chat; do not replace it with a summary and a link. The persisted snapshot is an archive of that run.
 
-Codex final-answer note: `$impeccable critique` produces a report artifact, so the final chat response should intentionally exceed the usual concise close-out style. Do not title the final response "Critique Summary" unless the user explicitly asked for a summary.
+Codex final-answer note: `$impeccino critique` produces a report artifact, so the final chat response should intentionally exceed the usual concise close-out style. Do not title the final response "Critique Summary" unless the user explicitly asked for a summary.
 
 Structure your feedback as a design director would:
 
@@ -156,12 +156,12 @@ For each issue, tag with **P0-P3 severity** (see [Issue Severity below](#issue-s
 - **[P?] What**: Name the problem clearly
 - **Why it matters**: How this hurts users or undermines goals
 - **Fix**: What to do about it (be concrete)
-- **Suggested command**: Which command could address this (from: /impeccable adapt, /impeccable animate, /impeccable audit, /impeccable bolder, /impeccable clarify, /impeccable colorize, /impeccable critique, /impeccable delight, /impeccable distill, /impeccable document, /impeccable harden, /impeccable layout, /impeccable onboard, /impeccable optimize, /impeccable overdrive, /impeccable polish, /impeccable quieter, /impeccable shape, /impeccable typeset)
+- **Suggested command**: Which command could address this (from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset)
 
 #### Persona Red Flags
 > *Consult the [Personas reference](#persona-based-design-testing) below.*
 
-Auto-select 2-3 personas most relevant to this interface type (use the selection table in the reference). If the project instruction file (`AGENTS.md`, `CLAUDE.md`, or the host's equivalent) contains a `## Design Context` section from `impeccable init`, also generate 1-2 project-specific personas from the audience/brand info.
+Auto-select 2-3 personas most relevant to this interface type (use the selection table in the reference). If the project instruction file (`AGENTS.md`, `CLAUDE.md`, or the host's equivalent) contains a `## Design Context` section from `impeccino init`, also generate 1-2 project-specific personas from the audience/brand info.
 
 For each selected persona, walk through the primary user action and list specific red flags found:
 
@@ -197,13 +197,13 @@ Codex Run Notes are final-chat only. Do not include this section in the persiste
 
 Write the full report into the chat response now, before any persistence work. This is the deliverable; everything below it is bookkeeping.
 
-Do this first because the alternative is the most common way this command fails: the report gets composed once, straight into the persistence heredoc, and the run ends with a perfect archive nobody has read. Composing it into a file is not delivering it. If the report exists only in `.impeccable/critique/`, the run produced nothing.
+Do this first because the alternative is the most common way this command fails: the report gets composed once, straight into the persistence heredoc, and the run ends with a perfect archive nobody has read. Composing it into a file is not delivering it. If the report exists only in `.impeccino/critique/`, the run produced nothing.
 
 Persistence is not the end of the run. After it, the response continues with the trend line and the close.
 
 ### Persist the Snapshot
 
-Once the report above is finalized, write it to `.impeccable/critique/` so the user can refer back, and so `/impeccable polish` can pick up the priority issues without a copy-paste.
+Once the report above is finalized, write it to `.impeccino/critique/` so the user can refer back, and so `/impeccino polish` can pick up the priority issues without a copy-paste.
 
 Skip this step if the Setup slug was null (vague or root-level target).
 
@@ -213,10 +213,10 @@ Skip this step if the Setup slug was null (vague or root-level target).
 
    Codex: exclude Run Notes from the temp body file; Run Notes are final-chat only because persistence, trend read, and temp cleanup happen after the snapshot write.
 
-2. **Pass the structured metadata** through `IMPECCABLE_CRITIQUE_META` (JSON), then run the write command:
+2. **Pass the structured metadata** through `IMPECCINO_CRITIQUE_META` (JSON), then run the write command:
    ```bash
-   IMPECCABLE_CRITIQUE_META='{"target":"<user phrasing>","total_score":<n>,"max_score":<n>,"na_heuristics":"<comma-separated numbers, or empty>","p0_count":<n>,"p1_count":<n>}' \
-     "<skill-base-dir>/scripts/impeccable" critique-storage write "<resolved target>" <body-file>
+   IMPECCINO_CRITIQUE_META='{"target":"<user phrasing>","total_score":<n>,"max_score":<n>,"na_heuristics":"<comma-separated numbers, or empty>","p0_count":<n>,"p1_count":<n>}' \
+     "<skill-base-dir>/scripts/impeccino" critique-storage write "<resolved target>" <body-file>
    ```
    `max_score` is the applicable maximum from the heuristic table (40 when every heuristic applied), so a later run can tell a renormalized total from a full one. For a local file target, the helper also records an exact content fingerprint so polish can distinguish the assessed bytes from later edits without relying on Git state or timestamps. The helper prints the absolute path it wrote. Leave that file on disk. Polish closes it; this run does not.
 
@@ -224,20 +224,20 @@ Skip this step if the Setup slug was null (vague or root-level target).
 
 4. **Read the trend** for context:
    ```bash
-   "<skill-base-dir>/scripts/impeccable" critique-storage trend "<resolved target>" 5
+   "<skill-base-dir>/scripts/impeccino" critique-storage trend "<resolved target>" 5
    ```
    This returns a JSON array of the last 5 frontmatter entries (including the one you just wrote).
 
 5. **Append a single line to the user-visible output**, after the report and before the questions:
 
    > **Trend for `<slug>` (last 5 runs): 24 → 28 → 32 → 29 → 32 (out of 40)**
-   > Wrote `.impeccable/critique/<filename>`.
+   > Wrote `.impeccino/critique/<filename>`.
 
    Read `max_score` on each trend entry. When every entry shares one maximum, state it once as above. When they differ, print each score with its own denominator (`24/32 → 30/40`) and note that the runs scored different heuristic sets, so the line is not a like-for-like comparison. Treat a missing `max_score` on an older entry as 40.
 
    If this is the first run for the slug, the trend is just one score; say so: "First run for this target, no trend yet."
 
-6. **Close the run.** Go to Ask the User below and emit the questions, or the `Questions skipped: <reason>` line when the count allows it. The run is not complete until you do. Persistence is bookkeeping and cleanup is not an ending; stopping here leaves the user with a report and no way forward, and leaves `/impeccable polish` with no priorities to inherit.
+6. **Close the run.** Go to Ask the User below and emit the questions, or the `Questions skipped: <reason>` line when the count allows it. The run is not complete until you do. Persistence is bookkeeping and cleanup is not an ending; stopping here leaves the user with a report and no way forward, and leaves `/impeccino polish` with no priorities to inherit.
 
 This is fire-and-forget. Do not show the user the helper's JSON output; only the human-readable trend line and the written path. Failures here should not block the rest of the flow; print the error and move on.
 
@@ -278,20 +278,20 @@ List recommended commands in priority order, based on the user's answers:
 ...
 
 **Rules for recommendations**:
-- Only recommend commands from: /impeccable adapt, /impeccable animate, /impeccable audit, /impeccable bolder, /impeccable clarify, /impeccable colorize, /impeccable critique, /impeccable delight, /impeccable distill, /impeccable document, /impeccable harden, /impeccable layout, /impeccable onboard, /impeccable optimize, /impeccable overdrive, /impeccable polish, /impeccable quieter, /impeccable shape, /impeccable typeset
+- Only recommend commands from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset
 - Order by the user's stated priorities first, then by impact
 - Each item's description should carry enough context that the command knows what to focus on
 - Map each Priority Issue to the appropriate command
 - Skip commands that would address zero issues
 - If the user chose a limited scope, only include items within that scope
 - If the user marked areas as off-limits, exclude commands that would touch those areas
-- End with `/impeccable polish` as the final step if any fixes were recommended
+- End with `/impeccino polish` as the final step if any fixes were recommended
 
 After presenting the summary, tell the user:
 
 > You can ask me to run these one at a time, all at once, or in any order you prefer.
 >
-> Re-run `/impeccable critique` after fixes to see your score improve.
+> Re-run `/impeccino critique` after fixes to see your score improve.
 
 ---
 
@@ -809,7 +809,7 @@ Choose personas based on the interface type:
 
 #### Project-Specific Personas
 
-If the project instruction file (`AGENTS.md`, `CLAUDE.md`, or the host's equivalent) contains a `## Design Context` section (generated by `impeccable init`), derive 1–2 additional personas from the audience and brand information:
+If the project instruction file (`AGENTS.md`, `CLAUDE.md`, or the host's equivalent) contains a `## Design Context` section (generated by `impeccino init`), derive 1–2 additional personas from the audience and brand information:
 
 1. Read the target audience description
 2. Identify the primary user archetype not covered by the 5 predefined personas

@@ -3,11 +3,11 @@
 //! engine-wide text hook covers HTML files when no document hook is set, and
 //! a run with no pack is identical to the built-in output.
 
-use impeccable_core::findings::{finding_for, Finding};
-use impeccable_core::registry::Antipattern;
-use impeccable_core::rule_pack::RulePack;
-use impeccable_html::dom::StaticDocument;
-use impeccable_html::{detect_html_source, DetectHtmlOptions, StaticRulePack};
+use impeccino_core::findings::{finding_for, Finding};
+use impeccino_core::registry::Antipattern;
+use impeccino_core::rule_pack::RulePack;
+use impeccino_html::dom::StaticDocument;
+use impeccino_html::{detect_html_source, DetectHtmlOptions, StaticRulePack};
 use std::path::Path;
 
 const MARKER: &str = "TODO(pack)";
@@ -82,7 +82,7 @@ fn document_hook_fires_and_no_pack_is_unchanged() {
         "the fixture must trip a built-in rule"
     );
 
-    impeccable_core::rule_pack::install(&PACK);
+    impeccino_core::rule_pack::install(&PACK);
     let with_pack = scan(&DetectHtmlOptions {
         static_rule_pack: Some(&PACK),
         rule_pack: Some(&PACK),
@@ -103,7 +103,7 @@ fn document_hook_fires_and_no_pack_is_unchanged() {
 
 #[test]
 fn text_hook_covers_html_when_no_document_hook_is_set() {
-    impeccable_core::rule_pack::install(&PACK);
+    impeccino_core::rule_pack::install(&PACK);
     let with_text_only = scan(&DetectHtmlOptions {
         rule_pack: Some(&PACK),
         ..Default::default()
@@ -123,10 +123,10 @@ fn text_hook_covers_html_when_no_document_hook_is_set() {
 
 #[test]
 fn pack_findings_are_waivable_inline() {
-    impeccable_core::rule_pack::install(&PACK);
+    impeccino_core::rule_pack::install(&PACK);
     let page = PAGE.replace(
         "<body>",
-        "<body>\n<!-- impeccable-disable testpack/todo-marker -->",
+        "<body>\n<!-- impeccino-disable testpack/todo-marker -->",
     );
     let findings = detect_html_source(
         &page,

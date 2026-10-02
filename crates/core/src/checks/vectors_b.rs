@@ -8,7 +8,7 @@ use crate::color::Rgba;
 use crate::js;
 use crate::vectors::{decode, encode, Js};
 
-use impeccable_foundation::vectors::checks_b::{
+use impeccino_foundation::vectors::checks_b::{
     field, num_field, opt_str, str_field, str_field_or_empty, to_number,
 };
 
@@ -17,7 +17,7 @@ use serde_json::Value;
 /// (module, fn) pairs this group replays; the test treats vectors for other
 /// functions as SKIP, not FAIL, so groups can land independently. The open
 /// helpers of this group are dispatched by
-/// `impeccable_foundation::vectors::checks_b`.
+/// `impeccino_foundation::vectors::checks_b`.
 pub const KNOWN: &[(&str, &[&str])] = &[(
     "rules.checks",
     &[

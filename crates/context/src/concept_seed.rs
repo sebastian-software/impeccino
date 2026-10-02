@@ -1,4 +1,4 @@
-//! JS: concept-seed.mjs -> `impeccable concept-seed`
+//! JS: concept-seed.mjs -> `impeccino concept-seed`
 
 use crate::catalog::*;
 use crate::context::load_context;
@@ -7,7 +7,7 @@ use crate::roll_selection::*;
 use crate::seed_text as t;
 use crate::target_args::TargetOptions;
 use crate::util::Env;
-use impeccable_common::Io;
+use impeccino_common::Io;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use std::time::{Duration, Instant};
@@ -27,7 +27,7 @@ struct ApiBudget {
 
 impl ApiBudget {
     fn new(env: &Env) -> ApiBudget {
-        let ms = env.get("IMPECCABLE_API_TIMEOUT").filter(|v| !v.is_empty()).map(|v| crate::critique_storage::js_number(v)).unwrap_or(4000.0);
+        let ms = env.get("IMPECCINO_API_TIMEOUT").filter(|v| !v.is_empty()).map(|v| crate::critique_storage::js_number(v)).unwrap_or(4000.0);
         let ms = if ms.is_nan() { 0.0 } else { ms.max(0.0) };
         ApiBudget { deadline: None, timeout: Duration::from_millis(ms as u64) }
     }
@@ -38,12 +38,12 @@ impl ApiBudget {
 }
 
 fn api_base(env: &Env) -> String {
-    let base = env.get("IMPECCABLE_API_URL").filter(|v| !v.is_empty()).cloned().unwrap_or_else(|| "https://impeccable.style/api".to_string());
+    let base = env.get("IMPECCINO_API_URL").filter(|v| !v.is_empty()).cloned().unwrap_or_else(|| "https://impeccable.style/api".to_string());
     base.strip_suffix('/').unwrap_or(&base).to_string()
 }
 
 fn card_base(env: &Env) -> String {
-    env.get("IMPECCABLE_CARD_BASE").filter(|v| !v.is_empty()).cloned().unwrap_or_else(|| "https://impeccable.style/worlds/cards".to_string())
+    env.get("IMPECCINO_CARD_BASE").filter(|v| !v.is_empty()).cloned().unwrap_or_else(|| "https://impeccable.style/worlds/cards".to_string())
 }
 
 fn agent(timeout: Duration) -> ureq::Agent {
@@ -94,7 +94,7 @@ fn fetch_roll(env: &Env, budget: &mut ApiBudget, scope: &str, key: &str, mode: O
 }
 
 fn telemetry_disabled(env: &Env) -> bool {
-    env.get("IMPECCABLE_NO_TELEMETRY").map(|v| !v.is_empty()).unwrap_or(false) || env.get("DO_NOT_TRACK").map(|v| !v.is_empty()).unwrap_or(false)
+    env.get("IMPECCINO_NO_TELEMETRY").map(|v| !v.is_empty()).unwrap_or(false) || env.get("DO_NOT_TRACK").map(|v| !v.is_empty()).unwrap_or(false)
 }
 
 /// JS: pingChosen
@@ -324,7 +324,7 @@ fn render_concept_seed(env: &Env, cwd: &str, budget: &mut ApiBudget, a: &SeedArg
     let dealt_str = dealt.iter().map(|d| d.to_string()).collect::<Vec<_>>().join(", ");
 
     // data resolution
-    let catalog_dir = env.get("IMPECCABLE_CATALOG_DIR").filter(|v| !v.is_empty()).cloned().unwrap_or_else(|| {
+    let catalog_dir = env.get("IMPECCINO_CATALOG_DIR").filter(|v| !v.is_empty()).cloned().unwrap_or_else(|| {
         crate::provider::detect(env, cwd).skill_dir.map(|d| jsp::join(&[&d, "scripts"])).unwrap_or_else(|| ".".to_string())
     });
     let data: Option<RollData> = if let Some(local) = load_local(&catalog_dir) {
@@ -408,7 +408,7 @@ fn render_concept_seed(env: &Env, cwd: &str, budget: &mut ApiBudget, a: &SeedArg
         return Ok(fill(t::DEGRADED_BODY, &pairs));
     };
 
-    let compositions_enabled = env.get("IMPECCABLE_COMPOSITIONS").map(|v| v == "1").unwrap_or(false);
+    let compositions_enabled = env.get("IMPECCINO_COMPOSITIONS").map(|v| v == "1").unwrap_or(false);
     let compositions: Vec<Value> = if compositions_enabled { data.compositions.clone() } else { vec![] };
     let grain_note = match &data.composition_match {
         Some(m) if m.grain.is_some() => {
@@ -530,7 +530,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         key: match val("--from") {
             Some(Some(k)) => k,
             Some(None) => "undefined".to_string(),
-            None => env.get("IMPECCABLE_CONCEPT_SEED").filter(|v| !v.is_empty()).cloned().unwrap_or_else(random_hex8),
+            None => env.get("IMPECCINO_CONCEPT_SEED").filter(|v| !v.is_empty()).cloned().unwrap_or_else(random_hex8),
         },
         reroll: num(val("--reroll")).unwrap_or(0.0),
         register: val("--register"),

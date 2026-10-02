@@ -1,13 +1,16 @@
 {
-  "name": "impeccable",
+  "name": "impeccino",
   "version": "4.1.0",
   "private": true,
-  "description": "Design skills, commands, and anti-pattern detection for AI coding agents",
-  "author": "Paul Bakaus",
+  "description": "Impeccino: design skill, commands, and anti-pattern detection for AI coding agents (repository tooling)",
+  "author": "Sebastian Werner",
+  "contributors": [
+    "Paul Bakaus (Impeccable, the project Impeccino derives from)"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pbakaus/impeccable.git"
+    "url": "git+https://github.com/sebastian-software/impeccino.git"
   },
   "engines": {
     "node": ">=22.18.0"

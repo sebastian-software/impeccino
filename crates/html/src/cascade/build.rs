@@ -18,11 +18,11 @@ use super::{
 use crate::dom::StaticDocument;
 use crate::profile::{self, Meta, ProfileSink};
 use ego_tree::NodeId;
-use impeccable_core::checks::css_scan::{collect_css_custom_props, css_length_to_px};
-use impeccable_core::checks::measures;
-use impeccable_core::color::parse_any_color;
-use impeccable_common::jsp;
-use impeccable_core::js;
+use impeccino_core::checks::css_scan::{collect_css_custom_props, css_length_to_px};
+use impeccino_core::checks::measures;
+use impeccino_core::color::parse_any_color;
+use impeccino_common::jsp;
+use impeccino_core::js;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -122,7 +122,7 @@ pub fn collect_static_css_text(
                 if warned_missing_stylesheets.insert(css_path.clone()) {
                     if let Some(warn) = warn {
                         warn(&format!(
-                            "impeccable detect: could not read linked stylesheet {href} (resolved to {css_path}); color and custom-property rules will be incomplete\n"
+                            "impeccino detect: could not read linked stylesheet {href} (resolved to {css_path}); color and custom-property rules will be incomplete\n"
                         ));
                     }
                 }
@@ -173,7 +173,7 @@ static WS_SPLIT_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(&format!("{}+", js::WS)).expect("WS_SPLIT_RE"));
 static GRADIENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new("(?i)gradient").expect("GRADIENT_RE"));
 
-fn resolve_root(raw: &str, root: &impeccable_core::checks::css_scan::CustomProps) -> String {
+fn resolve_root(raw: &str, root: &impeccino_core::checks::css_scan::CustomProps) -> String {
     let lookup = |name: &str| root.get(name).cloned();
     measures::resolve_var_refs(raw, &lookup, 0)
 }
@@ -185,7 +185,7 @@ fn mark_pseudo_rule(
     doc: &mut StaticDocument,
     rule: &CssRule,
     base_selector: &str,
-    root_custom_props: &impeccable_core::checks::css_scan::CustomProps,
+    root_custom_props: &impeccino_core::checks::css_scan::CustomProps,
 ) {
     let mut decls: IndexMap<String, String> = IndexMap::new();
     for d in &rule.declarations {

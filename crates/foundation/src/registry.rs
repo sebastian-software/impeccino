@@ -647,10 +647,10 @@ pub static ANTIPATTERNS: &[Antipattern] = &[
 /// mechanical slop, and design-system drift. Every one of them is mechanical,
 /// unambiguous, and cheap to correct at the edit site.
 ///
-/// It lives here rather than in `impeccable-hook` because the hook crate is
+/// It lives here rather than in `impeccino-hook` because the hook crate is
 /// native-only (it reaches for the filesystem and the process environment)
 /// while downstream consumers want the same list from wasm. `hook_lib`
-/// re-exports it; the `detect` feature of `impeccable-wasm` exports it as
+/// re-exports it; the `detect` feature of `impeccino-wasm` exports it as
 /// JSON.
 pub const IMMEDIATE_TIER_RULES: &[&str] = &[
     // Broken output.

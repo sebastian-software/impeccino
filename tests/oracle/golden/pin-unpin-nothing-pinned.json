@@ -4,9 +4,9 @@
   "exit": 0,
   "signal": null,
   "files": {
-    ".agents/skills/impeccable/SKILL.md": "---\nname: impeccable\ndescription: fixture\n---\n",
+    ".agents/skills/impeccino/SKILL.md": "---\nname: impeccino\ndescription: fixture\n---\n",
     ".claude/skills/audit/SKILL.md": "---\nname: audit\ndescription: a user-authored audit skill\n---\nNot pinned.\n",
-    ".claude/skills/impeccable/SKILL.md": "---\nname: impeccable\ndescription: fixture\n---\n",
-    ".cursor/skills/impeccable/SKILL.md": "---\nname: impeccable\ndescription: fixture\n---\n"
+    ".claude/skills/impeccino/SKILL.md": "---\nname: impeccino\ndescription: fixture\n---\n",
+    ".cursor/skills/impeccino/SKILL.md": "---\nname: impeccino\ndescription: fixture\n---\n"
   }
 }

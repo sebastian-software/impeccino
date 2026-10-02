@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 /**
  * Fetch the pinned engine binary (skill/scripts/VERSION) for one or every
- * platform into skill/scripts/bin/<os>-<arch>/impeccable[.exe], the sibling
- * layout the launcher (skill/scripts/impeccable) looks in first.
+ * platform into skill/scripts/bin/<os>-<arch>/impeccino[.exe], the sibling
+ * layout the launcher (skill/scripts/impeccino) looks in first.
  *
  *   node scripts/fetch-engine.mjs                # current platform
  *   node scripts/fetch-engine.mjs --all          # every release target
  *   node scripts/fetch-engine.mjs --target linux-x64 [--target ...]
- *   node scripts/fetch-engine.mjs --dest <dir>   # <dir>/<os>-<arch>/impeccable[.exe]
+ *   node scripts/fetch-engine.mjs --dest <dir>   # <dir>/<os>-<arch>/impeccino[.exe]
  *   node scripts/fetch-engine.mjs --lenient      # a target that cannot be fetched warns instead of failing
  *
  * Environment (same names the launcher honors):
- *   IMPECCABLE_DOWNLOAD_BASE  release channel root (default: the public repo's GitHub Releases)
- *   IMPECCABLE_BIN            copy this local binary for the current platform instead of downloading
+ *   IMPECCINO_DOWNLOAD_BASE  release channel root (default: the public repo's GitHub Releases)
+ *   IMPECCINO_BIN            copy this local binary for the current platform instead of downloading
  *
- * The URL scheme is the launcher's: <base>/engine-v<version>/impeccable-<os>-<arch>[.exe],
+ * The URL scheme is the launcher's: <base>/engine-v<version>/impeccino-<os>-<arch>[.exe],
  * with an optional <asset>.sha256 next to it that is verified when present.
  */
 import fs from 'node:fs';
@@ -24,7 +24,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const DEFAULT_DOWNLOAD_BASE = 'https://github.com/pbakaus/impeccable/releases/download';
+export const DEFAULT_DOWNLOAD_BASE = 'https://github.com/sebastian-software/impeccino/releases/download';
 export const ENGINE_TARGETS = ['darwin-arm64', 'darwin-x64', 'linux-x64', 'linux-arm64', 'windows-x64'];
 
 export function readEngineVersion(root = ROOT) {
@@ -38,11 +38,11 @@ export function currentTarget() {
 }
 
 export function binaryName(target) {
-  return target.startsWith('windows-') ? 'impeccable.exe' : 'impeccable';
+  return target.startsWith('windows-') ? 'impeccino.exe' : 'impeccino';
 }
 
-export function assetUrl(version, target, base = process.env.IMPECCABLE_DOWNLOAD_BASE || DEFAULT_DOWNLOAD_BASE) {
-  const asset = `impeccable-${target}${target.startsWith('windows-') ? '.exe' : ''}`;
+export function assetUrl(version, target, base = process.env.IMPECCINO_DOWNLOAD_BASE || DEFAULT_DOWNLOAD_BASE) {
+  const asset = `impeccino-${target}${target.startsWith('windows-') ? '.exe' : ''}`;
   return `${base.replace(/\/$/, '')}/engine-v${version}/${asset}`;
 }
 
@@ -71,9 +71,9 @@ function install(buffer, target, dest) {
  * unavailable or its checksum does not match.
  */
 export async function fetchEngine(target, { version = readEngineVersion(), dest, base } = {}) {
-  const local = process.env.IMPECCABLE_BIN;
+  const local = process.env.IMPECCINO_BIN;
   if (local && target === currentTarget()) {
-    if (!fs.existsSync(local)) throw new Error(`IMPECCABLE_BIN points at a missing file: ${local}`);
+    if (!fs.existsSync(local)) throw new Error(`IMPECCINO_BIN points at a missing file: ${local}`);
     return install(fs.readFileSync(local), target, dest);
   }
   const url = assetUrl(version, target, base);

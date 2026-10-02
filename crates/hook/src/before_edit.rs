@@ -1,9 +1,9 @@
-//! JS: skill/scripts/hook-before-edit.mjs (`impeccable hook-before-edit`),
+//! JS: skill/scripts/hook-before-edit.mjs (`impeccino hook-before-edit`),
 //! the Cursor preToolUse write gate. Always exits 0 and prints exactly one
 //! JSON document: `{"permission":"allow"...}` or the deny payload.
 
-use impeccable_core::findings::Finding;
-use impeccable_core::js;
+use impeccino_core::findings::Finding;
+use impeccino_core::js;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -11,7 +11,7 @@ use serde_json::{Map, Value};
 use crate::hook_lib::*;
 use crate::util::{iso_now, jsp, now_ms, obj_field, str_field_any, truthy_value, utf16_len};
 
-const WS: &str = impeccable_core::js::WS;
+const WS: &str = impeccino_core::js::WS;
 const DOT: &str = "[^\n\r\\x{2028}\\x{2029}]";
 const B: &str = r"(?-u:\b)";
 const W: &str = "[A-Za-z0-9_]";
@@ -24,7 +24,7 @@ const CURSOR_DENY_LIMIT: f64 = 4000.0;
 /// gate must not chew on it unbounded (triage A3). Over-cap content skips
 /// the gate (allow), the same fail-open shape as an unreadable original.
 const MAX_SCANNED_BYTES: u64 = 1024 * 1024;
-const BLOCK_PREFIX: &str = "Impeccable design hook blocked this write before it landed. ";
+const BLOCK_PREFIX: &str = "Impeccino design hook blocked this write before it landed. ";
 
 /// The proposed content, or the reason the gate cannot scan it.
 enum Proposed {
@@ -209,7 +209,7 @@ fn shell_command(input: &Map<String, Value>) -> String {
 static REDIRECT_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(
         r#"(?:^|[{ws};&|])(?:>>?|1>>?){WS}*(?:"([^"]+)"|'([^']+)'|([^<>{ws}]+))"#,
-        ws = impeccable_core::js::WS_CHARS
+        ws = impeccino_core::js::WS_CHARS
     ))
     .unwrap()
 });
@@ -383,7 +383,7 @@ fn shell_copy_paths(command: &str) -> Option<(String, String)> {
 static SHELL_WORD_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(
         r#""((?:\\"|[^"])*)"|'((?:\\'|[^'])*)'|([^{ws}]+)"#,
-        ws = impeccable_core::js::WS_CHARS
+        ws = impeccino_core::js::WS_CHARS
     ))
     .unwrap()
 });
@@ -510,7 +510,7 @@ fn detect_proposed_html(
 ) -> Result<Vec<Finding>, String> {
     let base = std::env::temp_dir();
     let stamp = format!("{}{}", std::process::id(), now_ms() as u64);
-    let dir = base.join(format!("impeccable-pre-{stamp}"));
+    let dir = base.join(format!("impeccino-pre-{stamp}"));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let tmp = dir.join(jsp::basename(file_path));
     let result = (|| {
@@ -559,8 +559,8 @@ fn cursor_block_message(
         },
     );
     rendered.replacen(
-        "[impeccable@1] Design hook findings requiring review",
-        &format!("[impeccable@1] {BLOCK_PREFIX}Design hook findings requiring review"),
+        "[impeccino@1] Design hook findings requiring review",
+        &format!("[impeccino@1] {BLOCK_PREFIX}Design hook findings requiring review"),
         1,
     )
 }
@@ -668,7 +668,7 @@ fn ms(started: f64) -> Value {
 }
 
 fn main_flow(rt: &Runtime, stdin: &str) -> Out {
-    if truthy(rt.env("IMPECCABLE_HOOK_DISABLED")) {
+    if truthy(rt.env("IMPECCINO_HOOK_DISABLED")) {
         let mut m = Map::new();
         m.insert("skipped".into(), Value::from("env-disabled"));
         return allow(m, vec![]);
@@ -871,7 +871,7 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
     persist_cache(rt, &cwd, &cache);
     if count > EDIT_COUNT_THRESHOLD as f64 {
         let warning = format!(
-            "{message}\n\nThis is the {}th repeated denial for the same file and finding signature, so Impeccable is allowing this write to avoid a loop. Reconsider the issue immediately after the tool runs.",
+            "{message}\n\nThis is the {}th repeated denial for the same file and finding signature, so Impeccino is allowing this write to avoid a loop. Reconsider the issue immediately after the tool runs.",
             js::number_to_string(count)
         );
         return allow(
@@ -909,8 +909,8 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
     )
 }
 
-/// `impeccable hook-before-edit`. Returns the exit code (always 0).
-pub fn run(rt: &Runtime, stdin: &str, io: &mut impeccable_common::Io) -> i32 {
+/// `impeccino hook-before-edit`. Returns the exit code (always 0).
+pub fn run(rt: &Runtime, stdin: &str, io: &mut impeccino_common::Io) -> i32 {
     let out = main_flow(rt, stdin);
     write_audit_log(rt, &out.audit, &rt.proc_cwd);
     io.out(&out.stdout);

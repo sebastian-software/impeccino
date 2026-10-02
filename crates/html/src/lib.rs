@@ -1,4 +1,4 @@
-//! impeccable-html: the static HTML engine (DOM model, CSS cascade, adapters)
+//! impeccino-html: the static HTML engine (DOM model, CSS cascade, adapters)
 //! ported from `cli/engine/engines/static-html/` with byte-for-byte
 //! behavioral parity against the JS goldens.
 //!

@@ -4,7 +4,7 @@
 
 ## Step 1: Load current state
 
-Use the PRODUCT.md path resolved by `impeccable context`. Update it instead of creating a competing authority. In a child app inheriting root context, confirm shared versus app-specific scope before writing.
+Use the PRODUCT.md path resolved by `impeccino context`. Update it instead of creating a competing authority. In a child app inheriting root context, confirm shared versus app-specific scope before writing.
 
 - **No PRODUCT.md:** explore, interview, and write it.
 - **PRODUCT.md exists:** ask what product knowledge is stale or missing; do not reopen confirmed fields without a reason.
@@ -60,7 +60,7 @@ Write only confirmed facts and explicitly marked open decisions. Omit irrelevant
 ```markdown
 # Product
 
-<!-- impeccable:product-schema 1 -->
+<!-- impeccino:product-schema 1 -->
 
 ## Platform
 
@@ -99,9 +99,9 @@ web
 
 Platform is the bare value `web`, `ios`, `android`, or `adaptive`. Preserve useful legacy headings. New files go at `PROJECT_ROOT/PRODUCT.md`; otherwise update the resolved file. Write it before any visual-world or surface-concept work.
 
-Copy the `impeccable:product-schema` comment verbatim, including when you update an older file. It records which version of the product record this file follows, so later versions can tell a deliberately short record from one written before a section existed, and never propose an interview the user has already sat through. Update the number only when this reference's template changes it. Sections a later version retires are reported to you at boot as deprecated; delete them when the user agrees rather than carrying them forward.
+Copy the `impeccino:product-schema` comment verbatim, including when you update an older file. It records which version of the product record this file follows, so later versions can tell a deliberately short record from one written before a section existed, and never propose an interview the user has already sat through. Update the number only when this reference's template changes it. Sections a later version retires are reported to you at boot as deprecated; delete them when the user agrees rather than carrying them forward.
 
-When the platform you just recorded is `ios`, `android`, or `adaptive`, load [ios.md](ios.md), [android.md](android.md), or both before any design work. On a project that had no PRODUCT.md, `impeccable context` could not know the platform and so never loaded them; init is the only place that learns the answer.
+When the platform you just recorded is `ios`, `android`, or `adaptive`, load [ios.md](ios.md), [android.md](android.md), or both before any design work. On a project that had no PRODUCT.md, `impeccino context` could not know the platform and so never loaded them; init is the only place that learns the answer.
 
 ### Completion gate
 
@@ -113,8 +113,8 @@ Summarize captured and deliberately undecided facts. Do not offer DESIGN.md mere
 
 Recommend the next action from the actual project state:
 
-- Empty or early project: ask naturally for the surface to be built, or use `/impeccable shape <surface>` when the user wants a confirmed brief without implementation. New-work will establish a visual world only when the requested work needs one.
-- Existing coherent interface without DESIGN.md: `/impeccable document` if the user wants the incumbent system recorded independently of a new build.
+- Empty or early project: ask naturally for the surface to be built, or use `/impeccino shape <surface>` when the user wants a confirmed brief without implementation. New-work will establish a visual world only when the requested work needs one.
+- Existing coherent interface without DESIGN.md: `/impeccino document` if the user wants the incumbent system recorded independently of a new build.
 - Existing surface needing work: name the most relevant scoped command.
 
-If init was invoked by another request, resume without rerunning `impeccable context`; the native reference above is the one thing that run could not have given you, and new-work owns later visual decisions.
+If init was invoked by another request, resume without rerunning `impeccino context`; the native reference above is the one thing that run could not have given you, and new-work owns later visual decisions.

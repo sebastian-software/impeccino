@@ -78,7 +78,7 @@ export async function prepareBrowser(root) {
     tools(trace) {
       return {
         browser_snapshot: tool({
-          description: 'Render and inspect an HTML file with the ready Chromium browser. Returns an actual screenshot and visible DOM text; optionally click a CSS selector before capture. Captures save to .impeccable/review/{desktop|mobile}.png.',
+          description: 'Render and inspect an HTML file with the ready Chromium browser. Returns an actual screenshot and visible DOM text; optionally click a CSS selector before capture. Captures save to .impeccino/review/{desktop|mobile}.png.',
           inputSchema: z.object({ path: z.string(), viewport: z.enum(['desktop', 'mobile']), click: z.string().optional() }),
           execute: async ({ path: target, viewport, click }) => {
             const file = resolveFile(root, target);
@@ -94,10 +94,10 @@ export async function prepareBrowser(root) {
               await page.goto(`${origin}/${relativeTarget.split('/').map(encodeURIComponent).join('/')}`, { waitUntil: 'load', timeout: 15000 });
               await page.evaluate(() => document.fonts.ready);
               if (click) await page.locator(click).click();
-              const screenshot = `.impeccable/review/${viewport}.png`;
-              if (fs.existsSync(path.join(root, '.impeccable'))) resolveFile(root, '.impeccable');
-              fs.mkdirSync(path.join(root, '.impeccable/review'), { recursive: true });
-              resolveFile(root, '.impeccable/review');
+              const screenshot = `.impeccino/review/${viewport}.png`;
+              if (fs.existsSync(path.join(root, '.impeccino'))) resolveFile(root, '.impeccino');
+              fs.mkdirSync(path.join(root, '.impeccino/review'), { recursive: true });
+              resolveFile(root, '.impeccino/review');
               if (fs.existsSync(path.join(root, screenshot))) resolveFile(root, screenshot);
               const image = await page.screenshot({ path: path.join(root, screenshot), fullPage: true, animations: 'disabled' });
               call.mutatedPaths = [screenshot];

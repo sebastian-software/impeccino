@@ -1,6 +1,6 @@
 /**
  * Call recorder used by the loader hooks. Writes one JSON line per unique
- * (args) call to $IMPECCABLE_VECTORS_DIR/<module>/<fn>.jsonl when both the
+ * (args) call to $IMPECCINO_VECTORS_DIR/<module>/<fn>.jsonl when both the
  * arguments and the return value are plain data. Anything holding DOM-ish
  * objects, functions, or class instances other than Map/Set is skipped and
  * counted in _skipped.json so the porter knows which functions need
@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const OUT = process.env.IMPECCABLE_VECTORS_DIR;
+const OUT = process.env.IMPECCINO_VECTORS_DIR;
 const seen = new Map(); // key -> Set of arg hashes
 const skipped = new Map();
 const streams = new Map();

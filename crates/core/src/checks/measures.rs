@@ -18,7 +18,7 @@ use regex::Regex;
 
 /// The CSS value helpers, style traits and plain-data types these checks are
 /// written against are shared; re-exported so `checks::measures` stays one path.
-pub use impeccable_foundation::css::measures::*;
+pub use impeccino_foundation::css::measures::*;
 
 /// JS `\d` is ASCII only.
 const D: &str = "[0-9]";

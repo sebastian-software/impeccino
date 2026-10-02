@@ -17,7 +17,7 @@
 //!    category, and severity) resolve the pack's ids.
 //! 3. Pass the pack into the engine being run: `TextOptions.rule_pack` /
 //!    `ScanOptions.rule_pack` (text engine), `DetectHtmlOptions`
-//!    (`rule_pack` plus `impeccable_html::StaticRulePack`), or
+//!    (`rule_pack` plus `impeccino_html::StaticRulePack`), or
 //!    `BrowserConfig.rule_pack` (the in-page / snapshot driver).
 //!
 //! The trait is object-safe and every hook has a default that answers empty,

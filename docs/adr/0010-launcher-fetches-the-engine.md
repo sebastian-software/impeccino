@@ -6,7 +6,7 @@
 
 Every skill verb runs a 12 MB per-platform engine binary. Binaries stay out
 of git (0002), so `skill/` ships only the launcher. On first run the launcher
-downloads `engine-v<VERSION>` for the host platform into `~/.impeccable/bin/`
+downloads `engine-v<VERSION>` for the host platform into `~/.impeccino/bin/`
 and verifies it against the release's `.sha256` file.
 
 ## Decision

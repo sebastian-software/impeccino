@@ -1,7 +1,7 @@
 # Light ADRs
 
 Short architecture decision records for the decisions that shape how
-Impeccable is built and delivered. One file per decision, one screen each:
+Impeccino is built and delivered. One file per decision, one screen each:
 the context that forced it, the decision, and what it costs.
 
 ADRs are living documents. When a decision changes, rewrite its record to
@@ -25,7 +25,7 @@ the current state; git keeps the earlier versions.
 | [0014](0014-releases-are-tags.md) | Releases are tags with generated notes |
 | [0015](0015-history-lives-in-git.md) | History lives in git |
 | [0016](0016-rendered-pages-through-agent-browser.md) | Rendered pages are measured through agent-browser |
-| [0017](0017-working-name-impeccino.md) | Working name "Impeccino" (proposed, not applied) |
+| [0017](0017-name-impeccino.md) | The project is called Impeccino |
 | [0018](0018-no-upstream-maintainer-tooling.md) | No upstream maintainer tooling |
 
 Format: **Status**, **Date**, **Context**, **Decision**, **Consequences**,

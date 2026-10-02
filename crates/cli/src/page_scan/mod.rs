@@ -1,7 +1,7 @@
-//! `impeccable detect <url>`: the detector's rendered-page rules, measured in
+//! `impeccino detect <url>`: the detector's rendered-page rules, measured in
 //! a page that agent-browser holds (docs/adr/0016).
 //!
-//! Impeccable ships no browser. It drives `agent-browser`, the headless
+//! Impeccino ships no browser. It drives `agent-browser`, the headless
 //! browser CLI agents already use: `open` the URL, install the read-only
 //! measurement (`assets/page-snapshot.js`) plus a small set of page
 //! operations with `eval`, and run the scan (`scan.rs`) here, one operation
@@ -20,10 +20,10 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::rc::Rc;
 
-use impeccable_core::browser::BrowserConfig;
-use impeccable_core::findings::{derive_advisory_flag, try_finding, Finding};
-use impeccable_detect::design_system::DesignSystem;
-use impeccable_detect::engines::{EngineError, ScanOptions, SharedBrowser, UrlEngine};
+use impeccino_core::browser::BrowserConfig;
+use impeccino_core::findings::{derive_advisory_flag, try_finding, Finding};
+use impeccino_detect::design_system::DesignSystem;
+use impeccino_detect::engines::{EngineError, ScanOptions, SharedBrowser, UrlEngine};
 use serde_json::{json, Value};
 
 mod cdp;
@@ -33,10 +33,10 @@ mod scan;
 const SNAPSHOT_JS: &str = include_str!("../../assets/page-snapshot.js");
 
 /// The page operations the scan asks for, installed next to the measurement
-/// as `window.__impeccableProbe`. Page errors and screenshots come from
+/// as `window.__impeccinoProbe`. Page errors and screenshots come from
 /// agent-browser itself, not from here.
 const PROBE_JS: &str = r#"
-const S = __impeccableSnapshot;
+const S = __impeccinoSnapshot;
 let cap = null, io = null;
 const paint = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(0))));
 const find = (selector) => { try { return document.querySelector(selector); } catch (e) { return null; } };
@@ -65,12 +65,12 @@ const directTextRect = (node) => {
   return [left, top, Math.max(...rects.map(r => r.right)) - left, Math.max(...rects.map(r => r.bottom)) - top];
 };
 const HIDE_STYLE = [
-  '[data-impeccable-visual-contrast-target] {',
+  '[data-impeccino-visual-contrast-target] {',
   '  color: transparent !important;',
   '  -webkit-text-fill-color: transparent !important;',
   '  text-shadow: none !important;',
   '}',
-  '[data-impeccable-visual-contrast-target][data-impeccable-bgclip-text="true"] {',
+  '[data-impeccino-visual-contrast-target][data-impeccino-bgclip-text="true"] {',
   '  background-image: none !important;',
   '}',
 ].join('\n');
@@ -107,23 +107,23 @@ const run = async (op) => {
     case 'hideText': {
       const el = find(op.selector);
       if (!el) return false;
-      let style = document.getElementById('impeccable-visual-contrast-hide-style');
-      if (!style) { style = document.createElement('style'); style.id = 'impeccable-visual-contrast-hide-style'; style.textContent = HIDE_STYLE; document.head.appendChild(style); }
-      el.setAttribute('data-impeccable-visual-contrast-target', '1');
-      if (op.backgroundClipText) el.setAttribute('data-impeccable-bgclip-text', 'true');
+      let style = document.getElementById('impeccino-visual-contrast-hide-style');
+      if (!style) { style = document.createElement('style'); style.id = 'impeccino-visual-contrast-hide-style'; style.textContent = HIDE_STYLE; document.head.appendChild(style); }
+      el.setAttribute('data-impeccino-visual-contrast-target', '1');
+      if (op.backgroundClipText) el.setAttribute('data-impeccino-bgclip-text', 'true');
       return true;
     }
     case 'showText': {
       const el = find(op.selector);
-      if (el) { el.removeAttribute('data-impeccable-visual-contrast-target'); el.removeAttribute('data-impeccable-bgclip-text'); }
-      const style = document.getElementById('impeccable-visual-contrast-hide-style');
+      if (el) { el.removeAttribute('data-impeccino-visual-contrast-target'); el.removeAttribute('data-impeccino-bgclip-text'); }
+      const style = document.getElementById('impeccino-visual-contrast-hide-style');
       if (style) style.remove();
       return true;
     }
     default: return { error: 'unknown op ' + op.op };
   }
 };
-window.__impeccableProbe = { run };
+window.__impeccinoProbe = { run };
 "#;
 
 /// The viewport of a fresh session (the former URL engine's default).
@@ -186,13 +186,13 @@ struct Session {
 
 impl Session {
     fn bin() -> PathBuf {
-        std::env::var_os("IMPECCABLE_AGENT_BROWSER").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("agent-browser"))
+        std::env::var_os("IMPECCINO_AGENT_BROWSER").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("agent-browser"))
     }
 
     fn check_installed() -> Result<(), EngineError> {
         let mut cmd = Command::new(Self::bin());
         cmd.arg("--version").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-        impeccable_common::proc::hide_window(&mut cmd);
+        impeccino_common::proc::hide_window(&mut cmd);
         if cmd.status().is_ok_and(|s| s.success()) {
             Ok(())
         } else {
@@ -204,7 +204,7 @@ impl Session {
         Self::check_installed()?;
         let (name, owned) = match std::env::var("AGENT_BROWSER_SESSION") {
             Ok(name) if !name.is_empty() => (name, false),
-            _ => (format!("impeccable-{}-{:x}", std::process::id(), random_u32()), true),
+            _ => (format!("impeccino-{}-{:x}", std::process::id(), random_u32()), true),
         };
         let session = Session { bin: Self::bin(), name, owned };
         if let Some((w, h)) = viewport.or(owned.then_some(DEFAULT_VIEWPORT)) {
@@ -225,7 +225,7 @@ impl Session {
         let mut cmd = Command::new(&self.bin);
         cmd.args(["--session", &self.name, "--json"]).args(args);
         cmd.stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped());
-        impeccable_common::proc::hide_window(&mut cmd);
+        impeccino_common::proc::hide_window(&mut cmd);
         let mut child = cmd.spawn().map_err(|_| EngineError::new(MISSING_BROWSER))?;
         if let (Some(text), Some(mut pipe)) = (stdin, child.stdin.take()) {
             let _ = pipe.write_all(text.as_bytes());
@@ -304,10 +304,10 @@ impl AgentBrowserPage<'_> {
 
     fn page_op(&mut self, op: &Value) -> Result<Value, String> {
         let script = format!(
-            "(async () => window.__impeccableProbe ? await window.__impeccableProbe.run({op}) : {{ __impeccableMissing: true }})()"
+            "(async () => window.__impeccinoProbe ? await window.__impeccinoProbe.run({op}) : {{ __impeccinoMissing: true }})()"
         );
         let out = self.eval(&script)?;
-        if out.get("__impeccableMissing").is_none() {
+        if out.get("__impeccinoMissing").is_none() {
             return Ok(out);
         }
         // First use, or the page navigated and dropped the probe.
@@ -399,7 +399,7 @@ fn browser_config(ds: Option<&DesignSystem>) -> BrowserConfig {
 }
 
 fn scratch_dir() -> PathBuf {
-    std::env::temp_dir().join(format!("impeccable-page-scan-{}-{:x}", std::process::id(), random_u32()))
+    std::env::temp_dir().join(format!("impeccino-page-scan-{}-{:x}", std::process::id(), random_u32()))
 }
 
 fn random_u32() -> u32 {
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn measurement_script_captures_exactly_the_properties_the_rules_read() {
-        use impeccable_core::browser::snapshot::{PSEUDO_PROPS, STYLE_PROPS};
+        use impeccino_core::browser::snapshot::{PSEUDO_PROPS, STYLE_PROPS};
         assert_eq!(js_list("__SNAP_STYLE_PROPS"), STYLE_PROPS.iter().map(|s| s.to_string()).collect::<Vec<_>>());
         assert_eq!(js_list("__SNAP_PSEUDO_PROPS"), PSEUDO_PROPS.iter().map(|s| s.to_string()).collect::<Vec<_>>());
     }

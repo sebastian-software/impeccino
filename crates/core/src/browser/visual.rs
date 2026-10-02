@@ -22,7 +22,7 @@ use serde_json::{json, Map, Value};
 
 /// The plans and rects this subsystem passes around are shared; re-exported
 /// so `browser::visual` stays one path.
-pub use impeccable_foundation::browser::visual::*;
+pub use impeccino_foundation::browser::visual::*;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {
@@ -47,8 +47,8 @@ re!(
 );
 
 pub const OVERLAY_SELECTOR: &str =
-    ".impeccable-overlay, .impeccable-label, .impeccable-banner, .impeccable-tooltip";
-pub const LIVE_SELECTOR: &str = "[id^=\"impeccable-live-\"]";
+    ".impeccino-overlay, .impeccino-label, .impeccino-banner, .impeccino-tooltip";
+pub const LIVE_SELECTOR: &str = "[id^=\"impeccino-live-\"]";
 
 /// JS `s.replace(/\s+/g, ' ')`.
 fn collapse_ws(s: &str) -> String {

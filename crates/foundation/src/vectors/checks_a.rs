@@ -8,7 +8,7 @@ use crate::rules::types as rules;
 use crate::vectors::{decode, encode, Js};
 use serde_json::Value;
 
-/// The `rules.checks` functions this group replays. `impeccable_core`'s
+/// The `rules.checks` functions this group replays. `impeccino_core`'s
 /// `vectors::KNOWN_FUNCTIONS` folds this in, so a caller sees one table.
 pub const KNOWN_FNS: &[&str] = &[
     "isEmojiOnlyText",

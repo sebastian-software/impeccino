@@ -1,13 +1,13 @@
 //! The engine must never panic on any input: truncated fixtures, garbage,
 //! and pathological nesting.
 
-use impeccable_html::{detect_html_source, DetectHtmlOptions};
+use impeccino_html::{detect_html_source, DetectHtmlOptions};
 use std::path::{Path, PathBuf};
 
-/// The repo root: this workspace is the public repo. `IMPECCABLE_PUBLIC_REPO`
+/// The repo root: this workspace is the public repo. `IMPECCINO_PUBLIC_REPO`
 /// overrides it for an out-of-tree checkout.
 fn repo_root() -> PathBuf {
-    if let Ok(p) = std::env::var("IMPECCABLE_PUBLIC_REPO") {
+    if let Ok(p) = std::env::var("IMPECCINO_PUBLIC_REPO") {
         return PathBuf::from(p);
     }
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -65,7 +65,7 @@ fn garbage_and_edge_inputs_do_not_panic() {
         "<template><p>t</p></template><table><tr><td>a</td></table>",
         "<link rel=stylesheet href=''><link rel=stylesheet href='?x'><link rel=stylesheet href='//cdn/x.css'>",
         "<p>\u{FEFF}\u{2028}\u{200B}\u{1F600}</p><h1 style='letter-spacing:-1em'>\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}\u{1F600}</h1>",
-        "<html><body data-impeccable-ignore><h1>x</h1><h3>y</h3></body></html>",
+        "<html><body data-impeccino-ignore><h1>x</h1><h3>y</h3></body></html>",
         "<svg><linearGradient id='g'></linearGradient><foreignObject><div>hi there</div></foreignObject></svg>",
         "<style>a::before{content:'';width:20px;height:2px;background:#f00} .x:hover{color:red} .y:focus{color:blue} @media(min-width:1px){.z{color:red}} @keyframes k{from{color:red}}</style><a>l</a>",
         "<img><img src=''><img src='#'>",

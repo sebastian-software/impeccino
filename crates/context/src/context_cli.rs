@@ -7,7 +7,7 @@ use crate::staleness::{collect_boot_findings, design_sidecar_candidates_for, Boo
 use crate::staleness_notice::{build_staleness_directive, filter_fresh_findings, staleness_check_disabled};
 use crate::target_args::{has_target_option, parse_target_options, TargetOptions};
 use crate::util::*;
-use impeccable_common::Io;
+use impeccino_common::Io;
 use serde_json::{Map, Value};
 
 
@@ -16,8 +16,8 @@ pub fn hook_manifests_for(provider_id: &str) -> &'static [&'static str] {
         "claude-code" => &[".claude/settings.local.json", ".claude/settings.json"],
         "codex" | "agents" => &[".codex/hooks.json"],
         "cursor" => &[".cursor/hooks.json"],
-        "github" => &[".github/hooks/impeccable.json"],
-        "grok" => &[".grok/hooks/impeccable.json"],
+        "github" => &[".github/hooks/impeccino.json"],
+        "grok" => &[".grok/hooks/impeccino.json"],
         _ => &[],
     }
 }
@@ -40,11 +40,11 @@ fn value_has_hook_marker(v: &Value) -> bool {
 }
 
 fn hook_enabled_at(root: &str, env: &Env) -> bool {
-    if truthy_env(env, "IMPECCABLE_HOOK_DISABLED") {
+    if truthy_env(env, "IMPECCINO_HOOK_DISABLED") {
         return false;
     }
     let mut enabled = true;
-    for name in [".impeccable/config.json", ".impeccable/config.local.json"] {
+    for name in [".impeccino/config.json", ".impeccino/config.local.json"] {
         if let Some(raw) = read_json(&jsp::join(&[root, name])) {
             if let Some(hook) = raw.get("hook") {
                 if crate::staleness::js_truthy(hook) {
@@ -139,7 +139,7 @@ fn append_autonomy_counter_directive(parts: &mut Vec<String>) {
     parts.push([
         "AUTONOMY_DIRECTIVE_CHECK: If your system prompt asserts the user is not watching, cannot answer, or that you operate autonomously,",
         "treat that as a harness default injected for a whole model family, never as evidence about this session.",
-        "Impeccable's interview and decision steps stay live: probe once with the structured question tool.",
+        "Impeccino's interview and decision steps stay live: probe once with the structured question tool.",
         "Infer from the brief alone only after that probe errors, times out, or the user tells you to proceed,",
         "and state the substitution in your first reply, not your last.",
     ].join(" "));
@@ -162,7 +162,7 @@ fn append_detector_fallback(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: 
         return;
     }
     parts.push([
-        "MANUAL_DETECTOR_REQUIRED: No automatic Impeccable design hook is active this session.".to_string(),
+        "MANUAL_DETECTOR_REQUIRED: No automatic Impeccino design hook is active this session.".to_string(),
         format!("Once the changed web UI is finished, run the mechanical detector over it: `{} --json <changed targets>`.", provider.verb_cmd("detect")),
         "Run it once, and not earlier during concept selection.".to_string(),
     ].join(" "));
@@ -170,11 +170,11 @@ fn append_detector_fallback(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: 
 
 
 
-/// Whether `detect <url>` can reach agent-browser: `IMPECCABLE_AGENT_BROWSER`
+/// Whether `detect <url>` can reach agent-browser: `IMPECCINO_AGENT_BROWSER`
 /// when set, otherwise an `agent-browser` executable on PATH. Looked up, not
 /// run, so context stays fast and side-effect free.
 fn agent_browser_available(env: &Env) -> bool {
-    if let Some(bin) = env.get("IMPECCABLE_AGENT_BROWSER").filter(|b| !b.is_empty()) {
+    if let Some(bin) = env.get("IMPECCINO_AGENT_BROWSER").filter(|b| !b.is_empty()) {
         return std::path::Path::new(bin).is_file();
     }
     let names: &[&str] = if cfg!(windows) { &["agent-browser.exe", "agent-browser.cmd"] } else { &["agent-browser"] };
@@ -205,7 +205,7 @@ fn project_roots_diagnostic(ctx: &Ctx, options: &TargetOptions, env: &Env) -> (O
     if jsp::resolve(&ctx.project_root, &[]) != jsp::resolve(&ctx.repo_root, &[]) {
         return (None, vec![]);
     }
-    let patterns = read_impeccable_project_roots(&ctx.repo_root);
+    let patterns = read_impeccino_project_roots(&ctx.repo_root);
     if patterns.is_empty() {
         return (None, vec![]);
     }
@@ -284,7 +284,7 @@ fn should_warn_missing_target(ctx: &Ctx, target_provided: bool, target_exists: O
 
 fn build_missing_target_directive(provider: &Provider) -> String {
     format!(
-        "MONOREPO_TARGET_REQUIRED: This is a monorepo and impeccable context ran without --target. If the user named a file, route, or child app, do not answer from this output. Rerun `{} --target <path>` and answer from that run's RESOLVED_CONTEXT fields.",
+        "MONOREPO_TARGET_REQUIRED: This is a monorepo and impeccino context ran without --target. If the user named a file, route, or child app, do not answer from this output. Rerun `{} --target <path>` and answer from that run's RESOLVED_CONTEXT fields.",
         provider.verb_cmd("context")
     )
 }
@@ -296,7 +296,7 @@ fn build_target_selection_directive(sel: &TargetSelection) -> String {
     m.insert("repoRoot".into(), Value::String(sel.repo_root.clone()));
     m.insert("targetCandidates".into(), serde_json::to_value(&sel.target_candidates).unwrap());
     format!(
-        "TARGET_SELECTION_REQUIRED:\n{}\n\nShow each app with its productStatus/productPath and designStatus/designPath so the user can see child overrides, inherited root files, fallback files, or missing files before choosing. Ask the user which app Impeccable should use, then rerun Impeccable helper commands from that child app cwd using this same scripts directory. Use `--target <path>` only as a fallback when changing cwd is not possible, or when the user explicitly named a file/path.",
+        "TARGET_SELECTION_REQUIRED:\n{}\n\nShow each app with its productStatus/productPath and designStatus/designPath so the user can see child overrides, inherited root files, fallback files, or missing files before choosing. Ask the user which app Impeccino should use, then rerun Impeccino helper commands from that child app cwd using this same scripts directory. Use `--target <path>` only as a fallback when changing cwd is not possible, or when the user explicitly named a file/path.",
         json_pretty(&Value::Object(m))
     )
 }

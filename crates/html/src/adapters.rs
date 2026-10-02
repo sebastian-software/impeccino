@@ -2,7 +2,7 @@
 //! their DOM helpers (`scopedIgnoreActive`, `isTabContextElement`,
 //! `isStatusContextElement`, `cleanInlineText`, kicker / numbered-label
 //! candidate collection, radial spotlight, clipped overflow). Every pure
-//! check comes from `impeccable_core::checks`; this file only reads the DOM
+//! check comes from `impeccino_core::checks`; this file only reads the DOM
 //! and the computed style and hands plain data over.
 
 use crate::background::{
@@ -12,28 +12,28 @@ use crate::background::{
 use crate::cascade::StyleValues;
 use crate::dom::{StaticDocument, StaticElement};
 use crate::quality::{collapse_ws, pf0, resolve_font_size_px};
-use impeccable_core::checks::measures::{
+use impeccino_core::checks::measures::{
     self, border_colors_from_style, border_widths_from_style, check_gpt_thin_border_wide_shadow,
     check_oversized_h1, check_radial_spotlight, positioned_style_implies_escape, resolve_length_px,
     GptBorderShadowInput, OversizedH1Input, RadialSpotlightInput, StyleMap,
 };
-use impeccable_core::checks::rules::{
+use impeccino_core::checks::rules::{
     check_borders, check_colors, check_glow, check_hero_eyebrow, check_hover_contrast,
     check_icon_tile, check_italic_serif, check_kicker_above_heading, check_motion,
     check_placeholder_colors, is_emoji_only_text, is_heading_tag, resolve_hero_heading_size_px,
     BorderOpts, ColorOpts, GlowOpts, HeroEyebrowOpts, HoverContrastOpts, IconTileOpts,
     ItalicSerifOpts, KickerCandidate, MotionOpts, RuleHit, Sides,
 };
-use impeccable_core::checks::text_rules::{
+use impeccino_core::checks::text_rules::{
     check_numbered_section_labels, is_kicker_candidate, is_numbered_section_label_candidate,
     parse_numbered_label_text, KickerCandidateInput, NumberedLabelCandidate,
     NumberedLabelCandidateInput, HEADING_TAGS, KICKER_CARD_CONTEXT_SELECTOR, KICKER_SKIP_SELECTOR,
     POSITIONED_CHILD_INTERACTIVE_SELECTOR,
 };
-use impeccable_core::color::{composite_color_over, parse_any_color, parse_rgb};
-use impeccable_core::js::{self, parse_float, parse_int};
-use impeccable_core::js_ext_a::num_truthy;
-use impeccable_core::js_ext_b::slice_utf16_prefix;
+use impeccino_core::color::{composite_color_over, parse_any_color, parse_rgb};
+use impeccino_core::js::{self, parse_float, parse_int};
+use impeccino_core::js_ext_a::num_truthy;
+use impeccino_core::js_ext_b::slice_utf16_prefix;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashSet;
@@ -65,7 +65,7 @@ pub fn scoped_ignore_active(el: &StaticElement<'_>, rule_id: &str) -> bool {
     let rule = js::to_lower_case(rule_id);
     let mut cur = Some(*el);
     while let Some(e) = cur {
-        if let Some(attr) = e.get_attribute("data-impeccable-ignore") {
+        if let Some(attr) = e.get_attribute("data-impeccino-ignore") {
             let lowered = js::to_lower_case(js::trim(attr));
             let rules: Vec<&str> = IGNORE_SPLIT_RE
                 .split(&lowered)
@@ -185,7 +185,7 @@ fn font_size_of(style: &StyleValues) -> f64 {
 
 fn strip_edge_quotes_slice(text: &str, n: usize) -> String {
     slice_utf16_prefix(
-        &impeccable_core::checks::text_rules::strip_edge_quotes(text),
+        &impeccino_core::checks::text_rules::strip_edge_quotes(text),
         n,
     )
 }
@@ -812,7 +812,7 @@ pub fn check_element_motion(tag: &str, style: &StyleValues) -> Vec<RuleHit> {
 /// JS: checks.mjs#checkElementGlow(tag, style, effectiveBg)
 pub fn check_element_glow(
     style: &StyleValues,
-    effective_bg: Option<impeccable_core::color::Rgba>,
+    effective_bg: Option<impeccino_core::color::Rgba>,
 ) -> Vec<RuleHit> {
     let box_shadow = match sv_opt(style, "boxShadow") {
         Some(v) if !v.is_empty() && v != "none" => v,

@@ -1,9 +1,9 @@
 # Skill-behavior tests
 
-LLM-backed scenarios that verify how the impeccable skill drives context,
+LLM-backed scenarios that verify how the impeccino skill drives context,
 command-reference, new-work, and native-platform loading. Each scenario runs
 against the default Anthropic, OpenAI, and Google models. DeepSeek remains
-available through `IMPECCABLE_SKILL_BEHAVIOR_MODELS`.
+available through `IMPECCINO_SKILL_BEHAVIOR_MODELS`.
 
 These are the tests you re-run when you refactor anything in SKILL.md's
 `## Setup` section. They fail when the agent stops following the loading
@@ -13,25 +13,25 @@ contract.
 
 ```bash
 bun run test:skill-behavior
-IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1 bun run test:skill-behavior   # dump per-scenario traces
-IMPECCABLE_SKILL_BEHAVIOR_MODELS=claude-sonnet-5 bun run test:skill-behavior   # scope to one model
-IMPECCABLE_SKILL_BEHAVIOR_EFFORT=xhigh bun run test:skill-behavior             # OpenAI reasoning effort (default: high)
+IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 bun run test:skill-behavior   # dump per-scenario traces
+IMPECCINO_SKILL_BEHAVIOR_MODELS=claude-sonnet-5 bun run test:skill-behavior   # scope to one model
+IMPECCINO_SKILL_BEHAVIOR_EFFORT=xhigh bun run test:skill-behavior             # OpenAI reasoning effort (default: high)
 ```
 
 Requires `.env` at repo root with at least one of `ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`, `GOOGLE_CLOUD_API_KEY`, `DEEPSEEK_API_KEY`. Providers without a key are
 skipped, not failed.
 
-Also requires the engine binary (`bun run fetch:engine`, or `IMPECCABLE_BIN`).
-The staged skill dir ships the launcher (`scripts/impeccable`); the harness
-exports `IMPECCABLE_BIN` into every bash call the agent makes, so the launcher
+Also requires the engine binary (`bun run fetch:engine`, or `IMPECCINO_BIN`).
+The staged skill dir ships the launcher (`scripts/impeccino`); the harness
+exports `IMPECCINO_BIN` into every bash call the agent makes, so the launcher
 resolves the binary in the generated fixture without a download. Without a
 binary the suites skip.
 
 To run a single scenario against one model:
 
 ```bash
-IMPECCABLE_SKILL_BEHAVIOR_MODELS=claude-sonnet-5 IMPECCABLE_SKILL_BEHAVIOR_VERBOSE=1 \
+IMPECCINO_SKILL_BEHAVIOR_MODELS=claude-sonnet-5 IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 \
   node --test --test-timeout=600000 --test-name-pattern="scenario 6" tests/skill-behavior/scenarios.test.mjs
 ```
 
@@ -54,7 +54,7 @@ bun run test:skill-workflow
 ```
 
 This separately billed suite defaults to Claude only; use
-`IMPECCABLE_SKILL_BEHAVIOR_MODELS` to explicitly choose another model or sweep.
+`IMPECCINO_SKILL_BEHAVIOR_MODELS` to explicitly choose another model or sweep.
 It preflights a local server and Chromium before each provider turn, exposing
 real desktop/mobile screenshot and PNG viewing tools. Text-only fixtures use
 system fonts and block external browser requests. No extra skill prose is added.
@@ -73,20 +73,20 @@ a missing binary. Full-build results must be reported separately from routing.
 
 | # | Setup | Assertion |
 |---|---|---|
-| 1 | empty workspace | runs `impeccable context`; loads `reference/init.md` before implementation; automation is not an init bypass |
-| 2 | PRODUCT.md only | runs `impeccable context` 1-3 times; loads `reference/new-work.md` to resolve visual authority, establish a world when needed, and develop the surface |
-| 3 | PRODUCT.md + DESIGN.md | runs `impeccable context` 1-3 times; receives the committed design system and loads `reference/new-work.md` for the task-scoped concept |
-| 4 | PRODUCT.md + DESIGN.md, context already loaded in turn 1 | turn 2 does **not** re-run `impeccable context` |
-| 5 | PRODUCT.md without the legacy `## Register` field and no DESIGN.md | runs `impeccable context`; greenfield craft loads `reference/new-work.md`, not init, to establish the missing world |
-| 6 | PRODUCT.md + DESIGN.md + a minimal `index.html`; prompt is `/impeccable polish` | loads `reference/polish.md` |
-| 7 | same fixture; prompt is `/impeccable audit` | loads `reference/audit.md` |
-| 8 | PRODUCT.md + DESIGN.md + a SvelteKit scaffold (`src/app.css`, components, `+page.svelte`); prompt is `/impeccable polish src/routes/+page.svelte` | reads at least one project code file (CSS / component / page) — not just the skill's reference files |
-| 10 | no PRODUCT.md + a minimal `index.html`; prompt is `/impeccable polish index.html` | runs `impeccable context`, loads `reference/polish.md`, and does **not** divert into `reference/init.md` |
-| 11 | empty workspace; prompt is `/impeccable shape ...` | runs `impeccable context`; resolves `reference/init.md` before planning the surface |
-| 12 | empty workspace; prompt is natural-language build intent with no command word | runs `impeccable context`; resolves `reference/init.md` before implementation |
-| 13 | empty workspace; prompt is `/impeccable teach` | runs `impeccable context` and diverts into `reference/init.md` because `teach` aliases `init` |
-| 14 | PRODUCT.md with `## Platform: ios` (native iOS app); prompt is `/impeccable craft a tide detail screen` | `impeccable context` runs and emits the contents of `reference/ios.md` directly, placing native conventions in context without a second model-directed read |
-| 15 | same iOS fixture; prompt is `/impeccable audit` | agent loads `reference/audit.native.md` (the Commands-table native variant, routed instead of `audit.md`) |
+| 1 | empty workspace | runs `impeccino context`; loads `reference/init.md` before implementation; automation is not an init bypass |
+| 2 | PRODUCT.md only | runs `impeccino context` 1-3 times; loads `reference/new-work.md` to resolve visual authority, establish a world when needed, and develop the surface |
+| 3 | PRODUCT.md + DESIGN.md | runs `impeccino context` 1-3 times; receives the committed design system and loads `reference/new-work.md` for the task-scoped concept |
+| 4 | PRODUCT.md + DESIGN.md, context already loaded in turn 1 | turn 2 does **not** re-run `impeccino context` |
+| 5 | PRODUCT.md without the legacy `## Register` field and no DESIGN.md | runs `impeccino context`; greenfield craft loads `reference/new-work.md`, not init, to establish the missing world |
+| 6 | PRODUCT.md + DESIGN.md + a minimal `index.html`; prompt is `/impeccino polish` | loads `reference/polish.md` |
+| 7 | same fixture; prompt is `/impeccino audit` | loads `reference/audit.md` |
+| 8 | PRODUCT.md + DESIGN.md + a SvelteKit scaffold (`src/app.css`, components, `+page.svelte`); prompt is `/impeccino polish src/routes/+page.svelte` | reads at least one project code file (CSS / component / page) — not just the skill's reference files |
+| 10 | no PRODUCT.md + a minimal `index.html`; prompt is `/impeccino polish index.html` | runs `impeccino context`, loads `reference/polish.md`, and does **not** divert into `reference/init.md` |
+| 11 | empty workspace; prompt is `/impeccino shape ...` | runs `impeccino context`; resolves `reference/init.md` before planning the surface |
+| 12 | empty workspace; prompt is natural-language build intent with no command word | runs `impeccino context`; resolves `reference/init.md` before implementation |
+| 13 | empty workspace; prompt is `/impeccino teach` | runs `impeccino context` and diverts into `reference/init.md` because `teach` aliases `init` |
+| 14 | PRODUCT.md with `## Platform: ios` (native iOS app); prompt is `/impeccino craft a tide detail screen` | `impeccino context` runs and emits the contents of `reference/ios.md` directly, placing native conventions in context without a second model-directed read |
+| 15 | same iOS fixture; prompt is `/impeccino audit` | agent loads `reference/audit.native.md` (the Commands-table native variant, routed instead of `audit.md`) |
 | 16 | existing surface, with and without PRODUCT.md; asks where to start | completes relevant advice without edits, interviews, critique archives, menu scans, or explicit invented refinement prerequisites; reference coverage is diagnostic |
 | 17 | existing surface; asks whether critique is required before polish | completes read-only advice distinguishing assessment from implementation and explaining critique is optional; reference coverage is diagnostic |
 | 18 | existing surface; explicitly requests polish followed by a next-command recommendation | loads `polish.md` rather than substituting workflow advice for the requested work |
@@ -98,7 +98,7 @@ Both files honor `--test-name-pattern`, which is much cheaper than a full sweep
 when bisecting one scenario:
 
 ```bash
-CI=1 IMPECCABLE_SKILL_BEHAVIOR_MODELS=deepseek-v4-flash \
+CI=1 IMPECCINO_SKILL_BEHAVIOR_MODELS=deepseek-v4-flash \
   node --test --test-timeout=300000 --test-force-exit \
   --test-name-pattern="bolder refinement" tests/skill-workflow/full-build.test.mjs
 ```

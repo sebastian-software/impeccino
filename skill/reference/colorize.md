@@ -73,4 +73,4 @@ When deriving OKLCH ramps, vary lightness and reduce chroma near white and black
 - Contrast and non-color cues pass in all relevant states.
 - The result is recognizably this product, not a generic “colorful” treatment.
 
-When the palette earns its place, hand off to `/impeccable polish` for the final pass.
+When the palette earns its place, hand off to `/impeccino polish` for the final pass.

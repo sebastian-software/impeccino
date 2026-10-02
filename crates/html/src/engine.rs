@@ -26,11 +26,11 @@ use crate::page::{
 };
 use crate::profile::{self, Meta, ProfileSink};
 use crate::quality::{check_element_quality, check_page_quality_from_doc, pf0};
-use impeccable_core::checks::html_patterns::{check_html_patterns, HtmlPatternCorpora};
-use impeccable_core::checks::rules::RuleHit;
-use impeccable_core::findings::{try_finding, Finding};
-use impeccable_core::inline_ignores::apply_inline_ignores;
-use impeccable_core::page::is_full_page;
+use impeccino_core::checks::html_patterns::{check_html_patterns, HtmlPatternCorpora};
+use impeccino_core::checks::rules::RuleHit;
+use impeccino_core::findings::{try_finding, Finding};
+use impeccino_core::inline_ignores::apply_inline_ignores;
+use impeccino_core::page::is_full_page;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::path::Path;
@@ -50,14 +50,14 @@ pub trait DesignSystemHook {
 /// engine: em-dash overuse, marketing buzzwords, aphoristic cadence.
 pub type TextContentAnalyzers<'a> = &'a dyn Fn(&str, &str) -> Vec<Finding>;
 
-/// The static engine's half of a rule pack (`impeccable_core::rule_pack`):
+/// The static engine's half of a rule pack (`impeccino_core::rule_pack`):
 /// rules written against the parsed page. The [`StaticDocument`] model is
 /// this crate's, so this hook cannot live on the engine-wide `RulePack`
 /// trait; a pack implements both and hands the same value to both fields of
 /// [`DetectHtmlOptions`].
 ///
 /// Findings come back as full [`Finding`] values, built with
-/// `impeccable_core::findings::finding_for(row, file_path, snippet, line)` so
+/// `impeccino_core::findings::finding_for(row, file_path, snippet, line)` so
 /// they carry the pack's own registry metadata.
 pub trait StaticRulePack: Send + Sync + std::fmt::Debug {
     /// Runs once per HTML file, after every built-in pass and before inline
@@ -69,7 +69,7 @@ pub trait StaticRulePack: Send + Sync + std::fmt::Debug {
 #[derive(Default, Clone, Copy)]
 pub struct DetectHtmlOptions<'a> {
     /// JS `options.inlineIgnores === false` disables the whole-file
-    /// `impeccable-disable` waivers; anything else applies them.
+    /// `impeccino-disable` waivers; anything else applies them.
     pub inline_ignores_disabled: bool,
     /// JS `options.designSystem` (present only when a DESIGN.md loaded).
     pub design_system: Option<&'a dyn DesignSystemHook>,
@@ -87,7 +87,7 @@ pub struct DetectHtmlOptions<'a> {
     /// raw HTML source (which is how a text-only pack still covers `.html`
     /// files, the way the built-in text-content analyzers do). A pack that
     /// implements both therefore never reports twice for the same file.
-    pub rule_pack: Option<&'static dyn impeccable_core::rule_pack::RulePack>,
+    pub rule_pack: Option<&'static dyn impeccino_core::rule_pack::RulePack>,
 }
 
 /// Errors of the static engine.
@@ -307,7 +307,7 @@ pub fn detect_html_source(
         let pattern_hits = profile::findings(
             profile,
             Meta::new("page", "html-patterns", fp),
-            |f: &impeccable_core::checks::css_scan::PatternFinding| f.id.as_str(),
+            |f: &impeccino_core::checks::css_scan::PatternFinding| f.id.as_str(),
             || {
                 check_html_patterns(html, Some(&corpora))
                     .into_iter()
@@ -318,7 +318,7 @@ pub fn detect_html_source(
         for f in pattern_hits {
             if let Some(selector) = f.selector.as_deref() {
                 let stripped = PSEUDO_STRIP_RE.replace_all(selector, "");
-                let stripped = impeccable_core::js::trim(&stripped);
+                let stripped = impeccino_core::js::trim(&stripped);
                 let matches = match doc.compile(stripped) {
                     Ok(_) => Some(doc.query_selector_all(stripped)),
                     Err(_) => None,
@@ -335,7 +335,7 @@ pub fn detect_html_source(
                 if let Some(sev) = f.severity.as_ref() {
                     item.severity = sev.clone();
                 }
-                impeccable_core::findings::derive_advisory_flag(&mut item);
+                impeccino_core::findings::derive_advisory_flag(&mut item);
                 findings.push(item);
             }
         }
@@ -368,7 +368,7 @@ pub fn detect_html_source(
         );
         findings.extend(pack_findings);
     } else if let Some(pack) = options.rule_pack {
-        let ext = impeccable_detect::detect_text::ext_from_file_path(fp);
+        let ext = impeccino_detect::detect_text::ext_from_file_path(fp);
         let pack_findings = profile::findings(
             profile,
             Meta::new("source", "rule-pack", fp),

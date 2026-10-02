@@ -25,7 +25,7 @@ const OUT = path.join(HERE, 'calls');
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 
-const env = { ...process.env, IMPECCABLE_VECTORS_DIR: OUT, NO_COLOR: '1' };
+const env = { ...process.env, IMPECCINO_VECTORS_DIR: OUT, NO_COLOR: '1' };
 const hook = path.join(HERE, 'hooks.mjs');
 const cli = path.join(REPO, 'cli', 'bin', 'cli.js');
 

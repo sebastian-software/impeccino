@@ -1,4 +1,4 @@
-//! IMPECCABLE_CACHE_ROOT (#422) — mirrors the scenarios main's
+//! IMPECCINO_CACHE_ROOT (#422) — mirrors the scenarios main's
 //! tests/hook.test.mjs added in 77a2eae8 / 5c82d58b / 30b3628f / cbd78701.
 //!
 //! These tests mutate the process environment, so they live in their own
@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use impeccable_detect::MissingHtmlEngine;
-use impeccable_hook::hook_lib::{get_cache_path, get_pending_path, Runtime};
-use impeccable_hook::hook;
+use impeccino_detect::MissingHtmlEngine;
+use impeccino_hook::hook_lib::{get_cache_path, get_pending_path, Runtime};
+use impeccino_hook::hook;
 use serde_json::json;
 
 static TMP_SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -49,7 +49,7 @@ struct Tmp(PathBuf);
 impl Tmp {
     fn new() -> Tmp {
         let base = std::env::temp_dir().join(format!(
-            "impeccable-cache-root-{}-{}-{}",
+            "impeccino-cache-root-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
             // A per-process counter: Windows' clock is coarse enough that two
@@ -81,7 +81,7 @@ impl Drop for Tmp {
 }
 
 fn rt(cwd: &str) -> Runtime<'static> {
-    Runtime::new(cwd.to_string(), HashMap::new(), "/impeccable".to_string(), "/opt/bin/impeccable", &HTML)
+    Runtime::new(cwd.to_string(), HashMap::new(), "/impeccino".to_string(), "/opt/bin/impeccino", &HTML)
 }
 
 fn edit_event(cwd: &str, file: &str, session: &str) -> String {
@@ -99,7 +99,7 @@ const CLEAN_CSS: &str = ".card { color: #333; }\n";
 fn state_relocates_and_slug_normalizes() {
     let _l = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let root = Tmp::new();
-    let _g = EnvGuard::set(&[("IMPECCABLE_CACHE_ROOT", Some(&root.path()))]);
+    let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", Some(&root.path()))]);
 
     let cache = get_cache_path("/x/my.app");
     assert!(cache.starts_with(&root.path()), "{}", cache);
@@ -120,7 +120,7 @@ fn state_relocates_and_slug_normalizes() {
     // mapped to `-`, so on Windows it carries the current drive
     // (`D:\x\my.app` -> `D--x-my-app`). Derive it rather than pinning the
     // POSIX spelling.
-    let resolved = impeccable_common::jsp::resolve(
+    let resolved = impeccino_common::jsp::resolve(
         &std::env::current_dir().unwrap().to_string_lossy(),
         &["/x/my.app"],
     );
@@ -139,7 +139,7 @@ fn state_relocates_and_slug_normalizes() {
 /// semantics (backslashes on Windows), which is what the stock behavior
 /// produces.
 fn stock_cache_path() -> String {
-    impeccable_common::jsp::join(&["/x/app", ".impeccable", "hook.cache.json"])
+    impeccino_common::jsp::join(&["/x/app", ".impeccino", "hook.cache.json"])
 }
 
 #[test]
@@ -149,21 +149,21 @@ fn root_value_normalization_and_opt_out() {
     // Stray whitespace in env files trims away.
     let padded = format!("  {}  ", root.path());
     let trimmed = {
-        let _g = EnvGuard::set(&[("IMPECCABLE_CACHE_ROOT", Some(&root.path()))]);
+        let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", Some(&root.path()))]);
         get_cache_path("/x/app")
     };
     let with_ws = {
-        let _g = EnvGuard::set(&[("IMPECCABLE_CACHE_ROOT", Some(&padded))]);
+        let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", Some(&padded))]);
         get_cache_path("/x/app")
     };
     assert_eq!(trimmed, with_ws);
     // Unset or blank keeps stock project-local behavior.
     {
-        let _g = EnvGuard::set(&[("IMPECCABLE_CACHE_ROOT", None)]);
+        let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", None)]);
         assert_eq!(get_cache_path("/x/app"), stock_cache_path());
     }
     {
-        let _g = EnvGuard::set(&[("IMPECCABLE_CACHE_ROOT", Some("   "))]);
+        let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", Some("   "))]);
         assert_eq!(get_cache_path("/x/app"), stock_cache_path());
     }
 }
@@ -175,21 +175,21 @@ fn tilde_expands_against_homedir_or_rejects() {
     let home = Tmp::new();
     let explicit = {
         let joined = format!("{}/caches", home.path());
-        let _g = EnvGuard::set(&[("HOME", Some(&home.path())), ("IMPECCABLE_CACHE_ROOT", Some(&joined))]);
+        let _g = EnvGuard::set(&[("HOME", Some(&home.path())), ("IMPECCINO_CACHE_ROOT", Some(&joined))]);
         get_cache_path("/x/app")
     };
     let tilde = {
-        let _g = EnvGuard::set(&[("HOME", Some(&home.path())), ("IMPECCABLE_CACHE_ROOT", Some("~/caches"))]);
+        let _g = EnvGuard::set(&[("HOME", Some(&home.path())), ("IMPECCINO_CACHE_ROOT", Some("~/caches"))]);
         get_cache_path("/x/app")
     };
     assert_eq!(explicit, tilde);
     // No determinable home dir: expansion is rejected and state falls back
     // to the project-local default (never the process cwd).
     let no_home = {
-        let _g = EnvGuard::set(&[("HOME", None), ("USERPROFILE", None), ("IMPECCABLE_CACHE_ROOT", Some("~/caches"))]);
+        let _g = EnvGuard::set(&[("HOME", None), ("USERPROFILE", None), ("IMPECCINO_CACHE_ROOT", Some("~/caches"))]);
         get_cache_path("/x/app")
     };
-    assert_eq!(no_home, "/x/app/.impeccable/hook.cache.json");
+    assert_eq!(no_home, "/x/app/.impeccino/hook.cache.json");
 }
 
 #[test]
@@ -197,7 +197,7 @@ fn run_hook_persists_and_dedupes_through_the_redirect() {
     let _l = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let root = Tmp::new();
     let project = Tmp::new();
-    let _g = EnvGuard::set(&[("IMPECCABLE_CACHE_ROOT", Some(&root.path()))]);
+    let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", Some(&root.path()))]);
     let cwd = project.path();
     let r = rt(&cwd);
     let css = project.write("src/a.css", GRADIENT_CSS);
@@ -206,14 +206,14 @@ fn run_hook_persists_and_dedupes_through_the_redirect() {
     assert!(one.stdout.contains("gradient-text"), "{}", one.stdout);
     // State lands under the redirect root; the project stays footprint-free.
     assert!(std::path::Path::new(&get_cache_path(&cwd)).exists());
-    assert!(!project.0.join(".impeccable").exists());
+    assert!(!project.0.join(".impeccino").exists());
 
     // The remembered finding dedupes the second identical edit into pending.
     let two = hook::run_hook(&r, &edit_event(&cwd, &css, "s1"));
     assert!(two.stdout.contains("flagged earlier this session"), "{}", two.stdout);
 
     // A clean edit still persists its editCount bump: the redirected cache
-    // file is the opt-in marker even though `.impeccable/` never appears.
+    // file is the opt-in marker even though `.impeccino/` never appears.
     let clean = project.write("src/b.css", CLEAN_CSS);
     let before = std::fs::read_to_string(get_cache_path(&cwd)).unwrap();
     let three = hook::run_hook(&r, &edit_event(&cwd, &clean, "s1"));
@@ -227,14 +227,14 @@ fn no_footprint_noop_gate_holds_under_redirect() {
     let _l = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let root = Tmp::new();
     let project = Tmp::new();
-    let _g = EnvGuard::set(&[("IMPECCABLE_CACHE_ROOT", Some(&root.path()))]);
+    let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", Some(&root.path()))]);
     let cwd = project.path();
     let r = rt(&cwd);
-    // A clean UI edit in a project with no Impeccable footprint must be a
+    // A clean UI edit in a project with no Impeccino footprint must be a
     // no-op on disk (issues #344, #305), redirect or not.
     let clean = project.write("src/b.css", CLEAN_CSS);
     let res = hook::run_hook(&r, &edit_event(&cwd, &clean, "s1"));
     assert_eq!(res.audit.get("kind").and_then(|v| v.as_str()), Some("clean"));
     assert!(!std::path::Path::new(&get_cache_path(&cwd)).exists());
-    assert!(!project.0.join(".impeccable").exists());
+    assert!(!project.0.join(".impeccino").exists());
 }

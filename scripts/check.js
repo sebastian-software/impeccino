@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Repository checks for Impeccable.
+ * Repository checks for Impeccino.
  *
  * There is no build: skill/ is the universal skill and installs as-is
  * (docs/adr/0001, docs/adr/0003). This script only validates what tests do
@@ -22,14 +22,14 @@ const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
  */
 function checkCounts(rootDir, skills) {
   // Count active commands. After the v3.0 consolidation, commands are sub-commands
-  // of /impeccable. Count them from the command router table in SKILL.md.
-  const impeccableSkill = skills.find(s => s.name === 'impeccable');
+  // of /impeccino. Count them from the command router table in SKILL.md.
+  const impeccinoSkill = skills.find(s => s.name === 'impeccino');
   let commandCount;
-  if (impeccableSkill) {
+  if (impeccinoSkill) {
     // Count lines in the command table that start with | `...` | — tolerant
     // of argument hints inside the backticks (e.g. `craft [feature]`) and of
     // multi-word commands (e.g. `pin <command>`).
-    const routerMatches = impeccableSkill.body.match(/^\| `[^`]+` \|/gm);
+    const routerMatches = impeccinoSkill.body.match(/^\| `[^`]+` \|/gm);
     commandCount = routerMatches ? routerMatches.length : 0;
   } else {
     // Fallback: count user-invocable skills
@@ -234,7 +234,7 @@ function validateProse(rootDir) {
 }
 
 /**
- * Narrow prose check for the impeccable skill source.
+ * Narrow prose check for the impeccino skill source.
  *
  * The full validateProse rules don't fit LLM-facing reference instructions:
  * the hardening repetition and triadic checklists those files use exist on

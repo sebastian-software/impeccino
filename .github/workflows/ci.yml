@@ -163,11 +163,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
       - name: Build the engine from source
-        run: cargo build --release -p impeccable
+        run: cargo build --release -p impeccino
 
       - name: Replay oracle goldens
         env:
-          IMPECCABLE_BIN: ${{ github.workspace }}/target/release/impeccable
+          IMPECCINO_BIN: ${{ github.workspace }}/target/release/impeccino
         run: node tests/oracle/run.mjs
 
   # Release-order guard: the engine release for the pinned skill/scripts/VERSION
@@ -247,7 +247,7 @@ jobs:
     timeout-minutes: 70
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      IMPECCABLE_SKILL_BEHAVIOR_MODELS: claude-sonnet-5
+      IMPECCINO_SKILL_BEHAVIOR_MODELS: claude-sonnet-5
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -268,7 +268,7 @@ jobs:
           bunx playwright install --with-deps chromium
       - name: Run completed skill workflows
         env:
-          IMPECCABLE_SKILL_BEHAVIOR_TRACE_DIR: ${{ runner.temp }}/skill-workflow-traces
+          IMPECCINO_SKILL_BEHAVIOR_TRACE_DIR: ${{ runner.temp }}/skill-workflow-traces
         run: bun run test:skill-workflow
       - name: Retain diagnostic traces
         if: always()

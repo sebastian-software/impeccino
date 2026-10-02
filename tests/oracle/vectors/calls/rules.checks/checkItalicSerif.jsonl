@@ -147,7 +147,7 @@
 {"args":[{"tag":"h2","fontStyle":"normal","fontFamily":"system-ui,sans-serif","fontSize":16,"headingText":"First hidden section"}],"result":[]}
 {"args":[{"tag":"h2","fontStyle":"normal","fontFamily":"system-ui,sans-serif","fontSize":16,"headingText":"Second hidden section"}],"result":[]}
 {"args":[{"tag":"h2","fontStyle":"normal","fontFamily":"system-ui,sans-serif","fontSize":16,"headingText":"Third hidden section"}],"result":[]}
-{"args":[{"tag":"h1","fontStyle":"normal","fontFamily":"system-ui,sans-serif","fontSize":28,"headingText":"Impeccable Test Product"}],"result":[]}
+{"args":[{"tag":"h1","fontStyle":"normal","fontFamily":"system-ui,sans-serif","fontSize":28,"headingText":"Impeccino Test Product"}],"result":[]}
 {"args":[{"tag":"h1","fontStyle":"normal","fontFamily":"system-ui,sans-serif","fontSize":32,"headingText":"Anti-Patterns: Should Flag"}],"result":[]}
 {"args":[{"tag":"h2","fontStyle":"normal","fontFamily":"system-ui,sans-serif","fontSize":14,"headingText":"Tailwind Side-Tab"}],"result":[]}
 {"args":[{"tag":"h2","fontStyle":"normal","fontFamily":"system-ui,sans-serif","fontSize":14,"headingText":"CSS Side-Tab"}],"result":[]}

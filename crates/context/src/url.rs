@@ -223,8 +223,8 @@ mod tests {
 
     #[test]
     fn basics() {
-        let u = parse("https://Impeccable.Style/docs/audit/").unwrap();
-        assert_eq!(u.hostname, "impeccable.style");
+        let u = parse("https://Example.COM/docs/audit/").unwrap();
+        assert_eq!(u.hostname, "example.com");
         assert_eq!(u.pathname, "/docs/audit/");
         let u = parse("http://localhost:3000/pricing?x=1#h").unwrap();
         assert_eq!(u.port, "3000");

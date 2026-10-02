@@ -8,8 +8,8 @@
 //! Regenerate `fixtures/css-rules.json` with
 //! `node crates/html/tests/fixtures/gen-css-rules.mjs`.
 
-use impeccable_html::cascade::rules::{collect_static_css_rules, CssRule};
-use impeccable_html::cascade::values::unwrap_css_at_layer;
+use impeccino_html::cascade::rules::{collect_static_css_rules, CssRule};
+use impeccino_html::cascade::values::unwrap_css_at_layer;
 use serde_json::Value;
 
 fn rules_to_json(rules: &[CssRule]) -> Value {

@@ -1,11 +1,11 @@
 //! Unit tests for the cascade helpers without recorded vectors. Expected
 //! values were produced by running the JS `css-cascade.mjs` in Node.
 
-use impeccable_html::cascade::checks_shim::{resolve_length_px, resolve_var_refs, CustomProps};
-use impeccable_html::cascade::rules::{
+use impeccino_html::cascade::checks_shim::{resolve_length_px, resolve_var_refs, CustomProps};
+use impeccino_html::cascade::rules::{
     apply_static_declaration, parse_static_style_attribute, DeclMeta, SpecifiedStore,
 };
-use impeccable_html::cascade::values::{normalize_color_for_check, unwrap_css_at_layer};
+use impeccino_html::cascade::values::{normalize_color_for_check, unwrap_css_at_layer};
 
 #[test]
 fn normalize_color_for_check_matches_node() {

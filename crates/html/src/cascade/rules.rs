@@ -66,7 +66,7 @@
 
 use super::csstree::{self, Important, Node};
 use super::shorthand::expand_static_declaration;
-use impeccable_core::js;
+use impeccino_core::js;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
 use regex::Regex;

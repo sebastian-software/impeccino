@@ -1,5 +1,5 @@
 {
-  "stdout": "Usage: impeccable <command> [options]\n\nCommands:\n  detect [file-or-dir-or-url...]   Scan for UI anti-patterns and design quality issues\n  ignores                          Manage detector ignore rules, files, and values\n  help                             Show this help message\n\nOptions:\n  --help       Show this help message\n  --version    Show version number\n\nThe skill itself lives in skill/ of https://github.com/swernerx/impeccable;\ninstall it with Dalo or skills.sh (npx skills add https://github.com/swernerx/impeccable/tree/light).\n",
+  "stdout": "Usage: impeccino <command> [options]\n\nCommands:\n  detect [file-or-dir-or-url...]   Scan for UI anti-patterns and design quality issues\n  ignores                          Manage detector ignore rules, files, and values\n  help                             Show this help message\n\nOptions:\n  --help       Show this help message\n  --version    Show version number\n\nThe skill itself lives in skill/ of https://github.com/sebastian-software/impeccino;\ninstall it with Dalo or skills.sh (npx skills add sebastian-software/impeccino).\n",
   "stderr": "",
   "exit": 0,
   "signal": null,

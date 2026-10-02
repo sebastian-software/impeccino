@@ -212,7 +212,7 @@
 {"args":["\n      \n\n      \n      \n      \n      \n      \n\n      \n      \n      \n      \n\n      \n      \n      \n\n      \n      \n      \n\n      \n      \n      \n    "],"result":false}
 {"args":["Small inline pills"],"result":false}
 {"args":[".detection-cmd replica: 13px font, 6px / 14px padding (the homepage case)"],"result":false}
-{"args":["npx impeccable detect src/"],"result":false}
+{"args":["npx impeccino detect src/"],"result":false}
 {"args":["small badge: 11px font, 4px / 8px padding"],"result":false}
 {"args":["FEATURED ITEM BADGE"],"result":false}
 {"args":["tag chip: 12px font, 4px / 10px padding"],"result":false}
@@ -594,9 +594,9 @@
 {"args":["Context labels inside tab panels describe application state rather than decorating a marketing hero."],"result":false}
 {"args":["\n    \n    \n    \n  "],"result":false}
 {"args":["Hook inline ignore comments do not suppress detector findings"],"result":false}
-{"args":["\n      /* impeccable: ignore overused-font */\n      body {\n        font-family: \"Roboto\", ui-sans-serif, system-ui, sans-serif;\n        margin: 0;\n        padding: 48px;\n      }\n\n      main {\n        max-width: 62ch;\n      }\n    "],"result":false}
+{"args":["\n      /* impeccino: ignore overused-font */\n      body {\n        font-family: \"Roboto\", ui-sans-serif, system-ui, sans-serif;\n        margin: 0;\n        padding: 48px;\n      }\n\n      main {\n        max-width: 62ch;\n      }\n    "],"result":false}
 {"args":["Roboto remains a detector finding"],"result":false}
-{"args":["\n        This fixture deliberately uses Roboto across enough visible text for\n        the browser detector to report the overused-font page finding. Hook\n        exceptions must live in .impeccable/hook.json instead of source comments.\n      "],"result":false}
+{"args":["\n        This fixture deliberately uses Roboto across enough visible text for\n        the browser detector to report the overused-font page finding. Hook\n        exceptions must live in .impeccino/hook.json instead of source comments.\n      "],"result":false}
 {"args":["\n        The comments above look like old inline hook suppressions, but they are\n        intentionally inert and should not hide the finding from headless scans.\n      "],"result":false}
 {"args":["\n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n        \n      "],"result":false}
 {"args":["Roboto usage sample one."],"result":false}
@@ -1249,10 +1249,10 @@
 {"args":["Third level"],"result":false}
 {"args":["Small mockup metadata"],"result":false}
 {"args":["terminal/diff metadata at tiny sizes"],"result":false}
-{"args":["/impeccable polish : scanning codebase"],"result":false}
+{"args":["/impeccino polish : scanning codebase"],"result":false}
 {"args":["12 files inspected · 4 visual issues queued"],"result":false}
 {"args":["+ Replace generic button label with action-specific copy"],"result":false}
-{"args":["impeccable"],"result":false}
+{"args":["impeccino"],"result":false}
 {"args":["radial-spotlight-glow fixture"],"result":false}
 {"args":["\n  /* jsdom / static-html engine does no layout: every case declares explicit\n     pixel width + height so the size gate can read them. */\n  body { margin: 0; background: #0b0d13; }\n  .grid { display: flex; flex-wrap: wrap; gap: 24px; padding: 24px; }\n  .case { color: #e6e6e6; }\n\n  /* ───────── SHOULD FLAG: decorative low-opacity chromatic spotlights ───────── */\n\n  /* The exact declaration that evaded the detector: soft blue spotlight fading\n     to transparent, painted on a large mobile hero. */\n  .flag-hero-blue {\n    width: 360px; height: 560px;\n    background: radial-gradient(circle at 52% 38%, rgba(80,111,255,0.26), transparent 44%);\n  }\n  /* Violet accent wash on a full section. */\n  .flag-section-violet {\n    width: 900px; height: 600px;\n    background-image: radial-gradient(circle, rgba(139,92,246,0.30), transparent 60%);\n  }\n  /* Cyan overlay-style glow (the pseudo-element overlay div reflex). */\n  .flag-overlay-cyan {\n    width: 760px; height: 480px;\n    background: radial-gradient(ellipse at top, rgba(34,211,238,0.22), transparent 70%);\n  }\n  /* Single glow drawn with two low-alpha stops of one hue fading out. */\n  .flag-two-stop-rose {\n    width: 640px; height: 400px;\n    background: radial-gradient(circle, rgba(255,90,120,0.28) 0%, rgba(255,90,120,0.12) 45%, transparent 75%);\n  }\n  /* Same tell written as an 8-digit hex (#506fff at alpha 0x3d ≈ 0.24). */\n  .flag-hex-alpha {\n    width: 700px; height: 460px;\n    background: radial-gradient(circle, #506fff3d, transparent 50%);\n  }\n\n  /* ───────── SHOULD PASS: real backgrounds, small elements, neutrals, rich art ───────── */\n\n  /* Opaque radial background — a real surface, not a glow (no transparent end). */\n  .pass-opaque-bg {\n    width: 800px; height: 520px;\n    background: radial-gradient(circle, #1e3a8a, #0f172a);\n  }\n  /* Small badge: chromatic low-alpha radial glow, but tiny. */\n  .pass-badge {\n    width: 40px; height: 40px;\n    background: radial-gradient(circle, rgba(80,111,255,0.30), transparent);\n  }\n  /* Avatar-scale light: the subject IS a small light, exempt by size. */\n  .pass-avatar-light {\n    width: 72px; height: 72px;\n    background: radial-gradient(circle, rgba(255,196,64,0.35), transparent 70%);\n  }\n  /* Neutral near-black vignette — grayscale, not the accent-glow tell. */\n  .pass-neutral-vignette {\n    width: 800px; height: 520px;\n    background: radial-gradient(circle, rgba(0,0,0,0.40), transparent 80%);\n  }\n  /* Neutral near-white vignette — grayscale, exempt. */\n  .pass-white-vignette {\n    width: 820px; height: 540px;\n    background: radial-gradient(ellipse, rgba(255,255,255,0.35), transparent 70%);\n  }\n  /* Rich three-color radial composition — real color structure, opaque, no fade. */\n  .pass-rich-composition {\n    width: 800px; height: 520px;\n    background: radial-gradient(circle, #ff0080 0%, #7928ca 45%, #0070f3 100%);\n  }\n  /* Rich composition that does fade out, but its color stops are opaque. */\n  .pass-rich-transparent {\n    width: 780px; height: 500px;\n    background: radial-gradient(circle, rgba(255,0,128,0.90) 0%, rgba(121,40,202,0.85) 50%, transparent);\n  }\n  /* Opaque center glow (the radial-halo case, alpha ≥ 0.45) — not this rule. */\n  .pass-opaque-center {\n    width: 800px; height: 520px;\n    background: radial-gradient(circle, rgba(80,111,255,0.85), transparent);\n  }\n  /* Low-alpha chromatic wash, but LINEAR, not radial. */\n  .pass-linear-wash {\n    width: 800px; height: 520px;\n    background: linear-gradient(120deg, rgba(80,111,255,0.28), transparent 60%);\n  }\n"],"result":false}
 {"args":["\n    \n    \n    \n    \n    \n    \n\n    \n    \n    \n    \n    \n    \n    \n    \n    \n    \n  "],"result":false}
@@ -1295,7 +1295,7 @@
 {"args":["Hidden attribute content that never counts against the page."],"result":false}
 {"args":["Decorative aria-hidden copy that also stays out of the denominator."],"result":false}
 {"args":["\n    const sections = document.querySelectorAll('.reveal');\n    const io = new IntersectionObserver((entries) => {\n      for (const entry of entries) {\n        if (entry.isIntersecting) { entry.target.classList.add('in-view'); io.unobserve(entry.target); }\n      }\n    }, { threshold: 0.1 });\n    sections.forEach((el) => io.observe(el));\n  "],"result":false}
-{"args":["Fixture: data-impeccable-ignore scoped waivers"],"result":false}
+{"args":["Fixture: data-impeccino-ignore scoped waivers"],"result":false}
 {"args":["\n  body { margin: 0; padding: 40px; background: #faf8f4; font-family: Arial, sans-serif; color: #262421; }\n  /* Every case carries a UNIQUE border-left width so each finding's snippet\n     (`border-left: Npx`) attributes to exactly one case. Flag widths: 5, 6,\n     8, 12. Pass widths: 4, 7, 9, 10, 11. */\n  .tabbed {\n    width: 420px;\n    padding: 16px 20px;\n    margin: 0 0 24px;\n    background: #ffffff;\n    border: 1px solid #ddd8d0;\n    border-left: 6px solid #b8422e;\n  }\n  .w4 { border-left-width: 4px; }\n  .w5 { border-left-width: 5px; }\n  .w7 { border-left-width: 7px; }\n  .w8 { border-left-width: 8px; }\n  .w9 { border-left-width: 9px; }\n  .w10 { border-left-width: 10px; }\n  .w11 { border-left-width: 11px; }\n  .w12 { border-left-width: 12px; }\n  /* Marquee specimen: keyframes + an infinite loop track. The section that\n     hosts it carries a marquee waiver; the CSS-scan finding must resolve the\n     selector to the live element and honor the ancestor attribute. */\n  @keyframes ticker-loop { from { transform: translateX(0); } to { transform: translateX(-50%); } }\n  .quote-track { display: flex; width: max-content; animation: ticker-loop 80s linear infinite; }\n  .quote-track span { padding: 8px 16px; }\n  /* Dead grid CSS: this two-axis hairline grid selector matches nothing on\n     this page, so the browser pass must drop the codex-grid finding — the\n     pattern never renders here. */\n  .never-rendered-grid {\n    background:\n      linear-gradient(90deg, rgba(200,180,120,0.08) 1px, transparent 1px),\n      linear-gradient(180deg, rgba(200,180,120,0.08) 1px, transparent 1px);\n    background-size: 24px 24px;\n  }\n  /* Overshoot bezier inside a keyframe STEP: enclosingCssSelector must refuse\n     `to` as a selector (it would match nothing and wrongly drop the finding),\n     so this bounce-easing finding stays page-level and is retained. */\n  @keyframes springy {\n    from { transform: none; }\n    to { transform: translateY(-4px); animation-timing-function: cubic-bezier(0.3, 1.8, 0.6, 1); }\n  }\n"],"result":false}
 {"args":["\n  \n  \n\n  \n  \n\n  \n  \n  \n\n  \n  \n\n  \n  \n\n  \n  \n\n  \n  \n\n  \n  \n\n  \n  \n\n  \n  \n"],"result":false}
 {"args":["The control case has a 6px side-tab accent border and no waiver, so the side-tab rule must flag it."],"result":false}
@@ -1317,7 +1317,7 @@
 {"args":["Shadowed form.id regression fixture"],"result":false}
 {"args":["\n  body { font-family: system-ui, sans-serif; background: #ffffff; color: #1a1a1a; margin: 0; padding: 24px; }\n  .product { max-width: 640px; margin: 0 auto; }\n  h1 { font-size: 28px; margin: 0 0 12px; }\n  .price { font-size: 20px; font-weight: 600; }\n  form { margin-top: 16px; }\n  .add-to-cart { background: #1a1a1a; color: #ffffff; border: 0; padding: 12px 24px; border-radius: 6px; font-size: 16px; cursor: pointer; }\n  label { display: block; margin: 8px 0 4px; font-size: 14px; }\n  select, input[type=\"number\"] { padding: 8px; font-size: 14px; }\n"],"result":false}
 {"args":["\n  \n  \n\n  \n  \n"],"result":false}
-{"args":["Impeccable Test Product"],"result":false}
+{"args":["Impeccino Test Product"],"result":false}
 {"args":["$49.00"],"result":false}
 {"args":["\n    \n    \n    \n    \n    \n    \n    \n  "],"result":false}
 {"args":["Quantity"],"result":false}
@@ -1511,7 +1511,7 @@
 {"args":["White text over a dark image underlay should pass."],"result":false}
 {"args":["Dark text over a light SVG underlay should pass."],"result":false}
 {"args":["Hidden mockup text on a light image should not be sampled."],"result":false}
-{"args":["\n  .faint { color: #ff00aa; }\n  .brand { font-family: Verdana } /* impeccable-disable-line design-system-font */\n  .also { font-family: Verdana }\n"],"result":false}
+{"args":["\n  .faint { color: #ff00aa; }\n  .brand { font-family: Verdana } /* impeccino-disable-line design-system-font */\n  .also { font-family: Verdana }\n"],"result":false}
 {"args":["faint text"],"result":false}
 {"args":["x"],"result":false}
 {"args":["y"],"result":false}

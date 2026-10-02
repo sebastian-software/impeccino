@@ -1,5 +1,5 @@
 [package]
-name = "impeccable-context"
+name = "impeccino-context"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
@@ -7,13 +7,13 @@ publish.workspace = true
 
 [features]
 default = []
-# Use impeccable_core::registry::ANTIPATTERNS for doctor's known rule ids
+# Use impeccino_core::registry::ANTIPATTERNS for doctor's known rule ids
 # instead of the embedded snapshot in src/rule_ids.rs.
 core-registry = []
 
 [dependencies]
-impeccable-common = { workspace = true }
-impeccable-core = { workspace = true }
+impeccino-common = { workspace = true }
+impeccino-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }

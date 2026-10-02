@@ -1,11 +1,11 @@
-//! JS: context-signals.mjs -> `impeccable signals` (alias: context-signals)
+//! JS: context-signals.mjs -> `impeccino signals` (alias: context-signals)
 
 use crate::context::{extract_platform, load_context};
 use crate::critique_storage::{js_number, read_latest_snapshot_across_targets};
 use crate::jsp;
 use crate::target_args::TargetOptions;
 use crate::util::{exists, js_num, js_trim, json_pretty, opt_string, Env};
-use impeccable_common::Io;
+use impeccino_common::Io;
 use serde_json::{Map, Value};
 use std::process::{Command, Stdio};
 
@@ -58,7 +58,7 @@ fn latest_critique(cwd: &str, env: &Env) -> Value {
 pub fn git_run(args: &[&str], cwd: &str, trim: bool, timeout_ms: Option<u64>) -> Option<String> {
     let mut cmd = Command::new("git");
     cmd.args(args).current_dir(cwd).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
-    impeccable_common::proc::hide_window(&mut cmd);
+    impeccino_common::proc::hide_window(&mut cmd);
     let mut child = cmd.spawn().ok()?;
     let out = if let Some(t) = timeout_ms {
         // Poll for completion up to the timeout, then kill (execFileSync timeout semantics).

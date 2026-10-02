@@ -1,8 +1,8 @@
-//! Thin adapters over `impeccable_core::checks::measures` (`resolveVarRefs`,
+//! Thin adapters over `impeccino_core::checks::measures` (`resolveVarRefs`,
 //! `resolveLengthPx`) for the cascade's ordered custom-property map. The
 //! pure logic lives in core; this module only bridges the map type.
 
-use impeccable_core::checks::measures;
+use impeccino_core::checks::measures;
 
 /// An ordered `--name -> value` map (JS `Map<string,string>`).
 pub type CustomProps = indexmap::IndexMap<String, String>;

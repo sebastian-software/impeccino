@@ -1,9 +1,9 @@
 /**
- * Locate the impeccable engine binary for tests that drive verbs end to end.
+ * Locate the impeccino engine binary for tests that drive verbs end to end.
  *
- * Order: $IMPECCABLE_BIN, then skill/scripts/bin/<os>-<arch>/impeccable[.exe]
- * (what `bun run fetch:engine` writes), then target/release/impeccable[.exe]
- * (what `cargo build --release -p impeccable` writes, so a local source build
+ * Order: $IMPECCINO_BIN, then skill/scripts/bin/<os>-<arch>/impeccino[.exe]
+ * (what `bun run fetch:engine` writes), then target/release/impeccino[.exe]
+ * (what `cargo build --release -p impeccino` writes, so a local source build
  * is picked up without any extra step). Returns null when none exists so a
  * suite can skip cleanly instead of failing on a machine without the engine.
  */
@@ -21,10 +21,10 @@ export function engineTarget() {
 }
 
 export function findEngineBinary() {
-  const fromEnv = process.env.IMPECCABLE_BIN;
+  const fromEnv = process.env.IMPECCINO_BIN;
   if (fromEnv && fs.existsSync(fromEnv)) return path.resolve(fromEnv);
   const target = engineTarget();
-  const exe = target.startsWith('windows-') ? 'impeccable.exe' : 'impeccable';
+  const exe = target.startsWith('windows-') ? 'impeccino.exe' : 'impeccino';
   const candidates = [
     path.join(REPO_ROOT, 'skill', 'scripts', 'bin', target, exe),
     path.join(REPO_ROOT, 'target', 'release', exe),
@@ -33,14 +33,14 @@ export function findEngineBinary() {
 }
 
 export const ENGINE_MISSING_MESSAGE =
-  'engine binary not found: run `cargo build --release -p impeccable` or `bun run fetch:engine`, or set IMPECCABLE_BIN';
+  'engine binary not found: run `cargo build --release -p impeccino` or `bun run fetch:engine`, or set IMPECCINO_BIN';
 
 /** Environment the launcher would export for the binary when run from this repo's skill dir. */
 export function engineEnv(bin, extra = {}) {
   return {
     ...process.env,
-    IMPECCABLE_SKILL_DIR: path.join(REPO_ROOT, 'skill'),
-    IMPECCABLE_SELF: bin,
+    IMPECCINO_SKILL_DIR: path.join(REPO_ROOT, 'skill'),
+    IMPECCINO_SELF: bin,
     ...extra,
   };
 }

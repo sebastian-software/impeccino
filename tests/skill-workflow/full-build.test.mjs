@@ -36,7 +36,7 @@ async function runTurn(options) {
       additionalTools: (trace) => browser.tools(trace),
     });
     assertCompleted(result);
-    const contextCalls = result.trace.toolCalls.filter(({ name, input }) => name === 'bash' && /impeccable\s+context\b/.test(input.command));
+    const contextCalls = result.trace.toolCalls.filter(({ name, input }) => name === 'bash' && /impeccino\s+context\b/.test(input.command));
     assert.equal(contextCalls.length, 1, 'completed workflow must load context exactly once');
     return result;
   } finally {
@@ -127,7 +127,7 @@ function workflowTraceMessage(trace) {
 
 // Full builds are separately opt-in and default to one provider. The existing
 // model selection variable can explicitly request a cross-provider sweep.
-for (const modelId of process.env.IMPECCABLE_SKILL_BEHAVIOR_MODELS ? resolveModelList() : ['claude-sonnet-5']) {
+for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModelList() : ['claude-sonnet-5']) {
   const provider = detectProvider(modelId);
   const keyPresent = hasKey(provider);
 
@@ -148,7 +148,7 @@ for (const modelId of process.env.IMPECCABLE_SKILL_BEHAVIOR_MODELS ? resolveMode
         const { trace } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccable init for a harbor operations product, then finish setup.',
+          userPrompt: '/impeccino init for a harbor operations product, then finish setup.',
         });
         const question = firstCall(trace, ({ name }) => name === 'ask_user_question');
         const productWrite = firstMutation(trace, /(^|\/)PRODUCT\.md$/i);
@@ -172,7 +172,7 @@ for (const modelId of process.env.IMPECCABLE_SKILL_BEHAVIOR_MODELS ? resolveMode
         const { trace } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccable create a concise evidence-led case-study page. Leave it at index.html.',
+          userPrompt: '/impeccino create a concise evidence-led case-study page. Leave it at index.html.',
           simulatedUser: { answer: () => CASE_STUDY_ANSWER },
         });
         const question = firstCall(trace, ({ name }) => name === 'ask_user_question');
@@ -200,7 +200,7 @@ for (const modelId of process.env.IMPECCABLE_SKILL_BEHAVIOR_MODELS ? resolveMode
         const { trace } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccable redesign current.html for this product. Leave the result at current.html.',
+          userPrompt: '/impeccino redesign current.html for this product. Leave the result at current.html.',
         });
         const question = firstCall(trace, ({ name }) => name === 'ask_user_question');
         assert.ok(fileLoaded(trace, 'new-work.md'), `redesign did not route through new-work.\n${workflowTraceMessage(trace)}`);
@@ -211,7 +211,7 @@ for (const modelId of process.env.IMPECCABLE_SKILL_BEHAVIOR_MODELS ? resolveMode
         assert.ok(fileLoaded(trace, 'documenter.md'), 'redesign must run the shipped documentation pass');
         const design = fs.readFileSync(path.join(workspace, 'DESIGN.md'), 'utf8');
         assert.notEqual(design.trim(), LEGACY_DESIGN.trim(), 'redesign preserved the old visual world verbatim');
-        assertDocumentationArtifacts(design, fs.readFileSync(path.join(workspace, '.impeccable/design.json'), 'utf8'));
+        assertDocumentationArtifacts(design, fs.readFileSync(path.join(workspace, '.impeccino/design.json'), 'utf8'));
       } finally {
         cleanupWorkspace(workspace);
       }
@@ -229,7 +229,7 @@ for (const modelId of process.env.IMPECCABLE_SKILL_BEHAVIOR_MODELS ? resolveMode
         const { trace } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccable bolder current.html, only the #case-study section. Keep everything else untouched.',
+          userPrompt: '/impeccino bolder current.html, only the #case-study section. Keep everything else untouched.',
         });
         const productWrite = firstMutation(trace, /(^|\/)PRODUCT\.md$/i);
         const designWrite = firstMutation(trace, /(^|\/)DESIGN\.md$/i);
@@ -265,7 +265,7 @@ for (const modelId of process.env.IMPECCABLE_SKILL_BEHAVIOR_MODELS ? resolveMode
         const { trace, responseMessages } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccable critique current.html',
+          userPrompt: '/impeccino critique current.html',
         });
         assert.ok(fileLoaded(trace, 'critique.md'), `critique.md was not loaded.\n${workflowTraceMessage(trace)}`);
         assertFreshCaptures(trace, workspace, 'current.html');

@@ -29,7 +29,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// The hidden-text measurement result type is shared.
-pub use impeccable_foundation::browser::HiddenTextMeasure;
+pub use impeccino_foundation::browser::HiddenTextMeasure;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {
@@ -93,8 +93,8 @@ fn has_visible_direct_text(dom: &dyn Dom, el: ElId) -> bool {
     has_direct_text_longer_than(dom, el, 0)
 }
 
-const IMPECCABLE_OWN: &str =
-    ".impeccable-overlay, .impeccable-label, .impeccable-banner, .impeccable-tooltip";
+const IMPECCINO_OWN: &str =
+    ".impeccino-overlay, .impeccino-label, .impeccino-banner, .impeccino-tooltip";
 
 /// JS: checks.mjs#checkTypography()
 pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
@@ -109,7 +109,7 @@ pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
         )
         .unwrap_or_default()
     {
-        if closest_or_none(dom, el, IMPECCABLE_OWN).is_some() {
+        if closest_or_none(dom, el, IMPECCINO_OWN).is_some() {
             continue;
         }
         if !has_visible_direct_text(dom, el) {
@@ -178,7 +178,7 @@ pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
 /// The overlay chrome `checkTypography` hands `checkFlatTypeHierarchyFromDoc`
 /// as its `skipElement` selector.
 pub const TYPE_HIERARCHY_SKIP_SELECTOR: &str =
-    ".impeccable-overlay, .impeccable-label, .impeccable-banner, .impeccable-tooltip, [id^=\"impeccable-live-\"]";
+    ".impeccino-overlay, .impeccino-label, .impeccino-banner, .impeccino-tooltip, [id^=\"impeccino-live-\"]";
 
 /// JS: checks.mjs#isRenderedTypeElement over a live DOM.
 fn is_rendered_type_element(dom: &dyn Dom, el: ElId) -> bool {

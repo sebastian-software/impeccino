@@ -16,7 +16,7 @@ it('fails browser preflight with an actionable error before starting a workflow'
 });
 
 it('prepares real browser captures, interactions, and multimodal image results offline', async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccable-workflow-browser-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccino-workflow-browser-'));
   let browser;
   try {
     fs.writeFileSync(path.join(root, 'index.html'), '<!doctype html><title>Fixture</title><button onclick="this.textContent=\'Done\'">Start</button><img src="https://example.invalid/image.png">');

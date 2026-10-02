@@ -3,7 +3,7 @@
 //! from the tool result establishes a baseline, and only for the pure text
 //! detector. DOM and design-system findings can depend on other files.
 
-use impeccable_core::findings::Finding;
+use impeccino_core::findings::Finding;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
@@ -242,7 +242,7 @@ pub fn classify(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use impeccable_core::findings::finding;
+    use impeccino_core::findings::finding;
 
     #[test]
     fn stop_baseline_dependency_sensitive_findings_stay_unknown() {

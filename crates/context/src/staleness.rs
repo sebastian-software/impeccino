@@ -60,7 +60,7 @@ const NATIVE_EVIDENCE_DEPENDENCIES: [(&str, &str, &str); 3] = [
 
 /// JS: designSidecarCandidatesFor(projectRoot, contextDir)
 pub fn design_sidecar_candidates_for(project_root: &str, context_dir: Option<&str>) -> Vec<String> {
-    let mut c = vec![jsp::join(&[project_root, ".impeccable", "design.json"]), jsp::join(&[project_root, "DESIGN.json"])];
+    let mut c = vec![jsp::join(&[project_root, ".impeccino", "design.json"]), jsp::join(&[project_root, "DESIGN.json"])];
     let ctx_legacy = jsp::join(&[context_dir.unwrap_or(project_root), "DESIGN.json"]);
     if !c.contains(&ctx_legacy) {
         c.push(ctx_legacy);
@@ -306,7 +306,7 @@ pub fn check_config(project_root: &str, repo_root: Option<&str>) -> Vec<Finding>
     let mut out = Vec::new();
     for root in unique_roots(project_root, repo_root) {
         for name in ["config.json", "config.local.json"] {
-            let fp = jsp::join(&[&root, ".impeccable", name]);
+            let fp = jsp::join(&[&root, ".impeccino", name]);
             let Some(raw) = read_json(&fp) else { continue };
             let Some(obj) = raw.as_object() else { continue };
             let rel = to_relative(Some(&fp), if project_root.is_empty() { &root } else { project_root }).unwrap();
@@ -404,7 +404,7 @@ pub fn check_project_roots(patterns: &[String], candidates_len: usize) -> Vec<Fi
     vec![finding(
         "config-project-roots-match-nothing",
         "config.json",
-        Some(".impeccable/config.json".to_string()),
+        Some(".impeccino/config.json".to_string()),
         "mention",
         format!(
             "`projectRoots` declares {}, but no directory matches any of them, so the repo root is being treated as the active project.",

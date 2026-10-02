@@ -15,7 +15,7 @@ Agents now have browsers of their own: Claude in Chrome, Playwright MCP, the Cod
 
 ## Decision
 
-Impeccable ships no browser stack and injects nothing into the user's running app. The agent takes screenshots with agent-browser or its harness's browser tool and asks decisions through the host's structured question tool. Where the engine needs a rendered page, it drives agent-browser ([0016](0016-rendered-pages-through-agent-browser.md)).
+Impeccino ships no browser stack and injects nothing into the user's running app. The agent takes screenshots with agent-browser or its harness's browser tool and asks decisions through the host's structured question tool. Where the engine needs a rendered page, it drives agent-browser ([0016](0016-rendered-pages-through-agent-browser.md)).
 
 Removed: live mode (`live*` verbs, `detect-csp`, `crates/live`, the page scripts in `skill/scripts/`, the manual-edit-applier agent), `serve-question`, `component-review` (`ui/`), the Chrome discovery and CDP client (`crates/browser`), the capture service in `crates/cli`, and their tests and CI jobs.
 

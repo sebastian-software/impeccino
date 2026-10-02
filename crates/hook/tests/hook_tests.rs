@@ -10,11 +10,11 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use impeccable_common::{jsp, Io};
-use impeccable_core::findings::{finding, Finding};
-use impeccable_detect::MissingHtmlEngine;
-use impeccable_hook::hook_lib::*;
-use impeccable_hook::{admin, before_edit, hook};
+use impeccino_common::{jsp, Io};
+use impeccino_core::findings::{finding, Finding};
+use impeccino_detect::MissingHtmlEngine;
+use impeccino_hook::hook_lib::*;
+use impeccino_hook::{admin, before_edit, hook};
 use serde_json::{json, Map, Value};
 
 static HTML: MissingHtmlEngine = MissingHtmlEngine;
@@ -27,7 +27,7 @@ impl Tmp {
         // workspace load); the per-process counter makes each dir unique.
         static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let base = std::env::temp_dir().join(format!(
-            "impeccable-hook-rs-{}-{}-{}",
+            "impeccino-hook-rs-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -73,20 +73,20 @@ impl Drop for Tmp {
 /// project, in the host's path form (backslashes on Windows, as `path.relative`
 /// renders it there).
 fn shared_config_rel() -> String {
-    jsp::join(&[".impeccable", "config.json"])
+    jsp::join(&[".impeccino", "config.json"])
 }
 
 /// The local config path as the admin verbs print it, in the same host form.
 fn local_config_rel() -> String {
-    jsp::join(&[".impeccable", "config.local.json"])
+    jsp::join(&[".impeccino", "config.local.json"])
 }
 
 fn rt_with(cwd: &str, env: HashMap<String, String>) -> Runtime<'static> {
     Runtime::new(
         cwd.to_string(),
         env,
-        "/impeccable".to_string(),
-        "/opt/bin/impeccable",
+        "/impeccino".to_string(),
+        "/opt/bin/impeccino",
         &HTML,
     )
 }
@@ -133,7 +133,7 @@ fn monorepo_design_fixture(root_design: bool) -> Tmp {
     if root_design {
         t.write("DESIGN.md", "---\ncolors:\n  primary: '#224466'\n---\n");
     }
-    t.write(".impeccable/config.json", r#"{"hook":{"perEditRules":"all"},"detector":{"advisoryRules":"include"}}"#);
+    t.write(".impeccino/config.json", r#"{"hook":{"perEditRules":"all"},"detector":{"advisoryRules":"include"}}"#);
     t
 }
 
@@ -171,7 +171,7 @@ fn check_monorepo_design_hook(mode: &str) {
         };
         assert_eq!(out.contains("design-system-color"), expected,
             "{mode}: root_design={root_design}, app={app}, color={color}: {out}");
-        assert!(!t.exists(&format!("apps/{app}/.impeccable/hook.cache.json")),
+        assert!(!t.exists(&format!("apps/{app}/.impeccino/hook.cache.json")),
             "design resolution must not relocate hook state");
     }
 }
@@ -193,7 +193,7 @@ fn monorepo_design_document_locations_and_sidecars() {
         let file = t.write("apps/b/src/probe.css", ".probe {}\n");
         let md = t.write(&format!("apps/b/{location}"),
             "---\ntypography:\n  body:\n    fontFamily: Georgia\nrounded:\n  md: 8px\ncolors:\n  primary: '#abcdef'\n---\n");
-        let sidecar = t.write("apps/b/.impeccable/design.json", "{}");
+        let sidecar = t.write("apps/b/.impeccino/design.json", "{}");
         let scan = design_system_options_for_file(&rt(&cwd), &read_config(&cwd), &cwd, &file);
         let ds = scan.design_system.as_ref().unwrap();
         assert_eq!(ds.source_path.as_deref(), Some(md.as_str()));
@@ -237,8 +237,8 @@ fn monorepo_design_batch_notes_follow_the_displayed_file() {
             if mode == "post-pending" {
                 hook::run_hook(&r, &edit_event(&cwd, &a, "s1"));
             }
-            let sidecar = t.write(if stale_app == "a" { "apps/a/.impeccable/design.json" }
-                else { ".impeccable/design.json" }, "{}");
+            let sidecar = t.write(if stale_app == "a" { "apps/a/.impeccino/design.json" }
+                else { ".impeccino/design.json" }, "{}");
             std::fs::File::options().write(true).open(sidecar).unwrap()
                 .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000)).unwrap();
             let out = if mode == "stop" {
@@ -283,8 +283,8 @@ fn stop_baseline_import_only_edit_does_not_blame_existing_font() {
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
     assert!(stop.stdout.is_empty(), "{}", stop.stdout);
     assert_eq!(stop.audit["preExistingFindings"], json!(1));
-    assert!(!t.read(".impeccable/hook.cache.json").contains("const report"), "do not persist source contents");
-    assert!(!t.exists(".impeccable/config.local.json"), "baseline is not an ignore");
+    assert!(!t.read(".impeccino/hook.cache.json").contains("const report"), "do not persist source contents");
+    assert!(!t.exists(".impeccino/config.local.json"), "baseline is not an ignore");
     assert!(detector_detect_text(&after, &file, &HookScanOptions::default()).iter().any(|f| f.antipattern == "overused-font"), "explicit scans stay unchanged");
 }
 
@@ -410,14 +410,14 @@ fn stop_baseline_unknown_notice_respects_small_output_budget() {
         let t = Tmp::new();
         let cwd = t.path();
         t.write("package.json", "{}");
-        t.write(".impeccable/config.json", &json!({"hook":{"limits":{"maxChars":budget}}}).to_string());
+        t.write(".impeccino/config.json", &json!({"hook":{"limits":{"maxChars":budget}}}).to_string());
         let file = t.write("card.css", SIDE_TAB_CSS);
         let r = rt(&cwd);
         hook::run_hook(&r, &edit_event(&cwd, &file, "s1"));
         if stale {
             // Make the notice eligible only at Stop; no sleeps or clock races.
             t.write("DESIGN.md", "---\nname: Test\n---\n");
-            let sidecar = t.write(".impeccable/design.json", "{}");
+            let sidecar = t.write(".impeccino/design.json", "{}");
             std::fs::File::options().write(true).open(sidecar).unwrap()
                 .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000)).unwrap();
             assert!(design_system_options(&read_config(&cwd), &cwd).md_newer_than_json());
@@ -432,7 +432,7 @@ fn stop_baseline_unknown_notice_respects_small_output_budget() {
         assert!(text.contains("card.css"), "{text}");
         if stale {
             assert_eq!(text.contains("DESIGN.md is newer"), budget > 500, "{text}");
-            let cache: Value = serde_json::from_str(&t.read(".impeccable/hook.cache.json")).unwrap();
+            let cache: Value = serde_json::from_str(&t.read(".impeccino/hook.cache.json")).unwrap();
             assert_eq!(cache["sessions"]["s1"]["designNoteShown"] == json!(true), budget > 500);
         }
     }
@@ -464,7 +464,7 @@ fn stop_baseline_capped_unknown_does_not_add_notice_to_new_finding() {
     let t = Tmp::new();
     let cwd = t.path();
     t.write("package.json", "{}");
-    t.write(".impeccable/config.json", r#"{"hook":{"limits":{"maxFindings":1}}}"#);
+    t.write(".impeccino/config.json", r#"{"hook":{"limits":{"maxFindings":1}}}"#);
     let r = rt(&cwd);
     let new = t.write("new/card.css", SIDE_TAB_CSS);
     hook::run_hook(&r, &edit_with_original(&cwd, &new, "s1", ".card {}", ".card {}", SIDE_TAB_CSS));
@@ -482,7 +482,7 @@ fn stop_baseline_small_grouped_output_keeps_finding_and_attribution() {
     let t = Tmp::new();
     let cwd = t.path();
     t.write("package.json", "{}");
-    t.write(".impeccable/config.json", r#"{"hook":{"limits":{"maxChars":500}}}"#);
+    t.write(".impeccino/config.json", r#"{"hook":{"limits":{"maxChars":500}}}"#);
     let r = rt(&cwd);
     for path in ["one/card.css", "two/card.css"] {
         let file = t.write(path, SIDE_TAB_CSS);
@@ -503,7 +503,7 @@ fn stop_baseline_dropped_notice_reclaims_its_rendering_budget() {
         let t = Tmp::new();
         let cwd = t.path();
         t.write("package.json", "{}");
-        t.write(".impeccable/config.json", &json!({"hook":{"limits":{"maxChars":500,"maxFindings":max_findings}}}).to_string());
+        t.write(".impeccino/config.json", &json!({"hook":{"limits":{"maxChars":500,"maxFindings":max_findings}}}).to_string());
         let r = rt(&cwd);
         let new = t.write("new/card.css", SIDE_TAB_CSS);
         hook::run_hook(&r, &edit_with_original(&cwd, &new, "s1", ".card {}", ".card {}", SIDE_TAB_CSS));
@@ -578,7 +578,7 @@ fn stop_baseline_untrusted_shapes_do_not_suppress_findings() {
             }
             _ => {},
         }
-        let r = if variant == "other-provider" { rt_with(&cwd, env(&[("IMPECCABLE_HOOK_HARNESS", "codex")])) } else { rt(&cwd) };
+        let r = if variant == "other-provider" { rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "codex")])) } else { rt(&cwd) };
         hook::run_hook(&r, &event.to_string());
         let session = if variant == "no-session" { "unknown" } else { "s1" };
         let stop = hook::run_stop_hook(&r, &stop_event(&cwd, session));
@@ -722,11 +722,11 @@ fn read_config_merges_shared_then_local_and_legacy_keys() {
     let cwd = t.path();
     assert_eq!(read_config(&cwd), HookConfig::default());
     t.write(
-        ".impeccable/config.json",
+        ".impeccino/config.json",
         r#"{"hook":{"enabled":true,"quiet":true,"auditLog":" log.ndjson ","perEditRules":"all","ignoreRules":["a"],"limits":{"maxFindings":2,"maxChars":100,"maxFileBytes":-1}},"detector":{"ignoreRules":["b"],"ignoreFiles":["x/**"],"extensions":[".blade.php",{"ext":"heex","engine":"text"}],"advisoryRules":"include","designSystem":{"enabled":false}}}"#,
     );
     t.write(
-        ".impeccable/config.local.json",
+        ".impeccino/config.local.json",
         r#"{"hook":{"enabled":false},"detector":{"ignoreRules":["a","c"],"extensions":[{"ext":".heex","engine":"html"}],"ignoreValues":[{"rule":"Overused-Font","value":"\"Inter\"","file":"a.css","files":["b.css","a.css"],"createdAt":"2026","reason":" r "}]}}"#,
     );
     let c = read_config(&cwd);
@@ -764,7 +764,7 @@ fn read_config_merges_shared_then_local_and_legacy_keys() {
     );
     assert_eq!(e.reason.as_deref(), Some("r"));
     // malformed local config is ignored, shared survives
-    t.write(".impeccable/config.local.json", "{ nope");
+    t.write(".impeccino/config.local.json", "{ nope");
     let c = read_config(&cwd);
     assert!(c.enabled);
     assert_eq!(c.ignore_rules, vec!["a", "b"]);
@@ -856,7 +856,7 @@ fn git_excludes_land_in_info_exclude_not_gitignore() {
     let ex = t.read(".git/info/exclude");
     assert_eq!(
         ex,
-        "# impeccable-hook-ignore-start .\n.impeccable/hook.cache.json\n.impeccable/hook.pending.json\n.impeccable/config.local.json\n# impeccable-hook-ignore-end .\n"
+        "# impeccino-hook-ignore-start .\n.impeccino/hook.cache.json\n.impeccino/hook.pending.json\n.impeccino/config.local.json\n# impeccino-hook-ignore-end .\n"
     );
     assert_eq!(t.read(".gitignore"), "node_modules\n");
     let again = ensure_hook_git_excludes(&r, &root);
@@ -865,10 +865,10 @@ fn git_excludes_land_in_info_exclude_not_gitignore() {
     std::fs::create_dir_all(t.0.join("apps/web")).unwrap();
     let nested = format!("{root}/apps/web");
     let res = ensure_hook_git_excludes(&r, &nested);
-    assert_eq!(res.patterns[0], "apps/web/.impeccable/hook.cache.json");
+    assert_eq!(res.patterns[0], "apps/web/.impeccino/hook.cache.json");
     let ex = t.read(".git/info/exclude");
     assert!(
-        ex.contains("# impeccable-hook-ignore-end .\n\n# impeccable-hook-ignore-start apps/web\n")
+        ex.contains("# impeccino-hook-ignore-end .\n\n# impeccino-hook-ignore-start apps/web\n")
     );
     // no repo at all
     let t2 = Tmp::new();
@@ -906,18 +906,18 @@ fn filter_findings_rules_advisory_and_values() {
         1
     );
     c.ignore_rules.clear();
-    c.ignore_values = impeccable_detect::config::normalize_ignore_value_entries(&[
+    c.ignore_values = impeccino_detect::config::normalize_ignore_value_entries(&[
         json!({"rule": "overused-font", "value": "inter"}),
     ]);
     assert!(filter_findings(vec![font.clone()], &c).is_empty());
-    c.ignore_values = impeccable_detect::config::normalize_ignore_value_entries(&[
+    c.ignore_values = impeccino_detect::config::normalize_ignore_value_entries(&[
         json!({"rule": "overused-font", "value": "*", "files": ["src/*.css"]}),
     ]);
     assert!(
         filter_findings(vec![font.clone()], &c).is_empty(),
         "wildcard scoped to a suffix glob"
     );
-    c.ignore_values = impeccable_detect::config::normalize_ignore_value_entries(&[
+    c.ignore_values = impeccino_detect::config::normalize_ignore_value_entries(&[
         json!({"rule": "overused-font", "value": "*"}),
     ]);
     assert_eq!(
@@ -956,17 +956,17 @@ fn render_template_caps_and_footers() {
         .collect();
     let text = render_template(&r, &many, "/x/Card.tsx", &c, &opts("/x"));
     assert!(text.starts_with(
-        "[impeccable@1] Design hook findings requiring review in Card.tsx (12 issue(s)):"
+        "[impeccino@1] Design hook findings requiring review in Card.tsx (12 issue(s)):"
     ));
-    assert!(text.contains("... and 7 more (see /impeccable audit)."));
+    assert!(text.contains("... and 7 more (see /impeccino audit)."));
     assert_eq!(text.lines().filter(|l| l.starts_with("- L")).count(), 5);
     // The self-command is quoted in the host's shell form (#476 / #533):
     // single quotes under sh, double quotes on Windows.
-    let self_cmd = quote_command_arg("/opt/bin/impeccable", cfg!(windows));
+    let self_cmd = quote_command_arg("/opt/bin/impeccino", cfg!(windows));
     assert!(text.contains(&format!(
         "Run `{self_cmd} hooks ignore-value <rule> \"<value>\" --reason \"<who decided: evidence>\"`"
     )));
-    assert!(text.contains("Full suppression ladder: /impeccable hooks."));
+    assert!(text.contains("Full suppression ladder: /impeccino hooks."));
     let short = render_template(
         &r,
         &many[..1],
@@ -978,7 +978,7 @@ fn render_template_caps_and_footers() {
         },
     );
     assert!(short.contains("Triage per the session policy"));
-    assert!(short.contains("`impeccable hooks ignore-value`"));
+    assert!(short.contains("`impeccino hooks ignore-value`"));
     assert!(!short.contains("Triage each finding"));
     let zero = render_template(
         &r,
@@ -1136,8 +1136,8 @@ fn render_template_clamps_inside_budget_and_keeps_policy() {
         },
     ];
     let text = render_grouped_template(&r, &groups, &HookConfig::default(), &opts("/x"));
-    assert!(text.starts_with("[impeccable@1] Design hook findings requiring review across 2 files (7 issue(s)):\na.css (4 issue(s)):\n"));
-    assert!(text.contains("b.css (3 issue(s)):\n- L1 [gradient-text] G. d\n- ... 2 more in b.css (see /impeccable audit)."));
+    assert!(text.starts_with("[impeccino@1] Design hook findings requiring review across 2 files (7 issue(s)):\na.css (4 issue(s)):\n"));
+    assert!(text.contains("b.css (3 issue(s)):\n- L1 [gradient-text] G. d\n- ... 2 more in b.css (see /impeccino audit)."));
     let pending = render_pending_ack(
         &r,
         "/x/a.css",
@@ -1147,7 +1147,7 @@ fn render_template_clamps_inside_budget_and_keeps_policy() {
     assert!(pending
         .contains("Still has 4 finding(s) flagged earlier this session (a:1, b:2, c:3, +1 more)."));
     assert!(render_clean_ack(&r, "/x/a.css", "/x")
-        .ends_with("keep following the project design system and the impeccable skill guidance."));
+        .ends_with("keep following the project design system and the impeccino skill guidance."));
 }
 
 // ── events / targets ──────────────────────────────────────────────────────
@@ -1189,7 +1189,7 @@ fn harness_detection_and_github_normalization() {
     assert_eq!(ev["tool_input"]["file_path"], json!("src/App.jsx"));
     // c9e7cd8a: an explicit codex harness now keeps its own identity so the
     // Stop pass can emit the Codex decision/block contract.
-    let forced = rt_with("/p", env(&[("IMPECCABLE_HOOK_HARNESS", "codex")]));
+    let forced = rt_with("/p", env(&[("IMPECCINO_HOOK_HARNESS", "codex")]));
     assert_eq!(resolve_harness(&forced, Some(&gh)), "codex");
     assert_eq!(
         parse_apply_patch_paths(&r, "*** Begin Patch\n*** Update File: a.css\r\n*** Add File: /abs/b.css\n*** Delete File: c.css\n", "/p"),
@@ -1275,7 +1275,7 @@ fn run_hook_fresh_then_pending_then_stop() {
     assert!(!one.stdout.contains("[side-tab]"));
     assert_eq!(one.audit["deferred"], json!(1));
     assert_eq!(one.audit["freshFindings"], json!(1));
-    assert!(t.exists(".impeccable/hook.cache.json"));
+    assert!(t.exists(".impeccino/hook.cache.json"));
     let two = hook::run_hook(&r, &ev);
     assert!(two
         .stdout
@@ -1339,10 +1339,10 @@ fn run_hook_acks_and_quiet_modes() {
         .stdout
         .contains("No deterministic design-quality issues found"));
     assert!(
-        !t.exists(".impeccable"),
+        !t.exists(".impeccino"),
         "clean edit in a project without a footprint writes nothing"
     );
-    std::fs::create_dir_all(t.0.join(".impeccable")).unwrap();
+    std::fs::create_dir_all(t.0.join(".impeccino")).unwrap();
     let one = hook::run_hook(&r, &ev);
     assert_eq!(audit_str(&one.audit, "kind"), Some("clean"));
     let two = hook::run_hook(&r, &ev);
@@ -1357,13 +1357,13 @@ fn run_hook_acks_and_quiet_modes() {
         four.stdout.contains("[gradient-text]"),
         "findings still surface for .ts"
     );
-    let quiet = rt_with(&cwd, env(&[("IMPECCABLE_HOOK_QUIET", "1")]));
+    let quiet = rt_with(&cwd, env(&[("IMPECCINO_HOOK_QUIET", "1")]));
     let q = hook::run_hook(&quiet, &edit_event(&cwd, &clean, "s2"));
     assert_eq!(q.audit["quiet"], json!(true));
     assert!(q.stdout.is_empty());
     let re = rt_with(&cwd, env(&[("CLAUDE_HOOK_DEPTH", "2")]));
     assert_eq!(hook::run_hook(&re, &ev).audit["reentrant"], json!(true));
-    let off = rt_with(&cwd, env(&[("IMPECCABLE_HOOK_DISABLED", "yes")]));
+    let off = rt_with(&cwd, env(&[("IMPECCINO_HOOK_DISABLED", "yes")]));
     assert_eq!(
         audit_str(&hook::run_hook(&off, &ev).audit, "skipped"),
         Some("env-disabled")
@@ -1411,13 +1411,13 @@ fn run_hook_skips_unsafe_and_foreign_targets() {
         audit_str(&go(&outside).audit, "skipped"),
         Some("outside-project")
     );
-    assert!(!t.exists(".impeccable"));
+    assert!(!t.exists(".impeccino"));
     // template extensions (#316): .blade.php is skipped without config,
     // routed through the text engine with `engine: text`
     let blade = t.write("views/a.blade.php", "<style>.t{background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent;}</style>");
     assert_eq!(audit_str(&go(&blade).audit, "skipped"), Some("extension"));
     t.write(
-        ".impeccable/config.json",
+        ".impeccino/config.json",
         r#"{"detector":{"extensions":[{"ext":".blade.php","engine":"text"}]}}"#,
     );
     let res = go(&blade);
@@ -1452,15 +1452,15 @@ fn run_hook_symlinked_cwd_and_umbrella_launch() {
         audit_str(&res.audit, "cwd"),
         Some(format!("{root}/app").as_str())
     );
-    assert!(t.exists("app/.impeccable/hook.cache.json"));
-    assert!(!t.exists(".impeccable"));
+    assert!(t.exists("app/.impeccino/hook.cache.json"));
+    assert!(!t.exists(".impeccino"));
 }
 
 #[test]
 fn run_hook_oversized_files_and_suppression() {
     let t = Tmp::new();
     let cwd = t.path();
-    std::fs::create_dir_all(t.0.join(".impeccable")).unwrap();
+    std::fs::create_dir_all(t.0.join(".impeccino")).unwrap();
     let r = rt(&cwd);
     let big = t.write("bundle.js", &format!("/* {} */", "x".repeat(200 * 1024)));
     let res = hook::run_hook(&r, &edit_event(&cwd, &big, "s1"));
@@ -1480,7 +1480,7 @@ fn run_hook_oversized_files_and_suppression() {
     let res = hook::run_hook(&r, &patch);
     assert!(res.audit.get("bytes").is_none(), "{:?}", res.audit);
     t.write(
-        ".impeccable/config.json",
+        ".impeccino/config.json",
         r#"{"hook":{"limits":{"maxFileBytes":1024}}}"#,
     );
     let res = hook::run_hook(&r, &edit_event(&cwd, &main, "s3"));
@@ -1490,13 +1490,13 @@ fn run_hook_oversized_files_and_suppression() {
         "configured maxFileBytes is honored"
     );
     // suppression: the 7th edit emits the notice once, later edits stay silent
-    t.write(".impeccable/config.json", "{}");
+    t.write(".impeccino/config.json", "{}");
     let css = t.write("src/b.css", GRADIENT_CSS);
     let mut outputs = Vec::new();
     for _ in 0..9 {
         outputs.push(hook::run_hook(&r, &edit_event(&cwd, &css, "sup")));
     }
-    assert!(outputs[6].stdout.contains("Suppressing further design hints on src/b.css. More than 6 edits in this session reached. Run /impeccable audit to revisit."));
+    assert!(outputs[6].stdout.contains("Suppressing further design hints on src/b.css. More than 6 edits in this session reached. Run /impeccino audit to revisit."));
     assert_eq!(outputs[6].audit["suppressed"], json!(true));
     assert!(outputs[7].stdout.is_empty());
     assert_eq!(outputs[8].audit["emitted"], json!(false));
@@ -1533,27 +1533,27 @@ fn run_hook_co_located_styles_and_tiering_config() {
     );
     // perEditRules: all restores the deferred tier per edit
     t.write(
-        ".impeccable/config.json",
+        ".impeccino/config.json",
         r#"{"hook":{"perEditRules":"all"}}"#,
     );
     let res = hook::run_hook(&r, &edit_event(&cwd, &app, "s2"));
     assert!(res.stdout.contains("[side-tab]"), "{}", res.stdout);
     assert!(res.stdout.contains("(2 issue(s))"));
     // github harness keeps the full set too
-    t.write(".impeccable/config.json", "{}");
-    let gh = rt_with(&cwd, env(&[("IMPECCABLE_HOOK_HARNESS", "github")]));
+    t.write(".impeccino/config.json", "{}");
+    let gh = rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "github")]));
     let res = hook::run_hook(&gh, &edit_event(&cwd, &app, "s3"));
     assert!(res.stdout.starts_with("{\"additionalContext\":"));
     assert!(res.stdout.contains("[side-tab]"));
     // ignoreFiles glob and ignoreRules
     t.write(
-        ".impeccable/config.json",
+        ".impeccino/config.json",
         r#"{"detector":{"ignoreFiles":["src/**"]}}"#,
     );
     let res = hook::run_hook(&r, &edit_event(&cwd, &app, "s4"));
     assert_eq!(audit_str(&res.audit, "skipped"), Some("config-ignore-file"));
     t.write(
-        ".impeccable/config.json",
+        ".impeccino/config.json",
         r#"{"detector":{"ignoreRules":["gradient-text"]}}"#,
     );
     let res = hook::run_hook(&r, &edit_event(&cwd, &app, "s5"));
@@ -1579,7 +1579,7 @@ fn write_audit_log_targets() {
     entry.insert("cwd".into(), json!(cwd));
     let r = rt_with(
         "/elsewhere",
-        env(&[("IMPECCABLE_HOOK_LOG", "logs/a.ndjson")]),
+        env(&[("IMPECCINO_HOOK_LOG", "logs/a.ndjson")]),
     );
     assert!(write_audit_log(&r, &entry, "/elsewhere"));
     let line = t.read("logs/a.ndjson");
@@ -1594,7 +1594,7 @@ fn write_audit_log_targets() {
         "no target, no-op"
     );
     t.write(
-        ".impeccable/config.json",
+        ".impeccino/config.json",
         r#"{"hook":{"auditLog":"~/h.ndjson"}}"#,
     );
     let r3 = rt_with("/elsewhere", env(&[("HOME", &cwd)]));
@@ -1653,7 +1653,7 @@ fn before_edit_denies_shell_and_edit_shapes() {
     let deny = |stdin: &str, label: &str| {
         let (out, code) = hbe(&r, stdin);
         assert_eq!(code, 0);
-        assert!(out.starts_with("{\"permission\":\"deny\",\"user_message\":\"[impeccable@1] Impeccable design hook blocked this write before it landed. Design hook findings requiring review in"), "{label}: {out}");
+        assert!(out.starts_with("{\"permission\":\"deny\",\"user_message\":\"[impeccino@1] Impeccino design hook blocked this write before it landed. Design hook findings requiring review in"), "{label}: {out}");
         out
     };
     let allow = |stdin: &str, label: &str| {
@@ -1741,7 +1741,7 @@ fn before_edit_denies_shell_and_edit_shapes() {
     allow(&cursor(&cwd, "Shell", json!({"command": "ls"})), "no file");
     allow("", "empty stdin");
     allow("{", "malformed stdin");
-    let off = rt_with(&cwd, env(&[("IMPECCABLE_HOOK_DISABLED", "true")]));
+    let off = rt_with(&cwd, env(&[("IMPECCINO_HOOK_DISABLED", "true")]));
     let (out, _) = hbe(&off, "{");
     assert_eq!(out, "{\"permission\":\"allow\"}");
     // repeated identical denials downgrade to allow-with-warning after the threshold
@@ -1758,7 +1758,7 @@ fn before_edit_denies_shell_and_edit_shapes() {
         last.starts_with("{\"permission\":\"allow\",\"user_message\":\""),
         "{last}"
     );
-    assert!(last.contains("This is the 7th repeated denial for the same file and finding signature, so Impeccable is allowing this write to avoid a loop."));
+    assert!(last.contains("This is the 7th repeated denial for the same file and finding signature, so Impeccino is allowing this write to avoid a loop."));
     let cache = read_cache(&cwd);
     assert_eq!(
         cache["sessions"]["cv1"]["files"][jsp::join(&[&cwd, "src/new.css"])]["cursorDenials"]
@@ -1792,8 +1792,8 @@ fn admin_ignore_value_scoping_and_idempotency() {
         out,
         format!("Added overused-font=inter to shared detector.ignoreValues ({}).\n", shared_config_rel())
     );
-    assert!(!t.exists(".impeccable/config.local.json"));
-    let cfg: Value = serde_json::from_str(&t.read(".impeccable/config.json")).unwrap();
+    assert!(!t.exists(".impeccino/config.local.json"));
+    let cfg: Value = serde_json::from_str(&t.read(".impeccino/config.json")).unwrap();
     let entry = &cfg["detector"]["ignoreValues"][0];
     assert_eq!(
         entry
@@ -1804,10 +1804,10 @@ fn admin_ignore_value_scoping_and_idempotency() {
             .collect::<Vec<_>>(),
         vec!["rule", "value", "createdAt"]
     );
-    let before = t.read(".impeccable/config.json");
+    let before = t.read(".impeccino/config.json");
     // an unrelated edit keeps the entry byte-identical
     admin_run(&r, &["ignore-rule", "side-tab"]);
-    let after = t.read(".impeccable/config.json");
+    let after = t.read(".impeccino/config.json");
     assert!(after.contains(
         &before[before.find("\"ignoreValues\"").unwrap()..before.find("\n  }").unwrap()]
     ));
@@ -1833,7 +1833,7 @@ fn admin_ignore_value_scoping_and_idempotency() {
     assert!(out.contains("ignoreRules:  side-tab\n"));
     let (_, err, code) = admin_run(&r, &["ignore-value", "overused-font", "*"]);
     assert_eq!(code, 1);
-    assert_eq!(err, "Error: Wildcard value ignores must be scoped with --file <glob>, e.g. /impeccable hooks ignore-value design-system-font-size \"*\" --file \"src/widget.js\". To suppress the rule project-wide use /impeccable hooks ignore-rule overused-font --all-values.\n");
+    assert_eq!(err, "Error: Wildcard value ignores must be scoped with --file <glob>, e.g. /impeccino hooks ignore-value design-system-font-size \"*\" --file \"src/widget.js\". To suppress the rule project-wide use /impeccino hooks ignore-rule overused-font --all-values.\n");
     let (_, err, _) = admin_run(&r, &["ignore-value", "overused-font", "Inter", "--file="]);
     assert_eq!(err, "Error: --file requires a non-empty glob\n");
     let (_, err, _) = admin_run(&r, &["ignore-value", "overused-font", "Inter", "--shard"]);
@@ -1843,7 +1843,7 @@ fn admin_ignore_value_scoping_and_idempotency() {
     assert_eq!(err, "Unknown action: bogus\nValid: status, on, off, ignore-rule, ignore-file, ignore-value, reset\n");
     let (out, _, _) = admin_run(&r, &["reset"]);
     assert_eq!(out, format!("Reset design hook config and cache (removed: {}, {}).\n", shared_config_rel(), local_config_rel()));
-    assert!(!t.exists(".impeccable/config.json"));
+    assert!(!t.exists(".impeccino/config.json"));
 }
 
 /// Upstream be87f5eb (#662), the `hooks ignore-value` twin of the detect-side
@@ -1857,11 +1857,11 @@ fn admin_ignore_value_refuses_inert_exact_values() {
     let r = rt(&cwd);
     let (_, err, code) = admin_run(&r, &["ignore-value", "cramped-padding", "padding: 4px 8px"]);
     assert_eq!(code, 1);
-    assert_eq!(err, "Error: cramped-padding has no extractable ignore value. Use /impeccable hooks ignore-value cramped-padding \"*\" --file <glob> to suppress it in matching files.\n");
+    assert_eq!(err, "Error: cramped-padding has no extractable ignore value. Use /impeccino hooks ignore-value cramped-padding \"*\" --file <glob> to suppress it in matching files.\n");
     let (_, err, code) = admin_run(&r, &["ignore-value", "side-tab", "Inter", "--file", "a.css"]);
     assert_eq!(code, 1);
-    assert_eq!(err, "Error: side-tab has no extractable ignore value. Use /impeccable hooks ignore-value side-tab \"*\" --file <glob> to suppress it in matching files.\n");
-    assert!(!t.exists(".impeccable/config.json"), "a refused ignore must not write config");
+    assert_eq!(err, "Error: side-tab has no extractable ignore value. Use /impeccino hooks ignore-value side-tab \"*\" --file <glob> to suppress it in matching files.\n");
+    assert!(!t.exists(".impeccino/config.json"), "a refused ignore must not write config");
 
     let (out, _, code) = admin_run(&r, &["ignore-value", "overused-font", "Inter"]);
     assert_eq!(code, 0);
@@ -1869,7 +1869,7 @@ fn admin_ignore_value_refuses_inert_exact_values() {
 
     let (_, _, code) = admin_run(&r, &["ignore-value", "cramped-padding", "*", "--file", "index.html"]);
     assert_eq!(code, 0);
-    let cfg: Value = serde_json::from_str(&t.read(".impeccable/config.json")).unwrap();
+    let cfg: Value = serde_json::from_str(&t.read(".impeccino/config.json")).unwrap();
     let entries: Vec<&Value> = cfg["detector"]["ignoreValues"]
         .as_array()
         .unwrap()
@@ -1886,13 +1886,13 @@ fn admin_on_off_preserve_sibling_hook_fields() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
-    t.write(".impeccable/config.json", "{\n  \"hook\": {\n    \"quiet\": true,\n    \"consent\": \"accepted\",\n    \"advisoryRules\": \"include\"\n  },\n  \"updateCheck\": false\n}\n");
+    t.write(".impeccino/config.json", "{\n  \"hook\": {\n    \"quiet\": true,\n    \"consent\": \"accepted\",\n    \"advisoryRules\": \"include\"\n  },\n  \"updateCheck\": false\n}\n");
     let (out, _, _) = admin_run(&r, &["off"]);
     assert_eq!(
         out,
         format!("Design hook disabled for this project (wrote {}).\n", shared_config_rel())
     );
-    let cfg: Value = serde_json::from_str(&t.read(".impeccable/config.json")).unwrap();
+    let cfg: Value = serde_json::from_str(&t.read(".impeccino/config.json")).unwrap();
     assert_eq!(cfg["hook"]["quiet"], json!(true));
     assert_eq!(cfg["hook"]["consent"], json!("accepted"));
     assert_eq!(cfg["hook"]["enabled"], json!(false));
@@ -1911,7 +1911,7 @@ fn admin_on_off_preserve_sibling_hook_fields() {
         cfg.as_object().unwrap().keys().cloned().collect::<Vec<_>>(),
         vec!["hook", "updateCheck", "detector"]
     );
-    std::fs::create_dir_all(t.0.join(".github/skills/impeccable")).unwrap();
+    std::fs::create_dir_all(t.0.join(".github/skills/impeccino")).unwrap();
     let (out, _, _) = admin_run(&r, &["on"]);
     assert_eq!(out, format!(
         "Design hook enabled for this project (wrote {}). Recorded local hook consent in {}. Installed or repaired hook manifests for: .github.\n",
@@ -1919,7 +1919,7 @@ fn admin_on_off_preserve_sibling_hook_fields() {
         local_config_rel()
     ));
     assert!(t
-        .read(".github/hooks/impeccable.json")
+        .read(".github/hooks/impeccino.json")
         .contains("\"matcher\": \"edit|create|apply_patch\""));
     let (out, _, _) = admin_run(&r, &["on"]);
     assert!(out.ends_with("Hook manifests already installed for: .github.\n"));
@@ -1933,14 +1933,14 @@ fn admin_on_prunes_local_manifest_when_shared_settings_carry_the_hook() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
-    std::fs::create_dir_all(t.0.join(".claude/skills/impeccable")).unwrap();
+    std::fs::create_dir_all(t.0.join(".claude/skills/impeccino")).unwrap();
     t.write(
         ".claude/settings.json",
-        r#"{"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs\""}]}]}}"#,
+        r#"{"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\""}]}]}}"#,
     );
     t.write(
         ".claude/settings.local.json",
-        "{\n  \"permissions\": {\n    \"allow\": [\n      \"Bash(ls)\"\n    ]\n  },\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node old/skills/impeccable/scripts/hook.mjs\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+        "{\n  \"permissions\": {\n    \"allow\": [\n      \"Bash(ls)\"\n    ]\n  },\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"node old/skills/impeccino/scripts/hook.mjs\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
     );
     let (out, _, _) = admin_run(&r, &["on"]);
     assert!(
@@ -1950,13 +1950,13 @@ fn admin_on_prunes_local_manifest_when_shared_settings_carry_the_hook() {
     let local: Value = serde_json::from_str(&t.read(".claude/settings.local.json")).unwrap();
     assert!(
         local.get("hooks").is_none(),
-        "impeccable entries pruned, empty hooks dropped: {local}"
+        "impeccino entries pruned, empty hooks dropped: {local}"
     );
     assert_eq!(local["permissions"]["allow"], json!(["Bash(ls)"]));
-    // a local manifest holding only impeccable entries is deleted outright
+    // a local manifest holding only impeccino entries is deleted outright
     t.write(
         ".claude/settings.local.json",
-        r#"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"node x/skills/impeccable/scripts/hook.mjs"}]}]}}"#,
+        r#"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"node x/skills/impeccino/scripts/hook.mjs"}]}]}}"#,
     );
     admin_run(&r, &["on"]);
     assert!(!t.exists(".claude/settings.local.json"));
@@ -1968,10 +1968,10 @@ fn admin_on_writes_launcher_manifests_for_every_harness() {
     let cwd = t.path();
     let r = rt(&cwd);
     for skill in [
-        ".claude/skills/impeccable",
-        ".agents/skills/impeccable",
-        ".cursor/skills/impeccable",
-        ".github/skills/impeccable",
+        ".claude/skills/impeccino",
+        ".agents/skills/impeccino",
+        ".cursor/skills/impeccino",
+        ".github/skills/impeccino",
     ] {
         std::fs::create_dir_all(t.0.join(skill)).unwrap();
     }
@@ -1980,7 +1980,7 @@ fn admin_on_writes_launcher_manifests_for_every_harness() {
     assert!(out.ends_with("Installed or repaired hook manifests for: .claude, .agents, .cursor, .github.\n"), "{out}");
 
     let claude: Value = serde_json::from_str(&t.read(".claude/settings.local.json")).unwrap();
-    let cmd = "\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook";
+    let cmd = "\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook";
     assert_eq!(claude["hooks"]["PostToolUse"][0]["hooks"][0]["command"], json!(cmd));
     assert_eq!(claude["hooks"]["Stop"][0]["hooks"][0]["command"], json!(cmd));
     assert!(claude["hooks"]["PostToolUse"][0]["hooks"][0].get("commandWindows").is_none());
@@ -1988,26 +1988,26 @@ fn admin_on_writes_launcher_manifests_for_every_harness() {
 
     let codex: Value = serde_json::from_str(&t.read(".codex/hooks.json")).unwrap();
     let entry = &codex["hooks"]["PostToolUse"][0]["hooks"][0];
-    assert_eq!(entry["command"], json!("\".agents/skills/impeccable/scripts/impeccable\" hook"));
-    assert_eq!(entry["commandWindows"], json!("\".agents/skills/impeccable/scripts/impeccable.cmd\" hook"));
+    assert_eq!(entry["command"], json!("\".agents/skills/impeccino/scripts/impeccino\" hook"));
+    assert_eq!(entry["commandWindows"], json!("\".agents/skills/impeccino/scripts/impeccino.cmd\" hook"));
     assert_eq!(
         entry.as_object().unwrap().keys().cloned().collect::<Vec<_>>(),
         vec!["type", "command", "commandWindows", "timeout", "statusMessage"]
     );
     let stop = &codex["hooks"]["Stop"][0]["hooks"][0];
-    assert_eq!(stop["command"], json!("\".agents/skills/impeccable/scripts/impeccable\" hook"));
-    assert_eq!(stop["commandWindows"], json!("\".agents/skills/impeccable/scripts/impeccable.cmd\" hook"));
+    assert_eq!(stop["command"], json!("\".agents/skills/impeccino/scripts/impeccino\" hook"));
+    assert_eq!(stop["commandWindows"], json!("\".agents/skills/impeccino/scripts/impeccino.cmd\" hook"));
     assert_eq!(stop["timeout"], json!(30));
 
     let cursor: Value = serde_json::from_str(&t.read(".cursor/hooks.json")).unwrap();
     assert_eq!(
         cursor["hooks"]["preToolUse"][0]["command"],
-        json!("\".cursor/skills/impeccable/scripts/impeccable\" hook-before-edit")
+        json!("\".cursor/skills/impeccino/scripts/impeccino\" hook-before-edit")
     );
-    let github: Value = serde_json::from_str(&t.read(".github/hooks/impeccable.json")).unwrap();
+    let github: Value = serde_json::from_str(&t.read(".github/hooks/impeccino.json")).unwrap();
     assert_eq!(
         github["hooks"]["postToolUse"][0]["bash"],
-        json!("\"$(git rev-parse --show-toplevel)/.github/skills/impeccable/scripts/impeccable\" hook")
+        json!("\"$(git rev-parse --show-toplevel)/.github/skills/impeccino/scripts/impeccino\" hook")
     );
 
     // A second `on` is a no-op against the manifests it just wrote.
@@ -2020,17 +2020,17 @@ fn admin_on_repairs_legacy_mjs_manifests_to_the_launcher_form() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
-    std::fs::create_dir_all(t.0.join(".claude/skills/impeccable")).unwrap();
-    std::fs::create_dir_all(t.0.join(".agents/skills/impeccable")).unwrap();
-    // JS-era Claude manifest with a foreign entry alongside the impeccable one.
+    std::fs::create_dir_all(t.0.join(".claude/skills/impeccino")).unwrap();
+    std::fs::create_dir_all(t.0.join(".agents/skills/impeccino")).unwrap();
+    // JS-era Claude manifest with a foreign entry alongside the impeccino one.
     t.write(
         ".claude/settings.local.json",
-        r#"{"permissions":{"allow":["Bash(ls)"]},"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"echo other"}]},{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":"node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs\"","timeout":5}]}],"Stop":[{"hooks":[{"type":"command","command":"[ ! -f '/x/.claude/skills/impeccable/scripts/hook.mjs' ] || node '/x/.claude/skills/impeccable/scripts/hook.mjs'"}]}]}}"#,
+        r#"{"permissions":{"allow":["Bash(ls)"]},"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"echo other"}]},{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":"node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\"","timeout":5}]}],"Stop":[{"hooks":[{"type":"command","command":"[ ! -f '/x/.claude/skills/impeccino/scripts/hook.mjs' ] || node '/x/.claude/skills/impeccino/scripts/hook.mjs'"}]}]}}"#,
     );
     // JS-era Codex manifest carrying the CLI installer's commandWindows sibling.
     t.write(
         ".codex/hooks.json",
-        r#"{"hooks":{"PostToolUse":[{"matcher":"Edit|Write|apply_patch","hooks":[{"type":"command","command":"[ ! -f \".agents/skills/impeccable/scripts/hook.mjs\" ] || node \".agents/skills/impeccable/scripts/hook.mjs\"","commandWindows":"if exist \".agents/skills/impeccable/scripts/hook.mjs\" (node \".agents/skills/impeccable/scripts/hook.mjs\" & exit /b)","timeout":5}]}]}}"#,
+        r#"{"hooks":{"PostToolUse":[{"matcher":"Edit|Write|apply_patch","hooks":[{"type":"command","command":"[ ! -f \".agents/skills/impeccino/scripts/hook.mjs\" ] || node \".agents/skills/impeccino/scripts/hook.mjs\"","commandWindows":"if exist \".agents/skills/impeccino/scripts/hook.mjs\" (node \".agents/skills/impeccino/scripts/hook.mjs\" & exit /b)","timeout":5}]}]}}"#,
     );
     let (out, _, code) = admin_run(&r, &["on"]);
     assert_eq!(code, 0, "{out}");
@@ -2041,11 +2041,11 @@ fn admin_on_repairs_legacy_mjs_manifests_to_the_launcher_form() {
     let claude: Value = serde_json::from_str(&claude).unwrap();
     assert_eq!(claude["permissions"]["allow"], json!(["Bash(ls)"]));
     let post = claude["hooks"]["PostToolUse"].as_array().unwrap();
-    assert_eq!(post.len(), 2, "foreign entry kept, impeccable entry replaced once: {post:?}");
+    assert_eq!(post.len(), 2, "foreign entry kept, impeccino entry replaced once: {post:?}");
     assert_eq!(post[0]["hooks"][0]["command"], json!("echo other"));
     assert_eq!(
         post[1]["hooks"][0]["command"],
-        json!("\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook")
+        json!("\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook")
     );
     // Upstream 611147a3: the repaired Claude group must exist and carry the
     // current Edit|Write matcher (MultiEdit is retired; see 55fb8e8).
@@ -2058,19 +2058,19 @@ fn admin_on_repairs_legacy_mjs_manifests_to_the_launcher_form() {
     assert_eq!(codex["hooks"]["PostToolUse"].as_array().unwrap().len(), 1);
     assert_eq!(
         codex["hooks"]["PostToolUse"][0]["hooks"][0]["commandWindows"],
-        json!("\".agents/skills/impeccable/scripts/impeccable.cmd\" hook")
+        json!("\".agents/skills/impeccino/scripts/impeccino.cmd\" hook")
     );
 
     // A launcher-form manifest written by another checkout is recognized as
     // ours too: shared settings carrying it make `on` prune the local file.
     t.write(
         ".claude/settings.json",
-        r#"{"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook"}]}]}}"#,
+        r#"{"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook"}]}]}}"#,
     );
     let (out, _, _) = admin_run(&r, &["on"]);
     assert!(out.contains("already installed for: .claude"), "{out}");
     let local = t.read(".claude/settings.local.json");
-    assert!(!local.contains("skills/impeccable"), "launcher-form entries pruned: {local}");
+    assert!(!local.contains("skills/impeccino"), "launcher-form entries pruned: {local}");
     let local: Value = serde_json::from_str(&local).unwrap();
     assert_eq!(local["hooks"]["PostToolUse"][0]["hooks"][0]["command"], json!("echo other"));
     assert!(local["hooks"].get("Stop").is_none());
@@ -2105,7 +2105,7 @@ fn grok_and_codex_harness_detection() {
     let claude = json!({ "hook_event_name": "Stop", "session_id": "s" }).as_object().cloned().unwrap();
     assert_eq!(resolve_harness(&r, Some(&claude)), "claude");
     // Explicit env overrides.
-    let forced = rt_with("/p", env(&[("IMPECCABLE_HOOK_HARNESS", "grok")]));
+    let forced = rt_with("/p", env(&[("IMPECCINO_HOOK_HARNESS", "grok")]));
     assert_eq!(resolve_harness(&forced, Some(&gh)), "grok");
     // Stop detection matches both casings, on the raw stdin shape.
     assert!(is_stop_event(&grok_stop));
@@ -2203,7 +2203,7 @@ fn codex_stop_emits_decision_block() {
 // ── live-preview stand-down ───────────────────────────────────────────────
 //
 // A live variant session owns files carrying preview scaffolding
-// (`data-impeccable-variants=` wrappers, `impeccable-carbonize-start`
+// (`data-impeccino-variants=` wrappers, `impeccino-carbonize-start`
 // blocks). Every hook entry stands down on them: findings there are noise
 // and acting on them derails the session; live-complete verifies the file
 // once the accepted variant is permanent.
@@ -2220,7 +2220,7 @@ fn run_hook_stands_down_on_live_preview_markers() {
     // A carbonize block in flight: skipped, nothing emitted.
     let carbonized = t.write(
         "src/carbonized.css",
-        &format!("/* impeccable-carbonize-start ab12cd34 */\n{GRADIENT_CSS}/* impeccable-carbonize-end ab12cd34 */\n"),
+        &format!("/* impeccino-carbonize-start ab12cd34 */\n{GRADIENT_CSS}/* impeccino-carbonize-end ab12cd34 */\n"),
     );
     let skipped = hook::run_hook(&r, &edit_event(&cwd, &carbonized, "s1"));
     assert_eq!(skipped.stdout, "", "no findings while live markers are in the file");
@@ -2228,7 +2228,7 @@ fn run_hook_stands_down_on_live_preview_markers() {
     // A published variants wrapper, same stand-down.
     let wrapped = t.write(
         "src/wrapped.html",
-        "<!-- impeccable-variants-start ab12cd34 --><div data-impeccable-variants=\"ab12cd34\" data-impeccable-variant-count=\"3\"></div>\n",
+        "<!-- impeccino-variants-start ab12cd34 --><div data-impeccino-variants=\"ab12cd34\" data-impeccino-variant-count=\"3\"></div>\n",
     );
     let skipped = hook::run_hook(&r, &edit_event(&cwd, &wrapped, "s1"));
     assert_eq!(skipped.stdout, "");
@@ -2247,13 +2247,13 @@ fn before_edit_stands_down_on_live_preview_markers() {
     assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
     // The very first variants write introduces the markers in the proposed
     // content itself.
-    let proposed = format!("/* impeccable-carbonize-start ab12cd34 */\n{slop}");
+    let proposed = format!("/* impeccino-carbonize-start ab12cd34 */\n{slop}");
     let (out, code) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/x.css", "content": proposed})));
     assert_eq!(code, 0);
     assert_eq!(out, "{\"permission\":\"allow\"}");
     // Later fragment edits touch a file that already carries them on disk:
     // the proposed content alone looks like plain slop.
-    t.write("src/y.css", "/* impeccable-carbonize-start ab12cd34 */\n.v { color: red; }\n");
+    t.write("src/y.css", "/* impeccino-carbonize-start ab12cd34 */\n.v { color: red; }\n");
     let (out, code) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/y.css", "content": slop})));
     assert_eq!(code, 0);
     assert_eq!(out, "{\"permission\":\"allow\"}");
@@ -2274,7 +2274,7 @@ fn run_hook_stands_down_for_the_whole_edit_when_the_primary_carries_live_markers
     assert!(reported.stdout.contains("[gradient-text]"), "co-scanned stylesheet is reported without markers: {}", reported.stdout);
     let wrapped = t.write(
         "src/App.jsx",
-        "import './styles.css';\n{/* impeccable-variants-start ab12cd34 */}<div data-impeccable-variants=\"ab12cd34\" data-impeccable-variant-count=\"3\"></div>\n",
+        "import './styles.css';\n{/* impeccino-variants-start ab12cd34 */}<div data-impeccino-variants=\"ab12cd34\" data-impeccino-variant-count=\"3\"></div>\n",
     );
     let skipped = hook::run_hook(&r, &edit_event(&cwd, &wrapped, "s2"));
     assert_eq!(skipped.stdout, "", "nothing is emitted while the edited file is in a live session");
@@ -2290,7 +2290,7 @@ fn run_hook_stands_down_before_the_edit_cap_can_suppress_a_live_file() {
     // wrap on such a file must stand down instead, every time.
     let t = Tmp::new();
     let cwd = t.path();
-    std::fs::create_dir_all(t.0.join(".impeccable")).unwrap();
+    std::fs::create_dir_all(t.0.join(".impeccino")).unwrap();
     let r = rt(&cwd);
     // Seven plain edits cross the cap: the 7th carries the notice.
     let css = t.write("src/b.css", GRADIENT_CSS);
@@ -2304,7 +2304,7 @@ fn run_hook_stands_down_before_the_edit_cap_can_suppress_a_live_file() {
     // suppress.
     t.write(
         "src/b.css",
-        &format!("/* impeccable-carbonize-start ab12cd34 */\n{GRADIENT_CSS}/* impeccable-carbonize-end ab12cd34 */\n"),
+        &format!("/* impeccino-carbonize-start ab12cd34 */\n{GRADIENT_CSS}/* impeccino-carbonize-end ab12cd34 */\n"),
     );
     for i in 0..3 {
         let out = hook::run_hook(&r, &edit_event(&cwd, &css, "cap"));

@@ -6,7 +6,7 @@
 use std::cell::RefCell;
 use std::time::Instant;
 
-use impeccable_core::js::to_fixed;
+use impeccino_core::js::to_fixed;
 use serde::Serialize;
 
 /// JS `recordProfileEvent` normalized event.
@@ -17,9 +17,9 @@ pub struct ProfileEvent {
     #[serde(rename = "ruleId")]
     pub rule_id: String,
     pub target: String,
-    #[serde(with = "impeccable_core::js::json_number")]
+    #[serde(with = "impeccino_core::js::json_number")]
     pub ms: f64,
-    #[serde(with = "impeccable_core::js::json_number")]
+    #[serde(with = "impeccino_core::js::json_number")]
     pub findings: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
@@ -129,17 +129,17 @@ pub struct ProfileSummary {
     #[serde(rename = "ruleId")]
     pub rule_id: String,
     pub target: String,
-    #[serde(with = "impeccable_core::js::json_number")]
+    #[serde(with = "impeccino_core::js::json_number")]
     pub calls: f64,
-    #[serde(rename = "totalMs", with = "impeccable_core::js::json_number")]
+    #[serde(rename = "totalMs", with = "impeccino_core::js::json_number")]
     pub total_ms: f64,
-    #[serde(rename = "avgMs", with = "impeccable_core::js::json_number")]
+    #[serde(rename = "avgMs", with = "impeccino_core::js::json_number")]
     pub avg_ms: f64,
-    #[serde(with = "impeccable_core::js::json_number")]
+    #[serde(with = "impeccino_core::js::json_number")]
     pub p50: f64,
-    #[serde(with = "impeccable_core::js::json_number")]
+    #[serde(with = "impeccino_core::js::json_number")]
     pub p95: f64,
-    #[serde(with = "impeccable_core::js::json_number")]
+    #[serde(with = "impeccino_core::js::json_number")]
     pub findings: f64,
 }
 
@@ -154,7 +154,7 @@ fn percentile(sorted: &[f64], pct: f64) -> f64 {
 }
 
 fn round3(v: f64) -> f64 {
-    impeccable_core::js::parse_float(&to_fixed(v, 3))
+    impeccino_core::js::parse_float(&to_fixed(v, 3))
 }
 
 /// JS `summarizeDetectorProfile(profile)`.

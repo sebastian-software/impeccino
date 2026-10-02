@@ -9,20 +9,20 @@ Format: `- \`<case-id>\`: <what differs> (<why>)`
 ## Recorded 2026-08-17: the engine names its own commands
 
 The JS scripts printed their own file names in usage lines, directives, and
-the hook manifests they wrote. The binary prints the verb (`impeccable doctor`)
-or the launcher path (`"<scripts>/impeccable" hook`). Each case below was
+the hook manifests they wrote. The binary prints the verb (`impeccino doctor`)
+or the launcher path (`"<scripts>/impeccino" hook`). Each case below was
 re-recorded from the engine after a line-level review confirmed the only change
 is that wording; behavior, exit codes, and every other byte are unchanged.
 
-- `doctor-help`, `doctor-help-short`: `Usage: node doctor.mjs …` is now `Usage: impeccable doctor [--json] [--fix] [--target <path>]`.
+- `doctor-help`, `doctor-help-short`: `Usage: node doctor.mjs …` is now `Usage: impeccino doctor [--json] [--fix] [--target <path>]`.
 - `doctor-legacy-text`: the closing hint reads `Run \`<self> doctor --fix\``.
-- `pin-usage-no-args`, `pin-usage-one-arg`: `Usage: impeccable pin <pin|unpin> <command>`.
-- `surface-brief-usage`, `surface-brief-unknown`, `surface-brief-write-usage`: usage lines name `impeccable surface-brief`.
-- `critique-usage`, `critique-unknown`: usage lines name `impeccable critique-storage`.
-- `context-monorepo-target-missing`: MONOREPO_TARGET_REQUIRED says `impeccable context ran without --target`.
-- `hadmin-on`, `hadmin-on-twice`, `hadmin-off-then-status`, `hadmin-on-repairs-existing-manifest`, `hadmin-on-malformed-manifest-backup`: `hooks on` writes manifests that run the launcher (`"<scripts>/impeccable" hook`, Cursor `hook-before-edit`) instead of `node "<scripts>/hook.mjs"`.
-- `hook-session-fresh-then-pending-then-stop`, `hook-session-two-sessions`, `hbe-denial-downgrade-after-6`: the short footer names `impeccable hooks ignore-value`.
-- `live-help`, `live-accept-help`, `live-inject-help`, `live-insert-help`, `live-server-help`, `live-resume-help`, `live-commit-help`, `live-discard-help`, `live-complete-help`, `live-complete-no-id`: usage text names `impeccable live*` verbs.
+- `pin-usage-no-args`, `pin-usage-one-arg`: `Usage: impeccino pin <pin|unpin> <command>`.
+- `surface-brief-usage`, `surface-brief-unknown`, `surface-brief-write-usage`: usage lines name `impeccino surface-brief`.
+- `critique-usage`, `critique-unknown`: usage lines name `impeccino critique-storage`.
+- `context-monorepo-target-missing`: MONOREPO_TARGET_REQUIRED says `impeccino context ran without --target`.
+- `hadmin-on`, `hadmin-on-twice`, `hadmin-off-then-status`, `hadmin-on-repairs-existing-manifest`, `hadmin-on-malformed-manifest-backup`: `hooks on` writes manifests that run the launcher (`"<scripts>/impeccino" hook`, Cursor `hook-before-edit`) instead of `node "<scripts>/hook.mjs"`.
+- `hook-session-fresh-then-pending-then-stop`, `hook-session-two-sessions`, `hbe-denial-downgrade-after-6`: the short footer names `impeccino hooks ignore-value`.
+- `live-help`, `live-accept-help`, `live-inject-help`, `live-insert-help`, `live-server-help`, `live-resume-help`, `live-commit-help`, `live-discard-help`, `live-complete-help`, `live-complete-no-id`: usage text names `impeccino live*` verbs.
 - `live-server-already-running`, `live-daemon-server-status-poll-complete`, `live-status-empty`, `live-status-generating`, `live-status-many-sessions`, `live-status-stale-server-json`, `live-status-legacy-sessions-dir`, `live-status-from-subdir`, `live-status-manual-apply`, `live-resume-manual-apply`, `live-status-mount-failed`, `live-resume-mount-failed`, `live-resume-generating`, `live-resume-by-id`, `live-resume-first-active-sorted`, `live-resume-accept-requested`, `live-resume-carbonize-required`: recovery hints and next-command lines spell `<self> live-poll` / `live-server` / `live-complete` / `live-commit-manual-edits` instead of the `.mjs` names.
 
 ## Recorded 2026-08-17: live-inject adds `'wasm-unsafe-eval'` to a CSP meta script-src
@@ -32,7 +32,7 @@ module in the engine (its `docs/WASM-BUNDLE.md`); a `script-src` that names the
 origin but not `'wasm-unsafe-eval'` still refuses to compile it. The JS
 `patchCspMeta` predates the wasm bundle and appended only the origin.
 
-- `live-inject-csp-meta-no-connect-src`: the patched `<meta http-equiv="Content-Security-Policy">` reads `script-src 'self' http://localhost:8412 'wasm-unsafe-eval'` (was `script-src 'self' http://localhost:8412`). The `data-impeccable-csp-original` marker, the `connect-src` and `img-src` additions, idempotence, and the revert on unpatch are unchanged. `live-inject-vite-csp-meta` and `live-inject-next-jsx` carry meta tags the patch does not touch, so their goldens did not move.
+- `live-inject-csp-meta-no-connect-src`: the patched `<meta http-equiv="Content-Security-Policy">` reads `script-src 'self' http://localhost:8412 'wasm-unsafe-eval'` (was `script-src 'self' http://localhost:8412`). The `data-impeccino-csp-original` marker, the `connect-src` and `img-src` additions, idempotence, and the revert on unpatch are unchanged. `live-inject-vite-csp-meta` and `live-inject-next-jsx` carry meta tags the patch does not touch, so their goldens did not move.
 
 ## Recorded 2026-08-31: detector-engine ports landed, gap goldens restored
 
@@ -114,8 +114,8 @@ active exactly as before. No existing golden moved: every other `context` case
 runs under the `source` provider, whose manifest list is empty, so none of them
 scan a hook manifest.
 
-- `context-stale-hook-manifest`: a `.claude/settings.local.json` naming `node "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs"` under the `claude-code` provider emits `MANUAL_DETECTOR_REQUIRED` (the stale marker no longer counts as active).
-- `context-launcher-hook-active`: the same manifest in the launcher form (`"…/impeccable" hook`) suppresses `MANUAL_DETECTOR_REQUIRED`, confirming the launcher marker is still recognized as active.
+- `context-stale-hook-manifest`: a `.claude/settings.local.json` naming `node "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs"` under the `claude-code` provider emits `MANUAL_DETECTOR_REQUIRED` (the stale marker no longer counts as active).
+- `context-launcher-hook-active`: the same manifest in the launcher form (`"…/impeccino" hook`) suppresses `MANUAL_DETECTOR_REQUIRED`, confirming the launcher marker is still recognized as active.
 
 ## Recorded 2026-09-01: the harness stages workspaces at their real path
 
@@ -142,7 +142,7 @@ against the filesystem root. Every case below was re-recorded after confirming
 the same exit code for the same run.
 
 - `context-full-target-route`, `surface-brief-path-slash`, `surface-brief-path-outside`, `surface-brief-read-route`: stdout and exit code match origin/main byte for byte; nothing here is a delta beyond the upstream change itself.
-- `surface-brief-write-route`: the write now fails on both engines (exit 1) because `/.impeccable/surfaces` is not writable. Node reports `ENOENT: no such file or directory, mkdir '/.impeccable/surfaces'`; the engine reports the failed write as `No such file or directory (os error 2)`. Same failure, different wording for an unwritable filesystem root.
+- `surface-brief-write-route`: the write now fails on both engines (exit 1) because `/.impeccino/surfaces` is not writable. Node reports `ENOENT: no such file or directory, mkdir '/.impeccino/surfaces'`; the engine reports the failed write as `No such file or directory (os error 2)`. Same failure, different wording for an unwritable filesystem root.
 
 ## Recorded 2026-09-03: the OpenCode pinned command names the launcher
 
@@ -150,7 +150,7 @@ Upstream `9736a9f6` (#483) makes `pin` write an OpenCode slash-command bridge
 whose body tells the agent to run `node <skill-base-dir>/scripts/context.mjs`.
 The engine names its own command everywhere else the launcher replaced a
 script path (see the 2026-08-17 section above), so the bridge says
-`<skill-base-dir>/scripts/impeccable context` instead. Nothing else in the
+`<skill-base-dir>/scripts/impeccino context` instead. Nothing else in the
 file, the file set, or the printed lines differs from the JS.
 
 - `pin-opencode-project`, `pin-opencode-user-scope`, `pin-opencode-skips-foreign-command`, `pin-opencode-then-unpin`, `pin-opencode-unpin-skips-foreign`.
@@ -234,7 +234,7 @@ regressions in `crates/html/tests/italic_heading.rs` pin both sides.
 
 Three new cases, recorded from the binary and reviewed by hand; no existing
 golden changed. `component-review-usage` is the usage refusal, which now leads
-with `plan [--out .impeccable/review/components.json]`. `component-review-plan-missing-plates`
+with `plan [--out .impeccino/review/components.json]`. `component-review-plan-missing-plates`
 runs `plan` on the comp-basic spec before its one plate exists: exit 1, the
 missing plate listed, nothing written. `component-review-plan` adds the plate
 and pins the written v3 packet: `art` as an asset previewed by its plate, `top`
@@ -255,9 +255,9 @@ Agents wrote decision comp prompts before opening `reference/visualize.md`, whic
 
 New cases, recorded from the binary and reviewed by hand: `question-wait-comp-sidecar-missing` (WAITING plus `COMP SIDECAR MISSING` naming only the landed comp without a sidecar), `question-wait-answer-comp-sidecar-missing` (the same line after the ANSWER block), `question-update-comps-next` (the NEXT line after `next round delivered`), `question-update-code-led-no-next` (a code-led round prints no NEXT line). `--start` is not in the corpus because it binds a port; Rust tests in `crates/context/src/serve_question.rs` cover its trigger.
 
-Follow-up on the same branch: the NEXT line now also requires a declared comp that is not on disk yet (a comp-round page serves comps that already exist, so "before writing any decision comp prompt" was stale there), and a comp-round pick no longer prints the decision-round `CHOSEN COMP` line ("compositional option one ... adds two variations"), which predates this branch. It prints `APPROVED COMP: ...` instead, keyed on the comp sitting directly in `.impeccable/mocks/`. No existing golden changed. New cases: `question-update-comps-landed-no-next` (every declared comp exists, no NEXT line) and `question-wait-answer-comp-round` (`APPROVED COMP` in place of `CHOSEN COMP`).
+Follow-up on the same branch: the NEXT line now also requires a declared comp that is not on disk yet (a comp-round page serves comps that already exist, so "before writing any decision comp prompt" was stale there), and a comp-round pick no longer prints the decision-round `CHOSEN COMP` line ("compositional option one ... adds two variations"), which predates this branch. It prints `APPROVED COMP: ...` instead, keyed on the comp sitting directly in `.impeccino/mocks/`. No existing golden changed. New cases: `question-update-comps-landed-no-next` (every declared comp exists, no NEXT line) and `question-wait-answer-comp-round` (`APPROVED COMP` in place of `CHOSEN COMP`).
 
-Provenance by hand timestamp (same branch): deciding whether a comp is owed by existence alone misread files an earlier round left at reused slot paths. Every served hand now records `handAt` and `handDigest` in the state file, and a declared comp counts for the hand only when written at or after `handAt` (comp-round comps directly in `.impeccable/mocks/` excepted). A restart is `--start` with the same key and payload, so the dead-server message now names the key:
+Provenance by hand timestamp (same branch): deciding whether a comp is owed by existence alone misread files an earlier round left at reused slot paths. Every served hand now records `handAt` and `handDigest` in the state file, and a declared comp counts for the hand only when written at or after `handAt` (comp-round comps directly in `.impeccino/mocks/` excepted). A restart is `--start` with the same key and payload, so the dead-server message now names the key:
 
 - `question-wait-no-server`, `question-wait-dead-pid`: `restart it with --start and the same payload` reads `restart it with --start --key k1 and the same payload`. Exit status and files are unchanged.
 
@@ -266,13 +266,13 @@ New case `question-wait-comp-stale`: `handAt` in 2100 makes the staged comp one 
 Hand file and content fingerprints (same branch, supersedes the `handAt` rule above): `--update` wrote the hand into `<key>.state.json`, which the server rewrites on heartbeat and claim, so an overlapping write could drop the hand; and flooring `handAt` to the second let an old image rewritten in the same second pass. Provenance now lives in `<key>.hand.json` (`digest`, `comps`, `pre` fingerprints), written atomically by `--start` and `--update` only, and a comp is this hand's when its bytes differ from the slot's `pre` fingerprint (or the slot had none).
 
 - `question-wait-comp-stale`: the staged provenance moved from `handAt`/`handDigest` in the state file to a hand file whose `pre` fingerprint matches the staged `a.png`. Stdout and exit are unchanged; the snapshot now lists the hand file, and the state file no longer carries hand fields.
-- `question-update-comps-next`: now snapshots `.impeccable/questions/k1.hand.json`, the new hand `--update` writes (`pre` is empty because neither slot holds a file). Stdout and exit are unchanged.
+- `question-update-comps-next`: now snapshots `.impeccino/questions/k1.hand.json`, the new hand `--update` writes (`pre` is empty because neither slot holds a file). Stdout and exit are unchanged.
 
-Generated slots and hand-write failures (same branch): a deterministic generator returns identical bytes for an unchanged prompt, so a re-roll regenerating into a reused slot failed the fingerprint rule forever. `impeccable generate-image` now marks a written `--out` that a recorded hand declares with a marker file in `<key>.generated/`, and such a slot counts as this hand's. A failed hand write now fails `--start` (before spawning) and `--update` (before delivering) with exit 1. No existing golden changed. New case `genimg-fake-marks-hand-slot`: the fake generator writes a declared slot and the snapshot shows the marker beside the untouched hand file. The failure path is covered by Rust tests, not the oracle, because its stderr carries the OS error text, which differs per platform. Follow-up: markers name their hand by `hand` (the hand's per-hand `id`, falling back to `digest` for a hand file without one) instead of `digest`, so `genimg-fake-marks-hand-slot` now shows `"hand":"0123456789abcdef"` where it showed `"digest"`; a new hand prunes other hands' markers only after its own write succeeds, and `--stop` and a closing answer remove the marker folder. `question-update-comps-next` now snapshots the hand file with its per-hand `id`, which mixes the clock and the pid, so that case masks it as `<HAND_ID>` with a case-scoped normalizer.
+Generated slots and hand-write failures (same branch): a deterministic generator returns identical bytes for an unchanged prompt, so a re-roll regenerating into a reused slot failed the fingerprint rule forever. `impeccino generate-image` now marks a written `--out` that a recorded hand declares with a marker file in `<key>.generated/`, and such a slot counts as this hand's. A failed hand write now fails `--start` (before spawning) and `--update` (before delivering) with exit 1. No existing golden changed. New case `genimg-fake-marks-hand-slot`: the fake generator writes a declared slot and the snapshot shows the marker beside the untouched hand file. The failure path is covered by Rust tests, not the oracle, because its stderr carries the OS error text, which differs per platform. Follow-up: markers name their hand by `hand` (the hand's per-hand `id`, falling back to `digest` for a hand file without one) instead of `digest`, so `genimg-fake-marks-hand-slot` now shows `"hand":"0123456789abcdef"` where it showed `"digest"`; a new hand prunes other hands' markers only after its own write succeeds, and `--stop` and a closing answer remove the marker folder. `question-update-comps-next` now snapshots the hand file with its per-hand `id`, which mixes the clock and the pid, so that case masks it as `<HAND_ID>` with a case-scoped normalizer.
 
 ## Recorded 2026-09-30: hand-tagged generated markers (#886)
 
-`--update` wrote the new hand and then pruned `<key>.generated/` by reading each marker's `hand` and deleting the file, so a parallel `impeccable generate-image` for the new hand that replaced a reused slot's marker between the read and the delete lost its marker, and a byte-identical regeneration then read as stale. Markers now carry the hand in their name, `<16 hex of the slot>-<hand id>.json`, so one hand's markers never share a path with another's, and the prune decides from the name alone: it deletes only names tagged with another hand. Legacy untagged `<16 hex>.json` markers are still read and pruned by their content `hand` (or `digest`).
+`--update` wrote the new hand and then pruned `<key>.generated/` by reading each marker's `hand` and deleting the file, so a parallel `impeccino generate-image` for the new hand that replaced a reused slot's marker between the read and the delete lost its marker, and a byte-identical regeneration then read as stale. Markers now carry the hand in their name, `<16 hex of the slot>-<hand id>.json`, so one hand's markers never share a path with another's, and the prune decides from the name alone: it deletes only names tagged with another hand. Legacy untagged `<16 hex>.json` markers are still read and pruned by their content `hand` (or `digest`).
 
 - `genimg-fake-marks-hand-slot`: the marker file is now `k1.generated/bc804e5cae3cb360-0123456789abcdef.json` where it was `k1.generated/bc804e5cae3cb360.json`. Its content, stdout, stderr and exit are unchanged.
 

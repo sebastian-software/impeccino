@@ -7,7 +7,7 @@
 //
 // FROZEN. `cli/engine/engines/static-html/css-cascade.mjs` was removed when
 // the runtime went node-free, so this cannot run against this repo; it is kept
-// as the record of how css-rules.json was produced. IMPECCABLE_PUBLIC_REPO
+// as the record of how css-rules.json was produced. IMPECCINO_PUBLIC_REPO
 // points it at a checkout old enough to still have that module (css-tree is
 // loaded from that checkout's node_modules).
 import fs from 'node:fs';
@@ -17,11 +17,11 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const candidates = [
-  process.env.IMPECCABLE_PUBLIC_REPO,
+  process.env.IMPECCINO_PUBLIC_REPO,
   path.resolve(here, '..', '..', '..', '..'),
 ].filter(Boolean);
 const root = candidates.find(p => fs.existsSync(path.join(p, 'cli', 'engine', 'engines', 'static-html', 'css-cascade.mjs')));
-if (!root) throw new Error('css-cascade.mjs not found; set IMPECCABLE_PUBLIC_REPO to a pre-node-free checkout');
+if (!root) throw new Error('css-cascade.mjs not found; set IMPECCINO_PUBLIC_REPO to a pre-node-free checkout');
 const require = createRequire(path.join(root, 'package.json'));
 const csstree = require('css-tree');
 const m = await import(path.join(root, 'cli', 'engine', 'engines', 'static-html', 'css-cascade.mjs'));

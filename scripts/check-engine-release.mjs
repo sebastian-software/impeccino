@@ -2,13 +2,13 @@
 /**
  * Release-order guard.
  *
- * The launcher (skill/scripts/impeccable) dead-ends unless the engine release
+ * The launcher (skill/scripts/impeccino) dead-ends unless the engine release
  * for the pinned skill/scripts/VERSION exists FIRST: the five platform binaries
  * in the engine-v<version> GitHub Release. Nothing else mechanically stops a
  * maintainer from tagging the skill release before those assets are published.
  *
  * This script verifies, for the pinned engine version, that:
- *   1. each of the five release binaries impeccable-<os>-<arch>[.exe] is fetchable
+ *   1. each of the five release binaries impeccino-<os>-<arch>[.exe] is fetchable
  *   2. each binary's .sha256 sidecar is fetchable
  *
  * Exits 0 when everything is present, non-zero (naming exactly what is missing)
@@ -19,7 +19,7 @@
  *   node scripts/check-engine-release.mjs --json     # machine-readable report
  *
  * Environment:
- *   IMPECCABLE_DOWNLOAD_BASE  release root (default: the public repo's GitHub Releases)
+ *   IMPECCINO_DOWNLOAD_BASE  release root (default: the public repo's GitHub Releases)
  */
 import {
   ENGINE_TARGETS,
@@ -47,7 +47,7 @@ async function urlExists(url) {
  */
 export async function checkEngineRelease({
   version = readEngineVersion(),
-  base = process.env.IMPECCABLE_DOWNLOAD_BASE || DEFAULT_DOWNLOAD_BASE,
+  base = process.env.IMPECCINO_DOWNLOAD_BASE || DEFAULT_DOWNLOAD_BASE,
 } = {}) {
   const missing = [];
 
@@ -57,8 +57,8 @@ export async function checkEngineRelease({
       const shaUrl = `${binUrl}.sha256`;
       const [binOk, shaOk] = await Promise.all([urlExists(binUrl), urlExists(shaUrl)]);
 
-      if (!binOk) missing.push({ kind: 'binary', target, what: `impeccable-${target} binary`, url: binUrl });
-      if (!shaOk) missing.push({ kind: 'checksum', target, what: `impeccable-${target} .sha256`, url: shaUrl });
+      if (!binOk) missing.push({ kind: 'binary', target, what: `impeccino-${target} binary`, url: binUrl });
+      if (!shaOk) missing.push({ kind: 'checksum', target, what: `impeccino-${target} .sha256`, url: shaUrl });
     })
   );
 

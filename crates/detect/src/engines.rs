@@ -1,12 +1,12 @@
-//! The two engine seams `impeccable detect` calls into but does not own:
+//! The two engine seams `impeccino detect` calls into but does not own:
 //! the static HTML engine (crates/html) and the URL engine (agent-browser,
 //! `crates/cli/src/page_scan`). `detect` never depends on either; the `cli`
 //! binary wires concrete engines in through `Engines`.
 
 use std::rc::Rc;
 
-use impeccable_core::findings::Finding;
-use impeccable_core::rule_pack::RulePack;
+use impeccino_core::findings::Finding;
+use impeccino_core::rule_pack::RulePack;
 
 use crate::design_system::DesignSystem;
 use crate::profiler::DetectorProfile;
@@ -23,8 +23,8 @@ pub struct ScanOptions {
     pub viewport: Option<(u32, u32)>,
     /// JS `options.profile` (library callers only; no CLI flag).
     pub profile: Option<Rc<DetectorProfile>>,
-    /// The installed rule pack (`impeccable_core::rule_pack`), passed through
-    /// to the text engine and on to the HTML engine. `None` in the `impeccable`
+    /// The installed rule pack (`impeccino_core::rule_pack`), passed through
+    /// to the text engine and on to the HTML engine. `None` in the `impeccino`
     /// binary, which ships the built-in rules only.
     pub rule_pack: Option<&'static dyn RulePack>,
 }
@@ -92,7 +92,7 @@ pub struct Engines<'a> {
 }
 
 /// Fallback for a build that does not link crates/html (the `cli` binary
-/// registers `impeccable_html::StaticHtmlEngine`). The JS only degrades to the regex
+/// registers `impeccino_html::StaticHtmlEngine`). The JS only degrades to the regex
 /// engine when its parser *modules* fail to import (an install problem, never
 /// the case for a compiled binary), so a missing engine here is an internal
 /// error: `detectCli` prints the message and exits 1, mirroring an uncaught
@@ -107,7 +107,7 @@ impl HtmlEngine for MissingHtmlEngine {
         _stderr: &mut dyn std::io::Write,
     ) -> Result<Vec<Finding>, EngineError> {
         Err(EngineError::new(
-            "impeccable detect: static HTML engine is not linked into this build",
+            "impeccino detect: static HTML engine is not linked into this build",
         ))
     }
 }
@@ -119,7 +119,7 @@ pub struct MissingUrlEngine;
 impl UrlEngine for MissingUrlEngine {
     fn detect_url(&self, _url: &str, _options: &ScanOptions) -> Result<Vec<Finding>, EngineError> {
         Err(EngineError::new(
-            "impeccable detect: no URL engine is linked into this build; scan the source files instead.",
+            "impeccino detect: no URL engine is linked into this build; scan the source files instead.",
         ))
     }
 }

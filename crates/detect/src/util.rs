@@ -16,9 +16,9 @@ pub const ANY: &str = "(?s:.)";
 /// JS `.` (no line terminators: LF, CR, LS, PS).
 pub const DOT: &str = "[^\n\r\\x{2028}\\x{2029}]";
 /// JS `\s`.
-pub const WS: &str = impeccable_core::js::WS;
+pub const WS: &str = impeccino_core::js::WS;
 /// JS `\s` class body (for splicing into a bracket expression).
-pub const WS_CHARS: &str = impeccable_core::js::WS_CHARS;
+pub const WS_CHARS: &str = impeccino_core::js::WS_CHARS;
 /// JS `\S`.
 pub const NWS: &str = r"[^\t\n\x0B\x0C\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]";
 
@@ -64,7 +64,7 @@ pub fn js_string(v: &Value) -> String {
     match v {
         Value::Null => "null".to_string(),
         Value::Bool(b) => b.to_string(),
-        Value::Number(n) => impeccable_core::js::number_to_string(n.as_f64().unwrap_or(f64::NAN)),
+        Value::Number(n) => impeccino_core::js::number_to_string(n.as_f64().unwrap_or(f64::NAN)),
         Value::String(s) => s.clone(),
         Value::Array(items) => items.iter().map(js_string).collect::<Vec<_>>().join(","),
         Value::Object(_) => "[object Object]".to_string(),

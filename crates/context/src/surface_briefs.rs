@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 pub const SURFACE_BRIEF_VERSION: u32 = 1;
 
 pub fn get_surface_brief_dir(project_root: &str) -> String {
-    jsp::join(&[project_root, ".impeccable", "surfaces"])
+    jsp::join(&[project_root, ".impeccino", "surfaces"])
 }
 
 fn normalize_route_target(route: &str) -> Option<String> {
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn resolves_pre_hash_long_slug_briefs() {
         let root = std::env::temp_dir().join(format!(
-            "impeccable-surface-legacy-{}-{}",
+            "impeccino-surface-legacy-{}-{}",
             std::process::id(),
             TMP_SEQ.fetch_add(1, Ordering::Relaxed)
         ));
@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn rejects_unmapped_pre_hash_slug_collisions() {
         let root = std::env::temp_dir().join(format!(
-            "impeccable-surface-legacy-collision-{}-{}",
+            "impeccino-surface-legacy-collision-{}-{}",
             std::process::id(),
             TMP_SEQ.fetch_add(1, Ordering::Relaxed)
         ));

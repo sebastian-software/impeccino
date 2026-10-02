@@ -1,16 +1,16 @@
-//! JS: skill/scripts/hook-admin.mjs (`impeccable hooks` / `hook-admin`):
+//! JS: skill/scripts/hook-admin.mjs (`impeccino hooks` / `hook-admin`):
 //! status, on, off, ignore-rule, ignore-file, ignore-value, reset over
-//! `.impeccable/config.json` / `config.local.json`, plus the harness manifest
+//! `.impeccino/config.json` / `config.local.json`, plus the harness manifest
 //! repair `on` performs. Manifests are written as JSON with 2-space
 //! indentation and a trailing newline, in the JS key order.
 //!
 //! Where the JS wrote `node "<skill>/scripts/hook.mjs"`, the binary writes
-//! `"<skill>/scripts/impeccable" hook`: the launcher shipped next to the
+//! `"<skill>/scripts/impeccino" hook`: the launcher shipped next to the
 //! skill picks the platform binary, so no Node is needed. Old `.mjs`
-//! manifests are still recognized (`impeccable_context::hook_markers`) so
+//! manifests are still recognized (`impeccino_context::hook_markers`) so
 //! `on` repairs them to the new form and `off` prunes either.
 
-use impeccable_core::js;
+use impeccino_core::js;
 use serde_json::{Map, Value};
 
 use crate::hook_lib::*;
@@ -94,11 +94,11 @@ fn stop_manifest_entry_with_windows(command: &str, windows: &str) -> Value {
 /// The launcher paths the manifests invoke, per harness. Project-relative
 /// (or `${CLAUDE_PROJECT_DIR}` / repo-root anchored) so a committed manifest
 /// resolves on every teammate's checkout.
-const CLAUDE_HOOK_COMMAND: &str = "\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook";
-const AGENTS_HOOK_COMMAND: &str = "\".agents/skills/impeccable/scripts/impeccable\" hook";
-const AGENTS_HOOK_COMMAND_WINDOWS: &str = "\".agents/skills/impeccable/scripts/impeccable.cmd\" hook";
-const CURSOR_HOOK_COMMAND: &str = "\".cursor/skills/impeccable/scripts/impeccable\" hook-before-edit";
-const GITHUB_HOOK_COMMAND: &str = "\"$(git rev-parse --show-toplevel)/.github/skills/impeccable/scripts/impeccable\" hook";
+const CLAUDE_HOOK_COMMAND: &str = "\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook";
+const AGENTS_HOOK_COMMAND: &str = "\".agents/skills/impeccino/scripts/impeccino\" hook";
+const AGENTS_HOOK_COMMAND_WINDOWS: &str = "\".agents/skills/impeccino/scripts/impeccino.cmd\" hook";
+const CURSOR_HOOK_COMMAND: &str = "\".cursor/skills/impeccino/scripts/impeccino\" hook-before-edit";
+const GITHUB_HOOK_COMMAND: &str = "\"$(git rev-parse --show-toplevel)/.github/skills/impeccino/scripts/impeccino\" hook";
 
 struct ManifestTarget {
     provider: &'static str,
@@ -118,7 +118,7 @@ fn claude_manifest() -> Value {
             "description",
             // JS: Claude Code folded multi-edit behavior into Edit; the manifest
             // tracks the current Edit and Write tools (upstream 7d5c60d2).
-            Value::from("Impeccable design detector: immediate-tier checks after Edit/Write on UI files, full-rule deep pass on Stop."),
+            Value::from("Impeccino design detector: immediate-tier checks after Edit/Write on UI files, full-rule deep pass on Stop."),
         ),
         (
             "hooks",
@@ -200,7 +200,7 @@ fn github_manifest() -> Value {
 const HOOK_MANIFEST_TARGETS: &[ManifestTarget] = &[
     ManifestTarget {
         provider: ".claude",
-        skill_rel: ".claude/skills/impeccable",
+        skill_rel: ".claude/skills/impeccino",
         dest_rel: ".claude/settings.local.json",
         shared_dest_rel: Some(".claude/settings.json"),
         manifest: claude_manifest,
@@ -208,7 +208,7 @@ const HOOK_MANIFEST_TARGETS: &[ManifestTarget] = &[
     },
     ManifestTarget {
         provider: ".agents",
-        skill_rel: ".agents/skills/impeccable",
+        skill_rel: ".agents/skills/impeccino",
         dest_rel: ".codex/hooks.json",
         shared_dest_rel: None,
         manifest: agents_manifest,
@@ -216,7 +216,7 @@ const HOOK_MANIFEST_TARGETS: &[ManifestTarget] = &[
     },
     ManifestTarget {
         provider: ".cursor",
-        skill_rel: ".cursor/skills/impeccable",
+        skill_rel: ".cursor/skills/impeccino",
         dest_rel: ".cursor/hooks.json",
         shared_dest_rel: None,
         manifest: cursor_manifest,
@@ -224,8 +224,8 @@ const HOOK_MANIFEST_TARGETS: &[ManifestTarget] = &[
     },
     ManifestTarget {
         provider: ".github",
-        skill_rel: ".github/skills/impeccable",
-        dest_rel: ".github/hooks/impeccable.json",
+        skill_rel: ".github/skills/impeccino",
+        dest_rel: ".github/hooks/impeccino.json",
         shared_dest_rel: None,
         manifest: github_manifest,
         user_settings: false,
@@ -436,7 +436,7 @@ fn unique(values: Vec<String>) -> Vec<String> {
     out
 }
 
-fn ignore_values_json(entries: &[impeccable_detect::config::IgnoreValueEntry]) -> Value {
+fn ignore_values_json(entries: &[impeccino_detect::config::IgnoreValueEntry]) -> Value {
     Value::Array(entries.iter().map(|e| e.to_json()).collect())
 }
 
@@ -464,7 +464,7 @@ fn merge_detector_config(
         );
         out.insert(
             "ignoreValues".into(),
-            ignore_values_json(&impeccable_detect::config::normalize_ignore_value_entries(
+            ignore_values_json(&impeccino_detect::config::normalize_ignore_value_entries(
                 &seed_values("ignoreValues"),
             )),
         );
@@ -515,7 +515,7 @@ fn merge_detector_config(
             Some(Value::Array(a)) => a.clone(),
             _ => vec![],
         };
-        let existing_entries = impeccable_detect::config::normalize_ignore_value_entries(&cur);
+        let existing_entries = impeccino_detect::config::normalize_ignore_value_entries(&cur);
         let merged = merge_ignore_values(&existing_entries, incoming);
         out.insert("ignoreValues".into(), ignore_values_json(&merged));
     }
@@ -545,8 +545,8 @@ fn status_report(rt: &Runtime, cwd: &str) -> String {
     let shared = read_raw_config_file(&get_config_path(cwd));
     let local = read_raw_config_file(&get_local_config_path(cwd));
     let cfg = read_config(cwd);
-    let env_state = match rt.env("IMPECCABLE_HOOK_DISABLED").filter(|v| !v.is_empty()) {
-        Some(v) => format!("IMPECCABLE_HOOK_DISABLED={v}"),
+    let env_state = match rt.env("IMPECCINO_HOOK_DISABLED").filter(|v| !v.is_empty()) {
+        Some(v) => format!("IMPECCINO_HOOK_DISABLED={v}"),
         None => "unset".to_string(),
     };
     let rel = |p: &str, fallback: &str| -> String {
@@ -557,9 +557,9 @@ fn status_report(rt: &Runtime, cwd: &str) -> String {
             r
         }
     };
-    let cfg_path = rel(&get_config_path(cwd), ".impeccable/config.json");
-    let local_path = rel(&get_local_config_path(cwd), ".impeccable/config.local.json");
-    let cache_path = rel(&get_cache_path(cwd), ".impeccable/hook.cache.json");
+    let cfg_path = rel(&get_config_path(cwd), ".impeccino/config.json");
+    let local_path = rel(&get_local_config_path(cwd), ".impeccino/config.local.json");
+    let cache_path = rel(&get_cache_path(cwd), ".impeccino/hook.cache.json");
     let file_state = |info: &RawFile, rel_path: &str, absent: &str| -> String {
         if info.malformed {
             format!("{rel_path} (malformed; ignored)")
@@ -588,7 +588,7 @@ fn status_report(rt: &Runtime, cwd: &str) -> String {
         }
     };
     [
-        "Impeccable design hook".to_string(),
+        "Impeccino design hook".to_string(),
         format!(
             "  state:        {}",
             if cfg.enabled { "enabled" } else { "disabled" }
@@ -714,8 +714,8 @@ fn repair_hook_manifests(cwd: &str) -> Result<Repaired, String> {
         let dest = jsp::join(&[cwd, target.dest_rel]);
         let shared_dest = target.shared_dest_rel.map(|s| jsp::join(&[cwd, s]));
         if let Some(sd) = &shared_dest {
-            if file_has_impeccable_hook_marker(sd) {
-                prune_impeccable_hook_from_manifest(&dest)?;
+            if file_has_impeccino_hook_marker(sd) {
+                prune_impeccino_hook_from_manifest(&dest)?;
                 result.already.push(target.provider.to_string());
                 continue;
             }
@@ -792,7 +792,7 @@ fn merge_hook_manifests(existing: &Value, fresh: &Value) -> Value {
     }
     let mut hooks = Map::new();
     for event in events {
-        let preserved = strip_impeccable_hook_entries(existing_hooks.get(&event));
+        let preserved = strip_impeccino_hook_entries(existing_hooks.get(&event));
         let added: Vec<Value> = match fresh_hooks.get(&event) {
             Some(Value::Array(a)) => a.clone(),
             _ => vec![],
@@ -810,7 +810,7 @@ fn merge_hook_manifests(existing: &Value, fresh: &Value) -> Value {
 /// A manifest parsed with comments tolerated (Gemini's `settings.json`
 /// allows them); the flag says a rewrite would drop comments.
 fn read_manifest(path: &str) -> Option<(Value, bool)> {
-    impeccable_context::hook_markers::parse_manifest_jsonc(&safe_read(path)?)
+    impeccino_context::hook_markers::parse_manifest_jsonc(&safe_read(path)?)
 }
 
 /// Keep the original of a commented manifest before the JSON writer drops
@@ -822,8 +822,8 @@ fn backup_commented(path: &str, had_comments: bool) -> Result<(), String> {
     Ok(())
 }
 
-/// JS: fileHasImpeccableHookMarker(filePath)
-fn file_has_impeccable_hook_marker(path: &str) -> bool {
+/// JS: fileHasImpeccinoHookMarker(filePath)
+fn file_has_impeccino_hook_marker(path: &str) -> bool {
     if !exists(path) {
         return false;
     }
@@ -834,17 +834,17 @@ fn file_has_impeccable_hook_marker(path: &str) -> bool {
         return false;
     };
     match o.get("hooks") {
-        Some(h @ (Value::Object(_) | Value::Array(_))) => value_has_impeccable_hook_marker(h),
+        Some(h @ (Value::Object(_) | Value::Array(_))) => value_has_impeccino_hook_marker(h),
         _ => false,
     }
 }
 
-/// JS: valueHasImpeccableHookMarker(value)
-fn value_has_impeccable_hook_marker(value: &Value) -> bool {
+/// JS: valueHasImpeccinoHookMarker(value)
+fn value_has_impeccino_hook_marker(value: &Value) -> bool {
     match value {
-        Value::String(s) => impeccable_context::hook_markers::is_impeccable_hook_command(s),
-        Value::Array(a) => a.iter().any(value_has_impeccable_hook_marker),
-        Value::Object(o) => o.values().any(value_has_impeccable_hook_marker),
+        Value::String(s) => impeccino_context::hook_markers::is_impeccino_hook_command(s),
+        Value::Array(a) => a.iter().any(value_has_impeccino_hook_marker),
+        Value::Object(o) => o.values().any(value_has_impeccino_hook_marker),
         _ => false,
     }
 }
@@ -852,12 +852,12 @@ fn value_has_impeccable_hook_marker(value: &Value) -> bool {
 fn marker_in(entry: &Map<String, Value>, key: &str) -> bool {
     entry
         .get(key)
-        .map(value_has_impeccable_hook_marker)
+        .map(value_has_impeccino_hook_marker)
         .unwrap_or(false)
 }
 
-/// JS: stripImpeccableHookEntry(entry) — `None` drops the entry.
-fn strip_impeccable_hook_entry(entry: &Value) -> Option<Value> {
+/// JS: stripImpeccinoHookEntry(entry) — `None` drops the entry.
+fn strip_impeccino_hook_entry(entry: &Value) -> Option<Value> {
     let Value::Object(e) = entry else {
         // JS: `!entry || typeof entry !== 'object'` returns the entry as-is
         // (a null/primitive survives until `.filter(Boolean)`; an array is
@@ -877,10 +877,10 @@ fn strip_impeccable_hook_entry(entry: &Value) -> Option<Value> {
     };
     let stripped: Vec<Value> = hooks
         .iter()
-        .filter_map(strip_impeccable_hook_entry)
+        .filter_map(strip_impeccino_hook_entry)
         .filter(|v| truthy_json(v))
         .collect();
-    if stripped.is_empty() && hooks.iter().any(value_has_impeccable_hook_marker) {
+    if stripped.is_empty() && hooks.iter().any(value_has_impeccino_hook_marker) {
         return None;
     }
     let mut out = e.clone();
@@ -893,21 +893,21 @@ fn truthy_json(v: &Value) -> bool {
     crate::util::truthy_value(Some(v))
 }
 
-/// JS: stripImpeccableHookEntries(entries)
-fn strip_impeccable_hook_entries(entries: Option<&Value>) -> Vec<Value> {
+/// JS: stripImpeccinoHookEntries(entries)
+fn strip_impeccino_hook_entries(entries: Option<&Value>) -> Vec<Value> {
     match entries {
         Some(Value::Array(a)) => a
             .iter()
-            .filter_map(strip_impeccable_hook_entry)
+            .filter_map(strip_impeccino_hook_entry)
             .filter(|v| truthy_json(v))
             .collect(),
         _ => vec![],
     }
 }
 
-/// JS: pruneImpeccableHookFromManifest(manifestPath)
-fn prune_impeccable_hook_from_manifest(path: &str) -> Result<bool, String> {
-    if !file_has_impeccable_hook_marker(path) {
+/// JS: pruneImpeccinoHookFromManifest(manifestPath)
+fn prune_impeccino_hook_from_manifest(path: &str) -> Result<bool, String> {
+    if !file_has_impeccino_hook_marker(path) {
         return Ok(false);
     }
     let Some((parsed, had_comments)) = read_manifest(path) else {
@@ -918,7 +918,7 @@ fn prune_impeccable_hook_from_manifest(path: &str) -> Result<bool, String> {
     let existing_hooks = obj_field(&parsed, "hooks").cloned().unwrap_or_default();
     let mut cleaned = Map::new();
     for (event, entries) in &existing_hooks {
-        let kept = strip_impeccable_hook_entries(Some(entries));
+        let kept = strip_impeccino_hook_entries(Some(entries));
         if !kept.is_empty() {
             cleaned.insert(event.clone(), Value::Array(kept));
         }
@@ -975,7 +975,7 @@ fn parse_ignore_rule_args(args: &[String]) -> Result<(String, bool), String> {
 /// JS: addIgnoreRule(cwd, args)
 fn add_ignore_rule(rt: &Runtime, cwd: &str, args: &[String]) -> Result<String, String> {
     let (rule, all_values) = parse_ignore_rule_args(args)?;
-    let cmd = &rt.impeccable_command;
+    let cmd = &rt.impeccino_command;
     if rule.is_empty() {
         return Err(format!(
             "Pass a rule id, e.g. {cmd} hooks ignore-rule side-tab"
@@ -1035,7 +1035,7 @@ fn add_ignore_file(rt: &Runtime, cwd: &str, args: &[String]) -> Result<String, S
         _ => {
             return Err(format!(
                 "Pass a glob, e.g. {} hooks ignore-file \"src/legacy/**\"",
-                rt.impeccable_command
+                rt.impeccino_command
             ))
         }
     };
@@ -1139,7 +1139,7 @@ fn parse_ignore_value_args(args: &[String]) -> Result<IgnoreValueArgs, String> {
 /// JS: addIgnoreValue(cwd, args)
 fn add_ignore_value(rt: &Runtime, cwd: &str, args: &[String]) -> Result<String, String> {
     let parsed = parse_ignore_value_args(args)?;
-    let cmd = &rt.impeccable_command;
+    let cmd = &rt.impeccino_command;
     if parsed.rule.is_empty() || parsed.value.is_empty() {
         return Err(format!(
             "Pass a rule id and value, e.g. {cmd} hooks ignore-value overused-font Inter"
@@ -1158,9 +1158,9 @@ fn add_ignore_value(rt: &Runtime, cwd: &str, args: &[String]) -> Result<String, 
     }
     // JS: refuse inert exact entries — a value the extractor can never
     // produce for this rule would silently match nothing (upstream be87f5eb,
-    // issue #662). Shared with `ignores add-value` via impeccable-detect.
+    // issue #662). Shared with `ignores add-value` via impeccino-detect.
     if parsed.value != "*"
-        && impeccable_detect::config::synthetic_ignore_value(&parsed.rule, &parsed.value).is_empty()
+        && impeccino_detect::config::synthetic_ignore_value(&parsed.rule, &parsed.value).is_empty()
     {
         return Err(format!(
             "{rule} has no extractable ignore value. Use {cmd} hooks ignore-value {rule} \"*\" --file <glob> to suppress it in matching files.",
@@ -1269,13 +1269,13 @@ fn reset(rt: &Runtime, cwd: &str) -> String {
     // deleted. destRel only (the local manifest `on` writes); never the
     // team-shared sharedDestRel. No skill-folder gate: a reset mid-uninstall is
     // exactly the case that needs the prune. The manifest entries are the
-    // launcher-era shape the engine writes (`impeccable hook ...`), not the old
-    // `node hook.mjs` form; prune_impeccable_hook_from_manifest keys on the
-    // impeccable marker, so it removes whichever form is present.
+    // launcher-era shape the engine writes (`impeccino hook ...`), not the old
+    // `node hook.mjs` form; prune_impeccino_hook_from_manifest keys on the
+    // impeccino marker, so it removes whichever form is present.
     let mut pruned: Vec<String> = Vec::new();
     for target in HOOK_MANIFEST_TARGETS {
         let dest = jsp::join(&[cwd, target.dest_rel]);
-        if let Ok(true) = prune_impeccable_hook_from_manifest(&dest) {
+        if let Ok(true) = prune_impeccino_hook_from_manifest(&dest) {
             pruned.push(target.provider.to_string());
         }
     }
@@ -1296,8 +1296,8 @@ fn reset(rt: &Runtime, cwd: &str) -> String {
     }
 }
 
-/// `impeccable hooks [action] [args...]` (hook-admin.mjs main). Returns the exit code.
-pub fn run(rt: &Runtime, args: &[String], io: &mut impeccable_common::Io) -> i32 {
+/// `impeccino hooks [action] [args...]` (hook-admin.mjs main). Returns the exit code.
+pub fn run(rt: &Runtime, args: &[String], io: &mut impeccino_common::Io) -> i32 {
     let action = js::to_lower_case(
         args.first()
             .map(String::as_str)

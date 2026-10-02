@@ -1,4 +1,4 @@
-# Oracle: behavior goldens for every `impeccable` verb
+# Oracle: behavior goldens for every `impeccino` verb
 
 `lib.mjs` runs each case (verb + args + staged workspace + stdin) against an
 implementation and captures stdout, stderr, exit code, and named files, with
@@ -8,15 +8,15 @@ machine-specific paths and timestamps normalized.
   scripts (`skill/scripts`, `cli/bin`) before those left the tree with the
   launcher swap, plus the reviewed deltas in `DELTAS.md`. They are the
   behavior contract the engine binary is held to.
-- `record.mjs --bin` (with `$IMPECCABLE_BIN` or `--bin=/path`) writes goldens
+- `record.mjs --bin` (with `$IMPECCINO_BIN` or `--bin=/path`) writes goldens
   from the binary, for new cases or a delta a review accepted. Plain
   `record.mjs` still targets the JS scripts and only works on a checkout that
   has them (history before the swap).
-- `run.mjs` replays the corpus against `$IMPECCABLE_BIN` (or `--js` for a
+- `run.mjs` replays the corpus against `$IMPECCINO_BIN` (or `--js` for a
   self-check on a pre-swap checkout) and diffs. Byte-equal is the bar;
   `DELTAS.md` lists reviewed exceptions.
 - `tests/oracle.test.mjs` runs `run.mjs` under `bun run test` and skips when
-  no binary is found (`IMPECCABLE_BIN` or `skill/scripts/bin/<os>-<arch>/`,
+  no binary is found (`IMPECCINO_BIN` or `skill/scripts/bin/<os>-<arch>/`,
   filled by `bun run fetch:engine`).
 - `cases/*.mjs` define the corpus (default export: array or async function
   returning an array). `workspaces/` holds project fixtures that are copied to
@@ -28,7 +28,7 @@ Adding a case: append to the matching `cases/*.mjs`, run
 the golden.
 
 Verb names are the binary's subcommands. `cli-help` and `cli-version` map to
-`impeccable --help` / `--version`. `lib.mjs` still carries the `JS_VERBS`
+`impeccino --help` / `--version`. `lib.mjs` still carries the `JS_VERBS`
 table that maps each verb to the script it was recorded from.
 
 `vectors/` holds the function-level vectors recorded from the JS engine's pure
@@ -64,8 +64,8 @@ machine-dependent fragments. Each is targeted at one script's output:
   frontmatter it writes. Cases that write a snapshot do not snapshot the file;
   they run `latest` / `trend` afterwards instead.
 - `"<finding-id>": <EPOCH>`: the staleness notice cache
-  (`~/.impeccable/staleness-check.json`) keys epoch stamps by finding id.
-- `<IMPECCABLE> <verb>` / `<HOOK_ADMIN_CMD>`: self-referential command lines.
+  (`~/.impeccino/staleness-check.json`) keys epoch stamps by finding id.
+- `<IMPECCINO> <verb>` / `<HOOK_ADMIN_CMD>`: self-referential command lines.
 
 Not covered on purpose: `palette` with no `--id` / `--from` / env seed (random),
 `concept-seed` against the live roll API, `generate-image` real mode,
@@ -93,7 +93,7 @@ Harness additions made for live:
   (`localhost:<PORT>`, `"port": <PORT>`), lease and phase stamps (`<EPOCH>`),
   and float durations (`<N>`).
 - Global masks added: `"pid": <PID>` / `(pid <PID>)` and UUID tokens `<UUID>`.
-- `snapshotFiles` walks `node_modules/.impeccable-live` (the Svelte preview
+- `snapshotFiles` walks `node_modules/.impeccino-live` (the Svelte preview
   tree) and nothing else under `node_modules`.
 
 Deliberately not covered here (rely on `tests/live-e2e`): the browser
@@ -101,5 +101,5 @@ handshake and `/live.js` bundle, SSE, generate/accept round-trips through a
 real browser, `variant_mount_failed` republish, manual-edit chat routing and
 the codex/claude subprocess providers, Svelte revision-dir publishing, and
 `live.mjs`'s dev-server-dependent flows. Lock-file names hash the absolute
-source path, so lock cases do not snapshot `.impeccable/live/locks/`.
+source path, so lock cases do not snapshot `.impeccino/live/locks/`.
 `live-poll-*-connection-refused` assumes nothing listens on 127.0.0.1:65531.

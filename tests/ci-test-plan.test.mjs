@@ -18,7 +18,7 @@ describe('ci-test-plan', () => {
     assert.ok(job.indexOf('playwright install --with-deps chromium') < job.indexOf('bun run test:skill-workflow'));
     const protocol = workflow.split('\n  skill-behavior:')[1].split('\n  skill-workflow:')[0];
     assert.match(protocol, /bun run fetch:engine/);
-    assert.doesNotMatch(protocol, /IMPECCABLE_SKILL_BEHAVIOR_MODELS:/, 'protocol coverage must retain the multi-family defaults');
+    assert.doesNotMatch(protocol, /IMPECCINO_SKILL_BEHAVIOR_MODELS:/, 'protocol coverage must retain the multi-family defaults');
     assert.match(protocol, /GOOGLE_CLOUD_API_KEY:/);
     assert.match(protocol, /ANTHROPIC_API_KEY:/);
   });
@@ -83,7 +83,7 @@ describe('ci-test-plan', () => {
 });
 
 function runPlan(env) {
-  const tmp = mkdtempSync(join(tmpdir(), 'impeccable-ci-plan-'));
+  const tmp = mkdtempSync(join(tmpdir(), 'impeccino-ci-plan-'));
   const outputPath = join(tmp, 'github-output');
   try {
     const result = spawnSync(process.execPath, [SCRIPT], {

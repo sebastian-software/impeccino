@@ -1,8 +1,8 @@
 /**
- * `impeccable detect` corpus.
+ * `impeccino detect` corpus.
  *
  * Every antipattern fixture is scanned individually in JSON and text mode with
- * --no-config (the repo's own .impeccable config ignores tests/fixtures), plus
+ * --no-config (the repo's own .impeccino config ignores tests/fixtures), plus
  * directory scans, project-config / DESIGN.md / inline-ignore behaviour from
  * the detect-config workspace, and the flag surface (help, scope, quiet,
  * no-advisory, errors).

@@ -20,10 +20,10 @@ project path made a project install silently run another copy's launcher
 
 `skill/` is the skill, in one form, for every harness:
 
-- The launcher is `"<skill-base-dir>/scripts/impeccable" <verb>`, quoted
+- The launcher is `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted
   because install paths can contain spaces.
-- Commands are written `/impeccable <command>`; one SKILL.md line tells hosts
-  with another sigil (Codex: `$impeccable`) to translate.
+- Commands are written `/impeccino <command>`; one SKILL.md line tells hosts
+  with another sigil (Codex: `$impeccino`) to translate.
 - Questions go through "the host's structured question tool".
 - Harness- and model-specific guidance is a labelled paragraph
   (`In Codex: ...`, `**GPT models (Codex):**`) instead of a stripped block.

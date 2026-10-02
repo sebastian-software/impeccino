@@ -1,13 +1,13 @@
-//! How an Impeccable-owned hook command is recognized inside a harness
+//! How an Impeccino-owned hook command is recognized inside a harness
 //! manifest. Two generations coexist in the wild:
 //!
-//! * the JS era, `node "<...>/skills/impeccable/scripts/hook.mjs"` (and the
+//! * the JS era, `node "<...>/skills/impeccino/scripts/hook.mjs"` (and the
 //!   `hook-before-edit` / `hook-probe` / `hook-after-edit` / `hook-stop`
 //!   siblings), and
-//! * the binary era, `"<...>/skills/impeccable/scripts/impeccable" hook`
-//!   (`impeccable.cmd` on Windows, `hook-before-edit` for Cursor).
+//! * the binary era, `"<...>/skills/impeccino/scripts/impeccino" hook`
+//!   (`impeccino.cmd` on Windows, `hook-before-edit` for Cursor).
 //!
-//! `impeccable hooks on` repairs the old form to the new one, so pruning and
+//! `impeccino hooks on` repairs the old form to the new one, so pruning and
 //! merging must recognize both; `doctor` and `context`'s automatic-hook scan
 //! must accept either as "installed".
 
@@ -17,22 +17,22 @@ use regex::Regex;
 /// The JS-era script markers, still recognized so old installs are pruned
 /// and repaired rather than duplicated.
 pub const LEGACY_HOOK_SCRIPT_MARKERS: &[&str] = &[
-    "skills/impeccable/scripts/hook-probe.mjs",
-    "skills/impeccable/scripts/hook.mjs",
-    "skills/impeccable/scripts/hook-before-edit.mjs",
-    "skills/impeccable/scripts/hook-after-edit.mjs",
-    "skills/impeccable/scripts/hook-stop.mjs",
+    "skills/impeccino/scripts/hook-probe.mjs",
+    "skills/impeccino/scripts/hook.mjs",
+    "skills/impeccino/scripts/hook-before-edit.mjs",
+    "skills/impeccino/scripts/hook-after-edit.mjs",
+    "skills/impeccino/scripts/hook-stop.mjs",
 ];
 
-/// Matches the launcher path (`.../skills/impeccable/scripts/impeccable` or
-/// `impeccable.cmd`), the closing quote if any, then the hook verb.
+/// Matches the launcher path (`.../skills/impeccino/scripts/impeccino` or
+/// `impeccino.cmd`), the closing quote if any, then the hook verb.
 static LAUNCHER_HOOK_MARKER: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"skills/impeccable/scripts/impeccable(?:\.cmd|\.exe)?["']?\s+hook(?:-before-edit|-probe|-after-edit|-stop)?(?:\s|$|["'&|;)])"#).unwrap()
+    Regex::new(r#"skills/impeccino/scripts/impeccino(?:\.cmd|\.exe)?["']?\s+hook(?:-before-edit|-probe|-after-edit|-stop)?(?:\s|$|["'&|;)])"#).unwrap()
 });
 
 /// User-scope Windows commands embed a JSON-quoted path whose backslashes are
 /// doubled in the command string (#784). #604's single `\`→`/` replace is not
-/// enough: `\\` becomes `//`, which breaks `skills/impeccable` matching.
+/// enough: `\\` becomes `//`, which breaks `skills/impeccino` matching.
 /// A leading `//` after a quote (or at the start of the string) is a UNC
 /// prefix and stays two slashes, so doctor still probes `//server/share/...`.
 fn normalize_hook_separators(command: &str) -> String {
@@ -59,13 +59,13 @@ fn normalize_hook_separators(command: &str) -> String {
     out
 }
 
-/// True when `command` invokes an Impeccable hook in either generation's spelling.
-pub fn is_impeccable_hook_command(command: &str) -> bool {
+/// True when `command` invokes an Impeccino hook in either generation's spelling.
+pub fn is_impeccino_hook_command(command: &str) -> bool {
     let command = normalize_hook_separators(command);
     LEGACY_HOOK_SCRIPT_MARKERS.iter().any(|m| command.contains(m)) || LAUNCHER_HOOK_MARKER.is_match(&command)
 }
 
-/// True when `command` invokes an Impeccable hook in the launcher generation
+/// True when `command` invokes an Impeccino hook in the launcher generation
 /// only (any hook verb). Tells a repaired manifest from a stale `.mjs`-only
 /// one: install/update use this to decide which manifests still need
 /// migrating to the launcher form.
@@ -77,7 +77,7 @@ pub fn is_launcher_hook_command(command: &str) -> bool {
 /// proper (the per-edit hook and Cursor's before-edit gate). Legacy siblings
 /// like `hook-probe` are admin-only and do not count as an installed hook.
 static LAUNCHER_DESIGN_HOOK: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"skills/impeccable/scripts/impeccable(?:\.cmd|\.exe)?["']?\s+hook(?:-before-edit)?(?:\s|$|["'&|;)])"#).unwrap()
+    Regex::new(r#"skills/impeccino/scripts/impeccino(?:\.cmd|\.exe)?["']?\s+hook(?:-before-edit)?(?:\s|$|["'&|;)])"#).unwrap()
 });
 
 /// True when `command` runs the design hook itself (`hook` or
@@ -85,8 +85,8 @@ static LAUNCHER_DESIGN_HOOK: Lazy<Regex> = Lazy::new(|| {
 /// `staleness-deep` HOOK_SCRIPT_MARKERS both meant exactly these two.
 pub fn is_design_hook_command(command: &str) -> bool {
     let command = normalize_hook_separators(command);
-    command.contains("skills/impeccable/scripts/hook.mjs")
-        || command.contains("skills/impeccable/scripts/hook-before-edit.mjs")
+    command.contains("skills/impeccino/scripts/hook.mjs")
+        || command.contains("skills/impeccino/scripts/hook-before-edit.mjs")
         || LAUNCHER_DESIGN_HOOK.is_match(&command)
 }
 
@@ -113,13 +113,13 @@ pub fn hook_program_token(command: &str) -> Option<String> {
         return None;
     }
     static QUOTED: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r#""([^"]*skills/impeccable/scripts/(?:hook(?:-before-edit)?\.mjs|impeccable(?:\.cmd|\.exe)?))""#).unwrap()
+        Regex::new(r#""([^"]*skills/impeccino/scripts/(?:hook(?:-before-edit)?\.mjs|impeccino(?:\.cmd|\.exe)?))""#).unwrap()
     });
     static SINGLE: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"'([^']*skills/impeccable/scripts/(?:hook(?:-before-edit)?\.mjs|impeccable(?:\.cmd|\.exe)?))'").unwrap()
+        Regex::new(r"'([^']*skills/impeccino/scripts/(?:hook(?:-before-edit)?\.mjs|impeccino(?:\.cmd|\.exe)?))'").unwrap()
     });
     static BARE: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r#"([^\s"'|&;()]*skills/impeccable/scripts/(?:hook(?:-before-edit)?\.mjs|impeccable(?:\.cmd|\.exe)?))"#).unwrap()
+        Regex::new(r#"([^\s"'|&;()]*skills/impeccino/scripts/(?:hook(?:-before-edit)?\.mjs|impeccino(?:\.cmd|\.exe)?))"#).unwrap()
     });
     if let Some(m) = QUOTED.captures(&command) {
         return Some(m[1].to_string());
@@ -136,25 +136,25 @@ mod tests {
 
     #[test]
     fn recognizes_legacy_script_forms() {
-        assert!(is_impeccable_hook_command("node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs\""));
-        assert!(is_impeccable_hook_command("[ ! -f '/x/.cursor/skills/impeccable/scripts/hook-before-edit.mjs' ] || node '/x/.cursor/skills/impeccable/scripts/hook-before-edit.mjs'"));
-        assert!(is_impeccable_hook_command("node .agents/skills/impeccable/scripts/hook-probe.mjs"));
-        assert!(is_design_hook_command("node \".agents/skills/impeccable/scripts/hook.mjs\""));
-        assert!(!is_design_hook_command("node .agents/skills/impeccable/scripts/hook-probe.mjs"));
+        assert!(is_impeccino_hook_command("node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\""));
+        assert!(is_impeccino_hook_command("[ ! -f '/x/.cursor/skills/impeccino/scripts/hook-before-edit.mjs' ] || node '/x/.cursor/skills/impeccino/scripts/hook-before-edit.mjs'"));
+        assert!(is_impeccino_hook_command("node .agents/skills/impeccino/scripts/hook-probe.mjs"));
+        assert!(is_design_hook_command("node \".agents/skills/impeccino/scripts/hook.mjs\""));
+        assert!(!is_design_hook_command("node .agents/skills/impeccino/scripts/hook-probe.mjs"));
     }
 
     #[test]
     fn recognizes_launcher_forms() {
         for cmd in [
-            "\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook",
-            "\".agents/skills/impeccable/scripts/impeccable\" hook",
-            "\".agents/skills/impeccable/scripts/impeccable.cmd\" hook",
-            "\".cursor/skills/impeccable/scripts/impeccable\" hook-before-edit",
-            "\"$(git rev-parse --show-toplevel)/.github/skills/impeccable/scripts/impeccable\" hook",
-            "[ ! -f '/x/.claude/skills/impeccable/scripts/impeccable' ] || '/x/.claude/skills/impeccable/scripts/impeccable' hook",
-            "if exist \".agents/skills/impeccable/scripts/impeccable.cmd\" (\".agents/skills/impeccable/scripts/impeccable.cmd\" hook & exit /b)",
+            "\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook",
+            "\".agents/skills/impeccino/scripts/impeccino\" hook",
+            "\".agents/skills/impeccino/scripts/impeccino.cmd\" hook",
+            "\".cursor/skills/impeccino/scripts/impeccino\" hook-before-edit",
+            "\"$(git rev-parse --show-toplevel)/.github/skills/impeccino/scripts/impeccino\" hook",
+            "[ ! -f '/x/.claude/skills/impeccino/scripts/impeccino' ] || '/x/.claude/skills/impeccino/scripts/impeccino' hook",
+            "if exist \".agents/skills/impeccino/scripts/impeccino.cmd\" (\".agents/skills/impeccino/scripts/impeccino.cmd\" hook & exit /b)",
         ] {
-            assert!(is_impeccable_hook_command(cmd), "{cmd}");
+            assert!(is_impeccino_hook_command(cmd), "{cmd}");
             assert!(is_design_hook_command(cmd), "{cmd}");
         }
     }
@@ -164,18 +164,18 @@ mod tests {
         // A stale `.mjs`-only manifest is still "ours" (so it is pruned and
         // repaired) but no longer counts as an active launcher hook.
         for cmd in [
-            "node \".claude/skills/impeccable/scripts/hook.mjs\"",
-            "[ ! -f '/x/.cursor/skills/impeccable/scripts/hook-before-edit.mjs' ] || node '/x/.cursor/skills/impeccable/scripts/hook-before-edit.mjs'",
+            "node \".claude/skills/impeccino/scripts/hook.mjs\"",
+            "[ ! -f '/x/.cursor/skills/impeccino/scripts/hook-before-edit.mjs' ] || node '/x/.cursor/skills/impeccino/scripts/hook-before-edit.mjs'",
         ] {
-            assert!(is_impeccable_hook_command(cmd), "{cmd}");
+            assert!(is_impeccino_hook_command(cmd), "{cmd}");
             assert!(is_design_hook_command(cmd), "{cmd}");
             assert!(!is_launcher_hook_command(cmd), "{cmd}");
             assert!(!is_launcher_design_hook_command(cmd), "{cmd}");
         }
         // The launcher form counts as active exactly as before.
         for cmd in [
-            "\".claude/skills/impeccable/scripts/impeccable\" hook",
-            "'/x/.cursor/skills/impeccable/scripts/impeccable' hook-before-edit",
+            "\".claude/skills/impeccino/scripts/impeccino\" hook",
+            "'/x/.cursor/skills/impeccino/scripts/impeccino' hook-before-edit",
         ] {
             assert!(is_launcher_hook_command(cmd), "{cmd}");
             assert!(is_launcher_design_hook_command(cmd), "{cmd}");
@@ -186,74 +186,74 @@ mod tests {
     fn rejects_unrelated_commands() {
         for cmd in [
             "node \"${CLAUDE_PROJECT_DIR}/.claude/skills/other/scripts/hook.mjs\"",
-            "\".claude/skills/impeccable/scripts/impeccable\" context",
-            "impeccable hook",
-            "echo skills/impeccable/scripts/impeccable-hook",
+            "\".claude/skills/impeccino/scripts/impeccino\" context",
+            "impeccino hook",
+            "echo skills/impeccino/scripts/impeccino-hook",
         ] {
-            assert!(!is_impeccable_hook_command(cmd), "{cmd}");
+            assert!(!is_impeccino_hook_command(cmd), "{cmd}");
         }
     }
 
     #[test]
     fn extracts_program_token() {
         assert_eq!(
-            hook_program_token("node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs\"").as_deref(),
-            Some("${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/hook.mjs")
+            hook_program_token("node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\"").as_deref(),
+            Some("${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs")
         );
         assert_eq!(
-            hook_program_token("\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook").as_deref(),
-            Some("${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable")
+            hook_program_token("\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook").as_deref(),
+            Some("${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino")
         );
         assert_eq!(
-            hook_program_token("'/x/.cursor/skills/impeccable/scripts/impeccable' hook-before-edit").as_deref(),
-            Some("/x/.cursor/skills/impeccable/scripts/impeccable")
+            hook_program_token("'/x/.cursor/skills/impeccino/scripts/impeccino' hook-before-edit").as_deref(),
+            Some("/x/.cursor/skills/impeccino/scripts/impeccino")
         );
         assert_eq!(
-            hook_program_token(".agents/skills/impeccable/scripts/impeccable hook").as_deref(),
-            Some(".agents/skills/impeccable/scripts/impeccable")
+            hook_program_token(".agents/skills/impeccino/scripts/impeccino hook").as_deref(),
+            Some(".agents/skills/impeccino/scripts/impeccino")
         );
-        assert_eq!(hook_program_token("'/x/it'\\''s/.claude/skills/impeccable/scripts/impeccable' hook"), None);
+        assert_eq!(hook_program_token("'/x/it'\\''s/.claude/skills/impeccino/scripts/impeccino' hook"), None);
         assert_eq!(hook_program_token("echo hi"), None);
     }
 
     #[test]
     fn recognizes_json_escaped_windows_launcher_path() {
-        let launcher = r"C:\Users\alice\.claude\skills\impeccable\scripts\impeccable";
+        let launcher = r"C:\Users\alice\.claude\skills\impeccino\scripts\impeccino";
         let quoted = serde_json::to_string(launcher).unwrap();
         let cmd = format!("[ ! -f {quoted} ] || {quoted} hook");
-        assert!(is_impeccable_hook_command(&cmd), "{cmd}");
+        assert!(is_impeccino_hook_command(&cmd), "{cmd}");
         assert!(is_launcher_hook_command(&cmd), "{cmd}");
         assert!(is_design_hook_command(&cmd), "{cmd}");
         assert_eq!(
             hook_program_token(&cmd).as_deref(),
-            Some("C:/Users/alice/.claude/skills/impeccable/scripts/impeccable")
+            Some("C:/Users/alice/.claude/skills/impeccino/scripts/impeccino")
         );
     }
 
     #[test]
     fn recognizes_single_backslash_windows_path() {
-        let cmd = r#"[ ! -f "C:\Users\alice\.claude\skills\impeccable\scripts\impeccable" ] || "C:\Users\alice\.claude\skills\impeccable\scripts\impeccable" hook"#;
-        assert!(is_impeccable_hook_command(cmd), "{cmd}");
+        let cmd = r#"[ ! -f "C:\Users\alice\.claude\skills\impeccino\scripts\impeccino" ] || "C:\Users\alice\.claude\skills\impeccino\scripts\impeccino" hook"#;
+        assert!(is_impeccino_hook_command(cmd), "{cmd}");
         assert!(is_launcher_hook_command(cmd), "{cmd}");
         assert!(is_design_hook_command(cmd), "{cmd}");
     }
 
     #[test]
     fn preserves_unc_prefix_in_program_token() {
-        let launcher = r"\\server\share\.claude\skills\impeccable\scripts\impeccable";
+        let launcher = r"\\server\share\.claude\skills\impeccino\scripts\impeccino";
         let quoted = serde_json::to_string(launcher).unwrap();
         let json_escaped = format!("[ ! -f {quoted} ] || {quoted} hook");
-        assert!(is_impeccable_hook_command(&json_escaped), "{json_escaped}");
+        assert!(is_impeccino_hook_command(&json_escaped), "{json_escaped}");
         assert_eq!(
             hook_program_token(&json_escaped).as_deref(),
-            Some("//server/share/.claude/skills/impeccable/scripts/impeccable")
+            Some("//server/share/.claude/skills/impeccino/scripts/impeccino")
         );
 
-        let single = r#"[ ! -f "\\server\share\.claude\skills\impeccable\scripts\impeccable" ] || "\\server\share\.claude\skills\impeccable\scripts\impeccable" hook"#;
-        assert!(is_impeccable_hook_command(single), "{single}");
+        let single = r#"[ ! -f "\\server\share\.claude\skills\impeccino\scripts\impeccino" ] || "\\server\share\.claude\skills\impeccino\scripts\impeccino" hook"#;
+        assert!(is_impeccino_hook_command(single), "{single}");
         assert_eq!(
             hook_program_token(single).as_deref(),
-            Some("//server/share/.claude/skills/impeccable/scripts/impeccable")
+            Some("//server/share/.claude/skills/impeccino/scripts/impeccino")
         );
     }
 }

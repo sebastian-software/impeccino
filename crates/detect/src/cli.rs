@@ -3,9 +3,9 @@
 
 use std::io::Write;
 
-use impeccable_common::Io;
-use impeccable_core::findings::Finding;
-use impeccable_core::registry::{filter_by_scopes, rule_scopes};
+use impeccino_common::Io;
+use impeccino_core::findings::Finding;
+use impeccino_core::registry::{filter_by_scopes, rule_scopes};
 use serde_json::Value;
 
 use crate::config::{
@@ -21,7 +21,7 @@ use crate::file_system::{
 use crate::jsp;
 use crate::util::{exists, re, D};
 
-pub const USAGE: &str = "Usage: impeccable detect [options] [file-or-dir...]
+pub const USAGE: &str = "Usage: impeccino detect [options] [file-or-dir...]
 
 Scan source files for UI anti-patterns and design quality issues.
 
@@ -32,8 +32,8 @@ Options:
                       (type, layout). Comma-separated.
   --no-config         Do not apply project config, detector ignores, inline
                       ignore comments, or DESIGN.md
-  --no-inline-ignores Do not honor in-file impeccable-disable* ignore comments
-  --no-design-system  Do not load local DESIGN.md / .impeccable/design.json context
+  --no-inline-ignores Do not honor in-file impeccino-disable* ignore comments
+  --no-design-system  Do not load local DESIGN.md / .impeccino/design.json context
   --no-advisory       Suppress advisory findings entirely (e.g. em-dash overuse)
   --help              Show this help message
 
@@ -53,16 +53,16 @@ Exit status:
   Operational failure takes precedence when a multi-target scan is partial.
 
 Project config:
-  Respects .impeccable/config.json and .impeccable/config.local.json detector
+  Respects .impeccino/config.json and .impeccino/config.local.json detector
   settings: detector.ignoreRules, detector.ignoreFiles, detector.ignoreValues,
   and detector.designSystem.enabled.
 
 Inline ignores:
   In-file comments waive a finding where it lives and travel with the file:
-    <!-- impeccable-disable overused-font -- exported brand doc -->
-    .brand { font-family: Inter } /* impeccable-disable-line overused-font */
-    // impeccable-disable-next-line bounce-easing: intentional bounce
-  impeccable-disable applies to the whole file; -line / -next-line are scoped.
+    <!-- impeccino-disable overused-font -- exported brand doc -->
+    .brand { font-family: Inter } /* impeccino-disable-line overused-font */
+    // impeccino-disable-next-line bounce-easing: intentional bounce
+  impeccino-disable applies to the whole file; -line / -next-line are scoped.
   List one or more rule ids (comma-separated), or omit them / use * for all.
 
 Detection modes:
@@ -73,11 +73,11 @@ Detection modes:
                  Uses its own browser session, or AGENT_BROWSER_SESSION's.
 
 Examples:
-  impeccable detect src/
-  impeccable detect index.html
-  impeccable detect --json .
-  impeccable detect --no-config src/
-  impeccable detect http://localhost:3000/
+  impeccino detect src/
+  impeccino detect index.html
+  impeccino detect --json .
+  impeccino detect --no-config src/
+  impeccino detect http://localhost:3000/
 ";
 
 fn format_finding_summary(count: usize) -> String {
@@ -102,7 +102,7 @@ fn expand_joined_url_targets(targets: Vec<String>) -> Vec<String> {
             continue;
         }
         let parts: Vec<&str> = WS_RUN_RE
-            .split(impeccable_core::js::trim(&target))
+            .split(impeccino_core::js::trim(&target))
             .filter(|p| !p.is_empty())
             .collect();
         if parts.len() > 1 && parts.iter().all(|p| URL_RE.is_match(p)) {
@@ -172,7 +172,7 @@ fn format_findings_body(findings: &[&Finding]) -> Vec<String> {
             let line = if item.line != 0.0 && !item.line.is_nan() {
                 format!(
                     "line {}: ",
-                    impeccable_core::js::number_to_string(item.line)
+                    impeccino_core::js::number_to_string(item.line)
                 )
             } else {
                 String::new()
@@ -333,8 +333,8 @@ impl<'a> Ctx<'a> {
 
 re!(VIEWPORT_RE, format!("^({D}{{2,5}})[xX]({D}{{2,5}})$"));
 re!(URL_RE, "^(?i:https?|file)://");
-re!(WHITESPACE_RE, impeccable_core::js::WS.to_string());
-re!(WS_RUN_RE, format!("{}+", impeccable_core::js::WS));
+re!(WHITESPACE_RE, impeccino_core::js::WS.to_string());
+re!(WS_RUN_RE, format!("{}+", impeccino_core::js::WS));
 re!(FILE_URL_RE, "^(?i:file):");
 
 /// `fileURLToPath` for the `file:` URLs the CLI accepts; None when it can't map.
@@ -440,7 +440,7 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
         let parsed: Vec<String> = match value {
             Some(v) if !v.starts_with("--") => v
                 .split(',')
-                .map(|s| impeccable_core::js::trim(s).to_string())
+                .map(|s| impeccino_core::js::trim(s).to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
             _ => vec![],
@@ -506,7 +506,7 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
         design_system: None,
         viewport,
         profile: None,
-        // The `impeccable` binary installs no rule pack; a library caller that
+        // The `impeccino` binary installs no rule pack; a library caller that
         // does sets this before handing the options to an engine.
         rule_pack: None,
     };
@@ -707,7 +707,7 @@ fn scan_targets(
                     let probe = is_port_listening(fw.port, Some(fw.fingerprint));
                     let msg = if probe.listening && probe.matched {
                         format!(
-                            "\n{} dev server detected on localhost:{}.\nFor more accurate results, scan the running site:\n  npx impeccable detect http://localhost:{}\n\n",
+                            "\n{} dev server detected on localhost:{}.\nFor more accurate results, scan the running site:\n  npx impeccino detect http://localhost:{}\n\n",
                             fw.name, fw.port, fw.port
                         )
                     } else if probe.listening && !probe.matched {
@@ -720,7 +720,7 @@ fn scan_targets(
                         )
                     } else {
                         format!(
-                            "\n{} project detected ({}).\nStart the dev server and scan via URL for best results:\n  npx impeccable detect http://localhost:{}\n\n",
+                            "\n{} project detected ({}).\nStart the dev server and scan via URL for best results:\n  npx impeccino detect http://localhost:{}\n\n",
                             fw.name,
                             jsp::basename(&fw.config_path),
                             fw.port
@@ -830,7 +830,7 @@ fn confirm(io: &mut Io, question: &str) -> bool {
     // Only reached when stdin is a TTY, so a direct line read is what the
     // JS readline does too.
     let _ = std::io::stdin().read_line(&mut answer);
-    let a = impeccable_core::js::trim(&answer);
+    let a = impeccino_core::js::trim(&answer);
     a.is_empty() || a.eq_ignore_ascii_case("y") || a.eq_ignore_ascii_case("yes")
 }
 

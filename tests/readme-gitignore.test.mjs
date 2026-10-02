@@ -20,17 +20,17 @@ describe('README gitignore block', () => {
     const match = readme.match(/```gitignore\n([\s\S]*?)```/);
     assert.ok(match, 'README.md should contain a fenced gitignore block');
     const block = match[1];
-    assert.match(block, /# impeccable-ignore-start/);
+    assert.match(block, /# impeccino-ignore-start/);
 
-    tmp = mkdtempSync(join(tmpdir(), 'impeccable-readme-gitignore-'));
+    tmp = mkdtempSync(join(tmpdir(), 'impeccino-readme-gitignore-'));
     writeFileSync(join(tmp, '.gitignore'), block);
     execFileSync('git', ['init'], { cwd: tmp });
 
     for (const rel of [
-      '.impeccable/review/desktop.png',
-      '.impeccable/questions/fb63f8a6.log',
-      'apps/web/.impeccable/review/desktop.png',
-      'apps/web/.impeccable/questions/fb63f8a6.log',
+      '.impeccino/review/desktop.png',
+      '.impeccino/questions/fb63f8a6.log',
+      'apps/web/.impeccino/review/desktop.png',
+      'apps/web/.impeccino/questions/fb63f8a6.log',
     ]) {
       const ignored = execFileSync('git', ['check-ignore', rel], {
         cwd: tmp,
@@ -40,10 +40,10 @@ describe('README gitignore block', () => {
     }
 
     for (const rel of [
-      '.impeccable/config.json',
-      '.impeccable/critique/report.md',
-      'apps/web/.impeccable/config.json',
-      'apps/web/.impeccable/critique/report.md',
+      '.impeccino/config.json',
+      '.impeccino/critique/report.md',
+      'apps/web/.impeccino/config.json',
+      'apps/web/.impeccino/critique/report.md',
     ]) {
       const result = spawnSync('git', ['check-ignore', rel], { cwd: tmp });
       assert.notEqual(result.status, 0, `${rel} should not be ignored`);

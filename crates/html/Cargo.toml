@@ -1,5 +1,5 @@
 [package]
-name = "impeccable-html"
+name = "impeccino-html"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
@@ -9,12 +9,12 @@ publish.workspace = true
 default = []
 # Vector dispatcher used by tests/vectors.rs to replay the recorded JS call
 # vectors through the Rust port.
-vectors = ["impeccable-core/vectors"]
+vectors = ["impeccino-core/vectors"]
 
 [dependencies]
-impeccable-common = { workspace = true }
-impeccable-core = { workspace = true }
-impeccable-detect = { workspace = true }
+impeccino-common = { workspace = true }
+impeccino-core = { workspace = true }
+impeccino-detect = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["float_roundtrip"] }
 regex = { workspace = true }
@@ -28,5 +28,5 @@ cssparser = "0.37"
 thiserror = { workspace = true }
 
 [dev-dependencies]
-impeccable-core = { workspace = true, features = ["vectors"] }
-impeccable-html = { path = ".", features = ["vectors"] }
+impeccino-core = { workspace = true, features = ["vectors"] }
+impeccino-html = { path = ".", features = ["vectors"] }

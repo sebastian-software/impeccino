@@ -1,17 +1,17 @@
 //! Port of `cli/engine/shared/inline-ignores.mjs`: eslint-disable-style
-//! waivers that live in the scanned file (`impeccable-disable`,
-//! `impeccable-disable-line`, `impeccable-disable-next-line`).
+//! waivers that live in the scanned file (`impeccino-disable`,
+//! `impeccino-disable-line`, `impeccino-disable-next-line`).
 
 use crate::js::{self, ci, WS};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// JS `DIRECTIVE_RE` =
-/// `/impeccable-(disable-next-line|disable-line|disable)\b[ \t]*([^\n\r]*)/gi`.
+/// `/impeccino-(disable-next-line|disable-line|disable)\b[ \t]*([^\n\r]*)/gi`.
 static DIRECTIVE_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(
         r"{imp}-({dnl}|{dl}|{d})(?-u:\b)[ \t]*([^\n\r]*)",
-        imp = ci("impeccable"),
+        imp = ci("impeccino"),
         dnl = ci("disable-next-line"),
         dl = ci("disable-line"),
         d = ci("disable")
@@ -35,8 +35,8 @@ static REASON_SEP_RE: Lazy<Regex> =
 static TOKEN_SPLIT_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(&format!(r"[{},]+", js::WS_CHARS)).unwrap());
 
-/// Cheap bail-out `/impeccable-disable/i`.
-static HAS_DIRECTIVE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&ci("impeccable-disable")).unwrap());
+/// Cheap bail-out `/impeccino-disable/i`.
+static HAS_DIRECTIVE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&ci("impeccino-disable")).unwrap());
 
 /// An insertion-ordered set of rule ids (JS `Set<string>`).
 pub type RuleSet = Vec<String>;
@@ -197,12 +197,12 @@ mod tests {
 
     #[test]
     fn parses_directives() {
-        let src = "<!-- impeccable-disable low-contrast -- exported -->\nx /* impeccable-disable-line design-system-font */\n// impeccable-disable-next-line bounce-easing: reason\nfoo\n";
+        let src = "<!-- impeccino-disable low-contrast -- exported -->\nx /* impeccino-disable-line design-system-font */\n// impeccino-disable-next-line bounce-easing: reason\nfoo\n";
         let d = parse_inline_ignores(Some(src));
         assert_eq!(d.file, vec!["low-contrast"]);
         assert_eq!(d.line, vec![(2, vec!["design-system-font".to_string()])]);
         assert_eq!(d.next_line, vec![(4, vec!["bounce-easing".to_string()])]);
-        let bare = parse_inline_ignores(Some("<!-- impeccable-disable -->"));
+        let bare = parse_inline_ignores(Some("<!-- impeccino-disable -->"));
         assert_eq!(bare.file, vec!["*"]);
     }
 }

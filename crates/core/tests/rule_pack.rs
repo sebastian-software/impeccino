@@ -3,10 +3,10 @@
 //! like built-in ones, and a run with no pack installed is byte-identical to
 //! what the built-ins produce on their own.
 
-use impeccable_core::browser::fake_dom::FakeDom;
-use impeccable_core::browser::{driver, BrowserConfig, BrowserFinding, ElFinding, ElId};
-use impeccable_core::registry::Antipattern;
-use impeccable_core::rule_pack::RulePack;
+use impeccino_core::browser::fake_dom::FakeDom;
+use impeccino_core::browser::{driver, BrowserConfig, BrowserFinding, ElFinding, ElId};
+use impeccino_core::registry::Antipattern;
+use impeccino_core::rule_pack::RulePack;
 
 const MARKER: &str = "TODO(pack)";
 
@@ -45,7 +45,7 @@ impl RulePack for TestPack {
 
     fn check_element_dom(
         &self,
-        dom: &dyn impeccable_core::browser::Dom,
+        dom: &dyn impeccino_core::browser::Dom,
         el: ElId,
     ) -> Vec<BrowserFinding> {
         let text = dom.direct_text_nodes(el).concat();
@@ -59,7 +59,7 @@ impl RulePack for TestPack {
         }
     }
 
-    fn check_page_dom(&self, dom: &dyn impeccable_core::browser::Dom) -> Vec<ElFinding> {
+    fn check_page_dom(&self, dom: &dyn impeccino_core::browser::Dom) -> Vec<ElFinding> {
         let hit = dom
             .query_all(None, "*")
             .unwrap_or_default()
@@ -109,7 +109,7 @@ fn element_and_page_hooks_fire_and_no_pack_is_unchanged() {
         "a pack that is not installed must not be consulted"
     );
 
-    impeccable_core::rule_pack::install(&PACK);
+    impeccino_core::rule_pack::install(&PACK);
     let with_pack = driver::collect_browser_findings(
         &dom,
         &BrowserConfig {
@@ -159,14 +159,14 @@ fn element_and_page_hooks_fire_and_no_pack_is_unchanged() {
 
     // Pack rows resolve in the registry, so a serialized finding carries the
     // pack's name and description.
-    let row = impeccable_core::registry::get_antipattern("testpack/todo-marker").unwrap();
+    let row = impeccino_core::registry::get_antipattern("testpack/todo-marker").unwrap();
     assert_eq!(row.name, "Unfinished copy marker");
 }
 
 #[test]
 fn pack_findings_honor_the_disabled_rules_list() {
     let (dom, p) = page();
-    impeccable_core::rule_pack::install(&PACK);
+    impeccino_core::rule_pack::install(&PACK);
     let result = driver::collect_browser_findings(
         &dom,
         &BrowserConfig {
@@ -191,7 +191,7 @@ fn pack_findings_honor_the_disabled_rules_list() {
 #[test]
 fn skip_scan_skips_the_pack_too() {
     let (dom, _p) = page();
-    impeccable_core::rule_pack::install(&PACK);
+    impeccino_core::rule_pack::install(&PACK);
     let result = driver::collect_browser_findings(
         &dom,
         &BrowserConfig {

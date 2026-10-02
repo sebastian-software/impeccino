@@ -1,4 +1,4 @@
-<!-- impeccable:product-schema 2 -->
+<!-- impeccino:product-schema 2 -->
 # Product
 
 ## What it is

@@ -1,6 +1,6 @@
 # Oracle Fixture Product
 
-<!-- impeccable:product-schema 1 -->
+<!-- impeccino:product-schema 1 -->
 
 ## Platform
 

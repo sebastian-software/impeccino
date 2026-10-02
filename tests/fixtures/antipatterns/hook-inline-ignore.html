@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>Hook inline ignore comments do not suppress detector findings</title>
     <style>
-      /* impeccable: ignore overused-font */
+      /* impeccino: ignore overused-font */
       body {
         font-family: "Roboto", ui-sans-serif, system-ui, sans-serif;
         margin: 0;
@@ -17,13 +17,13 @@
     </style>
   </head>
   <body>
-    <!-- impeccable: ignore overused-font -->
+    <!-- impeccino: ignore overused-font -->
     <main>
       <h1>Roboto remains a detector finding</h1>
       <p>
         This fixture deliberately uses Roboto across enough visible text for
         the browser detector to report the overused-font page finding. Hook
-        exceptions must live in .impeccable/hook.json instead of source comments.
+        exceptions must live in .impeccino/hook.json instead of source comments.
       </p>
       <p>
         The comments above look like old inline hook suppressions, but they are

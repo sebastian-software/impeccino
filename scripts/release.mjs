@@ -41,7 +41,7 @@ const COMPONENTS = {
   },
 };
 
-const REPO_URL = 'https://github.com/pbakaus/impeccable';
+const REPO_URL = 'https://github.com/sebastian-software/impeccino';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
@@ -94,9 +94,9 @@ ok(`${cfg.label} ${version}`);
 // Release-order guard. The skill refuses to tag until the engine release for
 // the pinned skill/scripts/VERSION is live: the five engine-v<version> release
 // binaries + .sha256. Without them the launcher dead-ends. Set
-// IMPECCABLE_SKIP_ENGINE_CHECK=1 only when you know the assets exist and the
+// IMPECCINO_SKIP_ENGINE_CHECK=1 only when you know the assets exist and the
 // probe is unreachable.
-if (cfg.engineGated && process.env.IMPECCABLE_SKIP_ENGINE_CHECK !== '1') {
+if (cfg.engineGated && process.env.IMPECCINO_SKIP_ENGINE_CHECK !== '1') {
   const engineVersion = readEngineVersion(repoRoot);
   step(`Verifying engine v${engineVersion} release assets are published (D4 release-order guard)`);
   const result = await checkEngineRelease({ version: engineVersion });
@@ -111,7 +111,7 @@ if (cfg.engineGated && process.env.IMPECCABLE_SKIP_ENGINE_CHECK !== '1') {
   }
   ok(`engine v${engineVersion} release assets all present`);
 } else if (cfg.engineGated) {
-  step('Skipping engine release-order guard (IMPECCABLE_SKIP_ENGINE_CHECK=1)');
+  step('Skipping engine release-order guard (IMPECCINO_SKIP_ENGINE_CHECK=1)');
 }
 
 const tag = `${cfg.tagPrefix}${version}`;

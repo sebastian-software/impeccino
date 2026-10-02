@@ -7,17 +7,17 @@ use crate::adapters::{class_selector, StyleRef};
 use crate::background::{read_own_background_color, resolve_border_radius_px, sv};
 use crate::dom::{StaticDocument, StaticElement};
 use crate::quality::{has_nonblank_direct_text, pf0};
-use impeccable_core::checks::measures::{cream_from_class_list, is_cream_color};
-use impeccable_core::checks::rules::{
+use impeccino_core::checks::measures::{cream_from_class_list, is_cream_color};
+use impeccino_core::checks::rules::{
     check_flat_type_hierarchy_samples, is_card_like_from_props, type_hierarchy_role, RuleHit,
     TypeSample, TYPE_HIERARCHY_SELECTOR,
 };
-use impeccable_core::checks::text_rules::{
+use impeccino_core::checks::text_rules::{
     is_repeated_text_container, REPEATED_TEXT_CONTAINER_TAGS, REPEATED_TEXT_SKIP_SELECTOR,
 };
-use impeccable_core::constants::{CSS_GENERIC_FONTS, OVERUSED_FONTS, SAFE_TAGS};
-use impeccable_core::js::{self, number_to_string, parse_float};
-use impeccable_core::js_ext_b::{slice_utf16_prefix, utf16_len};
+use impeccino_core::constants::{CSS_GENERIC_FONTS, OVERUSED_FONTS, SAFE_TAGS};
+use impeccino_core::js::{self, number_to_string, parse_float};
+use impeccino_core::js_ext_b::{slice_utf16_prefix, utf16_len};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashSet;

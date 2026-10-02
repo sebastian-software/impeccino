@@ -8,21 +8,21 @@
 use crate::background::{sv, sv_opt};
 use crate::cascade::StyleValues;
 use crate::dom::{ChildNode, StaticElement};
-use impeccable_core::checks::measures::{
+use impeccino_core::checks::measures::{
     colors_nearly_match, css_color_is_transparent, resolve_length_px,
 };
-use impeccable_core::checks::rules::RuleHit;
-use impeccable_core::checks::text_rules::{NON_RENDERED_TAGS, SR_ONLY_SELECTOR};
-use impeccable_core::js::{self, number_to_string, parse_float, to_fixed};
-use impeccable_core::js_ext_a::num_truthy;
-use impeccable_core::js_ext_b::{slice_utf16_prefix, utf16_len};
+use impeccino_core::checks::rules::RuleHit;
+use impeccino_core::checks::text_rules::{NON_RENDERED_TAGS, SR_ONLY_SELECTOR};
+use impeccino_core::js::{self, number_to_string, parse_float, to_fixed};
+use impeccino_core::js_ext_a::num_truthy;
+use impeccino_core::js_ext_b::{slice_utf16_prefix, utf16_len};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
 static WS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!("{}+", js::WS)).expect("WS_RE"));
 // JS `/url\(/i` in checkQuality's buried-raster branch.
 static RASTER_URL_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(&format!(r"{}\(", impeccable_core::js::ci("url"))).expect("RASTER_URL_RE"));
+    Lazy::new(|| Regex::new(&format!(r"{}\(", impeccino_core::js::ci("url"))).expect("RASTER_URL_RE"));
 static CLIP_RECT_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(&format!(r"rect\({}*0", js::WS)).expect("CLIP_RECT_RE"));
 static CLIP_INSET_RE: Lazy<Regex> = Lazy::new(|| {

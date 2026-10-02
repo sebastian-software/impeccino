@@ -1,4 +1,4 @@
-Report and repair drift between this project's Impeccable artifacts and what the installed version reads: PRODUCT.md, DESIGN.md and its `.impeccable/design.json` sidecar, `.impeccable/config.json`, persisted surface briefs, and the design hook.
+Report and repair drift between this project's Impeccino artifacts and what the installed version reads: PRODUCT.md, DESIGN.md and its `.impeccino/design.json` sidecar, `.impeccino/config.json`, persisted surface briefs, and the design hook.
 
 This is maintenance, not design. Do not redesign anything, do not open files outside the ones the report names, and do not run any other command as a side effect.
 
@@ -7,13 +7,13 @@ This is maintenance, not design. Do not redesign anything, do not open files out
 Three kinds of drift travel under "out of date". Keep them apart:
 
 - **Tool version.** The installed skill is older than the published one. Whatever installed the skill (Dalo, skills.sh, or another skill manager) updates it. Not this command's job.
-- **Schema drift.** An artifact was written by an older Impeccable: fields nothing reads, fields now expected, files in retired locations. Mechanical, and this command repairs most of it.
+- **Schema drift.** An artifact was written by an older Impeccino: fields nothing reads, fields now expected, files in retired locations. Mechanical, and this command repairs most of it.
 - **Truth drift.** The code moved on and the document no longer describes it. No file comparison settles this. `document` owns DESIGN.md, `init` owns PRODUCT.md, and this command's job is to hand them a specific gap rather than a vague suspicion.
 
 ## Step 1: Run the pass
 
 ```
-"<skill-base-dir>/scripts/impeccable" doctor --json
+"<skill-base-dir>/scripts/impeccino" doctor --json
 ```
 
 Add `--target <path>` when the user named a workspace, file, or route in a monorepo. Without it the report describes the repo root, and in a monorepo that is often the wrong project.
@@ -26,7 +26,7 @@ An empty `findings` array is the good outcome. Say so in one line and stop.
 
 The severity says what should happen, not how bad it is.
 
-- **`auto`** carries no decision. Run `"<skill-base-dir>/scripts/impeccable" doctor --fix` once to apply these, then report what it moved in one line. Do not ask permission first, and do not ask about them afterward.
+- **`auto`** carries no decision. Run `"<skill-base-dir>/scripts/impeccino" doctor --fix` once to apply these, then report what it moved in one line. Do not ask permission first, and do not ask about them afterward.
 - **`mention`** needs the user to know but not to decide anything now. State each one in a sentence with its offered fix.
 - **`route`** needs a specific command. Name the command and the gap it would close. Run it only if the user asks in this turn; `init` and `document` are conversations, not repairs you perform unattended.
 
@@ -50,4 +50,4 @@ The same restraint applies to `workspace-context-inherited`. Inheritance is a de
 
 ## Opting out of the boot check
 
-`impeccable context` reports the cheap subset of these findings at session start, throttled to once a week per project. Set `"stalenessCheck": false` in `.impeccable/config.json` to silence that, or `IMPECCABLE_NO_STALENESS_CHECK=1` for one session. This command still works with the check disabled, and that is the combination to suggest for a user who wants the report only when they ask for it.
+`impeccino context` reports the cheap subset of these findings at session start, throttled to once a week per project. Set `"stalenessCheck": false` in `.impeccino/config.json` to silence that, or `IMPECCINO_NO_STALENESS_CHECK=1` for one session. This command still works with the check disabled, and that is the combination to suggest for a user who wants the report only when they ask for it.

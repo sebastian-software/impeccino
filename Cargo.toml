@@ -1,6 +1,6 @@
-# The impeccable runtime: one Cargo workspace next to the skill it powers.
-# `cargo build --release -p impeccable` produces the engine binary the launcher
-# (skill/scripts/impeccable) runs. See docs/ENGINE.md.
+# The impeccino runtime: one Cargo workspace next to the skill it powers.
+# `cargo build --release -p impeccino` produces the engine binary the launcher
+# (skill/scripts/impeccino) runs. See docs/ENGINE.md.
 [workspace]
 resolver = "2"
 members = ["crates/*"]
@@ -12,13 +12,13 @@ license = "Apache-2.0"
 publish = false
 
 [workspace.dependencies]
-impeccable-foundation = { path = "crates/foundation" }
-impeccable-common = { path = "crates/common" }
-impeccable-core = { path = "crates/core" }
-impeccable-detect = { path = "crates/detect" }
-impeccable-html = { path = "crates/html" }
-impeccable-context = { path = "crates/context" }
-impeccable-hook = { path = "crates/hook" }
+impeccino-foundation = { path = "crates/foundation" }
+impeccino-common = { path = "crates/common" }
+impeccino-core = { path = "crates/core" }
+impeccino-detect = { path = "crates/detect" }
+impeccino-html = { path = "crates/html" }
+impeccino-context = { path = "crates/context" }
+impeccino-hook = { path = "crates/hook" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 thiserror = "2"
