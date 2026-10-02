@@ -22,7 +22,9 @@ record with a new one instead of rewriting history.
 | [0013](0013-no-wasm-or-browser-extension.md) | No WebAssembly build and no browser extension |
 | [0014](0014-releases-are-tags.md) | Releases are tags with generated notes |
 | [0015](0015-history-lives-in-git.md) | History lives in git |
-| [0016](0016-rendered-page-rules-via-the-harness-browser.md) | Rendered-page rules run through the harness's browser |
+| [0016](0016-rendered-page-rules-via-the-harness-browser.md) | Rendered-page rules run through the harness's browser (superseded by 0018) |
+| [0017](0017-working-name-impeccino.md) | Working name "Impeccino" (proposed, not applied) |
+| [0018](0018-rendered-pages-through-agent-browser.md) | Rendered pages are measured through agent-browser |
 
 Format: **Status**, **Date**, **Context**, **Decision**, **Consequences**,
 and, where it applies, **Revisit when**.

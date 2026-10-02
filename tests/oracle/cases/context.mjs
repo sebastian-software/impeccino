@@ -171,6 +171,8 @@ const cases = [
   { id: 'context-visual-only', verb: 'context', workspace: 'ctx-visual-only', env: env(), files: IMPECCABLE_FILES },
   { id: 'context-product-only', verb: 'context', workspace: 'ctx-product-only', env: env(), files: IMPECCABLE_FILES },
   { id: 'context-full', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, env: env(), files: IMPECCABLE_FILES },
+  // No agent-browser: context says so up front instead of the first `detect <url>` failing.
+  { id: 'context-no-agent-browser', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, env: env({ IMPECCABLE_AGENT_BROWSER: '<WS>/no-such-agent-browser' }), files: IMPECCABLE_FILES },
   { id: 'context-full-target-brief', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target', 'src/pages/index.astro'], env: env(), files: IMPECCABLE_FILES },
   { id: 'context-full-target-related', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['-t', 'src/components/Hero.astro'], env: env(), files: IMPECCABLE_FILES },
   { id: 'context-full-target-route', verb: 'context', workspace: 'ctx-full', setup: sidecarNewer, args: ['--target=/pricing'], env: env(), files: IMPECCABLE_FILES },

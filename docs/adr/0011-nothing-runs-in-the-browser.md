@@ -23,5 +23,5 @@ Removed: live mode (`live*` verbs, `detect-csp`, `crates/live`, the page scripts
 
 - `critique` takes its screenshots with the host's browser tool and runs the detector on source files.
 - The rules that need a rendered page stay. Impeccable does not drive a browser to evaluate them; the agent's own browser measures the page and the engine evaluates the rules ([0016](0016-rendered-page-rules-via-the-harness-browser.md)).
-- `detect` refuses URLs and points to `page-probe`.
+- ~~`detect` refuses URLs and points to `page-probe`.~~ Amended 2026-10-02: `detect <url>` scans the rendered page through agent-browser ([0018](0018-rendered-pages-through-agent-browser.md)). Impeccable still ships no browser and injects nothing into the user's running app; it drives a headless browser CLI the agent already uses.
 - Older skill copies that call a removed verb get a clear "was removed" message.

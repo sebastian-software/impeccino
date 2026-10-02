@@ -38,7 +38,7 @@ The CLI does not install the Impeccable skill. The skill is the `skill/` folder 
 
 61 deterministic detector rules in total. See the full catalog at [impeccable.style/slop](https://impeccable.style/slop).
 
-`detect` reads files and directories, not URLs. For the rules that need a rendered page, `impeccable page-probe` prints a loader to evaluate in a browser (for example your agent's browser tool) and reports the findings.
+`detect` reads files, directories, and URLs. A URL is loaded headlessly through [agent-browser](https://github.com/vercel-labs/agent-browser), which adds the rules that need a rendered page: `impeccable detect http://localhost:3000/`.
 
 ## Exit Codes
 

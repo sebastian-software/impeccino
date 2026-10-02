@@ -62,7 +62,6 @@ pub const ROOT_USAGE: &str = "Usage: impeccable <command> [options]
 Commands:
   detect [file-or-dir-or-url...]   Scan for UI anti-patterns and design quality issues
   ignores                          Manage detector ignore rules, files, and values
-  page-probe                       Measure a rendered page in your agent's browser
   help                             Show this help message
 
 Options:

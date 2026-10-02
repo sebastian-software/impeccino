@@ -68,14 +68,16 @@ Inline ignores:
 Detection modes:
   HTML files     Static HTML/CSS analysis (default, catches linked CSS)
   Non-HTML files Regex pattern matching (CSS, JSX, TSX, etc.)
-  Rendered pages are not scanned here; use `impeccable page-probe` with your
-  harness's browser tool for the rules that need layout.
+  URLs           Rendered-page scan through agent-browser (http, https, file):
+                 adds the layout rules, visual contrast, and script errors.
+                 Uses its own browser session, or AGENT_BROWSER_SESSION's.
 
 Examples:
   impeccable detect src/
   impeccable detect index.html
   impeccable detect --json .
   impeccable detect --no-config src/
+  impeccable detect http://localhost:3000/
 ";
 
 fn format_finding_summary(count: usize) -> String {

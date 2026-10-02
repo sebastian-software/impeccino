@@ -1,7 +1,7 @@
 //! The two engine seams `impeccable detect` calls into but does not own:
-//! the static HTML engine (crates/html) and the browser/URL engine
-//! (crates/browser). `detect` never depends on those crates; the `cli` binary
-//! wires concrete engines in through `Engines`.
+//! the static HTML engine (crates/html) and the URL engine (agent-browser,
+//! `crates/cli/src/page_scan`). `detect` never depends on either; the `cli`
+//! binary wires concrete engines in through `Engines`.
 
 use std::rc::Rc;
 
@@ -58,9 +58,9 @@ pub trait HtmlEngine {
     ) -> Result<Vec<Finding>, EngineError>;
 }
 
-/// The browser engine (`cli/engine/engines/browser/detect-url.mjs`
-/// `detectUrl(url, options)` and `createBrowserDetector()`). Implemented by
-/// crates/browser.
+/// The URL engine (`cli/engine/engines/browser/detect-url.mjs`
+/// `detectUrl(url, options)` and `createBrowserDetector()`). Implemented over
+/// agent-browser in `crates/cli/src/page_scan` (docs/adr/0018).
 pub trait UrlEngine {
     /// A single-URL scan (`detectUrl`: `waitUntil: 'networkidle0'`, `settleMs: 0`).
     fn detect_url(&self, url: &str, options: &ScanOptions) -> Result<Vec<Finding>, EngineError>;
@@ -112,14 +112,14 @@ impl HtmlEngine for MissingHtmlEngine {
     }
 }
 
-/// URL scans are not supported (docs/adr/0011): the harness's own browser
-/// renders pages, and `page-probe` measures them (docs/adr/0016).
+/// Fallback for a build that does not link a URL engine (the `cli` binary
+/// registers the agent-browser engine).
 pub struct MissingUrlEngine;
 
 impl UrlEngine for MissingUrlEngine {
     fn detect_url(&self, _url: &str, _options: &ScanOptions) -> Result<Vec<Finding>, EngineError> {
         Err(EngineError::new(
-            "URL scanning is not supported. Scan the source files instead; for the rendered page, run `impeccable page-probe` and evaluate its loader with your harness's browser tool.",
+            "impeccable detect: no URL engine is linked into this build; scan the source files instead.",
         ))
     }
 }

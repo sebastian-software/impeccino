@@ -312,6 +312,9 @@ function buildInvocation(c, { impl, bin, ws, isolatedHome }) {
     FORCE_COLOR: '0',
     IMPECCABLE_NO_UPDATE_CHECK: '1',
     IMPECCABLE_NO_TELEMETRY: '1',
+    // Context reports a missing agent-browser; any existing file counts as
+    // installed, so goldens do not depend on the recording machine's PATH.
+    IMPECCABLE_AGENT_BROWSER: process.execPath,
     DO_NOT_TRACK: '1',
     ...(c.isolateHome === false ? {} : { HOME: isolatedHome, USERPROFILE: isolatedHome }),
     // What the launcher exports for the binary (see launcher/impeccable in the engine repo).

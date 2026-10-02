@@ -13,6 +13,8 @@ impeccable-html = { path = "../html" }
 impeccable-hook = { path = "../hook" }
 impeccable-core = { workspace = true }
 serde_json = { workspace = true }
+png = "0.18"
+tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
 
 [dev-dependencies]
 serde_json = { workspace = true }

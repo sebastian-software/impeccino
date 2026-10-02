@@ -64,6 +64,10 @@ describe('release.mjs guards', () => {
     git(workDir, 'init', '-b', 'main');
     git(workDir, 'config', 'user.email', 'test@example.com');
     git(workDir, 'config', 'user.name', 'Release Test');
+    // A maintainer's global signing setup (1Password, gpg) would block on a
+    // prompt for every fixture commit and tag; this repo is disposable.
+    git(workDir, 'config', 'commit.gpgsign', 'false');
+    git(workDir, 'config', 'tag.gpgsign', 'false');
 
     fs.mkdirSync(path.join(workDir, 'scripts'));
     fs.copyFileSync(RELEASE_SCRIPT, path.join(workDir, 'scripts', 'release.mjs'));

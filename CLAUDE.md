@@ -270,7 +270,7 @@ All commands live under `/impeccable`. To add a new one:
 
 ## Adding or modifying anti-pattern detection rules
 
-The rule logic lives in `crates/core`; the detector ships 61 rules. Source-file rules run in the text and static HTML engines; rules that need layout run in `crates/core/src/browser` over a page snapshot that `impeccable page-probe` receives from the agent's own browser ([ADR 0016](docs/adr/0016-rendered-page-rules-via-the-harness-browser.md)). There is no WebAssembly build or bundle to refresh ([ADR 0013](docs/adr/0013-no-wasm-or-browser-extension.md)); when a rendered-page rule reads a new computed-style property, add it to both `STYLE_PROPS` in `crates/foundation/src/browser/snapshot.rs` and `crates/cli/assets/page-snapshot.js` (a test checks they agree). Everything a rule change touches:
+The rule logic lives in `crates/core`; the detector ships 61 rules. Source-file rules run in the text and static HTML engines; rules that need layout run in `crates/core/src/browser` over a page snapshot that `impeccable detect <url>` measures through agent-browser ([ADR 0018](docs/adr/0018-rendered-pages-through-agent-browser.md)). There is no WebAssembly build or bundle to refresh ([ADR 0013](docs/adr/0013-no-wasm-or-browser-extension.md)); when a rendered-page rule reads a new computed-style property, add it to both `STYLE_PROPS` in `crates/foundation/src/browser/snapshot.rs` and `crates/cli/assets/page-snapshot.js` (a test checks they agree). Everything a rule change touches:
 
 | Where | What it is |
 |---|---|

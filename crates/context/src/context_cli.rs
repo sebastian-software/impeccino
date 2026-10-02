@@ -170,6 +170,31 @@ fn append_detector_fallback(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: 
 
 
 
+/// Whether `detect <url>` can reach agent-browser: `IMPECCABLE_AGENT_BROWSER`
+/// when set, otherwise an `agent-browser` executable on PATH. Looked up, not
+/// run, so context stays fast and side-effect free.
+fn agent_browser_available(env: &Env) -> bool {
+    if let Some(bin) = env.get("IMPECCABLE_AGENT_BROWSER").filter(|b| !b.is_empty()) {
+        return std::path::Path::new(bin).is_file();
+    }
+    let names: &[&str] = if cfg!(windows) { &["agent-browser.exe", "agent-browser.cmd"] } else { &["agent-browser"] };
+    env.get("PATH")
+        .map(|path| std::env::split_paths(path).any(|dir| names.iter().any(|n| dir.join(n).is_file())))
+        .unwrap_or(false)
+}
+
+/// Say at session start, not at the first failed scan, that rendered-page
+/// detection is unavailable (docs/adr/0018).
+fn append_rendered_detector_availability(parts: &mut Vec<String>, ctx: &Ctx, env: &Env, provider: &Provider) {
+    if is_native(ctx.platform.as_deref()) || agent_browser_available(env) {
+        return;
+    }
+    parts.push([
+        format!("RENDERED_DETECTOR_UNAVAILABLE: agent-browser is not installed, so `{} <url>` cannot scan rendered pages this session; source-file detection and screenshots are unaffected.", provider.verb_cmd("detect")),
+        "Tell the user once, when the rendered-page detector would first apply, that installing it enables the layout, rendered-contrast, and script-error rules: `npm install -g agent-browser && agent-browser install`.".to_string(),
+    ].join(" "));
+}
+
 fn project_roots_diagnostic(ctx: &Ctx, options: &TargetOptions, env: &Env) -> (Option<Vec<String>>, Vec<TargetCandidate>) {
     if has_target_option(options) {
         return (None, vec![]);
@@ -388,6 +413,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         append_surface_brief_context(&mut parts, &ctx, &provider);
         parts.push(build_resolved_context_directive(&ctx, &options, target_exists));
         append_detector_fallback(&mut parts, &ctx, &cwd, &env, &provider);
+        append_rendered_detector_availability(&mut parts, &ctx, &env, &provider);
         append_autonomy_counter_directive(&mut parts);
         append_subagent_authorization_directive(&mut parts);
         if should_warn_missing_target(&ctx, target_provided, target_exists) {
@@ -404,6 +430,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     append_surface_brief_context(&mut parts, &ctx, &provider);
     parts.push(build_resolved_context_directive(&ctx, &options, target_exists));
     append_detector_fallback(&mut parts, &ctx, &cwd, &env, &provider);
+    append_rendered_detector_availability(&mut parts, &ctx, &env, &provider);
     append_autonomy_counter_directive(&mut parts);
     append_subagent_authorization_directive(&mut parts);
     if should_warn_missing_target(&ctx, target_provided, target_exists) {

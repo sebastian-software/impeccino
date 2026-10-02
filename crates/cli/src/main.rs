@@ -11,7 +11,7 @@ use std::io::Write;
 
 use impeccable_common::Io;
 
-mod page_probe;
+mod page_scan;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -70,7 +70,6 @@ fn run(args: &[String], io: &mut Io) -> i32 {
         "signals" | "context-signals" => impeccable_context::run_signals(rest, io),
         "doctor" => impeccable_context::run_doctor(rest, io),
         "concept-seed" => impeccable_context::run_concept_seed(rest, io),
-        "page-probe" => page_probe::run(rest, io),
         "hook" => impeccable_hook::run_hook(rest, io, engines().html),
         "hook-before-edit" => impeccable_hook::run_hook_before_edit(rest, io, engines().html),
         "hooks" | "hook-admin" => impeccable_hook::run_hook_admin(rest, io),
@@ -108,12 +107,12 @@ const SELF_INSTALL_RETIRED: &str = "Impeccable no longer installs or updates its
 /// `package.json`), tracked separately from the crate version.
 pub const CLI_VERSION: &str = "4.0.0";
 
-/// The engine wired into `impeccable detect`: the static HTML engine
-/// (crates/html). URL scans are not supported (docs/adr/0011).
+/// The engines wired into `impeccable detect`: the static HTML engine
+/// (crates/html) and URL scans through agent-browser (docs/adr/0018).
 fn engines() -> impeccable_detect::Engines<'static> {
     static HTML: impeccable_html::StaticHtmlEngine = impeccable_html::StaticHtmlEngine {
         // The shipped binary carries the built-in rules only.
         static_rule_pack: None,
     };
-    impeccable_detect::Engines { html: &HTML, url: None }
+    impeccable_detect::Engines { html: &HTML, url: Some(&page_scan::AgentBrowserEngine) }
 }

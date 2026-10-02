@@ -62,11 +62,11 @@ The detector ships 61 built-in rules, listed in
 there. Most run on source files, through the text engine (`crates/detect`)
 or the static HTML engine (`crates/html`). The rules that need layout run in
 `crates/core/src/browser` over a page snapshot (`SnapshotDom` in
-`crates/foundation/src/browser`): `impeccable page-probe` (`crates/cli/src/
-page_probe.rs`) serves the measurement script `crates/cli/assets/
-page-snapshot.js` to the agent's browser, receives the snapshot on
-127.0.0.1, answers the rules' hit tests with the live page, and writes the
-findings for `page-probe --result` (docs/adr/0016).
+`crates/foundation/src/browser`): `impeccable detect <url>` drives
+agent-browser (`crates/cli/src/page_scan`), installs the measurement script
+`crates/cli/assets/page-snapshot.js` in the page, answers the rules' hit
+tests with the live page over agent-browser's DevTools endpoint, and falls
+back to screenshot pixels for contrast it cannot decide (docs/adr/0018).
 
 Build and test:
 

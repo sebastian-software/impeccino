@@ -1,5 +1,5 @@
-// The page measurement `impeccable page-probe` runs in the agent's own
-// browser (docs/adr/0016). Pure measurement: it reads the DOM, computed
+// The page measurement `impeccable detect <url>` runs in a page agent-browser
+// holds (docs/adr/0018). Pure measurement: it reads the DOM, computed
 // styles, rects, and viewport once and serializes them, and the engine runs
 // the rendered-page rules natively over the result (see
 // crates/foundation/src/browser/snapshot.rs for the consumer and the field
@@ -17,7 +17,7 @@
 
 // Computed-style properties the rules read. Mirrors STYLE_PROPS in
 // crates/foundation/src/browser/snapshot.rs (a test in
-// crates/cli/src/page_probe.rs checks the two lists agree).
+// crates/cli/src/page_scan/mod.rs checks the two lists agree).
 const __SNAP_STYLE_PROPS = [
   "animationIterationCount", "animationName", "animationTimingFunction",
   "backdropFilter", "background", "backgroundClip", "backgroundColor",
