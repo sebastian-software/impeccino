@@ -1,5 +1,5 @@
 ---
-name: audit
+name: oracle-fixture-audit
 description: a user-authored audit skill
 ---
 Not pinned.

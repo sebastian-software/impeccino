@@ -1,4 +1,4 @@
 ---
-name: impeccino
+name: oracle-fixture-cursor-impeccino
 description: fixture
 ---
