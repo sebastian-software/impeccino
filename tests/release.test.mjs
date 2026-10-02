@@ -153,6 +153,17 @@ describe('release.mjs guards', () => {
     assert.match(stderr, /engine\.sha256 has no pin for engine-v0\.1\.0/);
   });
 
+  it('starts the release notes from the previous release on origin, not a local-only tag', () => {
+    git(workDir, 'tag', 'skill-v1.0.0');
+    git(workDir, 'push', 'origin', 'skill-v1.0.0');
+    // A tag that only exists locally (an upstream remote's, say) is not a release here.
+    git(workDir, 'tag', 'skill-v9.9.9');
+    const { code, stdout } = runRelease(workDir, 'skill');
+    assert.equal(code, 0, stdout);
+    assert.match(stdout, /--notes-start-tag skill-v1\.0\.0/);
+    assert.doesNotMatch(stdout, /skill-v9\.9\.9/);
+  });
+
   it('refuses an unknown component', () => {
     const { code, stderr } = runRelease(workDir, 'website');
     assert.equal(code, 1);
