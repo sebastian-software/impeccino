@@ -75,11 +75,14 @@ describe('release.mjs guards', () => {
     // (and check-engine-release.mjs imports fetch-engine.mjs), so stage them
     // too or the dry runs fail to resolve the modules instead of exercising
     // the guard.
-    for (const dep of ['check-engine-release.mjs', 'fetch-engine.mjs']) {
+    for (const dep of ['check-engine-release.mjs', 'fetch-engine.mjs', 'pin-engine.mjs']) {
       fs.copyFileSync(path.join(REPO_ROOT, 'scripts', dep), path.join(workDir, 'scripts', dep));
     }
     write('skill/SKILL.md', '---\nname: impeccino\ndescription: Design.\nmetadata:\n  version: 1.2.3\n---\n\nBody.\n');
     write('skill/scripts/VERSION', '0.1.0\n');
+    const pins = ['darwin-arm64', 'darwin-x64', 'linux-x64', 'linux-arm64', 'windows-x64.exe']
+      .map((a) => `${'a'.repeat(64)}  engine-v0.1.0/impeccino-${a}`).join('\n');
+    write('skill/scripts/engine.sha256', `# fixture\n${pins}\n`);
 
     git(workDir, 'add', '-A');
     git(workDir, 'commit', '-m', 'fixture');
@@ -139,6 +142,15 @@ describe('release.mjs guards', () => {
     assert.match(stdout, /\[dry-run\] gh release create skill-v1\.2\.3/);
     assert.match(stdout, /gh release create skill-v1\.2\.3 [^\n]*--generate-notes/);
     assert.doesNotMatch(stdout, /universal\.zip|1Password|changelog/);
+  });
+
+  it('refuses a skill release whose engine version has no pins', () => {
+    write('skill/scripts/engine.sha256', '# no pins\n');
+    git(workDir, 'commit', '-am', 'drop pins');
+    git(workDir, 'push', 'origin', 'main');
+    const { code, stderr } = runRelease(workDir, 'skill');
+    assert.equal(code, 1);
+    assert.match(stderr, /engine\.sha256 has no pin for engine-v0\.1\.0/);
   });
 
   it('refuses an unknown component', () => {

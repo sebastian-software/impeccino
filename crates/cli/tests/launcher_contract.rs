@@ -56,9 +56,9 @@ fn cmd_launcher_asset_naming_matches_engine() {
     // arm64 falls back to the x64 asset (Windows on ARM runs x64 binaries).
     assert!(cmd.contains(r#"set "asset=impeccino-windows-x64.exe""#));
     assert!(cmd.contains(r#"if /I "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "arch=arm64""#));
-    // sha256 verification via certutil against the sidecar.
+    // sha256 verification via certutil against the pinned digest.
     assert!(cmd.contains("certutil -hashfile"));
-    assert!(cmd.contains(".sha256"));
+    assert!(cmd.contains("engine.sha256"));
     // engine-probe handshake for PATH / unversioned home candidates.
     assert!(cmd.contains("engine-probe"));
     assert!(cmd.contains(r#"findstr /b /c:"impeccino-engine""#));
@@ -82,23 +82,22 @@ fn cmd_launcher_has_no_multiline_parenthesized_blocks() {
 }
 
 #[test]
-fn launchers_fail_closed_on_missing_checksum() {
-    // Triage C1: a freshly downloaded binary runs only after verifying
-    // against its .sha256 sidecar. A sidecar that cannot be fetched, or a
-    // machine with no sha256 tool, refuses the download instead of running
-    // an unverified binary; a mismatch stays fatal.
+fn launchers_verify_only_against_the_digests_pinned_in_the_skill() {
+    // engine.sha256 next to the launchers pins each release asset as
+    // `<sha256>  engine-v<version>/<asset>`. A version without pins is
+    // refused before any download; a missing hash tool or a mismatch is
+    // fatal. There is no fallback to a checksum file from the release.
     let sh = launcher_file("impeccino");
     let cmd = launcher_file("impeccino.cmd");
-    assert!(sh.contains("refusing the unverified download"));
-    assert!(sh.contains(r#"if [ -z "$expected" ] || [ -z "$actual" ]; then"#));
-    // wget-only environments fetch and require the sidecar too.
-    assert!(sh.contains(r#"wget -q -O "$tmp.sha256" "$url.sha256""#));
-    assert!(cmd.contains("refusing the unverified download"));
-    assert!(cmd.contains("goto verify_refuse"));
-    // The old lenient path (missing sidecar -> place the binary) is gone.
-    assert!(!cmd.contains(":have_sidecar"));
+    assert!(sh.contains(r#"key="engine-v$version/${url##*/}""#));
+    assert!(sh.contains(r#"grep -qF "  engine-v$version/" "$dir/engine.sha256""#));
+    assert!(cmd.contains(r#"if "%%b"=="engine-v%version%/%asset%""#));
+    assert!(cmd.contains(r#"findstr /c:"  engine-v%version%/" "%~dp0engine.sha256""#));
+    assert!(cmd.contains("if not defined expected goto no_pin_downloaded"));
     for text in [&sh, &cmd] {
+        assert!(text.contains("refusing the unverified download") || text.contains("refusing to download an unverified engine"));
         assert!(text.contains("checksum mismatch downloading"));
+        assert!(!text.contains("$url.sha256") && !text.contains("%url%.sha256"), "no sidecar fallback");
     }
 }
 

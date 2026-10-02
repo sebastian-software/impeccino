@@ -171,7 +171,7 @@ jobs:
         run: node tests/oracle/run.mjs
 
   # Release-order guard: the engine release for the pinned skill/scripts/VERSION
-  # (five binaries + .sha256) must exist before a skill release or a merge that
+  # (five binaries) and its pins in skill/scripts/engine.sha256 must exist before a skill release or a merge that
   # bumps the pin, or the launcher dead-ends. release.mjs hard-fails
   # `release:skill` on the same check.
   engine-release-ready:
@@ -188,6 +188,9 @@ jobs:
       - name: Check engine release assets for the pinned engine version
         id: check
         run: node scripts/check-engine-release.mjs
+
+      - name: Check the skill pins that engine release
+        run: node scripts/pin-engine.mjs --check
 
       - name: Annotate missing engine release
         # Only when the check itself failed, so a checkout or setup failure keeps its own error.

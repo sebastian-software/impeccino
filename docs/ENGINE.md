@@ -153,11 +153,13 @@ runtime, in this order:
 
 1. **Engine** (`engine-v<version>`): `bun run release:engine` verifies
    the version and a clean tree, then tags and pushes;
-   `.github/workflows/release-engine.yml` builds the five targets and
-   publishes the binaries with `.sha256` sidecars, which the launcher
-   downloads and verifies.
-2. **Skill** (`skill-v<version>`), which `scripts/check-engine-release.mjs`
-   gates on the engine release.
+   `.github/workflows/release-engine.yml` builds the five targets, attests
+   each binary, and publishes them as an immutable release.
+2. **Pins**: `scripts/pin-engine.mjs` verifies each binary's build
+   attestation and writes the digests to `skill/scripts/engine.sha256`, which
+   the launchers check downloads against.
+3. **Skill** (`skill-v<version>`), gated on the engine release
+   (`scripts/check-engine-release.mjs`) and on the pins.
 
 CI runs the workspace build and tests (`rust`, `rust-windows`) and replays the
 oracle against a release build from the checkout under test.

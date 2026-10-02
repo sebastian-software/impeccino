@@ -19,6 +19,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkEngineRelease } from './check-engine-release.mjs';
 import { readEngineVersion } from './fetch-engine.mjs';
+import { PIN_FILE, missingPins } from './pin-engine.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -93,7 +94,7 @@ ok(`${cfg.label} ${version}`);
 
 // Release-order guard. The skill refuses to tag until the engine release for
 // the pinned skill/scripts/VERSION is live: the five engine-v<version> release
-// binaries + .sha256. Without them the launcher dead-ends. Set
+// binaries. Without them the launcher dead-ends. Set
 // IMPECCINO_SKIP_ENGINE_CHECK=1 only when you know the assets exist and the
 // probe is unreachable.
 if (cfg.engineGated && process.env.IMPECCINO_SKIP_ENGINE_CHECK !== '1') {
@@ -112,6 +113,19 @@ if (cfg.engineGated && process.env.IMPECCINO_SKIP_ENGINE_CHECK !== '1') {
   ok(`engine v${engineVersion} release assets all present`);
 } else if (cfg.engineGated) {
   step('Skipping engine release-order guard (IMPECCINO_SKIP_ENGINE_CHECK=1)');
+}
+
+// The skill pins the engine bytes (skill/scripts/engine.sha256); a skill
+// release without pins for its engine version would ship launchers that
+// refuse to download the engine.
+if (component === 'skill') {
+  const engineVersion = readEngineVersion(repoRoot);
+  step(`Checking ${PIN_FILE} pins engine v${engineVersion}`);
+  const missing = missingPins(engineVersion, repoRoot);
+  if (missing.length) {
+    fail(`${PIN_FILE} has no pin for engine-v${engineVersion} (${missing.join(', ')}). Run \`node scripts/pin-engine.mjs\` after the engine release and commit the result.`);
+  }
+  ok('engine pins present');
 }
 
 const tag = `${cfg.tagPrefix}${version}`;
@@ -212,6 +226,6 @@ async function releaseEngine() {
 
   console.log(`\n✓ Engine ${version} tagged as ${tag}`);
   console.log(`\n→ Next step: watch the release-engine workflow (${REPO_URL}/actions/workflows/release-engine.yml).`);
-  console.log(`  It publishes the five binaries + .sha256 as ${REPO_URL}/releases/tag/${tag}.`);
-  console.log('  Then release the skill.');
+  console.log(`  It publishes the five attested binaries as ${REPO_URL}/releases/tag/${tag}.`);
+  console.log('  Then pin them (bun run pin:engine), commit, and release the skill.');
 }

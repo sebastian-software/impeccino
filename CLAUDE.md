@@ -215,15 +215,21 @@ Workflow for either component:
 2. Commit and push.
 3. Run `bun run release:<engine|skill>`. Preview first with `node scripts/release.mjs <component> --dry-run`.
 
-The script refuses to run if the working tree is dirty, HEAD is ahead of origin, or the tag already exists. The engine release only tags and pushes; `release-engine.yml` builds the five binaries and publishes them with `.sha256` sidecars. Binaries are not code-signed; the launcher verifies the checksum. Skill releases attach nothing.
+The script refuses to run if the working tree is dirty, HEAD is ahead of origin, or the tag already exists. The engine release only tags and pushes; `release-engine.yml` builds the five binaries, attests each, and publishes them as one immutable release. Binaries are not code-signed. Skill releases attach nothing.
 
 If you need to fix release notes after the fact: `gh release edit <tag> --notes-file <md>`.
 
 ### Release order is enforced
 
-The skill launcher resolves the engine binary for the pinned version in `skill/scripts/VERSION`, so the engine release must exist first: publish `engine-v<version>`, then release the skill or merge a branch that bumps `skill/scripts/VERSION` (skill managers pin commits, so a bump must point at a published engine).
+The skill launcher resolves the engine binary for the pinned version in `skill/scripts/VERSION`, so the order is:
 
-`scripts/check-engine-release.mjs` verifies the five binaries and their `.sha256` sidecars for the pinned version (ranged GET per asset; honors `IMPECCINO_DOWNLOAD_BASE`) and names exactly what is missing. `scripts/release.mjs` runs it as a hard gate before tagging the skill. `IMPECCINO_SKIP_ENGINE_CHECK=1` bypasses it only when the assets exist but the probe is unreachable. CI's `engine-release-ready` job runs the same check.
+1. `bun run release:engine` publishes `engine-v<version>`.
+2. `bun run pin:engine` (`scripts/pin-engine.mjs`) downloads the five assets, verifies each build attestation with `gh attestation verify` (needs the signed-in `gh` CLI), and writes `skill/scripts/engine.sha256`. Commit it together with the `VERSION` bump; skill managers pin commits, so a bump must point at a published and pinned engine.
+3. `bun run release:skill`, which refuses without pins for the engine version (`node scripts/pin-engine.mjs --check` checks them offline).
+
+The launchers and `fetch-engine.mjs` accept a download only if it matches `engine.sha256`; a version without pins is refused, so local engine work runs through `IMPECCINO_BIN` ([ADR 0010](docs/adr/0010-launcher-fetches-the-engine.md)).
+
+`scripts/check-engine-release.mjs` verifies the five binaries exist for the pinned version (ranged GET per asset; honors `IMPECCINO_DOWNLOAD_BASE`) and names exactly what is missing. `scripts/release.mjs` runs it, and the pin check, as hard gates before tagging the skill. `IMPECCINO_SKIP_ENGINE_CHECK=1` bypasses it only when the assets exist but the probe is unreachable. CI's `engine-release-ready` job runs both checks.
 
 ## Adding New Commands
 

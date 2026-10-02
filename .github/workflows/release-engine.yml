@@ -1,9 +1,12 @@
 name: release-engine
-# Builds the engine binary for every supported target and publishes them, with
-# sha256 sidecars, as the GitHub Release `engine-v<X>` on this repo. That
+# Builds the engine binary for every supported target and publishes them as
+# the GitHub Release `engine-v<X>` on this repo. That
 # release is what the launcher (skill/scripts/impeccino) and
-# `bun run fetch:engine` download. Binaries are not code-signed; the launcher
-# verifies each download against its .sha256 sidecar.
+# `bun run fetch:engine` download. Binaries are not code-signed; a GitHub
+# build attestation binds each one to this repo and workflow (verify with
+# `gh attestation verify <file> -R <repo>`). The release is published only
+# once every asset is attached, so it works with immutable releases;
+# scripts/pin-engine.mjs then pins the digests into the skill.
 #
 # Trigger: `bun run release:engine` (scripts/release.mjs) verifies
 # skill/scripts/VERSION and a clean tree, then pushes the tag. Third-party actions are pinned to commit SHAs so a
@@ -63,12 +66,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Build provenance: the OIDC token signs the attestation, which GitHub stores.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: impeccino-*
           path: artifacts
-      - name: Lay out release assets with checksums
+      - name: Lay out release assets
         run: |
           set -e
           mkdir -p out
@@ -77,17 +83,20 @@ jobs:
             f=$(ls "$d" | head -1)
             case "$short" in windows-*) dest="out/impeccino-$short.exe" ;; *) dest="out/impeccino-$short" ;; esac
             cp "$d/$f" "$dest"
-            (cd out && sha256sum "$(basename "$dest")" > "$(basename "$dest").sha256")
           done
           ls -la out
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: out/impeccino-*
       - name: Publish the GitHub Release
         env: { GH_TOKEN: "${{ github.token }}" }
-        # No --clobber: a published asset is immutable. A re-run against an
-        # existing release fails on the first existing asset instead of
-        # silently replacing a binary and its sidecar hash.
+        # Draft first, attach every asset, then publish: an immutable release
+        # locks its assets at publication. No --clobber and no upload into an
+        # existing release; a re-run against a published release fails.
         run: |
           set -e
           tag="${GITHUB_REF_NAME}"
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "impeccino engine $tag" \
-            --notes "Prebuilt impeccino engine binaries ($tag). The skill's launcher downloads these on first run and checks them against the .sha256 sidecars." out/* || \
-          gh release upload "$tag" out/* --repo "$GITHUB_REPOSITORY"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "impeccino engine $tag" \
+            --notes "Prebuilt impeccino engine binaries ($tag). The skill's launcher downloads these on first run and checks them against the digests pinned in skill/scripts/engine.sha256. Verify provenance with: gh attestation verify <file> -R $GITHUB_REPOSITORY" out/*
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false

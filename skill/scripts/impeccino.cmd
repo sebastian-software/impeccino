@@ -13,8 +13,8 @@ rem - The unversioned user binary and the PATH candidate are validated with
 rem   the engine-probe handshake (see :probe) so the retired 3.x npm CLI,
 rem   whose bin is also named impeccino, is never exec'd. IMPECCINO_BIN,
 rem   the sibling binary, and the version-pinned cache stay trusted.
-rem - Downloads are verified against the .sha256 sidecar via certutil and
-rem   fail closed: a missing sidecar or hash tool refuses the download. On
+rem - Downloads are verified via certutil against the digest pinned in
+rem   engine.sha256 and fail closed: no pin or no hash tool refuses it. On
 rem   ARM64 the arm64 asset is tried first and the x64 asset is the
 rem   fallback (Windows on ARM runs x64 binaries).
 if not defined IMPECCINO_SKILL_DIR set "IMPECCINO_SKILL_DIR=%~dp0.."
@@ -82,6 +82,9 @@ if exist "%cached%.part\" goto cache_write_failed
 (type nul >"%cached%.part") 2>nul || goto cache_write_failed
 set "asset=impeccino-windows-%arch%.exe"
 set "url=%IMPECCINO_DOWNLOAD_BASE%/engine-v%version%/%asset%"
+rem Only a version the skill pins can be verified; refuse before downloading.
+findstr /c:"  engine-v%version%/" "%~dp0engine.sha256" >nul 2>nul
+if errorlevel 1 goto no_pin
 curl.exe -fsSL -o "%cached%.part" "%url%" >nul 2>nul
 if not errorlevel 1 goto verify
 if not "%arch%"=="arm64" goto download_failed
@@ -94,39 +97,49 @@ if errorlevel 1 goto download_failed
 call :check_download
 if errorlevel 1 exit /b 127
 rem Mirrors the sh launcher and fails closed: a freshly downloaded binary
-rem runs only after verifying against its .sha256 sidecar. A sidecar that
-rem cannot be fetched, or an empty certutil result, refuses the download
-rem instead of running an unverified binary.
-curl.exe -fsSL -o "%cached%.sha256" "%url%.sha256" >nul 2>nul
-if errorlevel 1 goto verify_refuse
+rem runs only after matching the digest engine.sha256 next to this script
+rem pins for it (scripts/pin-engine.mjs writes it after verifying the GitHub
+rem build attestation). No pin or an empty certutil result refuses it.
 set "expected="
-set /p expected=<"%cached%.sha256"
-for /f "tokens=1" %%h in ("%expected%") do set "expected=%%h"
+if exist "%~dp0engine.sha256" for /f "usebackq tokens=1,2" %%a in ("%~dp0engine.sha256") do if "%%b"=="engine-v%version%/%asset%" if not defined expected set "expected=%%a"
+if not defined expected goto no_pin_downloaded
+
+:hash
 call :check_download
 if errorlevel 1 exit /b 127
 set "actual="
-rem Reuse the sidecar staging file after reading expected. Check certutil's
-rem status before parsing: its error text on stdout is not a digest.
-certutil -hashfile "%cached%.part" SHA256 >"%cached%.sha256" 2>nul
+rem Check certutil's status before parsing: its error text on stdout is not
+rem a digest.
+certutil -hashfile "%cached%.part" SHA256 >"%cached%.hash" 2>nul
 if errorlevel 1 goto verify_refuse
 call :check_download
 if errorlevel 1 exit /b 127
-for /f "usebackq skip=1 delims=" %%h in ("%cached%.sha256") do if not defined actual set "actual=%%h"
-del "%cached%.sha256" >nul 2>nul
+for /f "usebackq skip=1 delims=" %%h in ("%cached%.hash") do if not defined actual set "actual=%%h"
+del "%cached%.hash" >nul 2>nul
 if not defined expected goto verify_refuse
 if not defined actual goto verify_refuse
 set "actual=%actual: =%"
 if /I "%actual%"=="%expected%" goto place
 del "%cached%.part" >nul 2>nul
-echo impeccino: checksum mismatch downloading %url% 1>&2
+echo impeccino: checksum mismatch downloading %url% (pinned in %~dp0engine.sha256) 1>&2
 exit /b 127
 
 :verify_refuse
 call :check_download
 if errorlevel 1 exit /b 127
 del "%cached%.part" >nul 2>nul
-del "%cached%.sha256" >nul 2>nul
-echo impeccino: cannot verify %url% against %url%.sha256; refusing the unverified download 1>&2
+del "%cached%.hash" >nul 2>nul
+echo impeccino: cannot hash %url% with certutil; refusing the unverified download 1>&2
+exit /b 127
+
+:no_pin_downloaded
+call :check_download
+if errorlevel 1 exit /b 127
+del "%cached%.part" >nul 2>nul
+
+:no_pin
+del "%cached%.part" >nul 2>nul
+echo impeccino: no digest pinned for engine-v%version%/%asset% in "%~dp0engine.sha256"; refusing to download an unverified engine. Use a released skill version, or build the engine and set IMPECCINO_BIN. 1>&2
 exit /b 127
 
 :check_download
@@ -137,13 +150,13 @@ for %%f in ("%download_file%") do if %%~zf==0 goto download_empty
 exit /b 0
 
 :download_missing
-del "%cached%.sha256" >nul 2>nul
+del "%cached%.hash" >nul 2>nul
 echo impeccino: download completed but the file was removed before execution: %url%; check your antivirus quarantine or logs. Refusing to continue; do not disable protection. 1>&2
 exit /b 127
 
 :download_empty
 del "%download_file%" >nul 2>nul
-del "%cached%.sha256" >nul 2>nul
+del "%cached%.hash" >nul 2>nul
 echo impeccino: downloaded file is empty: %url%; refusing the unverified download 1>&2
 exit /b 127
 
@@ -210,5 +223,5 @@ exit /b 127
 :fail
 del "%cached%.part" >nul 2>nul
 echo impeccino: no engine binary found (looked in %bin%, %cached%, PATH). 1>&2
-echo Download impeccino-windows-%arch%.exe from https://github.com/sebastian-software/impeccino/releases (tag engine-v%version%) and save it as %cached%, or set IMPECCINO_BIN to a preinstalled engine binary. Docs: https://impeccable.style 1>&2
+echo Download impeccino-windows-%arch%.exe from https://github.com/sebastian-software/impeccino/releases (tag engine-v%version%) and save it as %cached%, or set IMPECCINO_BIN to a preinstalled engine binary. 1>&2
 exit /b 127

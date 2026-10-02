@@ -432,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "impeccino-common",
  "impeccino-context",
@@ -447,14 +447,14 @@ dependencies = [
 
 [[package]]
 name = "impeccino-common"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "libc",
 ]
 
 [[package]]
 name = "impeccino-context"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "flate2",
  "impeccino-common",
@@ -473,7 +473,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-core"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "impeccino-core",
  "impeccino-foundation",
@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-detect"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "impeccino-common",
  "impeccino-core",
@@ -497,7 +497,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-foundation"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "cssparser",
  "once_cell",
@@ -510,7 +510,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-hook"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "impeccino-common",
  "impeccino-context",
@@ -524,7 +524,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-html"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "cssparser",
  "ego-tree",

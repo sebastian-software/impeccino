@@ -14,8 +14,11 @@
  *   IMPECCINO_DOWNLOAD_BASE  release channel root (default: the public repo's GitHub Releases)
  *   IMPECCINO_BIN            copy this local binary for the current platform instead of downloading
  *
- * The URL scheme is the launcher's: <base>/engine-v<version>/impeccino-<os>-<arch>[.exe],
- * with an optional <asset>.sha256 next to it that is verified when present.
+ * The URL scheme is the launcher's: <base>/engine-v<version>/impeccino-<os>-<arch>[.exe].
+ * Like the launcher, a download must match its digest in skill/scripts/engine.sha256
+ * (written by scripts/pin-engine.mjs); an unpinned version is refused. For an
+ * unreleased engine, build it (`cargo build --release -p impeccino`) and set
+ * IMPECCINO_BIN.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -39,6 +42,31 @@ export function currentTarget() {
 
 export function binaryName(target) {
   return target.startsWith('windows-') ? 'impeccino.exe' : 'impeccino';
+}
+
+/** The pin file the launchers and this script verify downloads against. */
+export const PIN_FILE = path.join('skill', 'scripts', 'engine.sha256');
+
+export function assetName(target) {
+  return `impeccino-${target}${target.startsWith('windows-') ? '.exe' : ''}`;
+}
+
+/** Pins in the file, as a Map of `engine-v<version>/<asset>` to sha256. */
+export function readPins(root = ROOT) {
+  const file = path.join(root, PIN_FILE);
+  const pins = new Map();
+  if (!fs.existsSync(file)) return pins;
+  for (const line of fs.readFileSync(file, 'utf-8').split('\n')) {
+    const m = line.match(/^([0-9a-f]{64})\s+(\S+)$/);
+    if (m) pins.set(m[2], m[1]);
+  }
+  return pins;
+}
+
+/** The targets whose asset has no pin for `version`. */
+export function missingPins(version, root = ROOT) {
+  const pins = readPins(root);
+  return ENGINE_TARGETS.filter((t) => !pins.has(`engine-v${version}/${assetName(t)}`));
 }
 
 export function assetUrl(version, target, base = process.env.IMPECCINO_DOWNLOAD_BASE || DEFAULT_DOWNLOAD_BASE) {
@@ -77,17 +105,13 @@ export async function fetchEngine(target, { version = readEngineVersion(), dest,
     return install(fs.readFileSync(local), target, dest);
   }
   const url = assetUrl(version, target, base);
+  const pinned = readPins().get(`engine-v${version}/${assetName(target)}`);
+  if (!pinned) {
+    throw new Error(`${PIN_FILE} has no pin for engine-v${version}/${assetName(target)}; build the engine locally and set IMPECCINO_BIN, or pin the release (node scripts/pin-engine.mjs)`);
+  }
   const buffer = await download(url);
-  let checksum = null;
-  try {
-    checksum = (await download(`${url}.sha256`)).toString('utf-8').trim().split(/\s+/)[0];
-  } catch {
-    // No checksum published for this asset: accept the download as-is, like the launcher.
-  }
-  if (checksum) {
-    const actual = createHash('sha256').update(buffer).digest('hex');
-    if (actual !== checksum) throw new Error(`checksum mismatch for ${url}: expected ${checksum}, got ${actual}`);
-  }
+  const actual = createHash('sha256').update(buffer).digest('hex');
+  if (actual !== pinned) throw new Error(`checksum mismatch for ${url}: pinned ${pinned}, got ${actual}`);
   return install(buffer, target, dest);
 }
 

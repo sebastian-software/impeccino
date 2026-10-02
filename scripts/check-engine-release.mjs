@@ -7,9 +7,9 @@
  * in the engine-v<version> GitHub Release. Nothing else mechanically stops a
  * maintainer from tagging the skill release before those assets are published.
  *
- * This script verifies, for the pinned engine version, that:
- *   1. each of the five release binaries impeccino-<os>-<arch>[.exe] is fetchable
- *   2. each binary's .sha256 sidecar is fetchable
+ * This script verifies, for the pinned engine version, that each of the five
+ * release binaries impeccino-<os>-<arch>[.exe] is fetchable. Their digests and
+ * build attestations are checked by scripts/pin-engine.mjs.
  *
  * Exits 0 when everything is present, non-zero (naming exactly what is missing)
  * otherwise. release.mjs runs it before an engine-dependent release; CI runs it
@@ -54,17 +54,13 @@ export async function checkEngineRelease({
   await Promise.all(
     ENGINE_TARGETS.map(async (target) => {
       const binUrl = assetUrl(version, target, base);
-      const shaUrl = `${binUrl}.sha256`;
-      const [binOk, shaOk] = await Promise.all([urlExists(binUrl), urlExists(shaUrl)]);
+      const binOk = await urlExists(binUrl);
 
       if (!binOk) missing.push({ kind: 'binary', target, what: `impeccino-${target} binary`, url: binUrl });
-      if (!shaOk) missing.push({ kind: 'checksum', target, what: `impeccino-${target} .sha256`, url: shaUrl });
     })
   );
 
-  // Stable ordering for a readable report: by target, then binary/checksum.
-  const order = { binary: 0, checksum: 1 };
-  missing.sort((a, b) => ENGINE_TARGETS.indexOf(a.target) - ENGINE_TARGETS.indexOf(b.target) || order[a.kind] - order[b.kind]);
+  missing.sort((a, b) => ENGINE_TARGETS.indexOf(a.target) - ENGINE_TARGETS.indexOf(b.target));
 
   return { ok: missing.length === 0, version, base, missing };
 }
@@ -72,7 +68,7 @@ export async function checkEngineRelease({
 function report(result) {
   const { ok, version, base, missing } = result;
   if (ok) {
-    console.log(`✓ engine v${version} release is complete: all ${ENGINE_TARGETS.length} binaries + .sha256 are published.`);
+    console.log(`✓ engine v${version} release is complete: all ${ENGINE_TARGETS.length} binaries are published.`);
     console.log(`  release base: ${base}`);
     return;
   }

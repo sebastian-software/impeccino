@@ -25,6 +25,15 @@ async function exercise(t, scenario) {
   fs.mkdirSync(scripts);
   fs.mkdirSync(home);
   fs.writeFileSync(path.join(scripts, 'VERSION'), '0.0.0-test\n');
+  if (scenario !== 'no-pin') {
+    // The skill's engine.sha256: one line per release asset. A pin for
+    // another version must not apply to this one.
+    const version = scenario === 'pinned-other-version' ? '9.9.9' : '0.0.0-test';
+    const digest = scenario === 'mismatch' ? '0'.repeat(64) : HASH;
+    const assets = ['darwin-arm64', 'darwin-x64', 'linux-x64', 'linux-arm64', 'windows-x64.exe', 'windows-arm64.exe'];
+    fs.writeFileSync(path.join(scripts, 'engine.sha256'),
+      `# engine-v${version}\n${assets.map(a => `${digest}  engine-v${version}/impeccino-${a}`).join('\n')}\n`);
+  }
   const name = WINDOWS ? 'impeccino.cmd' : 'impeccino';
   const launcher = path.join(scripts, name);
   fs.copyFileSync(path.join(ROOT, 'skill/scripts', name), launcher);
@@ -71,7 +80,7 @@ async function exercise(t, scenario) {
     const fault = path.join(tools, 'fault.cmd');
     const hashFault = ['hash-failure', 'removed-during-hash'].includes(scenario);
     const operation = hashFault
-      ? 'certutil -hashfile "%cached%.part" SHA256 >"%cached%.sha256" 2>nul'
+      ? 'certutil -hashfile "%cached%.part" SHA256 >"%cached%.hash" 2>nul'
       : 'move /y "%cached%.part" "%cached%" >nul 2>nul';
     let script;
     if (hashFault) {
@@ -86,7 +95,7 @@ async function exercise(t, scenario) {
     fs.writeFileSync(fault, script.replaceAll('\n', '\r\n'));
     const source = fs.readFileSync(launcher, 'utf8');
     assert.equal(source.split(operation).length, 2, 'instrument exactly one operation');
-    const replacement = `call "${fault}"${hashFault ? ' >"%cached%.sha256" 2>nul' : ''}`;
+    const replacement = `call "${fault}"${hashFault ? ' >"%cached%.hash" 2>nul' : ''}`;
     fs.writeFileSync(launcher, source.replace(operation, replacement));
   }
   const requests = [];
@@ -96,16 +105,8 @@ async function exercise(t, scenario) {
       req.socket.destroy();
       return;
     }
-    if (req.url.endsWith('.sha256')) {
-      const part = fs.readdirSync(cacheDir).find(file => file.includes('.part'));
-      if (scenario === 'removed') fs.unlinkSync(path.join(cacheDir, part));
-      if (scenario === 'emptied') fs.truncateSync(path.join(cacheDir, part));
-      res.writeHead(scenario === 'no-sidecar' ? 404 : 200);
-      res.end(scenario === 'empty-sidecar' ? '' : `${scenario === 'mismatch' ? '0'.repeat(64) : HASH}  engine\n`);
-    } else {
-      if (scenario === 'download-failure') res.writeHead(404);
-      res.end(scenario === 'empty-download' ? '' : PAYLOAD);
-    }
+    if (scenario === 'download-failure') res.writeHead(404);
+    res.end(scenario === 'empty-download' ? '' : PAYLOAD);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
@@ -139,9 +140,9 @@ async function exercise(t, scenario) {
     assert.equal(requests.length, requestCount, 'subsequent runs use the cached engine without network');
   }
   assert.equal(result.signal, null, JSON.stringify(result));
-  const cacheFailure = scenario.startsWith('cache-');
-  assert.equal(requests.filter(url => !url.endsWith('.sha256')).length, cacheFailure ? 0 : 1,
-    'cache failures do not attempt a download; other scenarios download once');
+  const noDownload = scenario.startsWith('cache-') || ['no-pin', 'pinned-other-version'].includes(scenario);
+  assert.equal(requests.length, noDownload ? 0 : 1,
+    'cache failures and unpinned versions do not attempt a download; other scenarios download once');
   return { ...result, files: fs.existsSync(cacheDir) ? fs.readdirSync(cacheDir) : [], requests, cacheDir };
 }
 
@@ -171,15 +172,26 @@ test('launcher downloads and runs a verified executable', async t => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /verified-engine/);
   assert.deepEqual(result.files, [WINDOWS ? 'impeccino.exe' : 'impeccino']);
-  assert.equal(result.requests.length, 2);
+  assert.equal(result.requests.length, 1, 'the pinned digest needs no checksum download');
 });
 
-for (const scenario of ['removed', 'emptied', 'empty-download', 'no-sidecar', 'empty-sidecar', 'mismatch', 'hash-failure', 'removed-during-hash', 'removed-before-move', 'removed-after-move', 'emptied-after-move', 'move-failure']) {
+for (const scenario of ['no-pin', 'pinned-other-version']) {
+  test(`launcher refuses to download an engine version the skill does not pin (${scenario})`, async t => {
+    const result = await exercise(t, scenario);
+    assert.equal(result.status, 127, JSON.stringify(result));
+    assert.doesNotMatch(result.stdout, /verified-engine/);
+    assert.match(result.stderr, /no digest pinned for engine-v0\.0\.0-test/);
+    assert.match(result.stderr, /IMPECCINO_BIN/);
+    assert.deepEqual(result.files, []);
+  });
+}
+
+for (const scenario of ['empty-download', 'mismatch', 'hash-failure', 'removed-during-hash', 'removed-before-move', 'removed-after-move', 'emptied-after-move', 'move-failure']) {
   test(`launcher refuses ${scenario} with an accurate diagnostic`, async t => {
     const result = await exercise(t, scenario);
     assert.equal(result.status, 127, JSON.stringify(result));
     assert.doesNotMatch(result.stdout, /verified-engine/);
-    assert.deepEqual(result.files, [], 'no unverified file or sidecar left behind');
+    assert.deepEqual(result.files, [], 'no unverified file left behind');
     if (scenario.startsWith('removed')) {
       assert.match(result.stderr, /download completed but the file was removed before (verification|execution)/);
       assert.match(result.stderr, /antivirus.*logs/i);
@@ -189,6 +201,7 @@ for (const scenario of ['removed', 'emptied', 'empty-download', 'no-sidecar', 'e
       assert.doesNotMatch(result.stderr, /checksum mismatch/);
     } else if (scenario === 'mismatch') {
       assert.match(result.stderr, /checksum mismatch/);
+      assert.match(result.stderr, /engine\.sha256/);
     } else if (scenario === 'move-failure') {
       assert.match(result.stderr, /could not cache the verified download/);
     } else {
