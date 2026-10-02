@@ -21,8 +21,8 @@
 //! never spelled out are unwrapped again (htmlparser2 never implies them, so
 //! a partial keeps its flat top-level shape and `:root` matches each
 //! top-level element). What stays different, none of which the fixture
-//! corpus exercises (see `tests/oracle_html.rs`; the JS repo's
-//! `tests/oracle/DELTAS.md` is where a reviewed delta would be listed):
+//! corpus exercises (see `tests/oracle_html.rs`; observable CLI behavior is
+//! pinned by the reviewed goldens under `tests/oracle/golden/`):
 //!
 //! - attribute names: htmlparser2 runs with `lowerCaseAttributeNames: false`,
 //!   so `<div CLASS="card" STYLE="...">` has no `class` / `style` for the JS
