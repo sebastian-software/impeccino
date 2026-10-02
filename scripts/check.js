@@ -255,6 +255,7 @@ function validateSkillProse(rootDir) {
   // in live.md before this pass); but `seamless`, `robust`, etc. have
   // legitimate technical uses elsewhere we may want to allow.
   const phraseRules = [
+    { re: /\bnpx\s+impeccino\b/i, rationale: 'This points at the retired Node CLI. Use the quoted launcher from the installed skill.' },
     { re: /\bload-bearing\b/i, rationale: 'AI tell. Name what the thing actually does.' },
     { re: /\bhighest-leverage\b/i, rationale: 'AI tell. Say what specifically pays off.' },
     { re: /\bbiggest unlock\b/i, rationale: 'Marketing-speak. Describe the actual change.' },

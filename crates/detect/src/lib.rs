@@ -20,7 +20,6 @@ pub mod ignores;
 pub mod jsp;
 pub mod profiler;
 pub mod regex_matchers;
-pub mod skills;
 pub mod util;
 
 use impeccino_common::Io;
@@ -37,11 +36,6 @@ pub fn run_detect(args: &[String], io: &mut Io, engines: &Engines) -> i32 {
 /// `impeccino ignores [args]`.
 pub fn run_ignores(args: &[String], io: &mut Io) -> i32 {
     ignores::run(args, io)
-}
-
-/// `impeccino skills [args]` and the top-level `help|install|link|update|check`.
-pub fn run_skills(args: &[String], io: &mut Io) -> i32 {
-    skills::run(args, io)
 }
 
 /// JS: cli.js#looksLikeDetectTarget
