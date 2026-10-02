@@ -13,8 +13,7 @@ Setup has already run `impeccino context`. If that reported `NO_PRODUCT_MD`, the
 Reason over the signals; there is no score to obey:
 
 - `setup.hasDesign` false while `setup.hasCode` true → `document` (capture the visual system).
-- `critique.latest` is `null` → the project has never been critiqued; for a set-up project with a real surface, offering `/impeccino critique <surface>` is a strong default.
-- `critique.latest` with a low `score` or non-zero `p0` / `p1` → `polish` (it reads that snapshot as its backlog and closes it when stale or cleared).
+- A set-up project (`setup.hasProduct`) with a real surface → offering `/impeccino critique <surface>` is a strong default for an evaluation. Critiques are not archived, so nothing in the signals says whether one ran before; if this conversation already holds one, `polish` acts on its Priority Issues.
 - `git.changedFiles` pointing at one surface → scope `audit` or `polish` to those files specifically, naming them.
 - **The bundled `impeccino detect` is web-only.** If `setup.platform` is `ios`, `android`, or `adaptive`, don't lead with it; the HTML rule engine doesn't apply to native app code.
 - Otherwise group by intent (build new / improve what's there / evaluate), tailored to the current surface and `setup.platform`.

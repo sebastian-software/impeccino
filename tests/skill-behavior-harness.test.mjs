@@ -43,7 +43,7 @@ it('advice outcomes do not depend on opening every reference, but keep consent a
   }
   assert.throws(() => check(''), /advice must reach/);
   assert.throws(() => check('I loaded critique.md and polish.md.'), /explain critique/);
-  for (const mutation of ['index.html', '.impeccino/critique/report.md']) {
+  for (const mutation of ['index.html', 'SURFACES.md']) {
     assert.throws(() => check(comparison, { ...trace, toolCalls: [{ mutatedPaths: [mutation] }] }), /must not edit/);
   }
   assert.throws(() => check(comparison, { ...trace, writePaths: ['DESIGN.md'] }), /write tool/);
@@ -65,7 +65,7 @@ it('an unchanged documentation outcome needs real reads and a supported report, 
   assert.throws(() => check({ ...result, trace: { toolCalls: [{ input: { path: 'reference/document.md' }, succeeded: false }] } }), /inspect the actual source/);
   assert.throws(() => check({ ...result, text: 'No changes: index.html matches DESIGN.md.' }), /report evidence/);
   assert.throws(() => check({ ...result, outcome: 'step-budget' }), /did not finish/);
-  for (const file of ['DESIGN.md', '.impeccino/design.json', 'index.html']) {
+  for (const file of ['DESIGN.md', 'DESIGN.json', 'index.html']) {
     assert.throws(() => check({ ...result, trace: { toolCalls: [...toolCalls, { mutatedPaths: [file] }] } }), /must not mutate/);
   }
 });
@@ -111,7 +111,7 @@ it('case-study user supplies evidence now instead of promising a future message'
 
 it('new-work requires approval and a brief before code, then documents the finished redesign', () => {
   const ask = { name: 'ask_user_question' };
-  const brief = { name: 'bash', mutatedPaths: ['.impeccino/surfaces/current-html.md'] };
+  const brief = { name: 'bash', mutatedPaths: ['SURFACES.md'] };
   const page = { name: 'write', mutatedPaths: ['current.html'] };
   const design = { name: 'write', mutatedPaths: ['DESIGN.md'] };
   const check = (toolCalls) => assertNewWorkLifecycle({ toolCalls }, { target: 'current.html', redesign: true });

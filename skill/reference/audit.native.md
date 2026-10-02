@@ -2,6 +2,8 @@ Run systematic **technical** quality checks on a native app (`ios` / `android` /
 
 This is a code-level audit, not a design critique. Audit from source (SwiftUI / UIKit / Compose / React Native / Flutter); no browser tooling or `impeccino detect` applies. Score against the platform reference(s): [ios.md](ios.md) / [android.md](android.md), both for `adaptive`. Read them before scoring if Setup hasn't already. The report skeleton mirrors [audit.md](audit.md); keep the two in sync when changing it.
 
+Before scoring, read the decisions the project has recorded: PRODUCT.md (Brand Commitments, Product Principles), DESIGN.md (Named Rules, Do's and Don'ts, `<!-- impeccino-disable <rule> -->` waivers), and its own ADRs when it keeps them (`docs/adr/`, `doc/adr/`, `adr/`). A finding that contradicts a recorded decision is dropped; at most, note that the code is consistent with it. Accessibility and correctness findings are the exception: a recorded decision never excuses a contrast failure or a broken path, so report those and name the decision they collide with. When the user rejects a finding as deliberate, offer once to record it: product or brand intent in PRODUCT.md, a visual rule in DESIGN.md with an `impeccino-disable` comment beside it when a detector rule is involved.
+
 ## Diagnostic Scan
 
 Run comprehensive checks across 5 dimensions. Score each dimension 0-4 using the criteria below.

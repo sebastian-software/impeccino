@@ -8,6 +8,8 @@ A detector result is defect evidence, not proof of quality. Inspect the rendered
 
 Read DESIGN.md and representative tokens, shared components, patterns, and neighboring flows. If no formal system exists, use coherent project conventions.
 
+Deliberate decisions are recorded, not inferred: PRODUCT.md (Brand Commitments, Product Principles), DESIGN.md (Named Rules, Do's and Don'ts, and `impeccino-disable` waivers), and the project's own ADRs when it keeps them (`docs/adr/`, `doc/adr/`, `adr/`). Something a recorded decision chose on purpose is not drift; leave it, even when a detector or your own taste flags it.
+
 Classify each drift before fixing it:
 
 - **missing token:** the system needs a reusable value;
@@ -26,13 +28,7 @@ Use the feature yourself at the surface's representative sizes: desktop and mobi
 - known constraints or deliberately unfinished work;
 - the states, content lengths, roles, and input methods users will actually encounter.
 
-If a prior critique exists, use it as one input:
-
-```bash
-"<skill-base-dir>/scripts/impeccino" critique-storage latest "<resolved target>" --json
-```
-
-Exit 0 returns JSON with the latest snapshot's `body` and an exact `snapshot_file` identity. Retain `snapshot_file` until the end of the pass. For a local file target, the helper compares the file's exact current content fingerprint with the fingerprint captured by critique. Unchanged staged, unstaged, or untracked content remains current; any byte change, deletion, or replacement with a non-file closes the backlog it identified while preserving its trend history and exits 2. A URL target has no local fingerprint and remains current until explicitly closed. When current, incorporate relevant P0/P1 findings from `body` and name the snapshot read. Exit 2 means none exists or the target changed. Perform an independent pass either way.
+Critiques are not archived between runs. When the user hands you one (earlier in this conversation, or pasted in), take its P0/P1 Priority Issues as one input and say which you took. Perform an independent pass either way; with no critique in hand, that pass is the whole evidence.
 
 ## 3. Triage
 
@@ -96,10 +92,4 @@ Follow the quality guidance supplied by `impeccino context` and hooks, then run 
 
 Finish with a source diff: remove accidental churn, orphaned code, redundant values, and temporary artifacts. Ship only when the feature is functionally complete and consistently finished across the path.
 
-When this pass clears every Priority Issue it took from a snapshot, close that snapshot:
-
-```bash
-"<skill-base-dir>/scripts/impeccino" critique-storage close "<resolved target>" "<snapshot_file returned by latest>"
-```
-
-This closes only the snapshot this pass actually processed; if a newer critique landed meanwhile, its backlog stays live. Do not close when no snapshot was read, when `snapshot_file` was not retained, or when Priority Issues remain.
+When you took Priority Issues from a critique, close by naming which of them this pass cleared and which remain.

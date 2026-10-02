@@ -45,7 +45,7 @@ The mode names what the visitor's success looks like on this surface.
 - **Read:** the visitor understands something. Docs, articles, guides, help, changelogs. Structure for comprehension, then make the reading experience worth staying in. <!-- rule:skill-read-register -->
 - **Experience:** the visitor is inside the work itself. Portfolios, galleries, showcases. Let the artifact lead from the first viewport; the interface recedes. <!-- rule:skill-experience-register -->
 
-Choose the mode from the requested surface, not the product, and persist it only in that surface brief. A tool's landing page is still Persuade; a fashion house's documentation is still Read; a docs index is Read, not Persuade. See [new-work.md](reference/new-work.md) for new surfaces and [operate.md](reference/operate.md) for deeper Operate/Read guidance. <!-- rule:skill-visitor-mode -->
+Choose the mode from the requested surface, not the product, and persist it only in that surface brief (its section of `SURFACES.md`). A tool's landing page is still Persuade; a fashion house's documentation is still Read; a docs index is Read, not Persuade. See [new-work.md](reference/new-work.md) for new surfaces and [operate.md](reference/operate.md) for deeper Operate/Read guidance. <!-- rule:skill-visitor-mode -->
 
 ## Commands
 
@@ -88,8 +88,8 @@ After init writes PRODUCT.md, resume without rerunning `impeccino context`; init
 
 **Pin / Unpin:** `"<skill-base-dir>/scripts/impeccino" pin <pin|unpin> <command>` creates or removes a standalone `/<command>` shortcut. Report the script's result concisely; relay stderr verbatim on error.
 
-**Hooks:** `/impeccino hooks <on|off|status|ignore-rule|ignore-file|ignore-value|reset>` manages the design detector hook for this project (auto-runs the detector after UI file edits and surfaces findings). Load [reference/hooks.md](reference/hooks.md) when the user invokes it with any argument.
+**Hooks:** `/impeccino hooks <on|off|status|reset>` installs, removes, or reports the design detector hook for this project (auto-runs the detector after UI file edits and surfaces findings). Impeccino keeps no config file: project-wide detector decisions live in DESIGN.md (`<!-- impeccino-disable <rule> -->` waivers, declared tokens) and in `.gitignore` / `.gitattributes`. Load [reference/hooks.md](reference/hooks.md) when the user invokes it with any argument, or asks how to silence a detector finding.
 
-**Doctor:** `/impeccino doctor` reports and repairs drift between this project's Impeccino artifacts (PRODUCT.md, DESIGN.md and its sidecar, config, surface briefs, the hook) and what this version reads. Load [reference/doctor.md](reference/doctor.md) when the user invokes it, or when they ask what is out of date, stale, or needs refreshing. A `CONTEXT_STALE` directive in Setup's output is the cheap subset of the same report; act on it there per its own instructions rather than running doctor unasked. <!-- rule:skill-doctor-route -->
+**Doctor:** `/impeccino doctor` reports and repairs drift between this project's Impeccino artifacts (PRODUCT.md, DESIGN.md with its waivers and DESIGN.json sidecar, SURFACES.md, the hook, a leftover `.impeccino/` from an older layout) and what this version reads. Load [reference/doctor.md](reference/doctor.md) when the user invokes it, or when they ask what is out of date, stale, or needs refreshing. A `CONTEXT_STALE` directive in Setup's output is the cheap subset of the same report; act on it there per its own instructions rather than running doctor unasked. <!-- rule:skill-doctor-route -->
 
 **Never repair drift as a side effect of a design task.** A `CONTEXT_STALE` finding is reported, not acted on, unless the user asks. The one exception is a finding marked `auto`, which the next write to that file performs anyway. <!-- rule:skill-drift-not-a-side-quest -->

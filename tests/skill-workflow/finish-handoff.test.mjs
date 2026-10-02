@@ -25,7 +25,7 @@ System-ui body at 16px, line-height 1.6. Headings at 24px, weight 700.
 One column, max-width 65ch, padding 24px; no decorative containers.
 `;
 const PAGE = '<!doctype html><html lang="en"><meta charset="utf-8"><title>Keyboard guide</title><style>body{background:#fff;color:#222;font:16px/1.6 system-ui;max-width:65ch;margin:auto;padding:24px}h1{font-size:24px;font-weight:700}a{color:#0645ad}</style><main><h1>Keyboard guide</h1><p>Use Tab to move between controls. Press Enter to activate a link.</p><a href="#top" id="top">Back to top</a></main></html>';
-const BRIEF = '# Keyboard guide\n\n## Direction contract\nTHESIS: A short reading page.\nOWN-WORLD: Inherit Field Manual.\nSTORY: Read keyboard instructions.\nFIRST VIEWPORT: Title, paragraph, link.\nFORM: Direct, precisely specified page; no seed required.\nFINISH: unreviewed and undocumented is unfinished.\n';
+const BRIEF = '# Surfaces\n\n## index.html\n<!-- impeccino:surface {"target":"index.html","related":[]} -->\n\n### Direction contract\nTHESIS: A short reading page.\nOWN-WORLD: Inherit Field Manual.\nSTORY: Read keyboard instructions.\nFIRST VIEWPORT: Title, paragraph, link.\nFORM: Direct, precisely specified page; no seed required.\nFINISH: unreviewed and undocumented is unfinished.\n';
 
 for (const modelId of (process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS || 'claude-sonnet-5').split(',').map((id) => id.trim()).filter(Boolean)) {
   for (const mode of ['extension', 'new world', 'redesign']) {
@@ -37,7 +37,7 @@ for (const modelId of (process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS || 'claude-so
           'PRODUCT.md': '# Field Manual\n\n## Platform\nweb\n\nA reference guide for keyboard users.\n',
           ...(existingSystem ? { 'DESIGN.md': preserveSystem ? DESIGN : '# Old Field Manual\n\nBeige cards, serif body type, orange links.\n' } : {}),
           'index.html': PAGE,
-          '.impeccino/surfaces/index-html.md': mode === 'redesign'
+          'SURFACES.md': mode === 'redesign'
             ? BRIEF.replace('Inherit Field Manual.', 'Approved replacement: white, blue links, system-ui, single column.') : BRIEF,
         };
         const workspace = prepareWorkspace({ files });
@@ -55,7 +55,7 @@ for (const modelId of (process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS || 'claude-so
               { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'load-new-work', toolName: 'read', input: { path: '.claude/skills/impeccino/reference/new-work.md' } }] },
               { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'load-new-work', toolName: 'read', output: { type: 'text', value: reference } }] },
               { role: 'assistant', content: `Checkpoint: context and PRODUCT.md were loaded. The user confirmed the exact page and identity. The surface brief and index.html are written. Desktop/mobile captures were validated, the detector ran once, and the shipped finish reviewer returned ship with no open findings. ${preserveSystem
-                ? 'DESIGN.md was loaded. No durable system changes were requested or introduced. The pre-existing missing .impeccino/design.json was reported but not repaired.'
+                ? 'DESIGN.md was loaded. No durable system changes were requested or introduced. The pre-existing missing DESIGN.json sidecar was reported but not repaired.'
                 : mode === 'redesign'
                   ? 'The approved replacement world is implemented in index.html. DESIGN.md still describes the superseded identity; no design sidecar exists yet.'
                   : 'This is the first completed surface of the approved new world. No DESIGN.md or design sidecar exists yet.'}` },
@@ -74,16 +74,16 @@ for (const modelId of (process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS || 'claude-so
           }
           if (preserveSystem) {
             assertNoChangeDocumentation(result, { target: 'index.html', evidence: [/system-ui/i, /65\s*ch/i, /#0645ad/i] });
-            assert.equal(fs.existsSync(path.join(workspace, '.impeccino/design.json')), false, 'must not repair pre-existing sidecar drift unasked');
+            assert.equal(fs.existsSync(path.join(workspace, 'DESIGN.json')), false, 'must not repair pre-existing sidecar drift unasked');
             assert.deepEqual(result.trace.toolCalls.flatMap((call) => call.mutatedPaths || []), [], 'a no-change check must not mutate other project files');
           } else {
             const design = fs.readFileSync(path.join(workspace, 'DESIGN.md'), 'utf8');
             if (mode === 'redesign') assert.notEqual(design, files['DESIGN.md'], 'approved redesign must replace the old system');
-            assertDocumentationArtifacts(design, fs.readFileSync(path.join(workspace, '.impeccino/design.json'), 'utf8'));
+            assertDocumentationArtifacts(design, fs.readFileSync(path.join(workspace, 'DESIGN.json'), 'utf8'));
             assert.match(design, /system-ui/);
             const writes = result.trace.toolCalls.flatMap((call) => call.mutatedPaths || []);
-            assert.ok(writes.includes('DESIGN.md') && writes.includes('.impeccino/design.json'), 'both documentation artifacts must be written');
-            assert.deepEqual(writes.filter((file) => !['DESIGN.md', '.impeccino/design.json'].includes(file)), [], 'documentation must stay inside its write boundary');
+            assert.ok(writes.includes('DESIGN.md') && writes.includes('DESIGN.json'), 'both documentation artifacts must be written');
+            assert.deepEqual(writes.filter((file) => !['DESIGN.md', 'DESIGN.json'].includes(file)), [], 'documentation must stay inside its write boundary');
           }
         } finally {
           cleanupWorkspace(workspace);

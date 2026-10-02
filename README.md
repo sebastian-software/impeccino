@@ -129,6 +129,7 @@ Impeccable compiles the skill into 19 harness-specific variants, commits those v
 | Rule engine targets | Native binary plus a WebAssembly build for the browser extension and the in-page overlay | One native binary; no WebAssembly build, no browser extension | [0013](docs/adr/0013-no-wasm-or-browser-extension.md) |
 | Releases | Changelog entry in the website repository, rendered into the release notes; Windows binaries signed with the upstream maintainer's certificate | Per-component tags (`skill-v`, `engine-v`) with notes GitHub generates from the commits; binaries verified by checksum | [0014](docs/adr/0014-releases-are-tags.md) |
 | Docs | Finished plans, port contracts, release notes, and demos kept in `docs/` | `docs/` holds current guidance and ADRs; the oracle corpus is the behavioral contract; history lives in git | [0015](docs/adr/0015-history-lives-in-git.md) |
+| Project state | A hidden `.impeccable/` folder: shared and personal config, design sidecar, surface briefs, critique archive, hook caches, screenshots | `PRODUCT.md`, `DESIGN.md`, `DESIGN.json`, `SURFACES.md` at the top level, all committed; no config file (detector decisions live in DESIGN.md and the project's ignore rules); runtime state in the user cache | [0020](docs/adr/0020-project-state-is-top-level-files.md) |
 
 Unchanged: the design guidance itself, every command that does not need a browser or an image model (22 commands; `live` and `generate` are gone), and the engine's context, hook, and detector. The detector keeps all 61 rules: the nine that need a rendered page now run through `detect <url>` and agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)).
 
@@ -140,7 +141,7 @@ Unchanged: the design guidance itself, every command that does not need a browse
 
 `skill/` is the whole skill, in one form for every harness, like an app bundle you drag into place. Impeccino has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)); install it with Dalo or skills.sh ([ADR 0003](docs/adr/0003-no-self-installer.md)).
 
-The skill needs no runtime. Its launcher (`scripts/impeccino`, plus `impeccino.cmd` for Windows) runs the Impeccino engine, a self-contained binary that is downloaded once on first run into `~/.impeccino/bin/` from this repository's GitHub Releases, for the version in `skill/scripts/VERSION`. The download must match the digest pinned in `skill/scripts/engine.sha256`, and every release binary carries a GitHub build attestation (`gh attestation verify <file> -R sebastian-software/impeccino`). If you manage tools with [mise](https://mise.jdx.dev), `mise use github:sebastian-software/impeccino` (with `version_prefix = "engine-v"`) installs the same binary, and the launcher picks it up from your PATH. Rendered-page scans (`detect <url>`) also need [agent-browser](https://github.com/vercel-labs/agent-browser).
+The skill needs no runtime. Its launcher (`scripts/impeccino`, plus `impeccino.cmd` for Windows) runs the Impeccino engine, a self-contained binary that is downloaded once on first run into your user cache (`$XDG_CACHE_HOME/impeccino/bin/`, else `~/.cache/impeccino/bin/`; `%LOCALAPPDATA%\impeccino\bin\` on Windows) from this repository's GitHub Releases, for the version in `skill/scripts/VERSION`. The download must match the digest pinned in `skill/scripts/engine.sha256`, and every release binary carries a GitHub build attestation (`gh attestation verify <file> -R sebastian-software/impeccino`). If you manage tools with [mise](https://mise.jdx.dev), `mise use github:sebastian-software/impeccino` (with `version_prefix = "engine-v"`) installs the same binary, and the launcher picks it up from your PATH. Rendered-page scans (`detect <url>`) also need [agent-browser](https://github.com/vercel-labs/agent-browser).
 
 ### Dalo (recommended)
 
@@ -183,35 +184,11 @@ If you reach for one command often, pin it with `/impeccino pin audit` to get `/
 
 **Note:** Codex uses skills here, not `/prompts:` commands. Open `/skills` or type `$impeccino`. Repo-local installs live in `.agents/skills/`; user-wide installs live in `~/.agents/skills/`. GitHub Copilot uses `.github/skills/`. Restart the tool if a newly installed skill does not appear.
 
-## Keeping `.impeccino` out of git
+## What lands in your project
 
-As you run commands, Impeccino writes working files under `.impeccino/`: critique and polish screenshots, hook caches, and per-developer config. Most of it is ephemeral and should not be committed, while a few files are shared project artifacts that belong in the repo. Add this block to your project's `.gitignore`:
+Nothing you need to ignore. Impeccino keeps its project state in four top-level files, all meant to be committed: `PRODUCT.md` (product truth), `DESIGN.md` (the visual system), `DESIGN.json` next to DESIGN.md (the design sidecar), and `SURFACES.md` (one section per surface: its mode and direction contract). There is no config file and no `.impeccino/` directory ([ADR 0020](docs/adr/0020-project-state-is-top-level-files.md)).
 
-```gitignore
-# impeccino-ignore-start
-# Ephemeral output, runtime state, and per-dev overrides.
-# The **/ prefix covers .impeccino at the repo root or in a nested workspace.
-# Shared artifacts stay tracked: config.json, design.json,
-# surfaces/*.md, critique/*.md.
-**/.impeccino/config.local.json
-**/.impeccino/hook.cache.json
-**/.impeccino/hook.pending.json
-**/.impeccino/*.png
-**/.impeccino/review/
-**/.impeccino/questions/
-# impeccino-ignore-end
-```
-
-The block is wrapped in `# impeccino-ignore-start` / `# impeccino-ignore-end` markers so you can recognize and refresh it later. The `**/` prefix makes each pattern match whether the active project's `.impeccino/` directory is at the repository root or under a nested workspace path like `apps/web/`.
-
-**Keep these tracked** (they are shared project artifacts, do not add them to `.gitignore`):
-
-- `.impeccino/config.json` (unified shared config)
-- `.impeccino/design.json` (shared design spec)
-- `.impeccino/surfaces/*.md` (route- or artifact-specific strategy and direction contracts)
-- `.impeccino/critique/*.md` (review reports)
-
-If an ephemeral file (a screenshot, `config.local.json`) was committed before you added the block, `.gitignore` will not untrack it automatically. Run `git rm --cached <path>` to stop tracking it without deleting your local copy.
+Runtime state stays out of the project: the hook's session cache and the weekly staleness throttle live in your user cache next to the engine binary, and review screenshots go to a temporary directory. A `.impeccino/` left by an older version is reported once at session start, with a note on where each file now belongs.
 
 ## Design hook
 
@@ -226,11 +203,11 @@ Hook surfaces the engine manages:
 
 The hook also understands Grok Build's events, and `context` recognizes a Grok manifest at `.grok/hooks/impeccino.json`; `hooks on` does not write that one. Gemini CLI has no hook manifest anymore ([ADR 0012](docs/adr/0012-no-image-comps.md)); the skill asks for a manual detector run there.
 
-Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. Hook lifecycle settings live under the `hook` key of `.impeccino/config.json`; detector ignores live under `detector`, shared by `/impeccino hooks` and `impeccino detect`.
+Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. The hook is on where its entries are installed; there is nothing else to configure. `IMPECCINO_HOOK_DISABLED=1` turns an installed hook off for one shell, and `IMPECCINO_HOOK_QUIET=1` silences the clean-edit acks.
 
 In Claude Code, command hooks run independently of model-tool approval, so the first edit or Stop event can download and cache the engine even if the session denies the model's launcher command. Review hooks before unattended runs; to disable all Claude Code hooks for a run, pass `--settings '{"disableAllHooks": true}'`.
 
-For debugging, set `hook.auditLog` in `.impeccino/config.json` to a path (or the legacy `IMPECCINO_HOOK_LOG` env var) to write one NDJSON line per hook invocation. Leave it unset for normal use.
+For debugging, set `IMPECCINO_HOOK_LOG` to a path to write one NDJSON line per hook invocation. Leave it unset for normal use.
 
 The Stop pass suppresses confirmed pre-existing findings when a verified before-edit baseline is available (currently Claude Edit/Write results for text scans). Other findings are marked new or attribution unknown; unknown is not evidence that your session caused the problem. Explicit `detect` scans remain unchanged.
 
@@ -241,17 +218,19 @@ The detector is part of the skill's engine; there is no separate CLI package. To
 ```bash
 .claude/skills/impeccino/scripts/impeccino detect src/          # scan a directory
 .claude/skills/impeccino/scripts/impeccino detect --json .      # CI-friendly JSON output
-.claude/skills/impeccino/scripts/impeccino ignores list         # show detector ignores
-.claude/skills/impeccino/scripts/impeccino ignores add-file "src/legacy/**"
 ```
 
 The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (low contrast, cramped padding, tiny text, skipped headings, and more). `detect` reads files, directories, and URLs. For a URL (`http`, `https`, or `file`), it loads the page headlessly through [agent-browser](https://github.com/vercel-labs/agent-browser) and adds the rules that need layout (line length, text overflow and occlusion, viewport edges, heading rhythm), rendered contrast including text over images, and script errors: `impeccino detect --viewport 390x844 http://localhost:3000/`. Set `AGENT_BROWSER_SESSION` to scan in a session that is already signed in. Rendered scans need agent-browser installed (`npm install -g agent-browser && agent-browser install`); source scans do not.
 
 Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports.
 
-By default, `detect` respects the same `.impeccino/config.json` and `.impeccino/config.local.json` detector config as the design hook: `detector.ignoreRules`, `detector.ignoreFiles`, `detector.ignoreValues`, and `detector.designSystem.enabled`. Hook lifecycle settings such as `hook.enabled` only affect automatic hook execution.
+There is no detector config. `detect` and the design hook read the decisions your project already records:
 
-For a waiver that should travel with one file instead of the repo config, add an inline comment in the file: `<!-- impeccino-disable overused-font: exported brand doc -->`. The marker works in any comment syntax, scopes to the whole file (or one line with `impeccino-disable-line` / `impeccino-disable-next-line`), and is bypassed by `--no-inline-ignores` or `--no-config`.
+- **DESIGN.md.** An `<!-- impeccino-disable side-tab: the ledger rule -->` comment anywhere in DESIGN.md turns that rule off for every file the document governs; put it next to the Named Rule that explains why. A font DESIGN.md declares under `typography` never counts as an overused font, and the design-system rules accept every declared color, radius, and size.
+- **Git.** Inside a repository, files `.gitignore` ignores and files `.gitattributes` marks `linguist-generated` or `linguist-vendored` are not scanned.
+- **The file itself.** `<!-- impeccino-disable overused-font: exported brand doc -->` waives a rule in one file, in any comment syntax; `impeccino-disable-line` and `impeccino-disable-next-line` scope it to one line.
+
+`--no-config` scans raw, ignoring DESIGN.md and in-file waivers; `--no-inline-ignores` drops only the in-file ones.
 
 ## Supported Tools
 

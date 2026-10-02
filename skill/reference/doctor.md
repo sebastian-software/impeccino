@@ -1,4 +1,4 @@
-Report and repair drift between this project's Impeccino artifacts and what the installed version reads: PRODUCT.md, DESIGN.md and its `.impeccino/design.json` sidecar, `.impeccino/config.json`, persisted surface briefs, and the design hook.
+Report and repair drift between this project's Impeccino artifacts and what the installed version reads: PRODUCT.md, DESIGN.md with its waivers and its `DESIGN.json` sidecar, `SURFACES.md`, and the design hook. Impeccino keeps no config file and writes no other project state.
 
 This is maintenance, not design. Do not redesign anything, do not open files outside the ones the report names, and do not run any other command as a side effect.
 
@@ -18,7 +18,7 @@ Three kinds of drift travel under "out of date". Keep them apart:
 
 Add `--target <path>` when the user named a workspace, file, or route in a monorepo. Without it the report describes the repo root, and in a monorepo that is often the wrong project.
 
-The output carries `findings` (each with `id`, `artifact`, `path`, `severity`, `summary`, `fix`) and, in a monorepo, `workspaces` with each app's product and design resolution. `ruleRegistryAvailable: false` means ignored rule ids could not be validated; say so rather than implying that list is clean.
+The output carries `findings` (each with `id`, `artifact`, `path`, `severity`, `summary`, `fix`) and, in a monorepo, `workspaces` with each app's product and design resolution. `ruleRegistryAvailable: false` means the rule ids DESIGN.md waives could not be validated; say so rather than implying that list is clean.
 
 An empty `findings` array is the good outcome. Say so in one line and stop.
 
@@ -31,6 +31,8 @@ The severity says what should happen, not how bad it is.
 - **`route`** needs a specific command. Name the command and the gap it would close. Run it only if the user asks in this turn; `init` and `document` are conversations, not repairs you perform unattended.
 
 Report all three groups in one pass. Findings are not errors and the command does not fail on them.
+
+`legacy-state-dir` is a `.impeccino/` directory an earlier Impeccino left at the project root. Nothing reads it. Tell the user where each part belongs (the finding's fix lists them), help move what they want to keep when they ask, and offer to delete the directory afterwards. Never delete it unasked: a config file in it may hold decisions the user still wants recorded in DESIGN.md.
 
 ## Step 3: Deprecated fields are binding
 
@@ -45,9 +47,9 @@ The same restraint applies to `workspace-context-inherited`. Inheritance is a de
 ## Monorepo notes
 
 - `workspace-platform-native-evidence` is the finding that matters most here: a workspace carrying native build files while inheriting a root record that resolves to web gets web guidance for its whole life and never loads [ios.md](ios.md) or [android.md](android.md). The repair is a child PRODUCT.md in that workspace, because one inherited record cannot hold two platforms.
-- `config-project-roots-match-nothing` means every `projectRoots` glob missed, so the repo root is silently standing in as the active project. A renamed workspace directory is the usual cause. Report the patterns and ask which directories they should name.
+- Workspaces come from the package manager's own declarations (`package.json` `workspaces`, `pnpm-workspace.yaml`, `lerna.json`) and the `apps/` and `packages/` conventions. A workspace that does not show up is missing from those declarations.
 - Use the `workspaces` table to show the user which apps carry their own context, which inherit, and which have none, before proposing any change.
 
 ## Opting out of the boot check
 
-`impeccino context` reports the cheap subset of these findings at session start, throttled to once a week per project. Set `"stalenessCheck": false` in `.impeccino/config.json` to silence that, or `IMPECCINO_NO_STALENESS_CHECK=1` for one session. This command still works with the check disabled, and that is the combination to suggest for a user who wants the report only when they ask for it.
+`impeccino context` reports the cheap subset of these findings at session start, throttled to once a week per project (the throttle lives in the user cache, not the project). Set `IMPECCINO_NO_STALENESS_CHECK=1` in the environment to silence it. This command still works with the check disabled, and that is the combination to suggest for a user who wants the report only when they ask for it.

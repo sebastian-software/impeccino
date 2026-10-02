@@ -22,6 +22,13 @@ Everything else is the engine's own environment (`IMPECCINO_CONTEXT_DIR`,
 generation probes are gone ([ADR 0004](adr/0004-no-update-check.md),
 [ADR 0012](adr/0012-no-image-comps.md)), and so are the variables they read.
 
+The per-user cache (the hook's session state under `projects/`, the boot's
+`staleness-check.json`) follows `XDG_CACHE_HOME` when it is an absolute path,
+else `$HOME/.cache`, and `LOCALAPPDATA` on Windows, each with an `impeccino`
+subdirectory ([ADR 0020](adr/0020-project-state-is-top-level-files.md)).
+`IMPECCINO_CACHE_ROOT` relocates the hook state and `IMPECCINO_STALENESS_CACHE`
+the throttle file. There is no config file, so no variable points at one.
+
 Oracle note: run `tests/oracle/run.mjs` with
 `IMPECCINO_SKILL_DIR=<repo>/skill` (the corpus expects the native
 references inlined) and an `IMPECCINO_BIN` path outside `$HOME` (the

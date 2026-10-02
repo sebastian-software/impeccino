@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { sourceHash as hashSources } from './source-hash.mjs';
@@ -38,6 +39,18 @@ export async function prepareBrowser(root) {
     throw new Error('Workflow browser preflight failed. Run `pnpm exec playwright install chromium` before billed tests.', { cause: error });
   }
   const blockedRequests = [];
+  // Review screenshots are throwaway evidence and never land in the project
+  // (skill/reference/new-work.md): captures go to a temp review directory.
+  const reviewDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'impeccino-review-')));
+  const resolveImage = (name) => {
+    if (path.isAbsolute(name)) {
+      const real = fs.realpathSync(name);
+      const rel = path.relative(reviewDir, real);
+      if (rel === '' || rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) throw new Error('Absolute paths must point into the review directory');
+      return real;
+    }
+    return resolveFile(root, name);
+  };
   const server = http.createServer((req, res) => {
     try {
       const name = decodeURIComponent(new URL(req.url, 'http://localhost').pathname).replace(/^\//, '') || 'index.html';
@@ -74,11 +87,11 @@ export async function prepareBrowser(root) {
   }
   return {
     origin, blockedRequests,
-    environment: `Workspace: ${root}. A local server and Chromium are already running. browser_snapshot renders a workspace-relative HTML path at desktop/mobile size, saves a screenshot, and returns the actual image plus DOM text. view_image opens saved PNGs. No browser installation is needed. External browser requests are blocked; this text-only fixture uses system fonts. No image-generation or subagent tools are available.`,
+    environment: `Workspace: ${root}. A local server and Chromium are already running. browser_snapshot renders a workspace-relative HTML path at desktop/mobile size, saves a screenshot to the review directory ${reviewDir} (outside the project), and returns the actual image plus DOM text. view_image opens saved PNGs. No browser installation is needed. External browser requests are blocked; this text-only fixture uses system fonts. No image-generation or subagent tools are available.`,
     tools(trace) {
       return {
         browser_snapshot: tool({
-          description: 'Render and inspect an HTML file with the ready Chromium browser. Returns an actual screenshot and visible DOM text; optionally click a CSS selector before capture. Captures save to .impeccino/review/{desktop|mobile}.png.',
+          description: 'Render and inspect an HTML file with the ready Chromium browser. Returns an actual screenshot and visible DOM text; optionally click a CSS selector before capture. Captures save to the review directory outside the project, as {desktop|mobile}.png.',
           inputSchema: z.object({ path: z.string(), viewport: z.enum(['desktop', 'mobile']), click: z.string().optional() }),
           execute: async ({ path: target, viewport, click }) => {
             const file = resolveFile(root, target);
@@ -94,13 +107,8 @@ export async function prepareBrowser(root) {
               await page.goto(`${origin}/${relativeTarget.split('/').map(encodeURIComponent).join('/')}`, { waitUntil: 'load', timeout: 15000 });
               await page.evaluate(() => document.fonts.ready);
               if (click) await page.locator(click).click();
-              const screenshot = `.impeccino/review/${viewport}.png`;
-              if (fs.existsSync(path.join(root, '.impeccino'))) resolveFile(root, '.impeccino');
-              fs.mkdirSync(path.join(root, '.impeccino/review'), { recursive: true });
-              resolveFile(root, '.impeccino/review');
-              if (fs.existsSync(path.join(root, screenshot))) resolveFile(root, screenshot);
-              const image = await page.screenshot({ path: path.join(root, screenshot), fullPage: true, animations: 'disabled' });
-              call.mutatedPaths = [screenshot];
+              const screenshot = path.join(reviewDir, `${viewport}.png`);
+              const image = await page.screenshot({ path: screenshot, fullPage: true, animations: 'disabled' });
               if (sourceHash !== hashSources(root)) throw new Error('Artifact changed during capture; retry');
               call.capture = { target: relativeTarget, viewport, screenshot, sourceHash };
               return { ...call.capture, text: (await page.locator('body').innerText()).slice(0, 12000), image: image.toString('base64') };
@@ -111,10 +119,10 @@ export async function prepareBrowser(root) {
           toModelOutput: imageOutput,
         }),
         view_image: tool({
-          description: 'Inspect an existing workspace PNG as an actual image, not raw file bytes.',
+          description: 'Inspect an existing PNG (workspace-relative, or an absolute path in the review directory) as an actual image, not raw file bytes.',
           inputSchema: z.object({ path: z.string() }),
           execute: async ({ path: name }) => {
-            const bytes = fs.readFileSync(resolveFile(root, name));
+            const bytes = fs.readFileSync(resolveImage(name));
             if (!bytes.subarray(0, 8).equals(PNG)) throw new Error('Expected a PNG image');
             trace.toolCalls.push({ name: 'view_image', input: { path: name }, mutatedPaths: [], loadedImages: [name] });
             return { path: name, image: bytes.toString('base64') };
@@ -124,6 +132,7 @@ export async function prepareBrowser(root) {
       };
     },
     async close() {
+      fs.rmSync(reviewDir, { recursive: true, force: true });
       await browser.close();
       await new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); });
     },

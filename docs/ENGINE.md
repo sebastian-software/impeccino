@@ -28,10 +28,11 @@ crates/
                "was removed" answer for retired verbs
   common       Io handle (stdout/stderr/stdin/env/cwd), path + process helpers
   context      context, doctor, staleness, signals, concept-seed, pin,
-               palette, surface-brief, critique-storage
+               palette, surface-brief (SURFACES.md)
   hook         the design hook (hook, hook-before-edit, hooks / hook-admin)
-  detect       `impeccino detect` and `ignores`: file walk, config, ignores,
-               output, the text/regex engine
+  detect       `impeccino detect`: file walk (with the project's git
+               ignore rules), DESIGN.md decisions, output, the text/regex
+               engine
   html         the static HTML engine: parser, cascade, static document model,
                rule adapters
   foundation   JS-semantics helpers, color, findings, the rule registry,
@@ -40,17 +41,24 @@ crates/
   core         the rule logic: every `check_*` / `scan_*` and its heuristics
 ```
 
-The verbs: `context`, `doctor`, `pin`, `surface-brief`, `critique-storage`,
-`palette`, `signals` (alias `context-signals`), `concept-seed`, `detect`
-(files and directories only), `ignores`, `hook`, `hook-before-edit`, and
-`hooks` (alias `hook-admin`). The browser and comp verbs (`live*`,
-`detect-csp`, `serve-question`, `component-review`, `generate-image`,
-`comp-spec`, `comp-diff`, `font-match`, `build-phase`, `capture-server`,
-`embed-prompt`) print a "was removed" message and exit 1, so an older skill
-copy that calls one gets a clear answer
+The verbs: `context`, `doctor`, `pin`, `surface-brief`, `palette`, `signals`
+(alias `context-signals`), `concept-seed`, `detect` (files, directories, and
+URLs through agent-browser), `hook`, `hook-before-edit`, and `hooks` (alias
+`hook-admin`). The browser and comp verbs (`live*`, `detect-csp`,
+`serve-question`, `component-review`, `generate-image`, `comp-spec`,
+`comp-diff`, `font-match`, `build-phase`, `capture-server`, `embed-prompt`),
+`critique-storage`, and `ignores` print a "was removed" message and exit 1,
+so an older skill copy that calls one gets a clear answer
 ([ADR 0011](adr/0011-no-own-browser-stack.md),
-[ADR 0012](adr/0012-no-image-comps.md)). `detect` refuses URLs with a
-pointer to the harness's browser tool.
+[ADR 0012](adr/0012-no-image-comps.md),
+[ADR 0020](adr/0020-project-state-is-top-level-files.md)).
+
+No verb reads a config file. Project state is `SURFACES.md` and `DESIGN.json`
+beside DESIGN.md; `detect` and the hook take their waivers from DESIGN.md
+(`crates/detect/src/design_decisions.rs`) and skip what the project's
+`.gitignore` and `.gitattributes` exclude (`project_ignores.rs`); the hook's
+session cache and the boot's staleness throttle live in the per-user cache
+(`impeccino_common::project_files::user_cache_dir`).
 
 `crates/core` re-exports the foundation modules under its own paths, so every
 consumer names one crate: `impeccino_core::js`, `impeccino_core::color`,
