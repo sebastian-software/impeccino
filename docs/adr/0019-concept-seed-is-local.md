@@ -6,7 +6,7 @@
 
 `concept-seed` decides which direction a new-work round builds. Inherited from Impeccable, it did that in two layers. The local layer hashed a seed key into an index on the model's own ordered list of grounded directions, so the model's first, most predictable pick was not the one that shipped. The remote layer fetched "challengers" from Impeccable's roll API (`impeccable.style/api/roll`): reviewed visual worlds from a catalog, each with a system grammar and QUALITY BAR board and hero images. After the user chose, the skill pinged `/api/chosen` with the outcome. Without the service, the roll printed a "degraded" notice and told the agent to retry with network access.
 
-That catalog is Impeccable's: its maintainer runs it as part of a paid service, and Impeccino has no agreement to use it. Keeping the dependency meant building every new-work round on someone else's product and sending them telemetry from a project that is not theirs.
+That catalog is Impeccable's. Its repository calls the catalog the moat of a paid service and keeps the data out of the open source tree, and Impeccino has no agreement to use it. Keeping the dependency meant building every new-work round on someone else's product and sending them telemetry from a project that is not theirs.
 
 ## Decision
 
