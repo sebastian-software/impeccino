@@ -134,7 +134,7 @@ Unchanged: the design guidance itself, every command that does not need a browse
 
 **Verified so far.** `skill/` loads in Claude Code and in Codex: both resolve and run the launcher, and Codex names commands with `$`. Dalo and skills.sh both find and install it. The Rust workspace tests, the core suite, the full oracle corpus, and rendered-page scans through agent-browser pass.
 
-**Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs. `concept-seed` still draws its visual-world catalog from Impeccable's public API (`impeccable.style/api`).
+**Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs. `concept-seed` still draws its visual-world catalog from Impeccable's public API (`impeccable.style/api`); see [#7](https://github.com/sebastian-software/impeccino/issues/7).
 
 ## Installation
 
