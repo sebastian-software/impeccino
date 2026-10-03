@@ -15,10 +15,15 @@
 //! (for example one the agent signed in with) and leaves it open.
 
 use std::cell::RefCell;
-use std::io::Write;
+use std::ffi::OsString;
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::fs::{self, File, OpenOptions};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Output, Stdio};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use impeccino_core::browser::BrowserConfig;
 use impeccino_core::findings::{derive_advisory_flag, try_finding, Finding};
@@ -130,26 +135,33 @@ window.__impeccinoProbe = { run };
 const DEFAULT_VIEWPORT: (u32, u32) = (1280, 800);
 
 const MISSING_BROWSER: &str = "Rendered-page scans need agent-browser (https://github.com/vercel-labs/agent-browser). Install it with `npm install -g agent-browser && agent-browser install`, or scan the source files instead.";
+const AGENT_BROWSER_TIMEOUT: Duration = Duration::from_secs(60);
+const AGENT_BROWSER_PROBE_TIMEOUT: Duration = Duration::from_secs(10);
+const AGENT_BROWSER_CLOSE_TIMEOUT: Duration = Duration::from_secs(5);
+const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(10);
+const MAX_AGENT_BROWSER_STDIN: usize = 4 * 1024 * 1024;
+const MAX_AGENT_BROWSER_STDOUT: u64 = 64 * 1024 * 1024;
+const MAX_AGENT_BROWSER_STDERR: u64 = 2 * 1024 * 1024;
+static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 
 /// [`UrlEngine`] over agent-browser.
 pub struct AgentBrowserEngine;
 
 impl UrlEngine for AgentBrowserEngine {
     fn detect_url(&self, url: &str, options: &ScanOptions) -> Result<Vec<Finding>, EngineError> {
-        let session = Session::start(options.viewport)?;
-        let result = session.measure(url, options);
-        session.close();
-        result
+        let _interrupt = interrupt_guard()?;
+        Session::start(options.viewport)?.measure(url, options)
     }
 
     fn open_shared(&self) -> Option<Box<dyn SharedBrowser + '_>> {
-        Some(Box::new(SharedSession { session: RefCell::new(None) }))
+        Some(Box::new(SharedSession { session: RefCell::new(None), _interrupt: interrupt_guard().ok()? }))
     }
 }
 
 /// One session for a multi-URL scan, started on first use.
 struct SharedSession {
     session: RefCell<Option<Rc<Session>>>,
+    _interrupt: impeccino_common::proc::InterruptGuard,
 }
 
 impl SharedBrowser for SharedSession {
@@ -179,58 +191,76 @@ impl SharedBrowser for SharedSession {
 
 /// An agent-browser session: ours (closed at the end) or the caller's.
 struct Session {
-    bin: PathBuf,
+    browser: impeccino_common::agent_browser::AgentBrowser,
     name: String,
     owned: bool,
+    closed: std::cell::Cell<bool>,
 }
 
 impl Session {
-    fn bin() -> PathBuf {
-        std::env::var_os("IMPECCINO_AGENT_BROWSER").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("agent-browser"))
+    fn browser() -> Option<impeccino_common::agent_browser::AgentBrowser> {
+        let search_paths = std::env::var_os("PATH").map(|path| std::env::split_paths(&path).collect::<Vec<_>>()).unwrap_or_default();
+        impeccino_common::agent_browser::resolve_agent_browser(
+            std::env::var_os("IMPECCINO_AGENT_BROWSER").as_deref(),
+            &search_paths,
+            std::env::var_os("PATHEXT").as_deref(),
+        )
     }
 
     fn check_installed() -> Result<(), EngineError> {
-        let mut cmd = Command::new(Self::bin());
-        cmd.arg("--version").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-        impeccino_common::proc::hide_window(&mut cmd);
-        if cmd.status().is_ok_and(|s| s.success()) {
-            Ok(())
-        } else {
-            Err(EngineError::new(MISSING_BROWSER))
-        }
+        let browser = Self::browser().ok_or_else(|| EngineError::new(MISSING_BROWSER))?;
+        Self::check_installed_with(&browser)
     }
 
     fn start(viewport: Option<(u32, u32)>) -> Result<Session, EngineError> {
-        Self::check_installed()?;
+        let browser = Self::browser().ok_or_else(|| EngineError::new(MISSING_BROWSER))?;
+        Self::check_installed_with(&browser)?;
         let (name, owned) = match std::env::var("AGENT_BROWSER_SESSION") {
             Ok(name) if !name.is_empty() => (name, false),
             _ => (format!("impeccino-{}-{:x}", std::process::id(), random_u32()), true),
         };
-        let session = Session { bin: Self::bin(), name, owned };
+        Self::start_with(browser, name, owned, viewport)
+    }
+
+    fn start_with(
+        browser: impeccino_common::agent_browser::AgentBrowser,
+        name: String,
+        owned: bool,
+        viewport: Option<(u32, u32)>,
+    ) -> Result<Session, EngineError> {
+        let session = Session { browser, name, owned, closed: std::cell::Cell::new(false) };
         if let Some((w, h)) = viewport.or(owned.then_some(DEFAULT_VIEWPORT)) {
             session.run(&["set", "viewport", &w.to_string(), &h.to_string()], None)?;
         }
         Ok(session)
     }
 
+    fn check_installed_with(browser: &impeccino_common::agent_browser::AgentBrowser) -> Result<(), EngineError> {
+        let cmd = browser.command(&[OsString::from("--version")]);
+        match run_process(cmd, "--version", None, AGENT_BROWSER_PROBE_TIMEOUT, true) {
+            Ok(out) if out.status.success() => Ok(()),
+            Ok(_) => Err(EngineError::new(MISSING_BROWSER)),
+            Err(error) => Err(error),
+        }
+    }
+
     fn close(&self) {
-        if self.owned {
-            let _ = self.run(&["close"], None);
+        if self.owned && !self.closed.replace(true) {
+            let _ = self.run_with_timeout(&["close"], None, AGENT_BROWSER_CLOSE_TIMEOUT, false);
         }
     }
 
     /// Run one agent-browser command with `--json` and return its `data`.
     fn run(&self, args: &[&str], stdin: Option<&str>) -> Result<Value, EngineError> {
+        self.run_with_timeout(args, stdin, AGENT_BROWSER_TIMEOUT, true)
+    }
+
+    fn run_with_timeout(&self, args: &[&str], stdin: Option<&str>, timeout: Duration, check_interrupt: bool) -> Result<Value, EngineError> {
         let verb = args.first().copied().unwrap_or("");
-        let mut cmd = Command::new(&self.bin);
-        cmd.args(["--session", &self.name, "--json"]).args(args);
-        cmd.stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped());
-        impeccino_common::proc::hide_window(&mut cmd);
-        let mut child = cmd.spawn().map_err(|_| EngineError::new(MISSING_BROWSER))?;
-        if let (Some(text), Some(mut pipe)) = (stdin, child.stdin.take()) {
-            let _ = pipe.write_all(text.as_bytes());
-        }
-        let out = child.wait_with_output().map_err(|e| EngineError::new(format!("agent-browser {verb}: {e}")))?;
+        let mut command_args: Vec<OsString> = vec!["--session".into(), self.name.clone().into(), "--json".into()];
+        command_args.extend(args.iter().map(OsString::from));
+        let cmd = self.browser.command(&command_args);
+        let out = run_process(cmd, verb, stdin, timeout, check_interrupt)?;
         let reply: Value = serde_json::from_slice(&out.stdout).map_err(|_| {
             EngineError::new(format!("agent-browser {verb}: {}", String::from_utf8_lossy(&out.stderr).trim()))
         })?;
@@ -267,6 +297,221 @@ impl Session {
         let raw = scan::scan(&mut page, &config);
         let _ = std::fs::remove_dir_all(&page.scratch);
         Ok(to_findings(raw.map_err(EngineError::new)?, url))
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
+
+fn interrupt_guard() -> Result<impeccino_common::proc::InterruptGuard, EngineError> {
+    impeccino_common::proc::InterruptGuard::install(&INTERRUPTED)
+        .map_err(|e| EngineError::new(format!("could not install browser scan signal handler: {e}")))
+}
+
+/// Private per-command files keep subprocess I/O independent of descendants
+/// that inherit handles. The directory is unique and owner-only on Unix.
+struct TempWorkspace(PathBuf);
+
+impl TempWorkspace {
+    fn create() -> std::io::Result<TempWorkspace> {
+        for _ in 0..32 {
+            let path = std::env::temp_dir().join(format!("impeccino-agent-browser-{}-{:x}", std::process::id(), random_u32()));
+            #[cfg(unix)]
+            let created = {
+                use std::os::unix::fs::DirBuilderExt;
+                let mut builder = fs::DirBuilder::new();
+                builder.mode(0o700).create(&path)
+            };
+            #[cfg(not(unix))]
+            let created = fs::create_dir(&path);
+            match created {
+                Ok(()) => {
+                    return Ok(TempWorkspace(path));
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(error),
+            }
+        }
+        Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "could not allocate a unique browser temp directory"))
+    }
+
+    fn file(&self, name: &str) -> std::io::Result<File> {
+        OpenOptions::new().create_new(true).read(true).write(true).open(self.0.join(name))
+    }
+
+    fn size(&self, name: &str) -> std::io::Result<u64> {
+        fs::metadata(self.0.join(name)).map(|metadata| metadata.len())
+    }
+
+    fn read_limited(&self, name: &str, limit: u64) -> std::io::Result<Vec<u8>> {
+        let mut file = File::open(self.0.join(name))?;
+        let mut bytes = Vec::new();
+        Read::by_ref(&mut file).take(limit.saturating_add(1)).read_to_end(&mut bytes)?;
+        if bytes.len() as u64 > limit {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "agent-browser output exceeded its size limit"));
+        }
+        Ok(bytes)
+    }
+}
+
+impl Drop for TempWorkspace {
+    fn drop(&mut self) {
+        // Cleanup is best-effort and nonblocking. On Windows, a descendant
+        // that inherited a standard-handle file can keep this private
+        // directory busy after the direct CLI exits.
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn run_process(
+    cmd: Command,
+    verb: &str,
+    stdin: Option<&str>,
+    timeout: Duration,
+    check_interrupt: bool,
+) -> Result<Output, EngineError> {
+    let deadline = Instant::now() + timeout;
+    if stdin.is_some_and(|input| input.len() > MAX_AGENT_BROWSER_STDIN) {
+        return Err(EngineError::new(format!("agent-browser {verb}: stdin exceeds the {} MiB limit", MAX_AGENT_BROWSER_STDIN / (1024 * 1024))));
+    }
+    if Instant::now() >= deadline {
+        return Err(EngineError::new(format!("agent-browser {verb} timed out before launch")));
+    }
+    let workspace = TempWorkspace::create().map_err(|e| EngineError::new(format!("agent-browser {verb}: {e}")))?;
+    run_process_in_workspace(cmd, verb, stdin, timeout, deadline, check_interrupt, workspace)
+}
+
+fn run_process_in_workspace(
+    mut cmd: Command,
+    verb: &str,
+    stdin: Option<&str>,
+    timeout: Duration,
+    deadline: Instant,
+    check_interrupt: bool,
+    workspace: TempWorkspace,
+) -> Result<Output, EngineError> {
+    let stdin_file = if let Some(input) = stdin {
+        let mut file = workspace.file("stdin")
+            .map_err(|e| EngineError::new(format!("agent-browser {verb}: {e}")))?;
+        file.write_all(input.as_bytes()).and_then(|_| file.flush()).and_then(|_| file.seek(SeekFrom::Start(0)))
+            .map_err(|e| EngineError::new(format!("agent-browser {verb}: {e}")))?;
+        Some(file)
+    } else {
+        None
+    };
+    let stdout_file = workspace.file("stdout").map_err(|e| EngineError::new(format!("agent-browser {verb}: {e}")))?;
+    let stderr_file = workspace.file("stderr").map_err(|e| EngineError::new(format!("agent-browser {verb}: {e}")))?;
+    if Instant::now() >= deadline {
+        return Err(EngineError::new(format!("agent-browser {verb} timed out before launch")));
+    }
+    cmd.stdin(stdin_file.map(Stdio::from).unwrap_or_else(Stdio::null))
+        .stdout(Stdio::from(stdout_file))
+        .stderr(Stdio::from(stderr_file));
+    impeccino_common::proc::hide_window(&mut cmd);
+
+    let spawn_result = cmd.spawn();
+    // `Command` retains the configured stdio files on Windows. Drop it before
+    // any early return or TempWorkspace cleanup attempts to remove them.
+    drop(cmd);
+    let mut child = spawn_result.map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            EngineError::new(MISSING_BROWSER)
+        } else {
+            EngineError::new(format!("agent-browser {verb}: {e}"))
+        }
+    })?;
+    let status = loop {
+        if check_interrupt && INTERRUPTED.load(Ordering::SeqCst) {
+            stop_child(&mut child);
+            return Err(EngineError::new(format!("agent-browser {verb}: interrupted")));
+        }
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => {}
+            Err(error) => {
+                stop_child(&mut child);
+                return Err(EngineError::new(format!("agent-browser {verb}: {error}")));
+            }
+        }
+        let output_too_large = workspace.size("stdout").is_ok_and(|size| size > MAX_AGENT_BROWSER_STDOUT)
+            || workspace.size("stderr").is_ok_and(|size| size > MAX_AGENT_BROWSER_STDERR);
+        if output_too_large {
+            stop_child(&mut child);
+            return Err(EngineError::new(format!("agent-browser {verb}: output exceeded its size limit")));
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            stop_child(&mut child);
+            return Err(EngineError::new(format!("agent-browser {verb} timed out after {} ms", timeout.as_millis())));
+        }
+        thread::sleep(PROCESS_POLL_INTERVAL.min(remaining));
+    };
+    let stdout = workspace.read_limited("stdout", MAX_AGENT_BROWSER_STDOUT)
+        .map_err(|e| EngineError::new(format!("agent-browser {verb}: {e}")))?;
+    let stderr = workspace.read_limited("stderr", MAX_AGENT_BROWSER_STDERR)
+        .map_err(|e| EngineError::new(format!("agent-browser {verb}: {e}")))?;
+    Ok(Output { status, stdout, stderr })
+}
+
+fn stop_child(child: &mut Child) {
+    if child.try_wait().ok().flatten().is_some() {
+        return;
+    }
+    #[cfg(windows)]
+    stop_child_tree(child.id());
+    if child.try_wait().ok().flatten().is_some() {
+        return;
+    }
+    let _ = child.kill();
+    // Reap promptly after the direct child is killed, but keep error cleanup
+    // bounded if the platform refuses termination for an unexpected reason.
+    let deadline = Instant::now() + Duration::from_millis(250);
+    while Instant::now() < deadline {
+        if child.try_wait().ok().flatten().is_some() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+
+/// A `.cmd` browser shim runs under `cmd.exe`, which may have started the
+/// actual CLI as a descendant. On failure, terminate only the process tree
+/// rooted at this still-owned command PID. Successful commands never reach
+/// this path, so a detached agent-browser daemon can keep serving sessions.
+#[cfg(windows)]
+fn stop_child_tree(pid: u32) {
+    // Tree termination can take longer on a loaded Windows host; still cap it
+    // so error cleanup never waits on taskkill indefinitely.
+    const TASKKILL_TIMEOUT: Duration = Duration::from_secs(2);
+    let system_taskkill = std::env::var_os("SystemRoot")
+        .map(PathBuf::from)
+        .map(|root| root.join("System32").join("taskkill.exe"))
+        .filter(|path| path.is_file());
+    let mut helper = Command::new(system_taskkill.unwrap_or_else(|| PathBuf::from("taskkill.exe")));
+    let pid = pid.to_string();
+    helper.args(["/PID", pid.as_str(), "/T", "/F"])
+        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    impeccino_common::proc::hide_window(&mut helper);
+    let Ok(mut helper) = helper.spawn() else { return };
+    let deadline = Instant::now() + TASKKILL_TIMEOUT;
+    loop {
+        match helper.try_wait() {
+            Ok(Some(_)) => return,
+            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(5)),
+            _ => break,
+        }
+    }
+    let _ = helper.kill();
+    // Keep even the cleanup helper bounded if taskkill unexpectedly stalls.
+    let reap_deadline = Instant::now() + Duration::from_millis(100);
+    while Instant::now() < reap_deadline {
+        if helper.try_wait().ok().flatten().is_some() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(5));
     }
 }
 
@@ -410,6 +655,328 @@ fn random_u32() -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsStr;
+    use std::time::{Duration, Instant};
+
+    fn fake_browser(block_eval: bool, fail_set: bool) -> (PathBuf, PathBuf) {
+        let root = std::env::temp_dir().join(format!("impeccino fake browser & {}-{:x}", std::process::id(), random_u32()));
+        std::fs::create_dir_all(&root).unwrap();
+        let log = root.join("calls.log");
+        #[cfg(unix)]
+        let script = {
+            use std::os::unix::fs::PermissionsExt;
+            let log = log.to_string_lossy().replace('\'', "'\\''");
+            let wait = if block_eval {
+                "case \" $* \" in *\" eval --stdin \"*) while :; do :; done;; esac\n"
+            } else {
+                ""
+            };
+            let fail = if fail_set {
+                "case \" $* \" in *\" set viewport \"*) printf '%s\\n' '{\"success\":false,\"error\":\"fake viewport error\"}'; exit 0;; esac\n"
+            } else {
+                ""
+            };
+            let body = format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{log}'\n{fail}{wait}printf '%s\\n' '{{\"success\":true,\"data\":{{}}}}'\n"
+            );
+            let path = root.join("agent-browser");
+            std::fs::write(&path, body).unwrap();
+            let mut permissions = std::fs::metadata(&path).unwrap().permissions();
+            permissions.set_mode(0o755);
+            std::fs::set_permissions(&path, permissions).unwrap();
+            path
+        };
+        #[cfg(windows)]
+        let script = {
+            let log = log.to_string_lossy();
+            let wait = if block_eval {
+                "echo %* | findstr /C:\"eval --stdin\" >nul\r\nif not errorlevel 1 goto wait_forever\r\n"
+            } else {
+                ""
+            };
+            let fail = if fail_set {
+                "echo %* | findstr /C:\"set viewport\" >nul\r\nif not errorlevel 1 goto fail_set\r\n"
+            } else {
+                ""
+            };
+            let wait_loop = if block_eval { ":wait_forever\r\ngoto wait_forever\r\n" } else { "" };
+            let fail_label = if fail_set { ":fail_set\r\necho {\"success\":false,\"error\":\"fake viewport error\"}\r\nexit /b 0\r\n" } else { "" };
+            let body = format!(
+                "@echo off\r\n>>\"{log}\" echo %*\r\n{fail}{wait}echo {{\"success\":true,\"data\":{{}}}}\r\nexit /b 0\r\n{fail_label}{wait_loop}"
+            );
+            let path = root.join("agent-browser.cmd");
+            std::fs::write(&path, body).unwrap();
+            path
+        };
+        (script, log)
+    }
+
+    #[cfg(unix)]
+    fn kill_isolated_test_group(child: &mut Child) {
+        unsafe { libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL); }
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    #[test]
+    fn agent_browser_deadline_covers_an_unresponsive_command_with_large_stdin() {
+        let (bin, _) = fake_browser(true, false);
+        let browser = impeccino_common::agent_browser::resolve_agent_browser(Some(bin.as_os_str()), &[], None).unwrap();
+        let session = Session { browser, name: "impeccino-test".into(), owned: false, closed: std::cell::Cell::new(false) };
+        let script = "x".repeat(2 * 1024 * 1024);
+        let workspace = TempWorkspace::create().unwrap();
+        let workspace_path = workspace.0.clone();
+        let start = Instant::now();
+        let mut args: Vec<OsString> = vec!["--session".into(), session.name.clone().into(), "--json".into()];
+        args.extend([OsString::from("eval"), OsString::from("--stdin")]);
+        let result = run_process_in_workspace(
+            session.browser.command(&args),
+            "eval",
+            Some(&script),
+            Duration::from_millis(150),
+            start + Duration::from_millis(150),
+            true,
+            workspace,
+        );
+        assert!(result.is_err(), "a blocked agent-browser process must time out");
+        assert!(start.elapsed() < Duration::from_secs(3), "agent-browser exceeded its injected deadline");
+        assert!(!workspace_path.exists(), "timeout cleanup left its private directory behind");
+    }
+
+    #[test]
+    fn process_workspace_is_removed_after_success_and_nonzero_exit() {
+        let (bin, _) = fake_browser(false, false);
+        let browser = impeccino_common::agent_browser::resolve_agent_browser(Some(bin.as_os_str()), &[], None).unwrap();
+        let workspace = TempWorkspace::create().unwrap();
+        let workspace_path = workspace.0.clone();
+        let output = run_process_in_workspace(
+            browser.command(&[OsString::from("--json")]),
+            "test",
+            None,
+            Duration::from_secs(2),
+            Instant::now() + Duration::from_secs(2),
+            false,
+            workspace,
+        ).unwrap();
+        assert!(output.status.success());
+        assert!(!workspace_path.exists(), "successful command cleanup left its private directory behind");
+
+        let workspace = TempWorkspace::create().unwrap();
+        let workspace_path = workspace.0.clone();
+        let mut command = Command::new(if cfg!(windows) { "cmd.exe" } else { "sh" });
+        if cfg!(windows) {
+            command.args(["/d", "/c", "exit", "/b", "7"]);
+        } else {
+            command.args(["-c", "exit 7"]);
+        }
+        let output = run_process_in_workspace(
+            command,
+            "test",
+            None,
+            Duration::from_secs(2),
+            Instant::now() + Duration::from_secs(2),
+            false,
+            workspace,
+        ).unwrap();
+        assert!(!output.status.success());
+        assert!(!workspace_path.exists(), "failed command cleanup left its private directory behind");
+    }
+
+    #[test]
+    fn dropping_an_owned_session_closes_it() {
+        let (bin, log) = fake_browser(false, false);
+        let browser = impeccino_common::agent_browser::resolve_agent_browser(Some(bin.as_os_str()), &[], None).unwrap();
+        drop(Session { browser, name: "impeccino-test".into(), owned: true, closed: std::cell::Cell::new(false) });
+        let calls = std::fs::read_to_string(log).unwrap_or_default();
+        assert!(calls.lines().any(|line| line.ends_with(" close")), "owned session was not closed: {calls:?}");
+    }
+
+    #[test]
+    fn dropping_a_borrowed_session_never_closes_it() {
+        let (bin, log) = fake_browser(false, false);
+        let browser = impeccino_common::agent_browser::resolve_agent_browser(Some(bin.as_os_str()), &[], None).unwrap();
+        drop(Session { browser, name: "borrowed-test".into(), owned: false, closed: std::cell::Cell::new(false) });
+        assert!(std::fs::read_to_string(log).unwrap_or_default().is_empty());
+    }
+
+    #[test]
+    fn a_viewport_setup_error_closes_the_new_owned_session() {
+        let (bin, log) = fake_browser(false, true);
+        let browser = impeccino_common::agent_browser::resolve_agent_browser(Some(bin.as_os_str()), &[], None).unwrap();
+        let result = Session::start_with(browser, "owned-test".into(), true, Some((1280, 800)));
+        assert!(result.is_err());
+        let calls = std::fs::read_to_string(log).unwrap_or_default();
+        assert!(calls.lines().any(|line| line.contains("set viewport")), "viewport setup was not attempted: {calls:?}");
+        assert!(calls.lines().any(|line| line.ends_with(" close")), "owned session was not closed after setup failed: {calls:?}");
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn sigterm_interrupts_a_browser_command_and_restores_the_child_handler() {
+        const CHILD_MODE: &str = "IMPECCINO_PAGE_SCAN_SIGTERM_CHILD";
+        if let Ok(bin) = std::env::var(CHILD_MODE) {
+            let browser = impeccino_common::agent_browser::resolve_agent_browser(Some(OsStr::new(&bin)), &[], None).unwrap();
+            let _guard = interrupt_guard().unwrap();
+            let session = Session { browser, name: "sigterm-test".into(), owned: false, closed: std::cell::Cell::new(false) };
+            let result = session.run_with_timeout(&["eval", "--stdin"], Some("probe"), Duration::from_secs(5), true);
+            assert!(result.unwrap_err().message.contains("interrupted"));
+            return;
+        }
+
+        use std::os::unix::process::CommandExt;
+        let (bin, log) = fake_browser(true, false);
+        let executable = std::env::current_exe().unwrap();
+        let test_name = "page_scan::tests::sigterm_interrupts_a_browser_command_and_restores_the_child_handler";
+        let mut command = Command::new(executable);
+        command.args(["--exact", test_name, "--nocapture"])
+            .env(CHILD_MODE, &bin)
+            .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        // If the regression returns, only this test process and its fake CLI
+        // are killed; no browser owned by the developer is involved.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::setsid() == -1 { return Err(std::io::Error::last_os_error()); }
+                Ok(())
+            });
+        }
+        let mut child = command.spawn().expect("spawn isolated signal-test process");
+        let ready_deadline = Instant::now() + Duration::from_secs(5);
+        let ready = loop {
+            if std::fs::read_to_string(&log).is_ok_and(|calls| calls.lines().any(|line| line.contains(" eval --stdin"))) {
+                break true;
+            }
+            if child.try_wait().unwrap().is_some() || Instant::now() >= ready_deadline {
+                break false;
+            }
+            thread::sleep(Duration::from_millis(10));
+        };
+        if !ready {
+            kill_isolated_test_group(&mut child);
+            panic!("child test never started the fake browser command");
+        }
+        assert_eq!(unsafe { libc::kill(child.id() as libc::pid_t, libc::SIGTERM) }, 0);
+        let exit_deadline = Instant::now() + Duration::from_secs(3);
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() { break status; }
+            if Instant::now() >= exit_deadline {
+                kill_isolated_test_group(&mut child);
+                panic!("SIGTERM did not unwind the browser command within its deadline");
+            }
+            thread::sleep(Duration::from_millis(10));
+        };
+        assert!(status.success(), "the signal-observing test process failed: {status}");
+    }
+
+    #[cfg(windows)]
+    struct TestChildProcess {
+        pid_file: PathBuf,
+        pid: Option<u32>,
+    }
+
+    #[cfg(windows)]
+    impl TestChildProcess {
+        fn set_pid(&mut self, pid: u32) {
+            self.pid = Some(pid);
+        }
+    }
+
+    #[cfg(windows)]
+    impl Drop for TestChildProcess {
+        fn drop(&mut self) {
+            let pid = self.pid.or_else(|| test_child_pid(&self.pid_file, Duration::from_secs(2)));
+            let Some(pid) = pid else { return };
+            impeccino_common::proc::terminate(pid as i64);
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < deadline && impeccino_common::proc::pid_reachable(pid as i64) {
+                thread::sleep(Duration::from_millis(10));
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    fn test_child_pid(path: &std::path::Path, timeout: Duration) -> Option<u32> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            if let Ok(pid) = std::fs::read_to_string(path).map(|value| value.trim().parse()) {
+                if let Ok(pid) = pid {
+                    return Some(pid);
+                }
+            }
+            if Instant::now() >= deadline {
+                return None;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_cmd_timeout_kills_its_owned_child_tree_but_success_keeps_a_detached_process() {
+        const CHILD_PID_FILE: &str = "IMPECCINO_PAGE_SCAN_TREE_CHILD_PID_FILE";
+        const CHILD_EXE: &str = "IMPECCINO_PAGE_SCAN_TREE_CHILD_EXE";
+        if let Ok(pid_file) = std::env::var(CHILD_PID_FILE) {
+            std::fs::write(pid_file, std::process::id().to_string()).unwrap();
+            loop { thread::sleep(Duration::from_secs(1)); }
+        }
+
+        let root = std::env::temp_dir().join(format!("impeccino cmd tree & {}-{:x}", std::process::id(), random_u32()));
+        std::fs::create_dir_all(&root).unwrap();
+        let executable = std::env::current_exe().unwrap();
+        let test_name = "page_scan::tests::windows_cmd_timeout_kills_its_owned_child_tree_but_success_keeps_a_detached_process";
+        let start_child = format!(
+            "start \"\" /B \"%{CHILD_EXE}%\" --exact {test_name} --nocapture <nul >nul 2>&1\r\n"
+        );
+
+        let timeout_pid_file = root.join("timeout-child.pid");
+        let mut timeout_child_guard = TestChildProcess { pid_file: timeout_pid_file.clone(), pid: None };
+        let timeout_shim = root.join("agent-browser-timeout.cmd");
+        std::fs::write(&timeout_shim, format!(
+            "@echo off\r\n{start_child}:wait\r\nping -n 2 127.0.0.1 >nul\r\ngoto wait\r\n"
+        )).unwrap();
+        let timeout_browser = impeccino_common::agent_browser::resolve_agent_browser(Some(timeout_shim.as_os_str()), &[], None).unwrap();
+        let mut timeout_command = timeout_browser.command(&[]);
+        timeout_command.current_dir(&root).env(CHILD_EXE, &executable).env(CHILD_PID_FILE, &timeout_pid_file);
+        let workspace = TempWorkspace::create().unwrap();
+        let workspace_path = workspace.0.clone();
+        let start = Instant::now();
+        let result = run_process_in_workspace(
+            timeout_command,
+            "tree-test",
+            None,
+            Duration::from_secs(1),
+            start + Duration::from_secs(1),
+            false,
+            workspace,
+        );
+        assert!(result.unwrap_err().message.contains("timed out"));
+        assert!(start.elapsed() < Duration::from_secs(5), "Windows process-tree cleanup exceeded its bound");
+        let timeout_pid = test_child_pid(&timeout_pid_file, Duration::from_secs(2)).expect("the .cmd shim spawned its child");
+        timeout_child_guard.set_pid(timeout_pid);
+        let exit_deadline = Instant::now() + Duration::from_secs(2);
+        while impeccino_common::proc::pid_reachable(timeout_pid as i64) && Instant::now() < exit_deadline {
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert!(!impeccino_common::proc::pid_reachable(timeout_pid as i64), "taskkill left the .cmd descendant alive");
+        assert!(!workspace_path.exists(), "tree timeout left its private stdio directory behind");
+
+        let success_pid_file = root.join("success-child.pid");
+        let mut success_child_guard = TestChildProcess { pid_file: success_pid_file.clone(), pid: None };
+        let success_shim = root.join("agent-browser-success.cmd");
+        std::fs::write(&success_shim, format!(
+            "@echo off\r\n{start_child}echo {{\"success\":true,\"data\":{{}}}}\r\n"
+        )).unwrap();
+        let success_browser = impeccino_common::agent_browser::resolve_agent_browser(Some(success_shim.as_os_str()), &[], None).unwrap();
+        let mut success_command = success_browser.command(&[]);
+        success_command.current_dir(&root).env(CHILD_EXE, &executable).env(CHILD_PID_FILE, &success_pid_file);
+        let output = run_process(success_command, "tree-success", None, Duration::from_secs(2), false).unwrap();
+        assert!(output.status.success());
+        assert!(serde_json::from_slice::<Value>(&output.stdout).is_ok());
+        let success_pid = test_child_pid(&success_pid_file, Duration::from_secs(2)).expect("successful shim detached its child");
+        success_child_guard.set_pid(success_pid);
+        assert!(impeccino_common::proc::pid_reachable(success_pid as i64), "successful command cleanup killed a detached child");
+        drop(success_child_guard);
+        let _ = std::fs::remove_dir_all(root);
+    }
 
     /// The JS array literal `const <name> = [ ... ];` from the measurement script.
     fn js_list(name: &str) -> Vec<String> {

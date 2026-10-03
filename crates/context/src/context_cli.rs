@@ -174,13 +174,16 @@ fn append_detector_fallback(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: 
 /// when set, otherwise an `agent-browser` executable on PATH. Looked up, not
 /// run, so context stays fast and side-effect free.
 fn agent_browser_available(env: &Env) -> bool {
-    if let Some(bin) = env.get("IMPECCINO_AGENT_BROWSER").filter(|b| !b.is_empty()) {
-        return std::path::Path::new(bin).is_file();
-    }
-    let names: &[&str] = if cfg!(windows) { &["agent-browser.exe", "agent-browser.cmd"] } else { &["agent-browser"] };
-    env.get("PATH")
-        .map(|path| std::env::split_paths(path).any(|dir| names.iter().any(|n| dir.join(n).is_file())))
-        .unwrap_or(false)
+    let search_paths = env
+        .get("PATH")
+        .map(|path| std::env::split_paths(std::ffi::OsStr::new(path)).collect::<Vec<_>>())
+        .unwrap_or_default();
+    impeccino_common::agent_browser::resolve_agent_browser(
+        env.get("IMPECCINO_AGENT_BROWSER").map(std::ffi::OsStr::new),
+        &search_paths,
+        env.get("PATHEXT").map(std::ffi::OsStr::new),
+    )
+    .is_some()
 }
 
 /// Say at session start, not at the first failed scan, that rendered-page
@@ -463,3 +466,26 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     0
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rendered_browser_availability_uses_only_the_injected_environment() {
+        let directory = std::env::temp_dir().join(format!("impeccino-context-browser-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        let executable = if cfg!(windows) { "agent-browser.cmd" } else { "agent-browser" };
+        std::fs::write(directory.join(executable), "placeholder").unwrap();
+        let mut env = Env::new();
+        env.insert("PATH".into(), directory.to_string_lossy().into_owned());
+        if cfg!(windows) {
+            env.insert("PATHEXT".into(), ".EXE;.CMD".into());
+        }
+
+        assert!(agent_browser_available(&env));
+        env.insert("PATH".into(), directory.join("missing").to_string_lossy().into_owned());
+        assert!(!agent_browser_available(&env), "availability must not consult the process PATH");
+        let _ = std::fs::remove_dir_all(directory);
+    }
+}
