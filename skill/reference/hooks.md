@@ -10,7 +10,7 @@ Every hook is a mechanical pass. The reflexes no scanner catches live in [craft-
 
 ## No config file
 
-Impeccino keeps no config file. The hook is on wherever its entries sit in the harness settings, so `on` installs them and `off` removes them. Its session cache lives in the user cache (`$XDG_CACHE_HOME/impeccino/projects/`, else `~/.cache/impeccino/projects/`; `%LOCALAPPDATA%\impeccino\projects\` on Windows), never in the project. Three environment variables are the only switches: `IMPECCINO_HOOK_DISABLED=1` turns an installed hook off for one shell, `IMPECCINO_HOOK_QUIET=1` silences the clean and pending acks, and `IMPECCINO_HOOK_LOG=<path>` appends one NDJSON line per invocation.
+Impeccino keeps no config file. Hooks are a per-project opt-in: `on` installs entries only in supported harness manifests inside the current project, and `off` removes those entries. Running either action from a nested directory uses the repository's manifest set. A globally installed Claude skill can opt one project in by writing its absolute launcher path to that project's `.claude/settings.local.json`; other global skill locations do not identify a harness for project hooks. Impeccino never edits user-level hook settings. Its session cache lives in the user cache (`$XDG_CACHE_HOME/impeccino/projects/`, else `~/.cache/impeccino/projects/`; `%LOCALAPPDATA%\impeccino\projects\` on Windows), never in the project. Three environment variables are the only switches: `IMPECCINO_HOOK_DISABLED=1` turns an installed hook off for one shell, `IMPECCINO_HOOK_QUIET=1` silences the clean and pending acks, and `IMPECCINO_HOOK_LOG=<path>` appends one NDJSON line per invocation.
 
 What used to be detector config is read from the project's own files, by the hook and by `impeccino detect` alike:
 
@@ -21,7 +21,7 @@ What used to be detector config is read from the project's own files, by the hoo
 
 `impeccino detect --no-config` scans raw: no DESIGN.md tokens, waivers, or declared fonts, and no in-file waivers. Git's ignore rules still apply.
 
-Supported harnesses: Claude Code (`.claude/settings.local.json` in the project, which is gitignored so the hook stays machine-local; a hook you move into the shared `settings.json` is honored in place too), Codex (`.codex/hooks.json` in the project), Cursor (`.cursor/hooks.json` in the project), Grok Build (`.grok/hooks/impeccino.json` in the project; requires `/hooks-trust` or `--trust`), and GitHub Copilot (`.github/hooks/impeccino.json` in the project, a team-shared committed file that both the Copilot CLI and the cloud agent read). For the Copilot CLI, repo-level hooks fire once `.github/hooks/impeccino.json` is committed to the repository's default branch.
+Supported harnesses: Claude Code (`.claude/settings.local.json` in the project, which is gitignored so the hook stays machine-local; a hook you move into the shared `settings.json` is honored in place too), Codex (`.codex/hooks.json` in the project), Cursor (`.cursor/hooks.json` in the project), Grok Build (`.grok/hooks/impeccino.json` in the project; requires `/hooks-trust` or `--trust`), and GitHub Copilot (`.github/hooks/impeccino.json` in the project, a team-shared committed file that both the Copilot CLI and the cloud agent read). `hooks on` writes Claude, Codex, Cursor, and Copilot manifests only when it finds that project's skill launcher. Codex, Cursor, and Copilot commands resolve their launcher from the Git root (including when you run the action in a nested directory), so those project hooks require a Git checkout. For Codex portability, `hooks on` also refuses a project subpath containing `%`, which Windows command parsing expands as an environment variable; move that workspace under a path without `%`. A global Claude skill is the supported exception: it writes the absolute launcher path only into the current project's local Claude settings. A global `.agents`/Codex skill alone is ambiguous and does not activate project hooks; install the skill in the project. For the Copilot CLI, repo-level hooks fire once `.github/hooks/impeccino.json` is committed to the repository's default branch.
 
 On **Cursor**, `preToolUse` checks proposed Write/Edit/Shell write content and denies only when the real detector finds an issue. The denial message is visible to the agent as the tool error, so the agent can reconsider before the bad write lands.
 
@@ -32,7 +32,7 @@ The first argument is the action. Defaults to `status`.
 | Action | What it does |
 |---|---|
 | `status` | Print where the hook is installed, the env override, the DESIGN.md waivers and declared fonts in effect, and the session cache path. |
-| `on` | Install or repair the hook entries in every harness whose skill folder is present. Writes nothing else. |
+| `on` | Install or repair hook entries for recognized project-local skill launchers. Fails with an installation instruction when no supported launcher is found. A malformed whole-settings file is preserved and reported as an error. |
 | `off` | Remove the hook entries from the local manifests `on` writes. A hook in Claude Code's team-shared `settings.json` is named, never edited. |
 | `reset` | `off`, plus delete the hook's session cache for this project. |
 
@@ -47,8 +47,8 @@ The old `ignore-rule`, `ignore-file`, and `ignore-value` actions are gone with t
    "<skill-base-dir>/scripts/impeccino" hooks <action>
    ```
 
-3. If `<action>` is `off`, follow up with a one-line note: "Done. New edits will not trigger the design hook in this project until you run `/impeccino hooks on`."
-4. If `<action>` is `on`, follow up with: "Done. The design hook will fire after the next Edit/Write on a UI file."
+3. If `<action>` is `off` and the command succeeded, follow up with a one-line note. When the output names a remaining team-shared Claude hook, say the project-local entries were removed but that shared hook remains; otherwise say: "Done. New edits will not trigger the design hook in this project until you run `/impeccino hooks on`."
+4. If `<action>` is `on` and the command succeeded, follow up with: "Done. The design hook is enabled for this project and will run at the harness's next applicable edit event or proposed write." If it returned a nonzero exit status, pass the error through and do not imply that hooks were enabled.
 5. If `<action>` is `status`, just print the script output. Do not add commentary unless the user asked a follow-up question.
 
 ## Triage findings

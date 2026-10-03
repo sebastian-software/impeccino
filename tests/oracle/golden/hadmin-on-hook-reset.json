@@ -31,5 +31,7 @@
       "signal": null
     }
   ],
-  "files": {}
+  "files": {
+    ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json.project-roots.lock": ""
+  }
 }

@@ -154,6 +154,35 @@ export default [
   },
   { id: 'hook-stop-no-touched', verb: 'hook', workspace: 'hook-project', stdin: stop(), files: CACHE_FILES },
   {
+    id: 'hook-multi-project-post-fanout', verb: 'hook', workspace: 'hook-project', files: CACHE_FILES,
+    projectCacheRoots: { workspace: '.', appA: 'apps/a', appB: 'apps/b' },
+    setup(ws) {
+      for (const app of ['a', 'b']) {
+        write(ws, `apps/${app}/package.json`, '{}');
+        write(ws, `apps/${app}/src/app.css`, '.title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }\n');
+      }
+    },
+    stdin: {
+      session_id: 'multi-post', cwd: WS, hook_event_name: 'PostToolUse', tool_name: 'apply_patch',
+      tool_input: { command: '*** Begin Patch\n*** Update File: apps/a/src/app.css\n*** Update File: apps/b/src/app.css\n*** End Patch' },
+    },
+  },
+  {
+    id: 'hook-multi-project-stop-index', verb: 'hook', workspace: 'hook-project', files: CACHE_FILES,
+    projectCacheRoots: { workspace: '.', appA: 'apps/a', appB: 'apps/b' },
+    setup(ws) {
+      for (const app of ['a', 'b']) {
+        write(ws, `apps/${app}/package.json`, '{}');
+        write(ws, `apps/${app}/src/app.css`, '.title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }\n.card { border-left: 4px solid #6366f1; border-radius: 8px; }\n');
+      }
+    },
+    steps: [
+      { stdin: claudeEdit('apps/a/src/app.css') },
+      { stdin: claudeEdit('apps/b/src/app.css') },
+      { stdin: stop() },
+    ],
+  },
+  {
     id: 'hook-session-suppression-after-6', verb: 'hook', workspace: 'hook-project', files: CACHE_FILES,
     steps: Array.from({ length: 9 }, () => ({ stdin: claudeEdit('src/components/Card.module.css') })),
   },
@@ -220,9 +249,9 @@ export default [
   { id: 'hadmin-status-noargs', verb: 'hook-admin', workspace: 'hook-project', args: [], files: CACHE_FILES },
   { id: 'hadmin-unknown-action', verb: 'hook-admin', workspace: 'hook-project', args: ['bogus'], files: CACHE_FILES },
   { id: 'hadmin-off', verb: 'hook-admin', workspace: 'hook-project', args: ['off'], files: CACHE_FILES },
-  { id: 'hadmin-on', verb: 'hook-admin', workspace: 'hook-project', args: ['on'], files: CACHE_FILES },
-  { id: 'hadmin-on-twice', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, steps: [{ args: ['on'] }, { args: ['on'] }, { args: ['status'] }] },
-  { id: 'hadmin-off-then-status', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, steps: [{ args: ['off'] }, { args: ['status'] }, { args: ['on'] }, { args: ['status'] }] },
+  { id: 'hadmin-on', verb: 'hook-admin', workspace: 'hook-project', args: ['on'], files: CACHE_FILES, setup: gitRepo, windowsClaudeExecForm: true },
+  { id: 'hadmin-on-twice', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, setup: gitRepo, windowsClaudeExecForm: true, steps: [{ args: ['on'] }, { args: ['on'] }, { args: ['status'] }] },
+  { id: 'hadmin-off-then-status', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, setup: gitRepo, windowsClaudeExecForm: true, steps: [{ args: ['off'] }, { args: ['status'] }, { args: ['on'] }, { args: ['status'] }] },
   // ignore-rule / ignore-file / ignore-value wrote the retired config file.
   { id: 'hadmin-ignore-rule-removed', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-rule', 'side-tab'], files: CACHE_FILES },
   { id: 'hadmin-ignore-file-removed', verb: 'hook-admin', workspace: 'hook-project', args: ['ignore-file', 'src/legacy/**'], files: CACHE_FILES },
@@ -234,7 +263,8 @@ export default [
   { id: 'hadmin-reset-empty', verb: 'hook-admin', workspace: 'hook-project', args: ['reset'], files: CACHE_FILES },
   // `reset` removes the hook entries `on` wrote and the session cache.
   {
-    id: 'hadmin-on-hook-reset', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES,
+    id: 'hadmin-on-hook-reset', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, windowsClaudeExecForm: true,
+    setup: gitRepo,
     steps: [
       { args: ['on'] },
       { verb: 'hook', stdin: claudeEdit('src/components/Card.module.css') },
@@ -250,13 +280,13 @@ export default [
     steps: [{ args: ['status'] }, { args: ['off'] }],
   },
   {
-    id: 'hadmin-on-repairs-existing-manifest', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES,
-    setup: (ws) => { fs.mkdirSync(`${ws}/.claude`, { recursive: true }); fs.writeFileSync(`${ws}/.claude/settings.local.json`, JSON.stringify({ permissions: { allow: ['Bash(ls)'] }, hooks: { PostToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'node old/skills/impeccino/scripts/hook.mjs' }] }, { matcher: 'Write', hooks: [{ type: 'command', command: 'echo other' }] }] } }, null, 2) + '\n'); },
+    id: 'hadmin-on-repairs-existing-manifest', verb: 'hook-admin', workspace: 'hook-project', files: CACHE_FILES, windowsClaudeExecForm: true,
+    setup: (ws) => { gitRepo(ws); fs.mkdirSync(`${ws}/.claude`, { recursive: true }); fs.writeFileSync(`${ws}/.claude/settings.local.json`, JSON.stringify({ permissions: { allow: ['Bash(ls)'] }, hooks: { PostToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'node old/skills/impeccino/scripts/hook.mjs' }] }, { matcher: 'Write', hooks: [{ type: 'command', command: 'echo other' }] }] } }, null, 2) + '\n'); },
     args: ['on'],
   },
   {
-    id: 'hadmin-on-malformed-manifest-backup', verb: 'hook-admin', workspace: 'hook-project', files: [...CACHE_FILES, '.cursor/hooks.json.bak'],
-    setup: (ws) => { fs.mkdirSync(`${ws}/.cursor`, { recursive: true }); fs.writeFileSync(`${ws}/.cursor/hooks.json`, '{ broken'); },
+    id: 'hadmin-on-malformed-manifest-backup', verb: 'hook-admin', workspace: 'hook-project', files: [...CACHE_FILES, '.cursor/hooks.json.bak'], windowsClaudeExecForm: true,
+    setup: (ws) => { gitRepo(ws); fs.mkdirSync(`${ws}/.cursor`, { recursive: true }); fs.writeFileSync(`${ws}/.cursor/hooks.json`, '{ broken'); },
     args: ['on'],
   },
 ];

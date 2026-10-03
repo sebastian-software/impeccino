@@ -91,6 +91,14 @@ beside DESIGN.md; `detect` and the hook take their waivers from DESIGN.md
 `.gitignore` and `.gitattributes` exclude (`project_ignores.rs`); the hook's
 session cache and the boot's staleness throttle live in the per-user cache
 (`impeccino_common::project_files::user_cache_dir`).
+Hook file state stays in the cache for its owning project. When a session's
+working directory differs from that project, the session-cwd cache also keeps
+a bounded `projectRoots` index so Stop can find the project's cache without
+searching the full user cache. Stop treats those roots only as lookup hints:
+it rechecks project containment and file safety before reading touched files.
+Concurrent index updates use a sibling advisory lock around the atomic cache
+replacement. Stop's 20-file budget caps files actually passed to the detector
+across the project fan-out; it does not cap candidate-index traversal.
 
 `crates/core` re-exports the foundation modules under its own paths, so every
 consumer names one crate: `impeccino_core::js`, `impeccino_core::color`,
