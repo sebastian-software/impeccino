@@ -154,6 +154,35 @@ export default [
   },
   { id: 'hook-stop-no-touched', verb: 'hook', workspace: 'hook-project', stdin: stop(), files: CACHE_FILES },
   {
+    id: 'hook-multi-project-post-fanout', verb: 'hook', workspace: 'hook-project', files: CACHE_FILES,
+    projectCacheRoots: { workspace: '.', appA: 'apps/a', appB: 'apps/b' },
+    setup(ws) {
+      for (const app of ['a', 'b']) {
+        write(ws, `apps/${app}/package.json`, '{}');
+        write(ws, `apps/${app}/src/app.css`, '.title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }\n');
+      }
+    },
+    stdin: {
+      session_id: 'multi-post', cwd: WS, hook_event_name: 'PostToolUse', tool_name: 'apply_patch',
+      tool_input: { command: '*** Begin Patch\n*** Update File: apps/a/src/app.css\n*** Update File: apps/b/src/app.css\n*** End Patch' },
+    },
+  },
+  {
+    id: 'hook-multi-project-stop-index', verb: 'hook', workspace: 'hook-project', files: CACHE_FILES,
+    projectCacheRoots: { workspace: '.', appA: 'apps/a', appB: 'apps/b' },
+    setup(ws) {
+      for (const app of ['a', 'b']) {
+        write(ws, `apps/${app}/package.json`, '{}');
+        write(ws, `apps/${app}/src/app.css`, '.title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }\n.card { border-left: 4px solid #6366f1; border-radius: 8px; }\n');
+      }
+    },
+    steps: [
+      { stdin: claudeEdit('apps/a/src/app.css') },
+      { stdin: claudeEdit('apps/b/src/app.css') },
+      { stdin: stop() },
+    ],
+  },
+  {
     id: 'hook-session-suppression-after-6', verb: 'hook', workspace: 'hook-project', files: CACHE_FILES,
     steps: Array.from({ length: 9 }, () => ({ stdin: claudeEdit('src/components/Card.module.css') })),
   },

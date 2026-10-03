@@ -26,6 +26,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -323,8 +324,39 @@ export function normalize(text, {
 }
 
 /** `<cache>/impeccino/projects/<slug>-<hash>/` -> `.../projects/<PROJECT>/`. */
-export function normalizeProjectCacheDir(text) {
-  return text.replace(/(impeccino[\\/]projects[\\/])[^\\/\s"'`]+-[0-9a-f]{8}(?=[\\/])/g, '$1<PROJECT>');
+export function normalizeProjectCacheDir(text, labels = new Map()) {
+  return text.replace(/(impeccino[\\/]projects[\\/])[^\\/\s"'`]+-([0-9a-f]{8})(?=[\\/])/g,
+    (_match, prefix, digest) => `${prefix}<PROJECT${labels.has(digest) ? `:${labels.get(digest)}` : ''}>`);
+}
+
+/**
+ * Normalize file snapshot paths and fail loudly if the normalizer would
+ * discard one file by mapping two real paths to the same golden key.
+ */
+export function normalizeSnapshotFiles(files, labels = new Map(), caseId = 'oracle case') {
+  const normalized = {};
+  for (const [file, contents] of Object.entries(files)) {
+    const key = normalizeProjectCacheDir(file, labels);
+    if (Object.hasOwn(normalized, key)) {
+      throw new Error(`normalized file snapshot collision in ${caseId}: ${key}`);
+    }
+    normalized[key] = contents;
+  }
+  return normalized;
+}
+
+function projectCacheLabels(c, ws) {
+  if (!c.projectCacheRoots) return new Map();
+  const labels = new Map();
+  for (const [label, root] of Object.entries(c.projectCacheRoots)) {
+    const resolved = path.resolve(ws, root);
+    const digest = createHash('sha256').update(resolved).digest('hex').slice(0, 8);
+    if (labels.has(digest)) {
+      throw new Error(`project cache label collision in ${c.id}: ${labels.get(digest)} and ${label}`);
+    }
+    labels.set(digest, label);
+  }
+  return labels;
 }
 
 /**
@@ -604,7 +636,9 @@ export function runCase(c, { impl = 'js', bin = process.env.IMPECCINO_BIN } = {}
       signal: r.signal || null,
       ...(r.daemon ? { daemon: true } : {}),
     });
-    const filesNorm = Object.fromEntries(Object.entries(files).map(([k, v]) => [normalizeProjectCacheDir(k), N(v)]));
+    const labels = projectCacheLabels(c, ws);
+    const normalizedFiles = normalizeSnapshotFiles(files, labels, c.id);
+    const filesNorm = Object.fromEntries(Object.entries(normalizedFiles).map(([k, v]) => [k, N(v)]));
     const daemonOut = daemons.length
       ? { daemon: daemons.map((d) => ({ stdout: N(d.stdout()), stderr: N(d.stderr()) })) }
       : {};

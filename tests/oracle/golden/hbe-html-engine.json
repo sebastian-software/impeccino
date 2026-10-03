@@ -4,6 +4,7 @@
   "exit": 0,
   "signal": null,
   "files": {
-    ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json": "{\"version\":1,\"sessions\":{\"cv1\":{\"updatedAt\": <EPOCH>,\"files\":{\"<WS>/src/new.html\":{\"editCount\":0,\"findings\":[],\"cursorDenials\":{\"low-contrast:0\":1}}},\"footerShown\":true}}}"
+    ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json": "{\"version\":1,\"sessions\":{\"cv1\":{\"updatedAt\": <EPOCH>,\"files\":{\"<WS>/src/new.html\":{\"editCount\":0,\"findings\":[],\"cursorDenials\":{\"low-contrast:0\":1}}},\"footerShown\":true}}}",
+    ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json.project-roots.lock": ""
   }
 }
