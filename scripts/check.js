@@ -24,22 +24,12 @@ function checkCounts(rootDir, skills) {
   // Count active commands. After the v3.0 consolidation, commands are sub-commands
   // of /impeccino. Count them from the command router table in SKILL.md.
   const impeccinoSkill = skills.find(s => s.name === 'impeccino');
-  let commandCount;
-  if (impeccinoSkill) {
-    // Count lines in the command table that start with | `...` | — tolerant
-    // of argument hints inside the backticks (e.g. `craft [feature]`) and of
-    // multi-word commands (e.g. `pin <command>`).
-    const routerMatches = impeccinoSkill.body.match(/^\| `[^`]+` \|/gm);
-    commandCount = routerMatches ? routerMatches.length : 0;
-  } else {
-    // Fallback: count user-invocable skills
-    const activeCommands = skills.filter(s => {
-      if (!s.userInvocable) return false;
-      const content = fs.readFileSync(s.filePath, 'utf-8');
-      return !content.includes('DEPRECATED');
-    });
-    commandCount = activeCommands.length;
+  if (!impeccinoSkill) {
+    console.error('❌ skill/SKILL.md must define the impeccino skill.');
+    return 1;
   }
+  const routerMatches = impeccinoSkill.body.match(/^\| `[^`]+` \|/gm);
+  const commandCount = routerMatches ? routerMatches.length : 0;
 
   // Count detection rules from the registry (crates/foundation/src/registry.rs).
   // Without it, the detection-count check is skipped rather than guessed.
@@ -58,10 +48,10 @@ function checkCounts(rootDir, skills) {
     const content = fs.readFileSync(absPath, 'utf-8');
 
     // Check for stale command counts (look for "N commands" or "N skills" patterns)
-    // Strip changelog list content to avoid flagging historical counts
-    const strippedContent = content.replace(/<ul class="changelog-items">[\s\S]*?<\/ul>/g, '');
+    // Historical changelog counts do not describe the current skill.
+    const currentContent = content.replace(/<ul class="changelog-items">[\s\S]*?<\/ul>/g, '');
     const countPattern = /\b(\d+)\s+(design\s+)?(commands|sub-commands|skills|steering commands)/gi;
-    for (const match of strippedContent.matchAll(countPattern)) {
+    for (const match of currentContent.matchAll(countPattern)) {
       const num = parseInt(match[1]);
       // Allow 1 (for "1 skill") and the correct count
       if (num !== commandCount && num !== 1) {
@@ -70,14 +60,12 @@ function checkCounts(rootDir, skills) {
       }
     }
 
-    // Check for stale detection counts. Use the changelog-stripped content
-    // so historical counts in changelog entries (e.g. "28 rules" from an
-    // older release) don't flag against the current detector total.
+    // Check for stale detection counts.
     // "detector" as an infix ("60 deterministic detector rules") and
     // qualified "issues" both evaded the old pattern, which is how five
     // stale counts shipped while the validator reported clean.
     const detectPattern = /\b(\d+)\s+(deterministic\s+)?(detector\s+)?(checks|patterns|rules|detections|issues)\b/gi;
-    for (const match of detectionCount == null ? [] : strippedContent.matchAll(detectPattern)) {
+    for (const match of detectionCount == null ? [] : currentContent.matchAll(detectPattern)) {
       const num = parseInt(match[1]);
       if (match[4] === 'issues' && !match[2]) continue; // plain "issues" is prose, not a count claim
       if (num !== detectionCount && num > 10) { // ignore small numbers like "3 patterns"
@@ -126,6 +114,52 @@ function validateSkillFrontmatter(skills) {
   return errors;
 }
 
+function scanProseFiles(rootDir, target, phraseRules) {
+  const emDashPatterns = [/—/g, /&mdash;/gi, /&#8212;/gi, /&#x2014;/gi];
+  let errors = 0;
+
+  const checkLine = (line, rel, lineNum) => {
+    for (const re of emDashPatterns) {
+      if (re.test(line)) {
+        console.error(`  ❌ ${rel}:${lineNum}: em dash → ${line.trim().slice(0, 120)}`);
+        console.error(`        Use commas, colons, semicolons, periods, or parentheses.`);
+        errors++;
+        re.lastIndex = 0;
+        break;
+      }
+      re.lastIndex = 0;
+    }
+    if (/ -- /.test(line)) {
+      console.error(`  ❌ ${rel}:${lineNum}: \` -- \` em-dash substitute → ${line.trim().slice(0, 120)}`);
+      console.error(`        Worse than the em dash. Pick real punctuation.`);
+      errors++;
+    }
+    for (const rule of phraseRules) {
+      if (rule.re.test(line)) {
+        const matched = line.match(rule.re)?.[0] ?? '';
+        console.error(`  ❌ ${rel}:${lineNum}: "${matched}" → ${line.trim().slice(0, 120)}`);
+        console.error(`        ${rule.rationale}`);
+        errors++;
+      }
+    }
+  };
+
+  const scan = (absPath, rel) => {
+    if (fs.statSync(absPath).isDirectory()) {
+      for (const entry of fs.readdirSync(absPath)) {
+        scan(path.join(absPath, entry), path.join(rel, entry));
+      }
+      return;
+    }
+    if (path.extname(absPath) !== '.md') return;
+    fs.readFileSync(absPath, 'utf-8').split('\n')
+      .forEach((line, index) => checkLine(line, rel, index + 1));
+  };
+  const full = path.join(rootDir, target);
+  if (fs.existsSync(full)) scan(full, target);
+  return errors;
+}
+
 /**
  * Scan user-facing copy for AI-prose anti-patterns:
  *   - em dashes (— or &mdash;)
@@ -135,22 +169,13 @@ function validateSkillFrontmatter(skills) {
  * The denylist is the editorial brief in docs/STYLE.md, enforced. Each rule has a
  * rationale that prints with the failure so the next author understands why.
  *
- * Scope: every surface a reader sees. Not skill/, where
+ * Scope: README.md. Not skill/, where
  * LLM-facing reference instructions can use technical phrasings the marketing
  * copy can't.
  *
  * Returns the number of occurrences found. Build fails if > 0.
  */
 function validateProse(rootDir) {
-  const targets = [
-    'README.md',
-  ];
-  const extensions = new Set(['.html', '.md', '.js', '.mjs', '.css', '.astro']);
-  // The slop catalog documents every antipattern by example, so it must
-  // contain em dashes, buzzwords, and the rest as specimens. Exempt it from
-  // the prose gate: its job is to show the slop, not to avoid it.
-  const excludedPrefixes = [];
-  const emDashPatterns = [/—/g, /&mdash;/gi, /&#8212;/gi, /&#x2014;/gi];
   // Phrase rules: { re, rationale }. Add to docs/STYLE.md when adding here.
   const phraseRules = [
     { re: /\bload-bearing\b/i, rationale: 'AI tell. Stolen-engineer diction; almost always vague. Name what the thing actually does.' },
@@ -174,56 +199,7 @@ function validateProse(rootDir) {
     { re: /\bmoreover\b|\bfurthermore\b/i, rationale: 'Transition crutch on a metronome. Drop, or use "also".' },
     { re: /\btapestry\b/i, rationale: 'AI scenery noun. Cut.' },
   ];
-  let errors = 0;
-
-  const checkLine = (line, rel, lineNum) => {
-    for (const re of emDashPatterns) {
-      if (re.test(line)) {
-        console.error(`  ❌ ${rel}:${lineNum}: em dash → ${line.trim().slice(0, 120)}`);
-        console.error(`        Use commas, colons, semicolons, periods, or parentheses.`);
-        errors++;
-        re.lastIndex = 0;
-        break;
-      }
-      re.lastIndex = 0;
-    }
-    if (/ -- /.test(line)) {
-      console.error(`  ❌ ${rel}:${lineNum}: \` -- \` em-dash substitute → ${line.trim().slice(0, 120)}`);
-      console.error(`        Worse than the em dash. Pick real punctuation.`);
-      errors++;
-    }
-    for (const rule of phraseRules) {
-      if (rule.re.test(line)) {
-        const matched = line.match(rule.re)?.[0] ?? '';
-        console.error(`  ❌ ${rel}:${lineNum}: "${matched}" → ${line.trim().slice(0, 120)}`);
-        console.error(`        ${rule.rationale}`);
-        errors++;
-      }
-    }
-  };
-
-  const scan = (absPath, rel) => {
-    // Normalize to POSIX separators so the forward-slash excludedPrefixes match
-    // on Windows, where path.join() produces backslash-separated rel paths.
-    const relPosix = rel.split(path.sep).join('/');
-    if (excludedPrefixes.some(p => relPosix === p || relPosix.startsWith(p + '/'))) return;
-    const stat = fs.statSync(absPath);
-    if (stat.isDirectory()) {
-      for (const entry of fs.readdirSync(absPath)) {
-        scan(path.join(absPath, entry), path.join(rel, entry));
-      }
-      return;
-    }
-    if (!extensions.has(path.extname(absPath))) return;
-    const src = fs.readFileSync(absPath, 'utf-8');
-    const lines = src.split('\n');
-    lines.forEach((line, i) => checkLine(line, rel, i + 1));
-  };
-
-  for (const target of targets) {
-    const full = path.join(rootDir, target);
-    if (fs.existsSync(full)) scan(full, target);
-  }
+  const errors = scanProseFiles(rootDir, 'README.md', phraseRules);
 
   if (errors === 0) {
     console.log(`✓ Prose validator: no AI tells in user-facing copy`);
@@ -247,9 +223,6 @@ function validateProse(rootDir) {
  * Returns the number of occurrences found. Build fails if > 0.
  */
 function validateSkillProse(rootDir) {
-  const target = 'skill';
-  const extensions = new Set(['.md']);
-  const emDashPatterns = [/—/g, /&mdash;/gi, /&#8212;/gi, /&#x2014;/gi];
   // Tighter than validateProse: only the rules that have no technical reading.
   // Skipping `data-driven` here would be a mistake (it slipped through twice
   // in live.md before this pass); but `seamless`, `robust`, etc. have
@@ -269,50 +242,7 @@ function validateSkillProse(rootDir) {
     { re: /\blet's dive in\b/i, rationale: 'Throat-clearing. Just start.' },
     { re: /\bin summary\b|\bin conclusion\b/i, rationale: 'Summarizing closer. End on the strongest sentence.' },
   ];
-  let errors = 0;
-
-  const checkLine = (line, rel, lineNum) => {
-    for (const re of emDashPatterns) {
-      if (re.test(line)) {
-        console.error(`  ❌ ${rel}:${lineNum}: em dash → ${line.trim().slice(0, 120)}`);
-        console.error(`        Use commas, colons, semicolons, periods, or parentheses.`);
-        errors++;
-        re.lastIndex = 0;
-        break;
-      }
-      re.lastIndex = 0;
-    }
-    if (/ -- /.test(line)) {
-      console.error(`  ❌ ${rel}:${lineNum}: \` -- \` em-dash substitute → ${line.trim().slice(0, 120)}`);
-      console.error(`        Worse than the em dash. Pick real punctuation.`);
-      errors++;
-    }
-    for (const rule of phraseRules) {
-      if (rule.re.test(line)) {
-        const matched = line.match(rule.re)?.[0] ?? '';
-        console.error(`  ❌ ${rel}:${lineNum}: "${matched}" → ${line.trim().slice(0, 120)}`);
-        console.error(`        ${rule.rationale}`);
-        errors++;
-      }
-    }
-  };
-
-  const scan = (absPath, rel) => {
-    const stat = fs.statSync(absPath);
-    if (stat.isDirectory()) {
-      for (const entry of fs.readdirSync(absPath)) {
-        scan(path.join(absPath, entry), path.join(rel, entry));
-      }
-      return;
-    }
-    if (!extensions.has(path.extname(absPath))) return;
-    const src = fs.readFileSync(absPath, 'utf-8');
-    const lines = src.split('\n');
-    lines.forEach((line, i) => checkLine(line, rel, i + 1));
-  };
-
-  const full = path.join(rootDir, target);
-  if (fs.existsSync(full)) scan(full, target);
+  const errors = scanProseFiles(rootDir, 'skill', phraseRules);
 
   if (errors === 0) {
     console.log(`✓ Skill prose validator: skill/ is clean`);
