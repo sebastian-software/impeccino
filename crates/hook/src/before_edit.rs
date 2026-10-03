@@ -492,15 +492,6 @@ fn python_string_arg(script: &str, prefix_re: &Regex) -> String {
     String::new()
 }
 
-/// JS: relativePath(filePath, cwd)
-fn relative_path(rt: &Runtime, file_path: &str, cwd: &str) -> String {
-    let rel = rt.relative(cwd, file_path);
-    if rel.is_empty() || rel.starts_with("..") || jsp::is_absolute(&rel) {
-        return file_path.to_string();
-    }
-    jsp::to_posix(&rel)
-}
-
 /// JS: detectProposedHtml(detector, content, filePath, scanOptions)
 fn detect_proposed_html(
     rt: &Runtime,
@@ -788,9 +779,6 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
     {
         return skip(&audit, "live-preview");
     }
-    if !config.enabled {
-        return skip(&audit, "config-disabled");
-    }
     let platform = resolve_project_platform(rt, &cwd);
     if is_native_platform(platform.as_deref()) {
         return allow(
@@ -805,11 +793,8 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
             vec![],
         );
     }
-    let rel = relative_path(rt, &file_path, &cwd);
-    if matches_any_glob_list(&rel, &config.ignore_files)
-        || matches_any_glob_list(&file_path, &config.ignore_files)
-    {
-        return skip(&audit, "config-ignore-file");
+    if is_project_skipped(rt, &file_path) {
+        return skip(&audit, "git-ignored");
     }
     let scan = design_system_options_for_file(rt, &config, &cwd, &file_path);
     let use_html_engine = match configured {
@@ -836,7 +821,7 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
         detector_detect_text(&content, &file_path, &scan)
     };
     let raw_count = findings.len();
-    let filtered = filter_findings(findings, &config);
+    let filtered = filter_findings_for(findings, &config, &scan);
     if filtered.is_empty() {
         return allow(
             ext(

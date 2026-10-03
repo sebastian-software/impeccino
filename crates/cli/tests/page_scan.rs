@@ -78,13 +78,12 @@ fn rendered_page_rules_need_the_rendered_page() {
 }
 
 #[test]
-fn project_ignores_apply_to_page_findings() {
+fn design_md_waivers_apply_to_page_findings() {
     if !has_agent_browser() {
         return;
     }
     let project = temp_project("ignore");
-    std::fs::create_dir_all(project.join(".impeccino")).unwrap();
-    std::fs::write(project.join(".impeccino/config.json"), r#"{"detector":{"ignoreRules":["line-length"]}}"#).unwrap();
+    std::fs::write(project.join("DESIGN.md"), "# Design\n\n<!-- impeccino-disable line-length -- long legal copy is set wide on purpose -->\n").unwrap();
     let (_, findings) = detect(&project, &fixture_url("quality.html"));
     assert!(!findings.is_empty());
     assert!(!ids(&findings).contains(&"line-length"));

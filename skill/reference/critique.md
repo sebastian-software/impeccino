@@ -1,6 +1,6 @@
 ### Purpose
 
-Resolve one stable target, run two independent assessments, synthesize a design critique, persist a snapshot, and ask the user what to improve next. The chat response is the primary deliverable; the snapshot is an archive of that run.
+Resolve one stable target, run two independent assessments, synthesize a design critique, and ask the user what to improve next. The chat response is the deliverable: nothing is archived, so a report that is not in the chat does not exist.
 
 ### Hard Invariants
 
@@ -20,12 +20,7 @@ Resolve one stable target, run two independent assessments, synthesize a design 
    - "the homepage" -> `site/pages/index.astro` or `index.html`
    - "the settings modal" -> the primary component file
    - "this page" -> the current URL or source file
-2. **Confirm the target slugs cleanly**:
-   ```bash
-   "<skill-base-dir>/scripts/impeccino" critique-storage slug "<resolved-path-or-url>"
-   ```
-   Every later command also accepts the resolved target directly and derives the same slug internally; never hand-write a slug. If this exits non-zero, skip persistence and trend for this run, but continue the critique.
-3. **Read `.impeccino/critique/ignore.md`** if it exists. Drop matching findings silently; it is the only prior-run input critique consumes.
+2. **Read the recorded decisions**: PRODUCT.md (Brand Commitments, Product Principles), DESIGN.md (Named Rules, Do's and Don'ts, and any `<!-- impeccino-disable <rule> -->` waivers), and the project's own ADRs when it keeps them (`docs/adr/`, `doc/adr/`, `adr/`). A finding that contradicts a recorded decision is dropped; at most, mention once that the surface is consistent with that decision. These files are the only memory critique has: no earlier critique is read, because none is stored.
 
 ### Assessment Orchestration
 
@@ -71,7 +66,7 @@ CLI scan:
 ```
 
 - Pass the markup source files or directories that render the target; do not pass CSS-only files.
-- The CLI scans files and directories, never URLs. For a URL target, scan the source files that render it when they are in the workspace; when none are, report deterministic scan unavailable and rely on the screenshots.
+- This source pass scans local files and directories, not URLs. For a URL target, scan the local markup that renders it when it is in the workspace; when no source is available, report the source scan unavailable. The rendered-page detector remains a separate required pass on the URL (step 3).
 - For very large trees (500+ scannable files), narrow scope or ask.
 - Exit code 0 = clean; 2 = findings.
 - If the launcher is missing or fails to load, report deterministic scan unavailable and continue with screenshot and manual review.
@@ -90,13 +85,13 @@ Return: CLI and rendered-page findings JSON/counts, screenshot paths with the re
 
 After Assessment B returns usable CLI findings, reuse them. Do not rerun `impeccino detect` in the parent unless Assessment B failed, was truncated, or omitted count, rule names, or file locations.
 
-Codex failure accounting: final Run Notes must include target slug, ignore list, assessment independence, CLI detector, browser screenshots, local-server cleanup, temp-file cleanup, and any fallback signal used. Do not run repo status checks, late API spelunking, or unrelated verification after the report is assembled.
+Codex failure accounting: final Run Notes must include the resolved target, the recorded decisions read, assessment independence, CLI detector, browser screenshots, local-server cleanup, and any fallback signal used. Do not run repo status checks, late API spelunking, or unrelated verification after the report is assembled.
 
 ### Generate Combined Critique Report
 
 Synthesize both assessments into a single report. Do NOT simply concatenate. Weave the findings together, noting where the LLM review and detector agree, where the detector caught issues the LLM missed, and where detector findings are false positives.
 
-The chat response is the primary user-facing deliverable. Present the full structured critique below in chat; do not replace it with a summary and a link. The persisted snapshot is an archive of that run.
+The chat response is the user-facing deliverable. Present the full structured critique below in chat; do not replace it with a summary and a link.
 
 Codex final-answer note: `$impeccino critique` produces a report artifact, so the final chat response should intentionally exceed the usual concise close-out style. Do not title the final response "Critique Summary" unless the user explicitly asked for a summary.
 
@@ -131,7 +126,7 @@ The applicable maximum is 4 times the number of heuristics you actually scored: 
 
 Be honest with scores. A 4 means genuinely excellent. Most real interfaces score 20-32 out of 40.
 
-**Mode applicability**: heuristics 7 (Flexibility and Efficiency) and 10 (Help and Documentation) may be scored `n/a` on Persuade and Experience surfaces (landing pages, campaigns, portfolios, bodies of work), as may any other heuristic that genuinely cannot apply to the surface under review. Write `n/a` in the Score cell with a one-line reason, and renormalize the total to the applicable maximum (e.g. **24/32** when two heuristics are n/a) so the rating band stays proportional. The persisted snapshot must record the applicable maximum and which heuristics were scored n/a.
+**Mode applicability**: heuristics 7 (Flexibility and Efficiency) and 10 (Help and Documentation) may be scored `n/a` on Persuade and Experience surfaces (landing pages, campaigns, portfolios, bodies of work), as may any other heuristic that genuinely cannot apply to the surface under review. Write `n/a` in the Score cell with a one-line reason, and renormalize the total to the applicable maximum (e.g. **24/32** when two heuristics are n/a) so the rating band stays proportional.
 
 #### Design Specificity Verdict
 
@@ -181,9 +176,7 @@ Provocative questions that might unlock better solutions:
 - "What would a confident version of this look like?"
 
 #### Run Notes (Codex only)
-Keep this compact. Include status for target slug, ignore list, assessment independence, CLI detector, browser screenshots, local server cleanup, and temp-file cleanup. For failed or skipped steps, give the concrete observed reason and the fallback signal used. In the final chat response, also include snapshot write and trend read status after persistence has run.
-
-Codex Run Notes are final-chat only. Do not include this section in the persisted snapshot body, because persistence, trend read, and temp cleanup happen after the snapshot write and would otherwise archive stale status such as "pending after persistence."
+Keep this compact. Include status for the resolved target, the recorded decisions read, assessment independence, CLI detector, browser screenshots, and local server cleanup. For failed or skipped steps, give the concrete observed reason and the fallback signal used.
 
 **Remember**:
 - Be direct. Vague feedback wastes everyone's time.
@@ -195,51 +188,9 @@ Codex Run Notes are final-chat only. Do not include this section in the persiste
 
 ### Deliver the Report
 
-Write the full report into the chat response now, before any persistence work. This is the deliverable; everything below it is bookkeeping.
+Write the full report into the chat response now. This is the deliverable, and nothing else keeps it: critiques are not archived, so a report composed into a file or a scratch buffer and never sent is a run that produced nothing.
 
-Do this first because the alternative is the most common way this command fails: the report gets composed once, straight into the persistence heredoc, and the run ends with a perfect archive nobody has read. Composing it into a file is not delivering it. If the report exists only in `.impeccino/critique/`, the run produced nothing.
-
-Persistence is not the end of the run. After it, the response continues with the trend line and the close.
-
-### Persist the Snapshot
-
-Once the report above is finalized, write it to `.impeccino/critique/` so the user can refer back, and so `/impeccino polish` can pick up the priority issues without a copy-paste.
-
-Skip this step if the Setup slug was null (vague or root-level target).
-
-1. **Write the body to a temp file** so you can pipe it to the helper. Use the full critique report (heuristic table, design-specificity verdict, priority issues, persona red flags, minor observations, and questions), but stop before the "Ask the User" / "Recommended Actions" sections that come later.
-
-   This is a copy of the report you already delivered above, for later commands to read. It is not delivery. If you find yourself composing the report for the first time inside this heredoc, you have skipped Deliver the Report; go back and send it.
-
-   Codex: exclude Run Notes from the temp body file; Run Notes are final-chat only because persistence, trend read, and temp cleanup happen after the snapshot write.
-
-2. **Pass the structured metadata** through `IMPECCINO_CRITIQUE_META` (JSON), then run the write command:
-   ```bash
-   IMPECCINO_CRITIQUE_META='{"target":"<user phrasing>","total_score":<n>,"max_score":<n>,"na_heuristics":"<comma-separated numbers, or empty>","p0_count":<n>,"p1_count":<n>}' \
-     "<skill-base-dir>/scripts/impeccino" critique-storage write "<resolved target>" <body-file>
-   ```
-   `max_score` is the applicable maximum from the heuristic table (40 when every heuristic applied), so a later run can tell a renormalized total from a full one. For a local file target, the helper also records an exact content fingerprint so polish can distinguish the assessed bytes from later edits without relying on Git state or timestamps. The helper prints the absolute path it wrote. Leave that file on disk. Polish closes it; this run does not.
-
-3. **Delete the temp body file** after the write attempt completes, whether the write succeeded or failed. If deletion fails, mention `temp-file cleanup failed: <reason>` briefly in the final output, but do not block the critique.
-
-4. **Read the trend** for context:
-   ```bash
-   "<skill-base-dir>/scripts/impeccino" critique-storage trend "<resolved target>" 5
-   ```
-   This returns a JSON array of the last 5 frontmatter entries (including the one you just wrote).
-
-5. **Append a single line to the user-visible output**, after the report and before the questions:
-
-   > **Trend for `<slug>` (last 5 runs): 24 → 28 → 32 → 29 → 32 (out of 40)**
-   > Wrote `.impeccino/critique/<filename>`.
-
-   Read `max_score` on each trend entry. When every entry shares one maximum, state it once as above. When they differ, print each score with its own denominator (`24/32 → 30/40`) and note that the runs scored different heuristic sets, so the line is not a like-for-like comparison. Treat a missing `max_score` on an older entry as 40.
-
-   If this is the first run for the slug, the trend is just one score; say so: "First run for this target, no trend yet."
-
-6. **Close the run.** Go to Ask the User below and emit the questions, or the `Questions skipped: <reason>` line when the count allows it. The run is not complete until you do. Persistence is bookkeeping and cleanup is not an ending; stopping here leaves the user with a report and no way forward, and leaves `/impeccino polish` with no priorities to inherit.
-
-This is fire-and-forget. Do not show the user the helper's JSON output; only the human-readable trend line and the written path. Failures here should not block the rest of the flow; print the error and move on.
+After the report, the response continues with the close below.
 
 ### Ask the User
 
@@ -256,6 +207,8 @@ Ask questions along these lines (adapt to the specific findings; do NOT ask gene
 3. **Scope**: Ask how much the user wants to take on. For example: "I found N issues. Want to address everything, or focus on the top 3?" Offer scope options like "Top 3 only", "All issues", "Critical issues only".
 
 4. **Constraints** (optional; only ask if relevant): If the findings touch many areas, ask if anything is off-limits. For example: "Should any sections stay as-is?" This prevents the plan from touching things the user considers done.
+
+**When the user rejects a finding as deliberate**, offer to record the decision so the next critique, audit, polish, and detector run honor it. Pick the file by what the decision is about: product or brand intent goes into PRODUCT.md (a Brand Commitment or Product Principle); a visual rule goes into DESIGN.md (a Named Rule or a Do/Don't). When a detector rule is involved, add `<!-- impeccino-disable <rule-id>: <reason> -->` next to that DESIGN.md rule, so the detector and the design hook stop flagging it project-wide. Offer once, in one line, and write it only when the user agrees.
 
 **Rules for questions**:
 - Every question must reference specific findings from the report. Never ask generic "who is your audience?" questions.
@@ -291,7 +244,7 @@ After presenting the summary, tell the user:
 
 > You can ask me to run these one at a time, all at once, or in any order you prefer.
 >
-> Re-run `/impeccino critique` after fixes to see your score improve.
+> `/impeccino polish` in this conversation picks up these Priority Issues. Re-run `/impeccino critique` after fixes to see your score improve.
 
 ---
 

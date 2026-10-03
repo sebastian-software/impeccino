@@ -2,14 +2,25 @@
  * `impeccino detect` corpus.
  *
  * Every antipattern fixture is scanned individually in JSON and text mode with
- * --no-config (the repo's own .impeccino config ignores tests/fixtures), plus
- * directory scans, project-config / DESIGN.md / inline-ignore behaviour from
- * the detect-config workspace, and the flag surface (help, scope, quiet,
- * no-advisory, errors).
+ * --no-config, plus directory scans, the project decisions (DESIGN.md
+ * waivers and declared fonts, .gitignore and .gitattributes) and
+ * inline-ignore behaviour from the detect-config workspace, and the flag
+ * surface (help, scope, quiet, no-advisory, errors).
+ *
+ * detect-config is staged as a git repository (setup writes `.git/` and the
+ * `.gitattributes` that marks src/vendor vendored), so git's own rules apply.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT } from '../lib.mjs';
+
+// detect-config as a git repository whose .gitattributes marks src/vendor
+// vendored. Written at stage time so the fixture tree carries no nested git
+// metadata of its own.
+const detectConfigRepo = (ws) => {
+  fs.mkdirSync(path.join(ws, '.git'), { recursive: true });
+  fs.writeFileSync(path.join(ws, '.gitattributes'), 'src/vendor/** linguist-vendored\n');
+};
 
 const FIXTURES = path.join(REPO_ROOT, 'tests', 'fixtures', 'antipatterns');
 
@@ -129,22 +140,37 @@ function Thumb({ url }: { url?: string }) {
     { id: 'cli-help', verb: 'cli-help', args: [] },
     { id: 'cli-version', verb: 'cli-version', args: [] },
 
-    // Project config, DESIGN.md, inline ignores (detect-config workspace)
-    { id: 'detect-config-page-json', verb: 'detect', workspace: 'detect-config', args: ['--json', 'src/page.html'] },
-    { id: 'detect-config-page-text', verb: 'detect', workspace: 'detect-config', args: ['src/page.html'] },
-    { id: 'detect-config-page-no-config', verb: 'detect', workspace: 'detect-config', args: ['--no-config', '--json', 'src/page.html'] },
-    { id: 'detect-config-page-no-design-system', verb: 'detect', workspace: 'detect-config', args: ['--no-design-system', '--json', 'src/page.html'] },
-    { id: 'detect-config-dir-json', verb: 'detect', workspace: 'detect-config', args: ['--json', 'src'] },
-    { id: 'detect-config-dir-text', verb: 'detect', workspace: 'detect-config', args: ['src'] },
-    { id: 'detect-config-dir-dot', verb: 'detect', workspace: 'detect-config', args: ['--json', '.'] },
-    { id: 'detect-config-inline-json', verb: 'detect', workspace: 'detect-config', args: ['--json', 'src/inline.html'] },
-    { id: 'detect-config-inline-disabled', verb: 'detect', workspace: 'detect-config', args: ['--no-inline-ignores', '--json', 'src/inline.html'] },
-    { id: 'detect-config-css-json', verb: 'detect', workspace: 'detect-config', args: ['--json', 'src/styles.css'] },
-    { id: 'detect-config-css-text', verb: 'detect', workspace: 'detect-config', args: ['src/styles.css'] },
-    { id: 'detect-config-vendor-ignored', verb: 'detect', workspace: 'detect-config', args: ['--json', 'src/vendor/ignored.html'] },
-    { id: 'detect-config-from-subdir', verb: 'detect', workspace: 'detect-config', cwd: 'src', args: ['--json', 'page.html'] },
+    // Project decisions, DESIGN.md, inline ignores (detect-config workspace)
+    { id: 'detect-config-page-json', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--json', 'src/page.html'] },
+    { id: 'detect-config-page-text', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['src/page.html'] },
+    { id: 'detect-config-page-no-config', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--no-config', '--json', 'src/page.html'] },
+    { id: 'detect-config-page-no-design-system', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--no-design-system', '--json', 'src/page.html'] },
+    { id: 'detect-config-dir-json', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--json', 'src'] },
+    { id: 'detect-config-dir-text', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['src'] },
+    { id: 'detect-config-dir-dot', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--json', '.'] },
+    { id: 'detect-config-inline-json', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--json', 'src/inline.html'] },
+    { id: 'detect-config-inline-disabled', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--no-inline-ignores', '--json', 'src/inline.html'] },
+    { id: 'detect-config-css-json', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--json', 'src/styles.css'] },
+    { id: 'detect-config-css-text', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['src/styles.css'] },
+    { id: 'detect-config-vendor-ignored', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--json', 'src/vendor/ignored.html'] },
+    { id: 'detect-config-from-subdir', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, cwd: 'src', args: ['--json', 'page.html'] },
+    // .gitignore keeps generated output out of a directory scan.
+    {
+      id: 'detect-config-gitignored-dir', verb: 'detect', workspace: 'detect-config', args: ['--json', '.'],
+      setup: (ws) => {
+        detectConfigRepo(ws);
+        fs.writeFileSync(path.join(ws, '.gitignore'), 'src/generated/\n');
+        fs.mkdirSync(path.join(ws, 'src/generated'), { recursive: true });
+        fs.copyFileSync(path.join(ws, 'src/page.html'), path.join(ws, 'src/generated/page.html'));
+      },
+    },
+    // Outside a git repository, .gitattributes does not apply.
+    { id: 'detect-config-no-repo-vendor-scanned', verb: 'detect', workspace: 'detect-config', args: ['--json', 'src/vendor/ignored.html'],
+      setup: (ws) => fs.writeFileSync(path.join(ws, '.gitattributes'), 'src/vendor/** linguist-vendored\n') },
+    // The `ignores` verb wrote the retired config file.
+    { id: 'ignores-removed', verb: 'ignores', args: ['add-rule', 'side-tab'] },
     // A file in one project must not pick up another project's DESIGN.md
-    { id: 'detect-config-cross-project', verb: 'detect', workspace: 'detect-config', args: ['--json', `<REPO>/tests/fixtures/antipatterns/blinking-cursor.html`], isolateHome: false },
+    { id: 'detect-config-cross-project', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--json', `<REPO>/tests/fixtures/antipatterns/blinking-cursor.html`], isolateHome: false },
   );
 
   return out;

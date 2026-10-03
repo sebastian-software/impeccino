@@ -129,6 +129,8 @@ Carry a line from PRODUCT.md only when it is a durable brand commitment that act
 
 The file opens with the YAML frontmatter staged in Step 2b (schema documented at the top of this reference), then the markdown body using the canonical structure below.
 
+**Preserve the waivers.** A `<!-- impeccino-disable <rule-id>: <reason> -->` comment in DESIGN.md is a recorded decision: it turns that detector rule off for every file the document governs, in `impeccino detect` and the design hook alike (Impeccino has no config file; DESIGN.md is where these decisions live). When you rewrite DESIGN.md, carry every such comment over verbatim and keep it next to the Named Rule or Do/Don't that justifies it. If the rule it sat beside no longer exists in the new text, keep the comment, write the rule that states the decision, and tell the user; never drop a waiver silently. Likewise keep every font, color, radius, and size the old frontmatter declared unless the user removed it: a declared font is how the project tells the detector its choice is deliberate.
+
 ```markdown
 ---
 name: [Project Title]
@@ -248,11 +250,11 @@ Concrete visual guardrails grounded in the incumbent implementation or the user'
 - **Don't** [...]
 ```
 
-### Step 4b: Write .impeccino/design.json sidecar (extensions only)
+### Step 4b: Write the DESIGN.json sidecar (extensions only)
 
-The frontmatter owns token primitives (colors, typography, rounded, spacing, components). The sidecar at `.impeccino/design.json` carries **what Stitch's schema can't hold**: tonal ramps per color, shadow/elevation tokens, motion tokens, breakpoints, full component HTML/CSS snippets (self-contained, so they render in isolation), and narrative (north star, rules, do's/don'ts). It extends the frontmatter, it doesn't duplicate it.
+The frontmatter owns token primitives (colors, typography, rounded, spacing, components). The sidecar `DESIGN.json`, in the same directory as DESIGN.md, carries **what Stitch's schema can't hold**: tonal ramps per color, shadow/elevation tokens, motion tokens, breakpoints, full component HTML/CSS snippets (self-contained, so they render in isolation), and narrative (north star, rules, do's/don'ts). It extends the frontmatter, it doesn't duplicate it.
 
-Regenerate the sidecar whenever you regenerate root `DESIGN.md`. If the user only asks to refresh the sidecar (for example after doctor reports it stale), preserve `DESIGN.md` and write only `.impeccino/design.json`.
+Regenerate the sidecar whenever you regenerate root `DESIGN.md`. If the user only asks to refresh the sidecar (for example after doctor reports it stale), preserve `DESIGN.md` and write only `DESIGN.json`.
 
 #### Schema
 
@@ -321,7 +323,7 @@ Aim for a tight set of **5-10 components** that best represent the visual system
 - **Signature components (include if distinctive):** the recurring custom patterns that actually define the implemented system.
 - **Skip the rest.** Utility components, form building blocks, wrapper layouts: not worth documenting unless visually distinctive.
 
-If the project has **no component library yet** (bare landing page, new project), synthesize canonical primitives from the tokens using best-practice defaults consistent with the DESIGN.md's rules. Every `.impeccino/design.json` has *something* to render, even on day zero.
+If the project has **no component library yet** (bare landing page, new project), synthesize canonical primitives from the tokens using best-practice defaults consistent with the DESIGN.md's rules. Every `DESIGN.json` has *something* to render, even on day zero.
 
 #### Tonal ramps
 
@@ -342,7 +344,7 @@ Do not reword. These are secondary context; the same voice that's in the Markdow
 ### Step 5: Confirm and refine
 
 1. Show the user the full DESIGN.md you wrote. Briefly highlight the non-obvious creative choices (descriptive color names, atmosphere language, named rules).
-2. Mention that `.impeccino/design.json` was also written alongside; it carries this project's actual button, input, and nav primitives for later agents instead of generic approximations.
+2. Mention that `DESIGN.json` was also written alongside; it carries this project's actual button, input, and nav primitives for later agents instead of generic approximations.
 3. Offer to refine any section: "Want me to revise a section, add component patterns I missed, or adjust the atmosphere language?"
 
 Your own write is the freshest source; subsequent commands in this session don't need a reload.
@@ -380,7 +382,7 @@ Per-section guidance in seed mode:
 - **Components**: omit entirely; no components exist yet.
 - **Do's and Don'ts**: record the durable guardrails confirmed during the world choice, not task-local refusals.
 
-Seed mode writes a minimal frontmatter with `name` and `description` only; no colors, typography, rounded, spacing, or components yet. Real tokens land on the next Scan-mode run. Skip the `.impeccino/design.json` sidecar in seed mode for the same reason: nothing to render.
+Seed mode writes a minimal frontmatter with `name` and `description` only; no colors, typography, rounded, spacing, or components yet. Real tokens land on the next Scan-mode run. Skip the `DESIGN.json` sidecar in seed mode for the same reason: nothing to render.
 
 ### Step 3: Confirm
 
@@ -409,6 +411,7 @@ Your own write is the freshest source; no reload needed.
 - Don't extract every token. Stop at what's actually reused; one-offs pollute the system.
 - Don't invent components that don't exist. If the project only has buttons and cards, only document those.
 - Don't overwrite an existing DESIGN.md without asking.
+- Don't drop an `impeccino-disable` comment or a declared token when rewriting DESIGN.md. Each one is a decision the detector reads.
 - Don't duplicate content from PRODUCT.md. DESIGN.md is strictly visual.
 - Don't replace canonical sections with near-synonyms. Put layout and responsive behavior in `Layout`; put motion with the affected world or component.
 - Don't rename sections even slightly. "Colors" not "Color Palette & Roles". "Typography" not "Typography Rules". Tooling parsing depends on exact headers.

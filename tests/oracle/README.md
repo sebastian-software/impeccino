@@ -34,17 +34,17 @@ functions; see `vectors/README.md`.
 
 ## Corpus files
 
-- `cases/detect.mjs`: `detect`, `cli-help`, `cli-version`, `ignores`.
+- `cases/detect.mjs`: `detect`, `cli-help`, `cli-version`, and the removed `ignores`.
 - `cases/hooks.mjs`: `hook`, `hook-before-edit`, `hook-admin`.
-- `cases/context.mjs`: `context`, `doctor`, `pin`, `surface-brief`,
-  `critique-storage`, `palette`, `embed-prompt`, `context-signals`
+- `cases/context.mjs`: `context`, `doctor`, `pin`, `surface-brief`, the
+  removed `critique-storage`, `palette`, `embed-prompt`, `context-signals`
   (id prefix `signals-`), `detect-csp` (`csp-`), `concept-seed` (`seed-`),
   `generate-image` (`genimg-`), `serve-question` (`question-`). Only offline
-  paths: the local catalog fixture or an unreachable roll API, fake image
-  generation, and serve-question modes that never open a browser or listen.
+  paths: fake image generation and serve-question modes that never open a
+  browser or listen.
   Workspaces are `workspaces/ctx-*`; the header comment in the case file
-  describes each one. Machine-specific env (`OPENAI_API_KEY`, catalog and
-  context overrides, `CI`) is pinned per case so the recording host does not
+  describes each one. Machine-specific env (`OPENAI_API_KEY`, context
+  overrides, `CI`) is pinned per case so the recording host does not
   leak into goldens.
 
 ## Normalizations
@@ -57,16 +57,20 @@ machine-dependent fragments. Each is targeted at one script's output:
 - `"devServer": <DEV_SERVER_PROBE>`: `context-signals` probes localhost ports
   4321/3000/5173/5174/8080/8000/4200; whatever is listening on the recording
   host is not part of the contract.
-- `<STAMP>`: `critique-storage` stamps snapshots with the wall clock in dash
-  form (`2026-05-12T18-30-00Z`), in the file name and the `timestamp:`
-  frontmatter it writes. Cases that write a snapshot do not snapshot the file;
-  they run `latest` / `trend` afterwards instead.
 - `"<finding-id>": <EPOCH>`: the staleness notice cache
-  (`~/.impeccino/staleness-check.json`) keys epoch stamps by finding id.
+  (`<user cache>/impeccino/staleness-check.json`) keys epoch stamps by finding id.
+- `projects/<PROJECT>/`: the hook keeps its session state in a per-project
+  directory of the user cache, named after the project's absolute path plus an
+  8-hex digest (docs/adr/0020). The mask applies to snapshot file names too.
+  The harness points the user cache at the isolated home: it unsets
+  `XDG_CACHE_HOME` and `LOCALAPPDATA`, so state lands under
+  `.oracle-home/.cache/impeccino/` on POSIX and
+  `.oracle-home/AppData/Local/impeccino/` on Windows. Windows expectations
+  retain that native location for snapshots and displayed cache paths.
 - `<IMPECCINO> <verb>` / `<HOOK_ADMIN_CMD>`: self-referential command lines.
 
 Not covered on purpose: `palette` with no `--id` / `--from` / env seed (random),
-`concept-seed` against the live roll API, `generate-image` real mode,
+`concept-seed` with no `--from` / env seed (random), `generate-image` real mode,
 `serve-question --start` / blocking mode (opens a browser and binds a port),
 and unhandled-exception paths whose stack traces carry Node line numbers.
 

@@ -62,23 +62,21 @@ impl Tmp {
     fn read(&self, rel: &str) -> String {
         std::fs::read_to_string(self.0.join(rel)).unwrap()
     }
+    /// The hook's session cache for this project, in the user cache.
+    fn cache_path(&self) -> String {
+        get_cache_path(&self.path())
+    }
+    fn has_cache(&self) -> bool {
+        std::path::Path::new(&self.cache_path()).exists()
+    }
 }
 impl Drop for Tmp {
     fn drop(&mut self) {
+        // Hook state lives in the user cache, keyed by project; drop it with
+        // the project so test runs leave nothing behind.
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&self.path())));
         let _ = std::fs::remove_dir_all(&self.0);
     }
-}
-
-/// The shared config path as the admin verbs print it: relative to the
-/// project, in the host's path form (backslashes on Windows, as `path.relative`
-/// renders it there).
-fn shared_config_rel() -> String {
-    jsp::join(&[".impeccino", "config.json"])
-}
-
-/// The local config path as the admin verbs print it, in the same host form.
-fn local_config_rel() -> String {
-    jsp::join(&[".impeccino", "config.local.json"])
 }
 
 fn rt_with(cwd: &str, env: HashMap<String, String>) -> Runtime<'static> {
@@ -142,29 +140,31 @@ fn monorepo_design_fixture(root_design: bool) -> Tmp {
     t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
     t.write("apps/a/package.json", "{}");
     t.write("apps/b/package.json", "{}");
-    t.write("apps/a/DESIGN.md", "---\ncolors:\n  primary: '#112233'\n---\n");
+    t.write("apps/a/DESIGN.md", "---\ncolors:\n  primary: '#112233'\ntypography:\n  body:\n    fontFamily: Inter\n---\n");
     if root_design {
-        t.write("DESIGN.md", "---\ncolors:\n  primary: '#224466'\n---\n");
+        t.write("DESIGN.md", "---\ncolors:\n  primary: '#224466'\ntypography:\n  body:\n    fontFamily: Roboto\n---\n");
     }
-    t.write(".impeccino/config.json", r#"{"hook":{"perEditRules":"all"},"detector":{"advisoryRules":"include"}}"#);
     t
 }
 
-// Run identical cases through all three hook entry points. The probe that is
-// allowed by the repo palette must still fail against app A's own palette.
+// Run identical cases through all three hook entry points. A font the repo's
+// DESIGN.md declares must still count as overused in app A, whose own
+// DESIGN.md declares another one; app B inherits the repo document.
 fn check_monorepo_design_hook(mode: &str) {
-    for (root_design, app, color, expected) in [
-        (false, "a", "#ff00aa", true),
-        (false, "b", "#ff00aa", false),
-        (true, "a", "#224466", true),
-        (true, "b", "#ff00aa", true),
-        (true, "b", "#224466", false),
+    for (root_design, app, font, expected) in [
+        (false, "a", "Inter", false),
+        (false, "b", "Inter", true),
+        (true, "a", "Roboto", true),
+        (true, "b", "Inter", true),
+        (true, "b", "Roboto", false),
     ] {
         let t = monorepo_design_fixture(root_design);
         let cwd = t.path();
-        let source = format!(".probe {{ color: {color}; }}\n");
+        let source = format!(".probe {{ font-family: {font}, sans-serif; }}\n");
         let file = t.write(&format!("apps/{app}/src/probe.css"), &source);
-        let r = rt(&cwd);
+        // GitHub Copilot has no Stop pass, so its per-edit run reports the
+        // full rule set, overused-font included.
+        let r = rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "github")]));
         let out = match mode {
             "post" => hook::run_hook(&r, &edit_event(&cwd, &file, "s1")).stdout,
             "before" => {
@@ -182,9 +182,10 @@ fn check_monorepo_design_hook(mode: &str) {
             }
             _ => unreachable!(),
         };
-        assert_eq!(out.contains("design-system-color"), expected,
-            "{mode}: root_design={root_design}, app={app}, color={color}: {out}");
-        assert!(!t.exists(&format!("apps/{app}/.impeccino/hook.cache.json")),
+        assert_eq!(out.contains("overused-font"), expected,
+            "{mode}: root_design={root_design}, app={app}, font={font}: {out}");
+        let app_cache = get_cache_path(&jsp::join(&[&cwd, "apps", app]));
+        assert!(!std::path::Path::new(&app_cache).exists(),
             "design resolution must not relocate hook state");
     }
 }
@@ -206,7 +207,7 @@ fn monorepo_design_document_locations_and_sidecars() {
         let file = t.write("apps/b/src/probe.css", ".probe {}\n");
         let md = t.write(&format!("apps/b/{location}"),
             "---\ntypography:\n  body:\n    fontFamily: Georgia\nrounded:\n  md: 8px\ncolors:\n  primary: '#abcdef'\n---\n");
-        let sidecar = t.write("apps/b/.impeccino/design.json", "{}");
+        let sidecar = t.write(&format!("apps/b/{}", location.replace("DESIGN.md", "DESIGN.json")), "{}");
         let scan = design_system_options_for_file(&rt(&cwd), &read_config(&cwd), &cwd, &file);
         let ds = scan.design_system.as_ref().unwrap();
         assert_eq!(ds.source_path.as_deref(), Some(md.as_str()));
@@ -243,15 +244,15 @@ fn monorepo_design_batch_notes_follow_the_displayed_file() {
             let t = monorepo_design_fixture(true);
             let cwd = t.path();
             let source = if mode == "post-clean" { ".probe { color: #112233; }" }
-                else { ".probe { color: #ff00aa; }" };
+                else { ".probe { font-family: Lato, sans-serif; }" };
             let a = t.write("apps/a/src/probe.css", source);
             let b = t.write("apps/b/src/probe.css", ".probe { color: #224466; }");
-            let r = rt(&cwd);
+            let r = rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "github")]));
             if mode == "post-pending" {
                 hook::run_hook(&r, &edit_event(&cwd, &a, "s1"));
             }
-            let sidecar = t.write(if stale_app == "a" { "apps/a/.impeccino/design.json" }
-                else { ".impeccino/design.json" }, "{}");
+            let sidecar = t.write(if stale_app == "a" { "apps/a/DESIGN.json" }
+                else { "DESIGN.json" }, "{}");
             std::fs::File::options().write(true).open(sidecar).unwrap()
                 .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000)).unwrap();
             let out = if mode == "stop" {
@@ -296,8 +297,8 @@ fn stop_baseline_import_only_edit_does_not_blame_existing_font() {
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
     assert!(stop.stdout.is_empty(), "{}", stop.stdout);
     assert_eq!(stop.audit["preExistingFindings"], json!(1));
-    assert!(!t.read(".impeccino/hook.cache.json").contains("const report"), "do not persist source contents");
-    assert!(!t.exists(".impeccino/config.local.json"), "baseline is not an ignore");
+    assert!(!std::fs::read_to_string(t.cache_path()).unwrap().contains("const report"), "do not persist source contents");
+    assert!(!t.exists("DESIGN.md") && !t.exists(".impeccino"), "baseline is not a waiver");
     assert!(detector_detect_text(&after, &file, &HookScanOptions::default()).iter().any(|f| f.antipattern == "overused-font"), "explicit scans stay unchanged");
 }
 
@@ -419,18 +420,18 @@ fn stop_baseline_write_create_is_new_but_missing_update_preimage_is_unknown() {
 
 #[test]
 fn stop_baseline_unknown_notice_respects_small_output_budget() {
-    for (budget, stale) in [(500, false), (500, true), (8000, true)] {
+    // The output budget is fixed at the default now (docs/adr/0020).
+    for (budget, stale) in [(8000, false), (8000, true)] {
         let t = Tmp::new();
         let cwd = t.path();
         t.write("package.json", "{}");
-        t.write(".impeccino/config.json", &json!({"hook":{"limits":{"maxChars":budget}}}).to_string());
         let file = t.write("card.css", SIDE_TAB_CSS);
         let r = rt(&cwd);
         hook::run_hook(&r, &edit_event(&cwd, &file, "s1"));
         if stale {
             // Make the notice eligible only at Stop; no sleeps or clock races.
             t.write("DESIGN.md", "---\nname: Test\n---\n");
-            let sidecar = t.write(".impeccino/design.json", "{}");
+            let sidecar = t.write("DESIGN.json", "{}");
             std::fs::File::options().write(true).open(sidecar).unwrap()
                 .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000)).unwrap();
             assert!(design_system_options(&read_config(&cwd), &cwd).md_newer_than_json());
@@ -445,7 +446,7 @@ fn stop_baseline_unknown_notice_respects_small_output_budget() {
         assert!(text.contains("card.css"), "{text}");
         if stale {
             assert_eq!(text.contains("DESIGN.md is newer"), budget > 500, "{text}");
-            let cache: Value = serde_json::from_str(&t.read(".impeccino/hook.cache.json")).unwrap();
+            let cache: Value = serde_json::from_str(&std::fs::read_to_string(t.cache_path()).unwrap()).unwrap();
             assert_eq!(cache["sessions"]["s1"]["designNoteShown"] == json!(true), budget > 500);
         }
     }
@@ -470,77 +471,6 @@ fn stop_baseline_deduplicated_unknown_does_not_add_notice_to_new_finding() {
     assert_eq!(stop.audit["unknownFindings"], json!(1), "audit retains the full scan");
     assert!(stop.stdout.contains("[new]"), "{}", stop.stdout);
     assert!(!stop.stdout.contains("may predate this session"), "{}", stop.stdout);
-}
-
-#[test]
-fn stop_baseline_capped_unknown_does_not_add_notice_to_new_finding() {
-    let t = Tmp::new();
-    let cwd = t.path();
-    t.write("package.json", "{}");
-    t.write(".impeccino/config.json", r#"{"hook":{"limits":{"maxFindings":1}}}"#);
-    let r = rt(&cwd);
-    let new = t.write("new/card.css", SIDE_TAB_CSS);
-    hook::run_hook(&r, &edit_with_original(&cwd, &new, "s1", ".card {}", ".card {}", SIDE_TAB_CSS));
-    let old = t.write("old/card.css", SIDE_TAB_CSS);
-    hook::run_hook(&r, &edit_event(&cwd, &old, "s1"));
-    let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
-    assert_eq!(stop.audit["unknownFindings"], json!(1));
-    assert!(stop.stdout.contains("[new]"), "{}", stop.stdout);
-    assert!(!stop.stdout.contains("[attribution unknown]"), "{}", stop.stdout);
-    assert!(!stop.stdout.contains("may predate this session"), "{}", stop.stdout);
-}
-
-#[test]
-fn stop_baseline_small_grouped_output_keeps_finding_and_attribution() {
-    let t = Tmp::new();
-    let cwd = t.path();
-    t.write("package.json", "{}");
-    t.write(".impeccino/config.json", r#"{"hook":{"limits":{"maxChars":500}}}"#);
-    let r = rt(&cwd);
-    for path in ["one/card.css", "two/card.css"] {
-        let file = t.write(path, SIDE_TAB_CSS);
-        hook::run_hook(&r, &edit_event(&cwd, &file, "s1"));
-    }
-    let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
-    let output: Value = serde_json::from_str(&stop.stdout).unwrap();
-    let text = output["hookSpecificOutput"]["additionalContext"].as_str().unwrap();
-    assert!(text.encode_utf16().count() <= 500, "{text}");
-    assert!(text.contains("[side-tab]"), "{text}");
-    assert!(text.contains("[attribution unknown]"), "{text}");
-    assert!(text.contains("may predate this session"), "{text}");
-}
-
-#[test]
-fn stop_baseline_dropped_notice_reclaims_its_rendering_budget() {
-    for max_findings in [1, 5] {
-        let t = Tmp::new();
-        let cwd = t.path();
-        t.write("package.json", "{}");
-        t.write(".impeccino/config.json", &json!({"hook":{"limits":{"maxChars":500,"maxFindings":max_findings}}}).to_string());
-        let r = rt(&cwd);
-        let new = t.write("new/card.css", SIDE_TAB_CSS);
-        hook::run_hook(&r, &edit_with_original(&cwd, &new, "s1", ".card {}", ".card {}", SIDE_TAB_CSS));
-        let old = t.write("old/card.css", SIDE_TAB_CSS);
-        hook::run_hook(&r, &edit_event(&cwd, &old, "s1"));
-        let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
-        let output: Value = serde_json::from_str(&stop.stdout).unwrap();
-        let text = output["hookSpecificOutput"]["additionalContext"].as_str().unwrap();
-        let groups: Vec<Group> = [(new, "[new]"), (old, "[attribution unknown]")].into_iter().map(|(file_path, label)| {
-            let mut findings = detector_detect_text(SIDE_TAB_CSS, &file_path, &HookScanOptions::default());
-            for f in &mut findings { f.name = format!("{label} {}", f.name); }
-            Group { file_path, findings }
-        }).collect();
-        let mut config = read_config(&cwd);
-        // Unknown is not displayed at this budget. All available space goes
-        // to the known-new prefix, rather than a discarded notice.
-        config.limits.max_findings = 1.0;
-        let expected = render_grouped_template(&r, &groups, &config, &RenderOpts {
-            cwd: Some(cwd), short_footer: false, reserve_chars: 0.0,
-        });
-        assert_eq!(text, expected, "maxFindings={max_findings}");
-        assert!(text.contains("[new] Side-tab accent border"), "{text}");
-        assert!(!text.contains("may predate this session"), "{text}");
-    }
 }
 
 #[test]
@@ -753,90 +683,45 @@ fn inside_project_handles_symlinks_and_unwritten_files() {
 // ── config ────────────────────────────────────────────────────────────────
 
 #[test]
-fn read_config_merges_shared_then_local_and_legacy_keys() {
+fn design_md_decisions_reach_the_hook_per_file() {
     let t = Tmp::new();
     let cwd = t.path();
-    assert_eq!(read_config(&cwd), HookConfig::default());
+    let d = read_config(&cwd);
+    assert_eq!(d, HookConfig::default());
+    assert_eq!(d.per_edit_rules, "immediate");
+    assert_eq!(d.advisory_rules, "exclude");
+    assert_eq!((d.limits.max_findings, d.limits.max_chars, d.limits.max_file_bytes), (5.0, 8000.0, 131072.0));
     t.write(
-        ".impeccino/config.json",
-        r#"{"hook":{"enabled":true,"quiet":true,"auditLog":" log.ndjson ","perEditRules":"all","ignoreRules":["a"],"limits":{"maxFindings":2,"maxChars":100,"maxFileBytes":-1}},"detector":{"ignoreRules":["b"],"ignoreFiles":["x/**"],"extensions":[".blade.php",{"ext":"heex","engine":"text"}],"advisoryRules":"include","designSystem":{"enabled":false}}}"#,
+        "DESIGN.md",
+        "---\ntypography:\n  body:\n    fontFamily: \"'Inter', sans-serif\"\n---\n# Design\n\n**The Ledger Rule.** Accent rails mark the active row. <!-- impeccino-disable Side-Tab -- the ledger rule -->\n\n```md\n<!-- impeccino-disable gradient-text -->\n```\n",
     );
-    t.write(
-        ".impeccino/config.local.json",
-        r#"{"hook":{"enabled":false},"detector":{"ignoreRules":["a","c"],"extensions":[{"ext":".heex","engine":"html"}],"ignoreValues":[{"rule":"Overused-Font","value":"\"Inter\"","file":"a.css","files":["b.css","a.css"],"createdAt":"2026","reason":" r "}]}}"#,
-    );
-    let c = read_config(&cwd);
-    assert!(!c.enabled);
-    assert!(c.quiet);
-    assert_eq!(c.audit_log.as_deref(), Some("log.ndjson"));
-    assert_eq!(c.per_edit_rules, "all");
-    assert_eq!(c.ignore_rules, vec!["a", "b", "c"]);
-    assert_eq!(c.ignore_files, vec!["x/**"]);
-    assert_eq!(c.advisory_rules, "include");
-    assert!(!c.design_system_enabled);
-    assert_eq!(c.limits.max_findings, 2.0);
-    assert_eq!(c.limits.max_chars, 100.0);
-    assert_eq!(
-        c.limits.max_file_bytes, 131072.0,
-        "non-positive keeps the default"
-    );
-    assert_eq!(
-        c.extensions
-            .iter()
-            .map(|e| (e.ext.as_str(), e.engine.as_str()))
-            .collect::<Vec<_>>(),
-        vec![(".blade.php", "html"), (".heex", "html")],
-        "local override wins per ext, string entries default to html"
-    );
-    assert_eq!(c.ignore_values.len(), 1);
-    let e = &c.ignore_values[0];
-    assert_eq!(
-        (e.rule.as_str(), e.value.as_str()),
-        ("overused-font", "inter")
-    );
-    assert_eq!(
-        e.files.as_ref().unwrap(),
-        &vec!["a.css".to_string(), "b.css".to_string()]
-    );
-    assert_eq!(e.reason.as_deref(), Some("r"));
-    // malformed local config is ignored, shared survives
-    t.write(".impeccino/config.local.json", "{ nope");
-    let c = read_config(&cwd);
-    assert!(c.enabled);
-    assert_eq!(c.ignore_rules, vec!["a", "b"]);
+    let file = t.write("a.css", "a{}");
+    let scan = design_system_options_for_file(&rt(&cwd), &d, &cwd, &file);
+    assert_eq!(scan.decisions.waived_rules, vec!["side-tab"]);
+    assert_eq!(scan.decisions.declared_fonts, vec!["inter"]);
+    let mut font = f("overused-font", 2.0, "O", "d", "body { font-family: \"Inter\", sans-serif; }");
+    font.file = file.clone();
+    let side = f("side-tab", 1.0, "S", "d", "s");
+    let gradient = f("gradient-text", 1.0, "G", "d", "s");
+    let kept = filter_findings_for(vec![font, side, gradient], &d, &scan);
+    assert_eq!(kept.iter().map(|x| x.antipattern.as_str()).collect::<Vec<_>>(), vec!["gradient-text"]);
 }
 
 #[test]
 fn configured_extensions_match_suffixes() {
-    let exts = normalize_extension_entries(&[
-        json!(".php"),
-        json!({"ext": "blade.php", "engine": "html"}),
-        json!({"ext": ".HTML.erb", "engine": "text"}),
-    ]);
+    let exts = HookConfig::default().extensions;
     assert_eq!(
-        match_configured_extension("/x/show.blade.php", &exts)
-            .unwrap()
-            .ext,
-        ".blade.php"
+        exts.iter().map(|e| e.ext.as_str()).collect::<Vec<_>>(),
+        vec![".blade.php", ".twig", ".html.erb", ".erb", ".hbs", ".handlebars"]
     );
-    assert_eq!(
-        match_configured_extension("/x/SHOW.HTML.ERB", &exts)
-            .unwrap()
-            .engine,
-        "text"
-    );
-    assert_eq!(
-        match_configured_extension("/x/a.php", &exts).unwrap().ext,
-        ".php"
-    );
-    assert!(
-        match_configured_extension("/x/.php", &exts).is_none(),
-        "bare dotfile name is not a template"
-    );
+    assert!(exts.iter().all(|e| e.engine == "html"));
+    assert_eq!(match_configured_extension("/x/show.blade.php", &exts).unwrap().ext, ".blade.php");
+    assert_eq!(match_configured_extension("/x/SHOW.HTML.ERB", &exts).unwrap().ext, ".html.erb", "the longest suffix wins");
+    assert_eq!(match_configured_extension("/x/a.erb", &exts).unwrap().ext, ".erb");
+    assert!(match_configured_extension("/x/.hbs", &exts).is_none(), "bare dotfile name is not a template");
     assert!(match_configured_extension("/x/a.tsx", &exts).is_none());
-    assert!(match_configured_extension("/x/a.php", &[]).is_none());
+    assert!(match_configured_extension("/x/a.hbs", &[]).is_none());
 }
-
 // ── cache ─────────────────────────────────────────────────────────────────
 
 #[test]
@@ -879,41 +764,6 @@ fn cache_round_trip_and_gc() {
     assert_eq!(ids[1], "s9");
 }
 
-#[test]
-fn git_excludes_land_in_info_exclude_not_gitignore() {
-    let t = Tmp::new();
-    let root = t.path();
-    std::fs::create_dir_all(t.0.join(".git")).unwrap();
-    t.write(".gitignore", "node_modules\n");
-    let r = rt(&root);
-    let res = ensure_hook_git_excludes(&r, &root);
-    assert_eq!(res.mode, "git-info-exclude");
-    assert!(res.changed);
-    let ex = t.read(".git/info/exclude");
-    assert_eq!(
-        ex,
-        "# impeccino-hook-ignore-start .\n.impeccino/hook.cache.json\n.impeccino/hook.pending.json\n.impeccino/config.local.json\n# impeccino-hook-ignore-end .\n"
-    );
-    assert_eq!(t.read(".gitignore"), "node_modules\n");
-    let again = ensure_hook_git_excludes(&r, &root);
-    assert!(!again.changed, "idempotent");
-    // a nested cwd gets a prefixed block appended after existing content
-    std::fs::create_dir_all(t.0.join("apps/web")).unwrap();
-    let nested = format!("{root}/apps/web");
-    let res = ensure_hook_git_excludes(&r, &nested);
-    assert_eq!(res.patterns[0], "apps/web/.impeccino/hook.cache.json");
-    let ex = t.read(".git/info/exclude");
-    assert!(
-        ex.contains("# impeccino-hook-ignore-end .\n\n# impeccino-hook-ignore-start apps/web\n")
-    );
-    // no repo at all
-    let t2 = Tmp::new();
-    assert_eq!(
-        ensure_hook_git_excludes(&rt(&t2.path()), &t2.path()).mode,
-        "none"
-    );
-}
-
 // ── filtering ─────────────────────────────────────────────────────────────
 
 #[test]
@@ -936,31 +786,18 @@ fn filter_findings_rules_advisory_and_values() {
     );
     c.advisory_rules = "include".into();
     assert_eq!(filter_findings(vec![em.clone(), side.clone()], &c).len(), 2);
-    c.ignore_rules = vec!["Side-Tab".into()];
-    assert_eq!(
-        filter_findings(vec![side.clone(), font.clone()], &c).len(),
-        1
-    );
-    c.ignore_rules.clear();
-    c.ignore_values = impeccino_detect::config::normalize_ignore_value_entries(&[
-        json!({"rule": "overused-font", "value": "inter"}),
-    ]);
-    assert!(filter_findings(vec![font.clone()], &c).is_empty());
-    c.ignore_values = impeccino_detect::config::normalize_ignore_value_entries(&[
-        json!({"rule": "overused-font", "value": "*", "files": ["src/*.css"]}),
-    ]);
-    assert!(
-        filter_findings(vec![font.clone()], &c).is_empty(),
-        "wildcard scoped to a suffix glob"
-    );
-    c.ignore_values = impeccino_detect::config::normalize_ignore_value_entries(&[
-        json!({"rule": "overused-font", "value": "*"}),
-    ]);
-    assert_eq!(
-        filter_findings(vec![font.clone()], &c).len(),
-        1,
-        "bare wildcard never matches"
-    );
+    let mut scan = HookScanOptions::default();
+    scan.decisions = std::rc::Rc::new(impeccino_detect::design_decisions::DesignDecisions {
+        source: None,
+        waived_rules: vec!["side-tab".into()],
+        declared_fonts: vec!["inter".into()],
+    });
+    assert!(filter_findings_for(vec![side.clone(), font.clone()], &c, &scan).is_empty());
+    scan.decisions = std::rc::Rc::new(impeccino_detect::design_decisions::DesignDecisions {
+        declared_fonts: vec!["roboto".into()],
+        ..Default::default()
+    });
+    assert_eq!(filter_findings_for(vec![font.clone()], &c, &scan).len(), 1, "a different declared font does not waive Inter");
     let (imm, def) =
         split_findings_by_tier(vec![f("gradient-text", 1.0, "G", "d", "s"), side.clone()]);
     assert_eq!(imm[0].antipattern, "gradient-text");
@@ -996,13 +833,9 @@ fn render_template_caps_and_footers() {
     ));
     assert!(text.contains("... and 7 more (see /impeccino audit)."));
     assert_eq!(text.lines().filter(|l| l.starts_with("- L")).count(), 5);
-    // The self-command is quoted in the host's shell form (#476 / #533):
-    // single quotes under sh, double quotes on Windows.
-    let self_cmd = quote_command_arg("/opt/bin/impeccino", cfg!(windows));
-    assert!(text.contains(&format!(
-        "Run `{self_cmd} hooks ignore-value <rule> \"<value>\" --reason \"<who decided: evidence>\"`"
-    )));
-    assert!(text.contains("Full suppression ladder: /impeccino hooks."));
+    assert!(text.contains("`impeccino-disable-line <rule>: <who decided, and the evidence>` comment"));
+    assert!(text.contains("Self-serve ends at the in-file waiver."));
+    assert!(text.contains("`<!-- impeccino-disable <rule>: reason -->`"));
     let short = render_template(
         &r,
         &many[..1],
@@ -1014,7 +847,7 @@ fn render_template_caps_and_footers() {
         },
     );
     assert!(short.contains("Triage per the session policy"));
-    assert!(short.contains("`impeccino hooks ignore-value`"));
+    assert!(short.contains("`impeccino-disable-line <rule>: <reason>` comment"));
     assert!(!short.contains("Triage each finding"));
     let zero = render_template(
         &r,
@@ -1055,9 +888,9 @@ fn render_template_dedupes_descriptions_and_quotes_hints() {
     );
     assert_eq!(text.matches(desc).count(), 1);
     assert!(text.contains(
-        "- L9 [overused-font] Overused font. If intentional: `ignore-value overused-font Inter`."
+        "- L9 [overused-font] Overused font. If deliberate, declare `Inter` in DESIGN.md."
     ));
-    assert!(text.contains("`ignore-value overused-font Roboto`"));
+    assert!(text.contains("declare `Roboto` in DESIGN.md"));
     let bounce = render_template(
         &r,
         &[f(
@@ -1071,7 +904,7 @@ fn render_template_dedupes_descriptions_and_quotes_hints() {
         &c,
         &opts("/x"),
     );
-    assert!(bounce.contains("If intentional: `ignore-value bounce-easing bounce-ball`."));
+    assert!(bounce.contains("If deliberate, waive the line: `impeccino-disable-line bounce-easing: <reason>`."));
     let hostile = render_template(
         &r,
         &[f(
@@ -1085,16 +918,13 @@ fn render_template_dedupes_descriptions_and_quotes_hints() {
         &c,
         &opts("/x"),
     );
-    assert!(hostile.contains(&format!(
-        "ignore-value overused-font {}",
-        quote_command_arg("$(touch pwned)", cfg!(windows))
-    )));
+    assert!(hostile.contains("declare `$(touch pwned)` in DESIGN.md."), "a hint, never a command line: {hostile}");
     let no_hint = {
         let mut x = f("side-tab", 1.0, "Side tab", "d", "s");
         x.extras.insert("ignoreValue".into(), json!("Inter"));
         render_template(&r, &[x], "/x/a.tsx", &c, &opts("/x"))
     };
-    assert!(!no_hint.contains("ignore-value side-tab"));
+    assert!(!no_hint.contains("If deliberate"));
     // platform quoting (#476 / #533)
     assert_eq!(
         quote_command_arg("Space Grotesk Var", false),
@@ -1311,7 +1141,8 @@ fn run_hook_fresh_then_pending_then_stop() {
     assert!(!one.stdout.contains("[side-tab]"));
     assert_eq!(one.audit["deferred"], json!(1));
     assert_eq!(one.audit["freshFindings"], json!(1));
-    assert!(t.exists(".impeccino/hook.cache.json"));
+    assert!(t.has_cache());
+    assert!(!t.exists(".impeccino"), "hook state never lands in the project");
     let two = hook::run_hook(&r, &ev);
     assert!(two
         .stdout
@@ -1395,10 +1226,10 @@ fn run_hook_acks_and_quiet_modes() {
         .stdout
         .contains("No deterministic design-quality issues found"));
     assert!(
-        !t.exists(".impeccino"),
-        "clean edit in a project without a footprint writes nothing"
+        !t.has_cache(),
+        "a clean edit with no session cache yet writes nothing"
     );
-    std::fs::create_dir_all(t.0.join(".impeccino")).unwrap();
+    assert!(persist_cache(&r, &cwd, &read_cache(&cwd)));
     let one = hook::run_hook(&r, &ev);
     assert_eq!(audit_str(&one.audit, "kind"), Some("clean"));
     let two = hook::run_hook(&r, &ev);
@@ -1467,18 +1298,24 @@ fn run_hook_skips_unsafe_and_foreign_targets() {
         audit_str(&go(&outside).audit, "skipped"),
         Some("outside-project")
     );
-    assert!(!t.exists(".impeccino"));
-    // template extensions (#316): .blade.php is skipped without config,
-    // routed through the text engine with `engine: text`
+    assert!(!t.has_cache());
+    // template extensions (#316): server templates go to the HTML engine by
+    // default, no config needed
     let blade = t.write("views/a.blade.php", "<style>.t{background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent;}</style>");
-    assert_eq!(audit_str(&go(&blade).audit, "skipped"), Some("extension"));
-    t.write(
-        ".impeccino/config.json",
-        r#"{"detector":{"extensions":[{"ext":".blade.php","engine":"text"}]}}"#,
-    );
     let res = go(&blade);
-    assert!(res.stdout.contains("[gradient-text]"), "{}", res.stdout);
+    assert_ne!(audit_str(&res.audit, "skipped"), Some("extension"));
     assert_eq!(audit_str(&res.audit, "ext"), Some(".blade.php"));
+    // the project's git metadata keeps files out: .gitignore, and
+    // .gitattributes linguist-generated / linguist-vendored
+    std::fs::create_dir_all(t.0.join(".git")).unwrap();
+    t.write(".gitignore", "scratch/\n");
+    t.write(".gitattributes", "src/api.css linguist-generated\nthird_party/** linguist-vendored\n");
+    for rel in ["scratch/a.css", "src/api.css", "third_party/lib/a.css"] {
+        let file = t.write(rel, GRADIENT_CSS);
+        assert_eq!(audit_str(&go(&file).audit, "skipped"), Some("git-ignored"), "{rel}");
+    }
+    let own = t.write("src/own.css", GRADIENT_CSS);
+    assert!(go(&own).stdout.contains("[gradient-text]"));
 }
 
 #[cfg(unix)]
@@ -1508,15 +1345,16 @@ fn run_hook_symlinked_cwd_and_umbrella_launch() {
         audit_str(&res.audit, "cwd"),
         Some(format!("{root}/app").as_str())
     );
-    assert!(t.exists("app/.impeccino/hook.cache.json"));
-    assert!(!t.exists(".impeccino"));
+    let app_cache = get_cache_path(&format!("{root}/app"));
+    assert!(std::path::Path::new(&app_cache).exists());
+    assert!(!t.has_cache());
+    let _ = std::fs::remove_dir_all(jsp::dirname(&app_cache));
 }
 
 #[test]
 fn run_hook_oversized_files_and_suppression() {
     let t = Tmp::new();
     let cwd = t.path();
-    std::fs::create_dir_all(t.0.join(".impeccino")).unwrap();
     let r = rt(&cwd);
     let big = t.write("bundle.js", &format!("/* {} */", "x".repeat(200 * 1024)));
     let res = hook::run_hook(&r, &edit_event(&cwd, &big, "s1"));
@@ -1535,18 +1373,7 @@ fn run_hook_oversized_files_and_suppression() {
     .to_string();
     let res = hook::run_hook(&r, &patch);
     assert!(res.audit.get("bytes").is_none(), "{:?}", res.audit);
-    t.write(
-        ".impeccino/config.json",
-        r#"{"hook":{"limits":{"maxFileBytes":1024}}}"#,
-    );
-    let res = hook::run_hook(&r, &edit_event(&cwd, &main, "s3"));
-    assert_eq!(
-        audit_str(&res.audit, "skipped"),
-        Some("too-large"),
-        "configured maxFileBytes is honored"
-    );
     // suppression: the 7th edit emits the notice once, later edits stay silent
-    t.write(".impeccino/config.json", "{}");
     let css = t.write("src/b.css", GRADIENT_CSS);
     let mut outputs = Vec::new();
     for _ in 0..9 {
@@ -1587,31 +1414,18 @@ fn run_hook_co_located_styles_and_tiering_config() {
         json!(0),
         "co-scanned styles do not bump"
     );
-    // perEditRules: all restores the deferred tier per edit
-    t.write(
-        ".impeccino/config.json",
-        r#"{"hook":{"perEditRules":"all"}}"#,
-    );
-    let res = hook::run_hook(&r, &edit_event(&cwd, &app, "s2"));
-    assert!(res.stdout.contains("[side-tab]"), "{}", res.stdout);
-    assert!(res.stdout.contains("(2 issue(s))"));
-    // github harness keeps the full set too
-    t.write(".impeccino/config.json", "{}");
+    // the github harness has no Stop pass, so it keeps the full set per edit
     let gh = rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "github")]));
     let res = hook::run_hook(&gh, &edit_event(&cwd, &app, "s3"));
     assert!(res.stdout.starts_with("{\"additionalContext\":"));
     assert!(res.stdout.contains("[side-tab]"));
-    // ignoreFiles glob and ignoreRules
-    t.write(
-        ".impeccino/config.json",
-        r#"{"detector":{"ignoreFiles":["src/**"]}}"#,
-    );
+    // .gitignore keeps a file out; a DESIGN.md waiver turns a rule off
+    std::fs::create_dir_all(t.0.join(".git")).unwrap();
+    t.write(".gitignore", "src/\n");
     let res = hook::run_hook(&r, &edit_event(&cwd, &app, "s4"));
-    assert_eq!(audit_str(&res.audit, "skipped"), Some("config-ignore-file"));
-    t.write(
-        ".impeccino/config.json",
-        r#"{"detector":{"ignoreRules":["gradient-text"]}}"#,
-    );
+    assert_eq!(audit_str(&res.audit, "skipped"), Some("git-ignored"));
+    std::fs::remove_file(t.0.join(".gitignore")).unwrap();
+    t.write("DESIGN.md", "# Design\n\n<!-- impeccino-disable gradient-text -- the brand mark is a gradient -->\n");
     let res = hook::run_hook(&r, &edit_event(&cwd, &app, "s5"));
     assert!(
         res.stdout
@@ -1649,11 +1463,7 @@ fn write_audit_log_targets() {
         !write_audit_log(&r2, &entry, "/elsewhere"),
         "no target, no-op"
     );
-    t.write(
-        ".impeccino/config.json",
-        r#"{"hook":{"auditLog":"~/h.ndjson"}}"#,
-    );
-    let r3 = rt_with("/elsewhere", env(&[("HOME", &cwd)]));
+    let r3 = rt_with("/elsewhere", env(&[("IMPECCINO_HOOK_LOG", "~/h.ndjson"), ("HOME", &cwd)]));
     assert!(write_audit_log(&r3, &entry, "/elsewhere"));
     assert!(t.exists("h.ndjson"));
 }
@@ -1855,152 +1665,66 @@ fn admin_run(r: &Runtime, args: &[&str]) -> (String, String, i32) {
 }
 
 #[test]
-fn admin_ignore_value_scoping_and_idempotency() {
+fn admin_retired_ignore_actions_point_at_design_md() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
-    let (out, _, code) = admin_run(&r, &["ignore-value", "overused-font", "Inter"]);
-    assert_eq!(code, 0);
-    assert_eq!(
-        out,
-        format!("Added overused-font=inter to shared detector.ignoreValues ({}).\n", shared_config_rel())
-    );
-    assert!(!t.exists(".impeccino/config.local.json"));
-    let cfg: Value = serde_json::from_str(&t.read(".impeccino/config.json")).unwrap();
-    let entry = &cfg["detector"]["ignoreValues"][0];
-    assert_eq!(
-        entry
-            .as_object()
-            .unwrap()
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>(),
-        vec!["rule", "value", "createdAt"]
-    );
-    let before = t.read(".impeccino/config.json");
-    // an unrelated edit keeps the entry byte-identical
-    admin_run(&r, &["ignore-rule", "side-tab"]);
-    let after = t.read(".impeccino/config.json");
-    assert!(after.contains(
-        &before[before.find("\"ignoreValues\"").unwrap()..before.find("\n  }").unwrap()]
-    ));
-    let (out, _, _) = admin_run(
-        &r,
-        &[
-            "ignore-value",
-            "design-system-font-size",
-            "*",
-            "--file",
-            "src/z.js",
-            "--files=src/a.js",
-            "--file",
-            "src/a.js",
-            "--local",
-        ],
-    );
-    assert_eq!(out, format!("Added design-system-font-size=* scoped to src/a.js, src/z.js to local detector.ignoreValues ({}).\n", local_config_rel()));
-    let (out, _, _) = admin_run(&r, &["status"]);
-    assert!(out.contains(
-        "ignoreValues: overused-font=inter, design-system-font-size=* [src/a.js, src/z.js]\n"
-    ));
-    assert!(out.contains("ignoreRules:  side-tab\n"));
-    let (_, err, code) = admin_run(&r, &["ignore-value", "overused-font", "*"]);
-    assert_eq!(code, 1);
-    assert_eq!(err, "Error: Wildcard value ignores must be scoped with --file <glob>, e.g. /impeccino hooks ignore-value design-system-font-size \"*\" --file \"src/widget.js\". To suppress the rule project-wide use /impeccino hooks ignore-rule overused-font --all-values.\n");
-    let (_, err, _) = admin_run(&r, &["ignore-value", "overused-font", "Inter", "--file="]);
-    assert_eq!(err, "Error: --file requires a non-empty glob\n");
-    let (_, err, _) = admin_run(&r, &["ignore-value", "overused-font", "Inter", "--shard"]);
-    assert_eq!(err, "Error: Unknown ignore-value flag: --shard\n");
+    for action in ["ignore-value", "ignore-rule", "ignore-file"] {
+        let (out, err, code) = admin_run(&r, &[action, "overused-font", "Inter"]);
+        assert_eq!(code, 1);
+        assert!(out.is_empty());
+        assert!(err.starts_with(&format!("\"{action}\" was removed: Impeccino keeps no config file.")), "{err}");
+        assert!(err.contains("<!-- impeccino-disable <rule>: reason --> in DESIGN.md"), "{err}");
+    }
     let (_, err, code) = admin_run(&r, &["bogus"]);
     assert_eq!(code, 1);
-    assert_eq!(err, "Unknown action: bogus\nValid: status, on, off, ignore-rule, ignore-file, ignore-value, reset\n");
+    assert_eq!(err, "Unknown action: bogus\nValid: status, on, off, reset\n");
     let (out, _, _) = admin_run(&r, &["reset"]);
-    assert_eq!(out, format!("Reset design hook config and cache (removed: {}, {}).\n", shared_config_rel(), local_config_rel()));
-    assert!(!t.exists(".impeccino/config.json"));
+    assert_eq!(out, "No hook entries or cache to remove.\n");
+    assert!(!t.exists(".impeccino"), "admin writes no config");
 }
-
-/// Upstream be87f5eb (#662), the `hooks ignore-value` twin of the detect-side
-/// port (engine 09f8ae7): exact values for rules whose findings can never
-/// extract a value are refused with the wildcard-plus-file route; wildcard
-/// scoped entries and extractable rules stay accepted.
 #[test]
-fn admin_ignore_value_refuses_inert_exact_values() {
+fn admin_on_off_status_and_reset_follow_the_manifests() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
-    let (_, err, code) = admin_run(&r, &["ignore-value", "cramped-padding", "padding: 4px 8px"]);
-    assert_eq!(code, 1);
-    assert_eq!(err, "Error: cramped-padding has no extractable ignore value. Use /impeccino hooks ignore-value cramped-padding \"*\" --file <glob> to suppress it in matching files.\n");
-    let (_, err, code) = admin_run(&r, &["ignore-value", "side-tab", "Inter", "--file", "a.css"]);
-    assert_eq!(code, 1);
-    assert_eq!(err, "Error: side-tab has no extractable ignore value. Use /impeccino hooks ignore-value side-tab \"*\" --file <glob> to suppress it in matching files.\n");
-    assert!(!t.exists(".impeccino/config.json"), "a refused ignore must not write config");
-
-    let (out, _, code) = admin_run(&r, &["ignore-value", "overused-font", "Inter"]);
-    assert_eq!(code, 0);
-    assert!(out.contains("Added overused-font=inter"), "{out}");
-
-    let (_, _, code) = admin_run(&r, &["ignore-value", "cramped-padding", "*", "--file", "index.html"]);
-    assert_eq!(code, 0);
-    let cfg: Value = serde_json::from_str(&t.read(".impeccino/config.json")).unwrap();
-    let entries: Vec<&Value> = cfg["detector"]["ignoreValues"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|e| e["rule"] == json!("cramped-padding"))
-        .collect();
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0]["value"], json!("*"));
-    assert_eq!(entries[0]["files"], json!(["index.html"]));
-}
-
-#[test]
-fn admin_on_off_preserve_sibling_hook_fields() {
-    let t = Tmp::new();
-    let cwd = t.path();
-    let r = rt(&cwd);
-    t.write(".impeccino/config.json", "{\n  \"hook\": {\n    \"quiet\": true,\n    \"consent\": \"accepted\",\n    \"advisoryRules\": \"include\"\n  },\n  \"updateCheck\": false\n}\n");
-    let (out, _, _) = admin_run(&r, &["off"]);
-    assert_eq!(
-        out,
-        format!("Design hook disabled for this project (wrote {}).\n", shared_config_rel())
-    );
-    let cfg: Value = serde_json::from_str(&t.read(".impeccino/config.json")).unwrap();
-    assert_eq!(cfg["hook"]["quiet"], json!(true));
-    assert_eq!(cfg["hook"]["consent"], json!("accepted"));
-    assert_eq!(cfg["hook"]["enabled"], json!(false));
-    assert_eq!(
-        cfg["hook"]["limits"],
-        json!({"maxFindings": 5, "maxChars": 8000})
-    );
-    assert_eq!(
-        cfg["detector"]["advisoryRules"],
-        json!("include"),
-        "legacy key migrates to detector"
-    );
-    assert!(cfg["hook"].get("advisoryRules").is_none());
-    assert_eq!(cfg["updateCheck"], json!(false));
-    assert_eq!(
-        cfg.as_object().unwrap().keys().cloned().collect::<Vec<_>>(),
-        vec!["hook", "updateCheck", "detector"]
-    );
+    let (out, _, _) = admin_run(&r, &["status"]);
+    assert!(out.contains("installed:    no (run /impeccino hooks on to install)\n"), "{out}");
+    assert!(out.contains("DESIGN.md:    not present (no project waivers)\n"), "{out}");
     std::fs::create_dir_all(t.0.join(".github/skills/impeccino")).unwrap();
     let (out, _, _) = admin_run(&r, &["on"]);
-    assert_eq!(out, format!(
-        "Design hook enabled for this project (wrote {}). Recorded local hook consent in {}. Installed or repaired hook manifests for: .github.\n",
-        shared_config_rel(),
-        local_config_rel()
-    ));
+    assert_eq!(out, "Installed or repaired hook manifests for: .github.\n");
     assert!(t
         .read(".github/hooks/impeccino.json")
         .contains("\"matcher\": \"edit|create|apply_patch\""));
     let (out, _, _) = admin_run(&r, &["on"]);
-    assert!(out.ends_with("Hook manifests already installed for: .github.\n"));
+    assert_eq!(out, "Hook manifests already installed for: .github.\n");
+    t.write("DESIGN.md", "# D\n\n<!-- impeccino-disable side-tab -- ledger rails -->\n");
     let (out, _, _) = admin_run(&r, &["status"]);
-    assert!(out.contains("state:        enabled\n"));
-    assert!(out.contains(&format!("local file:   {}\n", local_config_rel())));
+    assert!(out.contains("installed:    .github/hooks/impeccino.json\n"), "{out}");
+    assert!(out.contains("DESIGN.md:    DESIGN.md (waived rules: side-tab; declared fonts: none)\n"), "{out}");
+    assert!(!t.exists(".impeccino"), "no config, no consent record");
+    let (out, _, _) = admin_run(&r, &["off"]);
+    assert_eq!(out, "Removed hook entries from: .github.\n");
+    assert!(!t.exists(".github/hooks/impeccino.json"));
+    let (out, _, _) = admin_run(&r, &["off"]);
+    assert_eq!(out, "No local hook entries to remove.\n");
+    // reset also clears the session cache in the user cache
+    admin_run(&r, &["on"]);
+    assert!(persist_cache(&r, &cwd, &read_cache(&cwd)));
+    assert!(t.has_cache());
+    let (out, _, _) = admin_run(&r, &["reset"]);
+    assert!(out.starts_with("Removed hook entries from: .github. Cleared the hook's session cache ("), "{out}");
+    assert!(!t.has_cache());
+    // a hook in the team-shared Claude settings is named, never edited
+    t.write(
+        ".claude/settings.json",
+        r#"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook"}]}]}}"#,
+    );
+    let (out, _, _) = admin_run(&r, &["off"]);
+    assert!(out.contains("Still installed in .claude/settings.json, which the team shares"), "{out}");
+    assert!(t.read(".claude/settings.json").contains("impeccino"));
 }
-
 #[test]
 fn admin_on_prunes_local_manifest_when_shared_settings_carry_the_hook() {
     let t = Tmp::new();
@@ -2363,7 +2087,6 @@ fn run_hook_stands_down_before_the_edit_cap_can_suppress_a_live_file() {
     // wrap on such a file must stand down instead, every time.
     let t = Tmp::new();
     let cwd = t.path();
-    std::fs::create_dir_all(t.0.join(".impeccino")).unwrap();
     let r = rt(&cwd);
     // Seven plain edits cross the cap: the 7th carries the notice.
     let css = t.write("src/b.css", GRADIENT_CSS);

@@ -1,5 +1,5 @@
 {
-  "stdout": "No hook config or cache to remove. Already at defaults.\n",
+  "stdout": "No hook entries or cache to remove.\n",
   "stderr": "",
   "exit": 0,
   "signal": null,

@@ -1,4 +1,5 @@
-//! IMPECCINO_CACHE_ROOT (#422) — mirrors the scenarios main's
+//! Where hook state lives: the user cache by default (docs/adr/0020), or
+//! IMPECCINO_CACHE_ROOT (#422), which mirrors the scenarios main's
 //! tests/hook.test.mjs added in 77a2eae8 / 5c82d58b / 30b3628f / cbd78701.
 //!
 //! These tests mutate the process environment, so they live in their own
@@ -135,11 +136,31 @@ fn state_relocates_and_slug_normalizes() {
     assert_ne!(get_cache_path("/x/my.app"), get_cache_path("/x/my-app"));
 }
 
-/// The project-local cache path for `/x/app`, joined with the host's path
-/// semantics (backslashes on Windows), which is what the stock behavior
-/// produces.
+/// The default cache path for `/x/app`: a per-project dir under
+/// `<user cache>/impeccino/projects`.
 fn stock_cache_path() -> String {
-    impeccino_common::jsp::join(&["/x/app", ".impeccino", "hook.cache.json"])
+    let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", None)]);
+    get_cache_path("/x/app")
+}
+
+#[cfg(not(windows))]
+#[test]
+fn default_state_lives_in_the_xdg_user_cache() {
+    let _l = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let xdg = Tmp::new();
+    let home = Tmp::new();
+    let with_xdg = {
+        let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", None), ("XDG_CACHE_HOME", Some(&xdg.path())), ("HOME", Some(&home.path()))]);
+        get_cache_path("/x/app")
+    };
+    assert!(with_xdg.starts_with(&format!("{}/impeccino/projects/", xdg.path())), "{with_xdg}");
+    assert!(with_xdg.ends_with("/hook.cache.json"));
+    let without = {
+        let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", None), ("XDG_CACHE_HOME", None), ("HOME", Some(&home.path()))]);
+        get_cache_path("/x/app")
+    };
+    assert!(without.starts_with(&format!("{}/.cache/impeccino/projects/", home.path())), "{without}");
+    assert!(!without.contains("/x/app/"), "never project-local");
 }
 
 #[test]
@@ -157,14 +178,11 @@ fn root_value_normalization_and_opt_out() {
         get_cache_path("/x/app")
     };
     assert_eq!(trimmed, with_ws);
-    // Unset or blank keeps stock project-local behavior.
-    {
-        let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", None)]);
-        assert_eq!(get_cache_path("/x/app"), stock_cache_path());
-    }
+    // Unset or blank keeps the user-cache default.
+    let stock = stock_cache_path();
     {
         let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", Some("   "))]);
-        assert_eq!(get_cache_path("/x/app"), stock_cache_path());
+        assert_eq!(get_cache_path("/x/app"), stock);
     }
 }
 
@@ -184,12 +202,14 @@ fn tilde_expands_against_homedir_or_rejects() {
     };
     assert_eq!(explicit, tilde);
     // No determinable home dir: expansion is rejected and state falls back
-    // to the project-local default (never the process cwd).
+    // to the default, which without a home is the system temp dir (never
+    // the process cwd, never the project).
     let no_home = {
-        let _g = EnvGuard::set(&[("HOME", None), ("USERPROFILE", None), ("IMPECCINO_CACHE_ROOT", Some("~/caches"))]);
+        let _g = EnvGuard::set(&[("HOME", None), ("USERPROFILE", None), ("XDG_CACHE_HOME", None), ("IMPECCINO_CACHE_ROOT", Some("~/caches"))]);
         get_cache_path("/x/app")
     };
-    assert_eq!(no_home, "/x/app/.impeccino/hook.cache.json");
+    let tmp = std::env::temp_dir().to_string_lossy().into_owned();
+    assert!(no_home.starts_with(&impeccino_common::jsp::join(&[&tmp, "impeccino", "projects"])), "{no_home}");
 }
 
 #[test]
@@ -212,8 +232,8 @@ fn run_hook_persists_and_dedupes_through_the_redirect() {
     let two = hook::run_hook(&r, &edit_event(&cwd, &css, "s1"));
     assert!(two.stdout.contains("flagged earlier this session"), "{}", two.stdout);
 
-    // A clean edit still persists its editCount bump: the redirected cache
-    // file is the opt-in marker even though `.impeccino/` never appears.
+    // A clean edit still persists its editCount bump once a session cache
+    // exists for the project.
     let clean = project.write("src/b.css", CLEAN_CSS);
     let before = std::fs::read_to_string(get_cache_path(&cwd)).unwrap();
     let three = hook::run_hook(&r, &edit_event(&cwd, &clean, "s1"));
@@ -223,15 +243,15 @@ fn run_hook_persists_and_dedupes_through_the_redirect() {
 }
 
 #[test]
-fn no_footprint_noop_gate_holds_under_redirect() {
+fn clean_edit_without_a_session_cache_writes_nothing() {
     let _l = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let root = Tmp::new();
     let project = Tmp::new();
     let _g = EnvGuard::set(&[("IMPECCINO_CACHE_ROOT", Some(&root.path()))]);
     let cwd = project.path();
     let r = rt(&cwd);
-    // A clean UI edit in a project with no Impeccino footprint must be a
-    // no-op on disk (issues #344, #305), redirect or not.
+    // A clean UI edit before the project has any session state writes
+    // nothing at all (issues #344, #305).
     let clean = project.write("src/b.css", CLEAN_CSS);
     let res = hook::run_hook(&r, &edit_event(&cwd, &clean, "s1"));
     assert_eq!(res.audit.get("kind").and_then(|v| v.as_str()), Some("clean"));

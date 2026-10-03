@@ -19,14 +19,6 @@ Thumbs.db
 .env
 .env.local
 
-# Impeccino project state while developing here: runtime state and per-run
-# critique snapshots stay local; config.json and critique/ignore.md are shared.
-**/.impeccino/hook.cache.json
-**/.impeccino/hook.pending.json
-.impeccino/config.local.json
-.impeccino/critique/*
-!.impeccino/critique/ignore.md
-
 # Engine binaries: fetched per platform (scripts/fetch-engine.mjs), never tracked.
 # The launcher next to them (skill/scripts/impeccino) is the tracked file.
 skill/scripts/bin/

@@ -128,15 +128,17 @@ Impeccable compiles the skill into 19 harness-specific variants, commits those v
 | Browser | Live mode in the user's dev server, a local decision page, a component review page, URL scans over its own Chrome connection | No browser stack of its own: screenshots come from the agent's browser, decisions from the structured question tool | [0011](docs/adr/0011-no-own-browser-stack.md) |
 | Rendered-page rules | Run in the live overlay, the extension, or URL scans over Impeccable's own Chrome connection | Rendered-page checks use agent-browser: a read-only measurement in the page, the same rules evaluated natively, screenshot pixels for the rest | [0016](docs/adr/0016-rendered-pages-through-agent-browser.md) |
 | Build path | Comp-first (image-generated mock, comp fidelity tooling) or code-first, chosen by `buildPath` | Code-led build only, carried by the direction contract | [0012](docs/adr/0012-no-image-comps.md) |
+| Concept roll | `concept-seed` deals visual worlds from Impeccable's hosted catalog and reports the user's choice back to it | `concept-seed` assigns one of the agent's own grounded directions on your machine; no catalog, no network, no ping | [0019](docs/adr/0019-concept-seed-is-local.md) |
 | Rule engine targets | Native binary plus a WebAssembly build for the browser extension and the in-page overlay | One native binary; no WebAssembly build, no browser extension | [0013](docs/adr/0013-no-wasm-or-browser-extension.md) |
 | Releases | Changelog entry in the website repository, rendered into the release notes; Windows binaries signed with the upstream maintainer's certificate | Per-component tags (`skill-v`, `engine-v`) with notes GitHub generates from the commits; each engine asset carries a GitHub build attestation and its digest is pinned in the skill | [0014](docs/adr/0014-releases-are-tags.md) |
 | Docs | Finished plans, port contracts, release notes, and demos kept in `docs/` | `docs/` holds current guidance and ADRs; the oracle corpus is the behavioral contract; history lives in git | [0015](docs/adr/0015-history-lives-in-git.md) |
+| Project state | A hidden `.impeccable/` folder: shared and personal config, design sidecar, surface briefs, critique archive, hook caches, screenshots | `PRODUCT.md`, `DESIGN.md`, `DESIGN.json`, `SURFACES.md` at the top level, all committed; no config file (detector decisions live in DESIGN.md and the project's ignore rules); runtime state in the user cache | [0020](docs/adr/0020-project-state-is-top-level-files.md) |
 
 Unchanged: the design guidance itself, every command that does not need a browser or an image model (22 commands; `live` and `generate` are gone), and the engine's context, hook, and detector. The detector keeps all 61 rules: the nine that need a rendered page now run through agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)).
 
 **Verified so far.** Skill loading and launcher invocation have been verified in Claude Code and Codex; both resolve and run the launcher, and Codex names commands with `$`. Dalo and skills.sh both find and install it. The Rust workspace tests, the core suite, the full oracle corpus, and rendered-page scans through agent-browser pass. The harness notes are a [point-in-time reference](docs/HARNESSES.md), not a record of end-to-end Impeccino verification.
 
-**Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs. `concept-seed` still draws its visual-world catalog from Impeccable's public API (`impeccable.style/api`); see [#7](https://github.com/sebastian-software/impeccino/issues/7).
+**Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs.
 
 ## Installation
 
@@ -185,35 +187,11 @@ If you reach for one command often, pin it with `/impeccino pin audit` to get `/
 
 **Note:** Codex uses skills here, not `/prompts:` commands. Open `/skills` or type `$impeccino`. Repo-local installs live in `.agents/skills/`; user-wide installs live in `~/.agents/skills/`. GitHub Copilot uses `.github/skills/`. Restart the tool if a newly installed skill does not appear.
 
-## Keeping `.impeccino` out of git
+## What lands in your project
 
-As you run commands, Impeccino writes working files under `.impeccino/`: critique and polish screenshots, hook caches, and per-developer config. Most of it is ephemeral and should not be committed, while a few files are shared project artifacts that belong in the repo. Add this block to your project's `.gitignore`:
+Nothing you need to ignore. Impeccino keeps its project state in four top-level files, all meant to be committed: `PRODUCT.md` (product truth), `DESIGN.md` (the visual system), `DESIGN.json` next to DESIGN.md (the design sidecar), and `SURFACES.md` (one section per surface: its mode and direction contract). There is no config file and no `.impeccino/` directory ([ADR 0020](docs/adr/0020-project-state-is-top-level-files.md)).
 
-```gitignore
-# impeccino-ignore-start
-# Ephemeral output, runtime state, and per-dev overrides.
-# The **/ prefix covers .impeccino at the repo root or in a nested workspace.
-# Shared artifacts stay tracked: config.json, design.json,
-# surfaces/*.md, critique/*.md.
-**/.impeccino/config.local.json
-**/.impeccino/hook.cache.json
-**/.impeccino/hook.pending.json
-**/.impeccino/*.png
-**/.impeccino/review/
-**/.impeccino/questions/
-# impeccino-ignore-end
-```
-
-The block is wrapped in `# impeccino-ignore-start` / `# impeccino-ignore-end` markers so you can recognize and refresh it later. The `**/` prefix makes each pattern match whether the active project's `.impeccino/` directory is at the repository root or under a nested workspace path like `apps/web/`.
-
-**Keep these tracked** (they are shared project artifacts, do not add them to `.gitignore`):
-
-- `.impeccino/config.json` (unified shared config)
-- `.impeccino/design.json` (shared design spec)
-- `.impeccino/surfaces/*.md` (route- or artifact-specific strategy and direction contracts)
-- `.impeccino/critique/*.md` (review reports)
-
-If an ephemeral file (a screenshot, `config.local.json`) was committed before you added the block, `.gitignore` will not untrack it automatically. Run `git rm --cached <path>` to stop tracking it without deleting your local copy.
+Runtime state stays out of the project: the hook's session cache and the weekly staleness throttle live in your user cache next to the engine binary, and review screenshots go to a temporary directory. A `.impeccino/` left by an older version is reported once at session start, with a note on where each file now belongs.
 
 ## Design hook
 
@@ -228,11 +206,11 @@ Hook surfaces the engine manages:
 
 The hook also understands Grok Build's events, and `context` recognizes a Grok manifest at `.grok/hooks/impeccino.json`; `hooks on` does not write that one. Gemini CLI has no hook manifest; the skill asks for a manual detector run there.
 
-Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. Hook lifecycle settings live under the `hook` key of `.impeccino/config.json`; detector ignores live under `detector`, shared by `/impeccino hooks` and `impeccino detect`.
+Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. The hook is on where its entries are installed; there is nothing else to configure. `IMPECCINO_HOOK_DISABLED=1` turns an installed hook off for one shell, and `IMPECCINO_HOOK_QUIET=1` silences the clean-edit acks.
 
 In Claude Code, command hooks run independently of model-tool approval, so the first edit or Stop event can download and cache the engine even if the session denies the model's launcher command. Review hooks before unattended runs; to disable all Claude Code hooks for a run, pass `--settings '{"disableAllHooks": true}'`.
 
-For debugging, set `hook.auditLog` in `.impeccino/config.json` to a path (or the legacy `IMPECCINO_HOOK_LOG` env var) to write one NDJSON line per hook invocation. Leave it unset for normal use.
+For debugging, set `IMPECCINO_HOOK_LOG` to a path to write one NDJSON line per hook invocation. Leave it unset for normal use.
 
 The Stop pass suppresses confirmed pre-existing findings when a verified before-edit baseline is available (currently Claude Edit/Write results for text scans). Other findings are marked new or attribution unknown; unknown is not evidence that your session caused the problem. Explicit checks requested through the skill still report findings independently of session attribution.
 

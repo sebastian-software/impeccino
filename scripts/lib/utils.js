@@ -5,8 +5,8 @@ import path from 'path';
 // belong to the consuming project, not the distributable skill. The build
 // excludes them from dist, and the harness-sync step preserves them across
 // the rm+recopy so local state isn't destroyed on every rebuild.
-// - config.json: legacy live-mode inject target list for existing projects.
-//   New installs write project config at .impeccino/live/config.json instead.
+// - config.json: the inject target list of the retired live mode
+//   (docs/adr/0011), still excluded so an old installed copy keeps it.
 export const PER_PROJECT_SCRIPT_ARTIFACTS = new Set(['config.json']);
 
 // Platform binaries under `scripts/bin/<os>-<arch>/` are fetched per machine

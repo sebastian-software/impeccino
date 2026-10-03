@@ -12,7 +12,8 @@ describe('skill reference authoring contracts', () => {
     const recordDecision = newWork.match(/## 5\. Record the decision\n([\s\S]*?)\n## 6\./)?.[1] ?? '';
 
     assert.match(recordDecision, /development-only contract/);
-    assert.match(recordDecision, /under `## Direction contract` in the relevant surface brief/);
+    assert.match(recordDecision, /under `### Direction contract` in the relevant surface brief, that surface's section of the project's `SURFACES.md`/);
+    assert.match(recordDecision, /replaces exactly this surface's section of `SURFACES.md`/);
     assert.match(recordDecision, /read the brief once more/i);
     assert.match(recordDecision, /all six contract blocks and the seed key/);
 
@@ -53,19 +54,35 @@ describe('skill reference authoring contracts', () => {
     assert.match(verify, /reduced[- ]motion/i);
   });
 
-  it('uses an exact content fingerprint before inheriting a critique snapshot', () => {
-    const critique = readFileSync(join(ROOT, 'skill/reference/critique.md'), 'utf-8').replace(/\r\n?/g, '\n');
-    const polish = readFileSync(join(ROOT, 'skill/reference/polish.md'), 'utf-8').replace(/\r\n?/g, '\n');
+  it('keeps critiques in the chat and honors recorded decisions instead of an archive', () => {
+    const read = (name) => readFileSync(join(ROOT, `skill/reference/${name}`), 'utf-8').replace(/\r\n?/g, '\n');
+    const critique = read('critique.md');
+    const polish = read('polish.md');
 
-    assert.match(critique, /records an exact content fingerprint/);
-    assert.match(polish, /compares the file's exact current content fingerprint/);
-    assert.match(polish, /Unchanged staged, unstaged, or untracked content remains current/);
-    assert.match(polish, /any byte change, deletion, or replacement with a non-file closes the backlog/);
-    assert.match(polish, /latest "<resolved target>" --json/);
-    assert.match(polish, /exact `snapshot_file` identity/);
-    assert.match(polish, /close "<resolved target>" "<snapshot_file returned by latest>"/);
-    assert.match(polish, /if a newer critique landed meanwhile, its backlog stays live/);
-    assert.doesNotMatch(polish, /git status|git log/);
+    for (const text of [critique, polish]) {
+      assert.doesNotMatch(text, /critique-storage|\.impeccino\//);
+    }
+    assert.match(critique, /nothing is archived/);
+    assert.match(critique, /PRODUCT\.md \(Brand Commitments, Product Principles\), DESIGN\.md \(Named Rules, Do's and Don'ts/);
+    assert.match(critique, /`docs\/adr\/`, `doc\/adr\/`, `adr\/`/);
+    assert.match(critique, /A finding that contradicts a recorded decision is dropped/);
+    assert.match(critique, /When the user rejects a finding as deliberate/);
+    assert.match(critique, /product or brand intent goes into PRODUCT\.md/);
+    assert.match(critique, /a visual rule goes into DESIGN\.md/);
+    assert.match(critique, /impeccino-disable <rule-id>/);
+    assert.match(polish, /Critiques are not archived between runs/);
+    assert.match(polish, /Perform an independent pass either way/);
+    assert.match(polish, /is not drift; leave it/);
+    for (const audit of ['audit.md', 'audit.native.md']) {
+      assert.match(read(audit), /A finding that contradicts a recorded decision is dropped/, audit);
+    }
+  });
+
+  it('keeps DESIGN.md waivers through a rewrite', () => {
+    const document = readFileSync(join(ROOT, 'skill/reference/document.md'), 'utf-8').replace(/\r\n?/g, '\n');
+    assert.match(document, /\*\*Preserve the waivers\.\*\*/);
+    assert.match(document, /carry every such comment over verbatim and keep it next to the Named Rule or Do\/Don't that justifies it/);
+    assert.match(document, /The sidecar `DESIGN\.json`, in the same directory as DESIGN\.md/);
   });
 
   it('keeps touch-gesture verification in the adapt, audit, and harden references', () => {

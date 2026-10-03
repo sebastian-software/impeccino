@@ -1,10 +1,9 @@
 //! JS: context-signals.mjs -> `impeccino signals` (alias: context-signals)
 
 use crate::context::{extract_platform, load_context};
-use crate::critique_storage::{js_number, read_latest_snapshot_across_targets};
 use crate::jsp;
 use crate::target_args::TargetOptions;
-use crate::util::{exists, js_num, js_trim, json_pretty, opt_string, Env};
+use crate::util::{exists, js_trim, json_pretty, opt_string, Env};
 use impeccino_common::Io;
 use serde_json::{Map, Value};
 use std::process::{Command, Stdio};
@@ -14,44 +13,6 @@ fn has_code(cwd: &str) -> bool {
         return true;
     }
     ["src", "app", "pages", "site", "public", "components", "lib"].iter().any(|d| exists(&jsp::join(&[cwd, d])))
-}
-
-fn latest_critique(cwd: &str, env: &Env) -> Value {
-    let Some(latest) = read_latest_snapshot_across_targets(cwd, env) else { return Value::Null };
-    let get = |key: &str| -> Value { latest.meta.get(key).cloned().unwrap_or(Value::Null) };
-    let num = |v: Value| -> Value {
-        match &v {
-            Value::Null => Value::Null,
-            Value::String(s) if js_trim(s).is_empty() => Value::Null,
-            Value::String(s) => {
-                let n = js_number(s);
-                if n.is_finite() {
-                    js_num(n)
-                } else {
-                    Value::Null
-                }
-            }
-            Value::Number(n) => js_num(n.as_f64().unwrap_or(f64::NAN)),
-            Value::Bool(b) => js_num(if *b { 1.0 } else { 0.0 }),
-            _ => Value::Null,
-        }
-    };
-    let coalesce = |a: &str, b: &str| -> Value {
-        let v = get(a);
-        if v.is_null() {
-            get(b)
-        } else {
-            v
-        }
-    };
-    let mut m = Map::new();
-    m.insert("slug".into(), get("slug"));
-    m.insert("score".into(), num(coalesce("total_score", "score")));
-    m.insert("p0".into(), num(coalesce("p0_count", "p0")));
-    m.insert("p1".into(), num(coalesce("p1_count", "p1")));
-    m.insert("timestamp".into(), get("timestamp"));
-    m.insert("file".into(), Value::String(jsp::relative("/", cwd, &latest.path)));
-    Value::Object(m)
 }
 
 /// git with stdout only; None on non-zero exit / spawn failure.
@@ -329,13 +290,10 @@ pub fn gather_signals(cwd: &str, env: &Env) -> Value {
     setup.insert("designPath".into(), opt_string(&ctx.design_path));
     setup.insert("hasCode".into(), Value::Bool(has_code(cwd)));
     setup.insert("platform".into(), opt_string(&extract_platform(ctx.product.as_deref())));
-    let mut critique = Map::new();
-    critique.insert("latest".into(), latest_critique(cwd, env));
     let dev = dev_server_signals();
     let scan = scan_targets(cwd, &git);
     let mut m = Map::new();
     m.insert("setup".into(), Value::Object(setup));
-    m.insert("critique".into(), Value::Object(critique));
     m.insert("git".into(), git);
     m.insert("devServer".into(), dev);
     m.insert("scan".into(), scan);

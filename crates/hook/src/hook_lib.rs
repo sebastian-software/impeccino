@@ -11,11 +11,9 @@ use std::rc::Rc;
 
 use impeccino_core::findings::Finding;
 use impeccino_core::js;
-use impeccino_detect::config::{
-    extract_finding_ignore_value, filter_detection_findings, matches_any_glob,
-    normalize_ignore_rule, normalize_ignore_value, normalize_ignore_value_entries, DetectionConfig,
-    IgnoreValueEntry,
-};
+use impeccino_detect::config::{extract_finding_ignore_value, normalize_ignore_rule, normalize_ignore_value};
+use impeccino_detect::design_decisions::DesignDecisions;
+use impeccino_detect::project_ignores::ProjectIgnores;
 use impeccino_detect::design_system::{load_design_system_for_cwd, resolve_design_md_path, DesignSystem};
 use impeccino_detect::detect_text::{detect_text, TextOptions};
 use impeccino_detect::engines::{HtmlEngine, ScanOptions};
@@ -24,8 +22,8 @@ use regex::Regex;
 use serde_json::{Map, Value};
 
 use crate::util::{
-    exists, iso_now, js_str_cmp, js_string, jsp, map_set, now_value, obj_field, safe_read,
-    safe_read_json, slice_prefix, slice_utf16, str_field, truthy_value, utf16_len,
+    exists, iso_now, js_string, jsp, now_value, obj_field, safe_read, safe_read_json, slice_prefix,
+    slice_utf16, str_field, truthy_value, utf16_len,
 };
 
 pub const ENVELOPE_PREFIX: &str = "[impeccino@1]";
@@ -118,13 +116,6 @@ pub fn is_advisory_finding(f: &Finding) -> bool {
             || f.severity == "advisory")
 }
 
-pub const HOOK_LOCAL_IGNORE_PATTERNS: &[&str] = &[
-    ".impeccino/hook.cache.json",
-    ".impeccino/hook.pending.json",
-    ".impeccino/config.local.json",
-];
-const HOOK_IGNORE_MARKER_OPEN: &str = "# impeccino-hook-ignore-start";
-const HOOK_IGNORE_MARKER_CLOSE: &str = "# impeccino-hook-ignore-end";
 const CACHE_MAX_SESSIONS: usize = 8;
 pub const EDIT_COUNT_THRESHOLD: u64 = 6;
 pub const MAX_SCAN_TARGETS: usize = 6;
@@ -133,26 +124,18 @@ const STEER_LINE: &str = "That does not mean the design is good: keep following 
 
 // ── paths ─────────────────────────────────────────────────────────────────
 
-pub fn get_config_path(cwd: &str) -> String {
-    jsp::join(&[cwd, ".impeccino", "config.json"])
-}
-pub fn get_local_config_path(cwd: &str) -> String {
-    jsp::join(&[cwd, ".impeccino", "config.local.json"])
-}
 /// JS: hook-lib.mjs#hookStateDir (issue #422) — where mutable hook state
-/// (cache + pending) lives. Defaults to the project-local `.impeccino/`
-/// dir. When IMPECCINO_CACHE_ROOT is set, state relocates to a per-project
-/// subdirectory of that root instead, so project roots stay free of tool
-/// artifacts. User-authored config (config.json, config.local.json,
-/// design.json) deliberately stays project-local — only disposable state
-/// relocates.
+/// (cache + pending) lives: a per-project directory under the user cache,
+/// `<cache>/impeccino/projects/<slug>-<hash>` (docs/adr/0020), so the project
+/// itself carries no tool state. IMPECCINO_CACHE_ROOT replaces
+/// `<cache>/impeccino/projects` with a root of its own.
 ///
 /// Read from the process env (the JS read process.env, not runHook's
 /// injected env): the cache root is a machine-scoped setting like
 /// CURSOR_PROJECT_DIR, not a per-invocation switch. Trim guards against
 /// stray whitespace in env files; `~/` (or the Windows `~\` spelling)
 /// expands via os.homedir(), and when no home dir can be determined the
-/// expansion is rejected — state falls back to the project-local default
+/// expansion is rejected — state falls back to the user-cache default
 /// rather than anchoring under the hook process's cwd. Resolving both sides
 /// makes the slug deterministic when callers hand in a trailing separator or
 /// unnormalized cwd. The slug is the readable separator-mapped path PLUS an
@@ -177,24 +160,33 @@ fn hook_state_dir(cwd: &str) -> String {
             jsp::join(&[&home, rest])
         };
     }
-    if !root.is_empty() {
-        let proc_cwd = std::env::current_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|_| jsp::SEP.to_string());
-        let resolved = jsp::resolve(&proc_cwd, &[cwd]);
-        let slug: String = resolved
-            .chars()
-            .map(|c| if matches!(c, ':' | '\\' | '/' | '.') { '-' } else { c })
-            .collect();
-        let digest = {
-            use sha2::Digest;
-            let mut h = sha2::Sha256::new();
-            h.update(resolved.as_bytes());
-            format!("{:x}", h.finalize())[..8].to_string()
-        };
-        return jsp::join(&[&jsp::resolve(&proc_cwd, &[&root]), &format!("{}-{}", slug, digest)]);
+    let proc_cwd = std::env::current_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| jsp::SEP.to_string());
+    if root.is_empty() {
+        root = user_projects_cache_root();
     }
-    jsp::join(&[cwd, ".impeccino"])
+    let resolved = jsp::resolve(&proc_cwd, &[cwd]);
+    let slug: String = resolved
+        .chars()
+        .map(|c| if matches!(c, ':' | '\\' | '/' | '.') { '-' } else { c })
+        .collect();
+    let digest = {
+        use sha2::Digest;
+        let mut h = sha2::Sha256::new();
+        h.update(resolved.as_bytes());
+        format!("{:x}", h.finalize())[..8].to_string()
+    };
+    jsp::join(&[&jsp::resolve(&proc_cwd, &[&root]), &format!("{}-{}", slug, digest)])
+}
+
+/// `<user cache>/impeccino/projects`, read from the process environment like
+/// IMPECCINO_CACHE_ROOT. Without any home directory the system temp dir
+/// stands in, so state never lands in the project.
+fn user_projects_cache_root() -> String {
+    let base = impeccino_common::project_files::user_cache_dir(|k| std::env::var(k).ok())
+        .unwrap_or_else(|| jsp::join(&[&std::env::temp_dir().to_string_lossy(), "impeccino"]));
+    jsp::join(&[&base, "projects"])
 }
 
 pub fn get_cache_path(cwd: &str) -> String {
@@ -294,7 +286,7 @@ pub fn resolve_project_cwd(
 
 /// JS: looksLikeProjectRoot(dir)
 fn looks_like_project_root(dir: &str) -> bool {
-    [".git", "package.json", ".impeccino"]
+    [".git", "package.json"]
         .iter()
         .any(|m| exists(&jsp::join(&[dir, m])))
 }
@@ -363,16 +355,15 @@ pub struct Limits {
     pub max_file_bytes: f64,
 }
 
-/// JS: DEFAULT_CONFIG / readConfig() result.
+/// The hook's settings. There is no config file (docs/adr/0020): whether the
+/// hook runs is whether it is installed in the harness settings, and the
+/// knobs below are fixed. The only per-project input is DESIGN.md (waivers
+/// and declared fonts), which `HookScanOptions` carries per edited file. The
+/// env vars IMPECCINO_HOOK_DISABLED, IMPECCINO_HOOK_QUIET, and
+/// IMPECCINO_HOOK_LOG remain the switches.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HookConfig {
-    pub enabled: bool,
-    pub quiet: bool,
-    pub audit_log: Option<String>,
     pub design_system_enabled: bool,
-    pub ignore_rules: Vec<String>,
-    pub ignore_files: Vec<String>,
-    pub ignore_values: Vec<IgnoreValueEntry>,
     pub extensions: Vec<ExtensionEntry>,
     pub per_edit_rules: String,
     pub advisory_rules: String,
@@ -382,19 +373,13 @@ pub struct HookConfig {
 impl Default for HookConfig {
     fn default() -> Self {
         HookConfig {
-            enabled: true,
-            quiet: false,
-            audit_log: None,
             design_system_enabled: true,
-            ignore_rules: vec![],
-            ignore_files: vec![],
-            ignore_values: vec![],
-            extensions: vec![],
+            extensions: default_template_extensions(),
             per_edit_rules: "immediate".to_string(),
             advisory_rules: "exclude".to_string(),
             limits: Limits {
-                max_findings: 5.0,
-                max_chars: 8000.0,
+                max_findings: DEFAULT_MAX_FINDINGS,
+                max_chars: DEFAULT_MAX_CHARS,
                 max_file_bytes: 131072.0,
             },
         }
@@ -404,212 +389,28 @@ impl Default for HookConfig {
 pub const DEFAULT_MAX_FINDINGS: f64 = 5.0;
 pub const DEFAULT_MAX_CHARS: f64 = 8000.0;
 
-/// JS: hookSection(raw)
-pub fn hook_section(raw: Option<&Value>) -> Option<&Map<String, Value>> {
-    match raw {
-        Some(Value::Object(o)) => obj_field(o, "hook"),
-        _ => None,
-    }
+/// Server-side template extensions the hook scans with the static HTML
+/// engine by default.
+pub const TEMPLATE_EXTENSIONS: &[&str] = &[".blade.php", ".twig", ".html.erb", ".erb", ".hbs", ".handlebars"];
+
+fn default_template_extensions() -> Vec<ExtensionEntry> {
+    TEMPLATE_EXTENSIONS
+        .iter()
+        .map(|ext| ExtensionEntry { ext: ext.to_string(), engine: "html".to_string() })
+        .collect()
 }
 
-/// JS: detectorSection(raw)
-pub fn detector_section(raw: Option<&Value>) -> Option<&Map<String, Value>> {
-    match raw {
-        Some(Value::Object(o)) => obj_field(o, "detector"),
-        _ => None,
-    }
+/// JS: readConfig(cwd). The settings are fixed; the project's own input
+/// arrives per file through `design_system_options_for_file`.
+pub fn read_config(_cwd: &str) -> HookConfig {
+    HookConfig::default()
 }
 
-/// JS: readConfig(cwd)
-pub fn read_config(cwd: &str) -> HookConfig {
-    let mut config = HookConfig::default();
-    for file_path in [get_config_path(cwd), get_local_config_path(cwd)] {
-        let raw = safe_read_json(&file_path);
-        apply_config_source(&mut config, hook_section(raw.as_ref()));
-        apply_detector_config_source(&mut config, detector_section(raw.as_ref()));
-    }
-    config
-}
-
-/// JS: numberOr(value, fallback)
-fn number_or(value: Option<&Value>, fallback: f64) -> f64 {
-    match value {
-        Some(Value::Number(n)) => match n.as_f64() {
-            Some(f) if f.is_finite() && f > 0.0 => f,
-            _ => fallback,
-        },
-        _ => fallback,
-    }
-}
-
-fn unique_strings(values: impl IntoIterator<Item = String>) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-    for v in values {
-        if !out.contains(&v) {
-            out.push(v);
-        }
-    }
-    out
-}
-
-/// JS: applyDetectorConfigSource(config, raw)
-fn apply_detector_config_source(config: &mut HookConfig, raw: Option<&Map<String, Value>>) {
-    let Some(raw) = raw else { return };
-    if let Some(Value::String(s)) = raw.get("advisoryRules") {
-        if s == "include" || s == "exclude" {
-            config.advisory_rules = s.clone();
-        }
-    }
-    if let Some(ds) = obj_field(raw, "designSystem") {
-        config.design_system_enabled = ds.get("enabled") != Some(&Value::Bool(false));
-    }
-    if let Some(Value::Array(list)) = raw.get("ignoreRules") {
-        let all = config
-            .ignore_rules
-            .iter()
-            .cloned()
-            .chain(list.iter().map(js_string));
-        config.ignore_rules = unique_strings(all);
-    }
-    if let Some(Value::Array(list)) = raw.get("ignoreFiles") {
-        let all = config
-            .ignore_files
-            .iter()
-            .cloned()
-            .chain(list.iter().map(js_string));
-        config.ignore_files = unique_strings(all);
-    }
-    if let Some(Value::Array(list)) = raw.get("ignoreValues") {
-        config.ignore_values = merge_ignore_values(&config.ignore_values, list);
-    }
-    if let Some(Value::Array(list)) = raw.get("extensions") {
-        config.extensions = merge_extensions(&config.extensions, list);
-    }
-}
-
-/// JS: applyConfigSource(config, raw)
-fn apply_config_source(config: &mut HookConfig, raw: Option<&Map<String, Value>>) {
-    let Some(raw) = raw else { return };
-    if raw.contains_key("enabled") {
-        config.enabled = raw.get("enabled") != Some(&Value::Bool(false));
-    }
-    if raw.contains_key("quiet") {
-        config.quiet = raw.get("quiet") == Some(&Value::Bool(true));
-    }
-    if let Some(Value::String(s)) = raw.get("perEditRules") {
-        if s == "all" || s == "immediate" {
-            config.per_edit_rules = s.clone();
-        }
-    }
-    if let Some(Value::String(s)) = raw.get("auditLog") {
-        if !js::trim(s).is_empty() {
-            config.audit_log = Some(js::trim(s).to_string());
-        }
-    }
-    apply_detector_config_source(config, Some(raw));
-    // JS: `raw.limits && typeof raw.limits === 'object'` (arrays included).
-    let limits: Option<&Map<String, Value>> = match raw.get("limits") {
-        Some(Value::Object(o)) => Some(o),
-        Some(Value::Array(_)) => Some(&EMPTY_MAP),
-        _ => None,
-    };
-    if let Some(l) = limits {
-        config.limits = Limits {
-            max_findings: number_or(l.get("maxFindings"), config.limits.max_findings),
-            max_chars: number_or(l.get("maxChars"), config.limits.max_chars),
-            max_file_bytes: number_or(l.get("maxFileBytes"), config.limits.max_file_bytes),
-        };
-    }
-}
-
-static EMPTY_MAP: Lazy<Map<String, Value>> = Lazy::new(Map::new);
-
-/// JS: ignoreValueFilesKey(files)
-pub fn ignore_value_files_key(files: Option<&Vec<String>>) -> String {
-    match files {
-        Some(f) if !f.is_empty() => {
-            let mut sorted = f.clone();
-            sorted.sort_by(|a, b| js_str_cmp(a, b));
-            sorted.join("\u{1f}")
-        }
-        _ => String::new(),
-    }
-}
-
-/// JS: `${rule}\0${value}\0${filesKey}`
-pub fn ignore_value_entry_key(entry: &IgnoreValueEntry) -> String {
-    format!(
-        "{}\0{}\0{}",
-        entry.rule,
-        entry.value,
-        ignore_value_files_key(entry.files.as_ref())
-    )
-}
-
-/// JS: mergeIgnoreValues(existing, incoming) (also hook-admin's
-/// mergeIgnoreValueEntries).
-pub fn merge_ignore_values(
-    existing: &[IgnoreValueEntry],
-    incoming: &[Value],
-) -> Vec<IgnoreValueEntry> {
-    let mut map: Vec<(String, IgnoreValueEntry)> = Vec::new();
-    let existing_raw: Vec<Value> = existing.iter().map(IgnoreValueEntry::to_json).collect();
-    for entry in normalize_ignore_value_entries(&existing_raw) {
-        map_set(&mut map, ignore_value_entry_key(&entry), entry);
-    }
-    for entry in normalize_ignore_value_entries(incoming) {
-        map_set(&mut map, ignore_value_entry_key(&entry), entry);
-    }
-    map.into_iter().map(|(_, e)| e).collect()
-}
-
-/// JS: template-extensions.mjs#normalizeExtensionEntries
-pub fn normalize_extension_entries(entries: &[Value]) -> Vec<ExtensionEntry> {
-    let mut out = Vec::new();
-    for entry in entries {
-        let (raw, is_string, engine_text) = match entry {
-            Value::String(s) => (Some(s.as_str()), true, false),
-            Value::Object(o) => (
-                match o.get("ext") {
-                    Some(Value::String(s)) => Some(s.as_str()),
-                    _ => None,
-                },
-                false,
-                o.get("engine") == Some(&Value::String("text".to_string())),
-            ),
-            _ => (None, false, false),
-        };
-        let Some(raw) = raw else { continue };
-        let mut ext = js::to_lower_case(js::trim(raw));
-        if ext.is_empty() {
-            continue;
-        }
-        if !ext.starts_with('.') {
-            ext = format!(".{ext}");
-        }
-        let engine = if !is_string && engine_text {
-            "text"
-        } else {
-            "html"
-        };
-        out.push(ExtensionEntry {
-            ext,
-            engine: engine.to_string(),
-        });
-    }
-    out
-}
-
-/// JS: template-extensions.mjs#mergeExtensions
-pub fn merge_extensions(existing: &[ExtensionEntry], incoming: &[Value]) -> Vec<ExtensionEntry> {
-    let mut map: Vec<(String, ExtensionEntry)> = Vec::new();
-    for e in existing {
-        map_set(&mut map, e.ext.clone(), e.clone());
-    }
-    for e in normalize_extension_entries(incoming) {
-        map_set(&mut map, e.ext.clone(), e);
-    }
-    map.into_iter().map(|(_, e)| e).collect()
+/// True when the project's git metadata says to leave `file_path` alone:
+/// git ignores it, or .gitattributes marks it generated or vendored.
+pub fn is_project_skipped(rt: &Runtime, file_path: &str) -> bool {
+    let abs = rt.resolve(&[file_path]);
+    ProjectIgnores::new().is_skipped(&abs, false)
 }
 
 /// JS: template-extensions.mjs#matchConfiguredExtension
@@ -703,8 +504,8 @@ pub fn persist_cache(rt: &Runtime, cwd: &str, cache: &Cache) -> bool {
         }
         cache.insert("sessions".into(), Value::Object(next));
     }
+    let _ = rt;
     let target = get_cache_path(cwd);
-    ensure_hook_git_excludes(rt, cwd);
     if std::fs::create_dir_all(jsp::dirname(&target)).is_err() {
         return false;
     }
@@ -713,176 +514,6 @@ pub fn persist_cache(rt: &Runtime, cwd: &str, cache: &Cache) -> bool {
         serde_json::to_string(&Value::Object(cache)).unwrap_or_default(),
     )
     .is_ok()
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct GitExcludeResult {
-    pub mode: &'static str,
-    pub file: Option<String>,
-    pub changed: bool,
-    pub patterns: Vec<String>,
-}
-
-fn escape_regexp(value: &str) -> String {
-    regex::escape(value)
-}
-
-/// JS: ensureHookGitExcludes(cwd)
-pub fn ensure_hook_git_excludes(rt: &Runtime, cwd: &str) -> GitExcludeResult {
-    let default_patterns: Vec<String> = HOOK_LOCAL_IGNORE_PATTERNS
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
-    let Some(target) = resolve_hook_git_exclude_target(rt, cwd) else {
-        return GitExcludeResult {
-            mode: "none",
-            file: None,
-            changed: false,
-            patterns: default_patterns,
-        };
-    };
-    let patterns: Vec<String> = if target.pattern_prefix.is_empty() {
-        default_patterns.clone()
-    } else {
-        HOOK_LOCAL_IGNORE_PATTERNS
-            .iter()
-            .map(|p| format!("{}/{}", target.pattern_prefix, p))
-            .collect()
-    };
-    let marker_suffix = if target.pattern_prefix.is_empty() {
-        "."
-    } else {
-        target.pattern_prefix.as_str()
-    };
-    let marker_open = format!("{HOOK_IGNORE_MARKER_OPEN} {marker_suffix}");
-    let marker_close = format!("{HOOK_IGNORE_MARKER_CLOSE} {marker_suffix}");
-    let existing = if exists(&target.path) {
-        match safe_read(&target.path) {
-            Some(s) => s,
-            None => {
-                return GitExcludeResult {
-                    mode: "error",
-                    file: None,
-                    changed: false,
-                    patterns: default_patterns,
-                }
-            }
-        }
-    } else {
-        String::new()
-    };
-    let mut block_lines = vec![marker_open.clone()];
-    block_lines.extend(patterns.iter().cloned());
-    block_lines.push(marker_close.clone());
-    let block = block_lines.join("\n");
-    let marker_re = Regex::new(&format!(
-        "{}(?s:.)*?{}",
-        escape_regexp(&marker_open),
-        escape_regexp(&marker_close)
-    ));
-    let Ok(marker_re) = marker_re else {
-        return GitExcludeResult {
-            mode: "error",
-            file: None,
-            changed: false,
-            patterns: default_patterns,
-        };
-    };
-    let updated = if marker_re.is_match(&existing) {
-        marker_re
-            .replacen(&existing, 1, block.as_str())
-            .into_owned()
-    } else {
-        let prefix = if existing.is_empty() {
-            String::new()
-        } else if existing.ends_with('\n') {
-            existing.clone()
-        } else {
-            format!("{existing}\n")
-        };
-        let gap = if prefix.ends_with("\n\n") || prefix.is_empty() {
-            ""
-        } else {
-            "\n"
-        };
-        format!("{prefix}{gap}{block}\n")
-    };
-    if updated != existing {
-        if std::fs::create_dir_all(jsp::dirname(&target.path)).is_err()
-            || std::fs::write(&target.path, &updated).is_err()
-        {
-            return GitExcludeResult {
-                mode: "error",
-                file: None,
-                changed: false,
-                patterns: default_patterns,
-            };
-        }
-    }
-    GitExcludeResult {
-        mode: "git-info-exclude",
-        file: Some(jsp::to_posix(
-            &rt.relative(&rt.resolve(&[cwd]), &target.path),
-        )),
-        changed: updated != existing,
-        patterns,
-    }
-}
-
-struct GitExcludeTarget {
-    path: String,
-    pattern_prefix: String,
-}
-
-/// JS: resolveHookGitExcludeTarget(cwd)
-fn resolve_hook_git_exclude_target(rt: &Runtime, cwd: &str) -> Option<GitExcludeTarget> {
-    let start = rt.resolve(&[cwd]);
-    let mut dir = start.clone();
-    loop {
-        let dot_git = jsp::join(&[&dir, ".git"]);
-        if exists(&dot_git) {
-            let git_dir = resolve_git_dir(rt, &dot_git, &dir)?;
-            let rel_prefix = jsp::to_posix(&rt.relative(&dir, &start));
-            return Some(GitExcludeTarget {
-                path: jsp::join(&[&git_dir, "info", "exclude"]),
-                pattern_prefix: if rel_prefix.is_empty() || rel_prefix == "." {
-                    String::new()
-                } else {
-                    rel_prefix
-                },
-            });
-        }
-        let parent = jsp::dirname(&dir);
-        if parent == dir {
-            return None;
-        }
-        dir = parent;
-    }
-}
-
-re!(
-    GITDIR_RE,
-    r"^(?i:gitdir):[\t\n\x0B\x0C\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]*([^\n\r\x{2028}\x{2029}]+)$"
-);
-
-/// JS: resolveGitDir(dotGit, worktreeDir)
-fn resolve_git_dir(rt: &Runtime, dot_git: &str, worktree_dir: &str) -> Option<String> {
-    let meta = std::fs::metadata(dot_git).ok()?;
-    if meta.is_dir() {
-        return Some(dot_git.to_string());
-    }
-    if !meta.is_file() {
-        return None;
-    }
-    let body = safe_read(dot_git)?;
-    let body = js::trim(&body);
-    let m = GITDIR_RE.captures(body)?;
-    let target = m.get(1)?.as_str();
-    Some(if jsp::is_absolute(target) {
-        target.to_string()
-    } else {
-        rt.resolve(&[worktree_dir, target])
-    })
 }
 
 /// JS: ensureSession(cache, sessionId)
@@ -975,24 +606,23 @@ pub fn suppression_notice(rt: &Runtime, file_path: &str) -> String {
 
 // ── findings ──────────────────────────────────────────────────────────────
 
-/// JS: filterFindings(findings, content, ext, config)
+/// JS: filterFindings(findings, content, ext, config): advisory findings
+/// stay out unless the config includes them.
 pub fn filter_findings(findings: Vec<Finding>, config: &HookConfig) -> Vec<Finding> {
     if findings.is_empty() {
         return vec![];
     }
     let include_advisory = config.advisory_rules == "include";
-    let kept: Vec<Finding> = findings
+    findings
         .into_iter()
         .filter(|f| include_advisory || !is_advisory_finding(f))
-        .collect();
-    let dc = DetectionConfig {
-        ignore_rules: config.ignore_rules.clone(),
-        ignore_files: vec![],
-        ignore_values: config.ignore_values.clone(),
-        design_system_enabled: None,
-        advisory_rules: None,
-    };
-    filter_detection_findings(kept, &dc)
+        .collect()
+}
+
+/// `filter_findings`, then the decisions the file's DESIGN.md records
+/// (project-wide waivers and declared fonts).
+pub fn filter_findings_for(findings: Vec<Finding>, config: &HookConfig, scan: &HookScanOptions) -> Vec<Finding> {
+    scan.decisions.apply(filter_findings(findings, config))
 }
 
 /// JS: splitFindingsByTier(findings) -> (immediate, deferred)
@@ -1236,8 +866,10 @@ fn clean_ignore_value_display(value: &str) -> String {
     WS_RUN_RE.replace_all(&t, " ").into_owned()
 }
 
-/// JS: formatFindingIgnoreHint(finding)
-fn format_finding_ignore_hint(rt: &Runtime, f: &Finding) -> String {
+/// What to do when a finding with an extractable value was deliberate
+/// (docs/adr/0020): a token value belongs in DESIGN.md, anything else is
+/// waived on its line.
+fn format_finding_ignore_hint(f: &Finding) -> String {
     let rule = normalize_ignore_rule(&f.antipattern);
     if rule.is_empty() {
         return String::new();
@@ -1246,8 +878,11 @@ fn format_finding_ignore_hint(rt: &Runtime, f: &Finding) -> String {
     if normalized.is_empty() {
         return String::new();
     }
-    let value_arg = quote_command_arg(&extract_finding_ignore_value_raw(f, &rule), rt.win32);
-    format!("ignore-value {rule} {value_arg}")
+    if rule == "overused-font" || rule.starts_with("design-system-") {
+        let value = extract_finding_ignore_value_raw(f, &rule);
+        return format!("If deliberate, declare `{value}` in DESIGN.md.");
+    }
+    format!("If deliberate, waive the line: `impeccino-disable-line {rule}: <reason>`.")
 }
 
 /// JS: formatFindingLine(f, { compact })
@@ -1268,11 +903,12 @@ fn format_finding_line(rt: &Runtime, f: &Finding, compact: bool) -> String {
     } else {
         format!("{}.", TRAILING_DOTS_RE.replacen(name, 1, ""))
     };
-    let hint = format_finding_ignore_hint(rt, f);
+    let _ = rt;
+    let hint = format_finding_ignore_hint(f);
     let ignore_segment = if hint.is_empty() {
         String::new()
     } else {
-        format!(" If intentional: `{hint}`.")
+        format!(" {hint}")
     };
     collapse_ws(&format!(
         "{prefix} [{}] {name_segment} {desc}{ignore_segment}",
@@ -1293,14 +929,15 @@ fn format_deduped_finding_line(rt: &Runtime, f: &Finding, seen_rules: &mut Vec<S
 /// JS: directiveFooter({ mode })
 pub fn directive_footer(rt: &Runtime, short: bool) -> String {
     if short {
-        return "Triage per the session policy: fix real problems; persist confident false-positive or sanctioned-exception ignores via `impeccino hooks ignore-value` and disclose them in your reply; unsure, ask in one line.".to_string();
+        return "Triage per the session policy: fix real problems; waive a confident false positive or sanctioned exception where it lives with an `impeccino-disable-line <rule>: <reason>` comment and disclose it in your reply; unsure, ask in one line.".to_string();
     }
+    let _ = rt;
     [
-        "Triage each finding, then state in your reply what you fixed, what you suppressed, and what you left standing:".to_string(),
+        "Triage each finding, then state in your reply what you fixed, what you waived, and what you left standing:".to_string(),
         "- Real design problem: fix it. Keep intentional design as designed.".to_string(),
-        format!("- Confident false positive or sanctioned exception (an intentional demo or fixture, documentation of bad design, literal or domain-appropriate motion, a choice the user confirmed): persist the narrowest ignore yourself and disclose it. Run `{} ignore-value <rule> \"<value>\" --reason \"<who decided: evidence>\"` with the pair shown on the finding line, or value \"*\" plus `--file <path>` when the line shows none. Write \"user confirmed\" in a reason only when the user did.", rt.hook_admin_command),
+        "- Confident false positive or sanctioned exception in one place (an intentional demo or fixture, documentation of bad design, literal or domain-appropriate motion, a choice the user confirmed): waive it where it lives with an `impeccino-disable-line <rule>: <who decided, and the evidence>` comment (`-next-line` for the line below, `impeccino-disable` for the whole file) and disclose it. Write \"user confirmed\" in a reason only when the user did.".to_string(),
         "- Unsure: leave it as is and ask the user in one line.".to_string(),
-        format!("Self-serve ends at ignore-value: `ignore-file` and `ignore-rule` need the user's explicit approval, and never add an ignore to push a blocked write through. Full suppression ladder: {} hooks.", rt.impeccino_command),
+        "Self-serve ends at the in-file waiver. A project-wide decision (a rule waived in DESIGN.md with `<!-- impeccino-disable <rule>: reason -->`, a font or color declared as a DESIGN.md token, a file kept out through .gitignore or .gitattributes) needs the user's explicit approval, and never waive a finding to push a blocked write through.".to_string(),
     ]
     .join("\n")
 }
@@ -1611,10 +1248,12 @@ pub fn should_emit_ack_for_file(file_path: &str, config: &HookConfig) -> bool {
         .unwrap_or(false)
 }
 
-/// The detector option object the hook builds (`{ designSystem? }`).
+/// The detector option object the hook builds (`{ designSystem? }`), plus
+/// the decisions of the DESIGN.md that governs the file.
 #[derive(Default, Clone)]
 pub struct HookScanOptions {
     pub design_system: Option<Rc<DesignSystem>>,
+    pub decisions: Rc<DesignDecisions>,
 }
 
 impl HookScanOptions {
@@ -1638,10 +1277,11 @@ impl HookScanOptions {
 /// JS: designSystemOptions(config, detector, projectCwd)
 pub fn design_system_options(config: &HookConfig, project_cwd: &str) -> HookScanOptions {
     if !config.design_system_enabled {
-        return HookScanOptions::default();
+        return HookScanOptions { decisions: Rc::new(DesignDecisions::load_for_dir(project_cwd)), ..HookScanOptions::default() };
     }
     HookScanOptions {
         design_system: load_design_system_for_cwd(project_cwd).map(Rc::new),
+        decisions: Rc::new(DesignDecisions::load_for_dir(project_cwd)),
     }
 }
 
@@ -1652,9 +1292,6 @@ pub fn design_system_options_for_file(
     project_cwd: &str,
     file_path: &str,
 ) -> HookScanOptions {
-    if !config.design_system_enabled {
-        return HookScanOptions::default();
-    }
     let project = impeccino_context::context::resolve_project(
         project_cwd,
         &impeccino_context::target_args::TargetOptions {
@@ -1669,7 +1306,8 @@ pub fn design_system_options_for_file(
     } else {
         &project.repo_root
     };
-    design_system_options(config, root)
+    let decisions = Rc::new(DesignDecisions::load_for_dir(root));
+    HookScanOptions { decisions, ..design_system_options(config, root) }
 }
 
 /// The detector the hook drives: the regex engine from `impeccino-detect`
@@ -1701,7 +1339,7 @@ pub fn detector_detect_html(
 
 pub fn design_stale_note(rt: &Runtime) -> String {
     format!(
-        "{ENVELOPE_PREFIX} DESIGN.md is newer than .impeccino/design.json. Run {} document to refresh the design-system sidecar.",
+        "{ENVELOPE_PREFIX} DESIGN.md is newer than DESIGN.json. Run {} document to refresh the design-system sidecar.",
         rt.impeccino_command
     )
 }
@@ -2407,11 +2045,7 @@ pub fn expand_scan_targets(rt: &Runtime, primaries: &[String], project_cwd: &str
 /// JS: writeAuditLog(env, entry, cwd)
 pub fn write_audit_log(rt: &Runtime, entry: &Map<String, Value>, cwd: &str) -> bool {
     let base_cwd = str_field(entry, "cwd").unwrap_or(cwd).to_string();
-    let target = match rt.env("IMPECCINO_HOOK_LOG").filter(|v| !v.is_empty()) {
-        Some(t) => Some(t.to_string()),
-        None => read_config(&base_cwd).audit_log,
-    };
-    let Some(target) = target.filter(|t| !t.is_empty()) else {
+    let Some(target) = rt.env("IMPECCINO_HOOK_LOG").filter(|v| !v.is_empty()).map(str::to_string) else {
         return false;
     };
     let expanded = if let Some(rest) = target.strip_prefix("~/") {
@@ -2447,11 +2081,6 @@ pub fn write_audit_log(rt: &Runtime, entry: &Map<String, Value>, cwd: &str) -> b
         Ok(mut f) => f.write_all(line.as_bytes()).is_ok(),
         Err(_) => false,
     }
-}
-
-/// `matchesAnyGlob` re-export for the verbs.
-pub fn matches_any_glob_list(file_path: &str, globs: &[String]) -> bool {
-    matches_any_glob(file_path, globs)
 }
 
 /// The value normalizer, re-exported for hook-admin.

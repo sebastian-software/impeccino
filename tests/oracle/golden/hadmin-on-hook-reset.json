@@ -1,0 +1,35 @@
+{
+  "steps": [
+    {
+      "stdout": "Installed or repaired hook manifests for: .claude, .cursor.\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":\"[impeccino@1] Design hook findings requiring review in src/components/Card.module.css (1 issue(s)):\\n- L2 [gradient-text] Gradient text. Gradient text is decorative rather than meaningful — a common AI tell, especially on headings and metrics. Use solid colors for text.\\n\\nTriage each finding, then state in your reply what you fixed, what you waived, and what you left standing:\\n- Real design problem: fix it. Keep intentional design as designed.\\n- Confident false positive or sanctioned exception in one place (an intentional demo or fixture, documentation of bad design, literal or domain-appropriate motion, a choice the user confirmed): waive it where it lives with an `impeccino-disable-line <rule>: <who decided, and the evidence>` comment (`-next-line` for the line below, `impeccino-disable` for the whole file) and disclose it. Write \\\"user confirmed\\\" in a reason only when the user did.\\n- Unsure: leave it as is and ask the user in one line.\\nSelf-serve ends at the in-file waiver. A project-wide decision (a rule waived in DESIGN.md with `<!-- impeccino-disable <rule>: reason -->`, a font or color declared as a DESIGN.md token, a file kept out through .gitignore or .gitattributes) needs the user's explicit approval, and never waive a finding to push a blocked write through.\"}}",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "Impeccino design hook\n  installed:    .claude/settings.local.json, .cursor/hooks.json\n  env override: unset\n  DESIGN.md:    not present (no project waivers)\n  cache file:   <WS>/.oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "Removed hook entries from: .claude, .cursor. Cleared the hook's session cache (<WS>/.oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json).\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "Impeccino design hook\n  installed:    no (run /impeccino hooks on to install)\n  env override: unset\n  DESIGN.md:    not present (no project waivers)\n  cache file:   <WS>/.oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json (not present)\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    }
+  ],
+  "files": {}
+}

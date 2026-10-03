@@ -1,0 +1,7 @@
+{
+  "stdout": "",
+  "stderr": "concept-seed: --chosen was removed: Impeccino sends no choice pings and concept-seed makes no network calls (ADR 0019). Nothing needs recording; continue with the chosen direction.\n",
+  "exit": 1,
+  "signal": null,
+  "files": {}
+}

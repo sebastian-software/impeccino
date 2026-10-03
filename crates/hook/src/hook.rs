@@ -145,15 +145,6 @@ pub fn run_hook(rt: &Runtime, stdin: &str) -> RunResult {
     }
 
     let config = read_config(&project_cwd);
-    if !config.enabled {
-        return result(
-            &audit,
-            vec![
-                ("skipped", Value::from("config-disabled")),
-                ("durationMs", ms_since(started)),
-            ],
-        );
-    }
 
     let platform = resolve_project_platform(rt, &project_cwd);
     if is_native_platform(platform.as_deref()) {
@@ -182,7 +173,7 @@ pub fn run_hook(rt: &Runtime, stdin: &str) -> RunResult {
     let mut suppression_winner: Option<String> = None;
     let mut clean_ack_deduped = false;
     let mut skipped_bytes: u64 = 0;
-    let quiet_mode = truthy(rt.env("IMPECCINO_HOOK_QUIET")) || config.quiet;
+    let quiet_mode = truthy(rt.env("IMPECCINO_HOOK_QUIET"));
     let mut detector_threw_any = false;
     let mut last_skip = "no-scannable-file";
     let mut live_preview_edit: Option<String> = None;
@@ -215,15 +206,12 @@ pub fn run_hook(rt: &Runtime, stdin: &str) -> RunResult {
             last_skip = "extension";
             continue;
         }
-        let rel_for_match = relativize(rt, file_path, &project_cwd);
-        if matches_any_glob_list(&rel_for_match, &config.ignore_files)
-            || matches_any_glob_list(file_path, &config.ignore_files)
-        {
-            last_skip = "config-ignore-file";
-            continue;
-        }
         if !exists(file_path) {
             last_skip = "file-missing";
+            continue;
+        }
+        if is_project_skipped(rt, file_path) {
+            last_skip = "git-ignored";
             continue;
         }
         if !is_scan_target_inside_project(rt, file_path, &project_cwd) {
@@ -322,7 +310,7 @@ pub fn run_hook(rt: &Runtime, stdin: &str) -> RunResult {
             stop_baseline::reconcile(&mut cache, &session_id, file_path, &findings);
         }
         let raw_count = findings.len();
-        let filtered = filter_findings(findings, &config);
+        let filtered = filter_findings_for(findings, &config, scan);
         let (immediate, deferred) = if tiered {
             split_findings_by_tier(filtered)
         } else {
@@ -467,17 +455,11 @@ pub fn run_hook(rt: &Runtime, stdin: &str) -> RunResult {
         }
     }
 
-    // JS: an already-present `.impeccino/` dir marks a project that opted
-    // in (issues #344, #305). An existing cache file also counts as opted
-    // in: under IMPECCINO_CACHE_ROOT (issue #422) state lives outside the
-    // project, so the project dir alone can't carry the marker — without
-    // this, clean-edit editCount bumps would stop persisting the moment
-    // state relocates. Under stock paths the cache sits inside
-    // `.impeccino/`, so the extra check changes nothing there.
-    if deferred_total > 0
-        || (cache_dirty
-            && (exists(&jsp::join(&[&project_cwd, ".impeccino"])) || exists(&get_cache_path(&project_cwd))))
-    {
+    // Issues #344 and #305 kept a clean edit from creating state in a
+    // project that never used Impeccino. State lives in the user cache now
+    // (docs/adr/0020), never in the project, so a clean edit persists once a
+    // session cache exists for the project; the first finding creates it.
+    if deferred_total > 0 || (cache_dirty && exists(&get_cache_path(&project_cwd))) {
         persist_cache(rt, &project_cwd, &cache);
     }
 
@@ -669,15 +651,6 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
     );
 
     let config = read_config(&project_cwd);
-    if !config.enabled {
-        return result(
-            &audit,
-            vec![
-                ("skipped", Value::from("config-disabled")),
-                ("durationMs", ms_since(started)),
-            ],
-        );
-    }
     // Native projects skip the whole Stop pass. Resolving the platform reads
     // PRODUCT.md, so it is paid only when there are touched files to scan.
     let mut platform_memo: Option<Option<String>> = None;
@@ -730,13 +703,10 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
         if !ALLOWED_EXTS.contains(&ext.as_str()) && configured.is_none() {
             continue;
         }
-        let rel = relativize(rt, file_path, &project_cwd);
-        if matches_any_glob_list(&rel, &config.ignore_files)
-            || matches_any_glob_list(file_path, &config.ignore_files)
+        if !exists(file_path)
+            || is_project_skipped(rt, file_path)
+            || !is_scan_target_inside_project(rt, file_path, &project_cwd)
         {
-            continue;
-        }
-        if !exists(file_path) || !is_scan_target_inside_project(rt, file_path, &project_cwd) {
             continue;
         }
         scanned += 1;
@@ -769,7 +739,7 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
         if !use_html_engine {
             stop_baseline::reconcile(&mut cache, &session_id, file_path, &findings);
         }
-        let filtered = filter_findings(findings, &config);
+        let filtered = filter_findings_for(findings, &config, scan);
         let classified = stop_baseline::classify(&cache, &session_id, file_path, use_html_engine, filtered.clone());
         pre_existing += classified.pre_existing;
         new_findings += classified.new;

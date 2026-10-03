@@ -91,6 +91,62 @@ fn get_set(map: &mut Vec<(usize, RuleSet)>, key: usize) -> &mut RuleSet {
     }
 }
 
+fn fence_delimiter(line: &str) -> Option<(char, usize, &str)> {
+    let line = line.trim_end_matches('\r');
+    let indent = line.bytes().take_while(|b| *b == b' ').count();
+    if indent > 3 {
+        return None;
+    }
+    let rest = &line[indent..];
+    let marker = rest.chars().next()?;
+    if marker != '`' && marker != '~' {
+        return None;
+    }
+    let count = rest.chars().take_while(|c| *c == marker).count();
+    if count < 3 {
+        return None;
+    }
+    Some((marker, count, &rest[count..]))
+}
+
+/// Whether each Markdown line is outside a fenced code block. Fence
+/// delimiters and their contents are false. The opener's marker and length
+/// govern its close, matching CommonMark's fence rules used by both DESIGN.md
+/// waiver parsing and SURFACES.md section parsing.
+#[doc(hidden)]
+pub fn markdown_fenced_code_line_mask(markdown: &str) -> Vec<bool> {
+    let mut fence: Option<(char, usize)> = None;
+    let mut outside = Vec::new();
+    for line in markdown.split('\n') {
+        if let Some((open_marker, open_len)) = fence {
+            let closes = fence_delimiter(line)
+                .map(|(marker, len, tail)| {
+                    marker == open_marker && len >= open_len && tail.chars().all(char::is_whitespace)
+                })
+                .unwrap_or(false);
+            outside.push(false);
+            if closes {
+                fence = None;
+            }
+            continue;
+        }
+        let opening = fence_delimiter(line).and_then(|(marker, len, tail)| {
+            if marker == '`' && tail.contains('`') {
+                None
+            } else {
+                Some((marker, len))
+            }
+        });
+        if let Some(opening) = opening {
+            fence = Some(opening);
+            outside.push(false);
+        } else {
+            outside.push(true);
+        }
+    }
+    outside
+}
+
 /// JS `parseInlineIgnores(content)`.
 pub fn parse_inline_ignores(content: Option<&str>) -> InlineIgnores {
     let mut result = InlineIgnores::default();
@@ -191,6 +247,46 @@ pub fn apply_inline_ignores<F: IgnorableFinding>(
         .collect()
 }
 
+/// The text of every HTML comment outside fenced code blocks.
+fn html_comments(md: &str) -> Vec<String> {
+    let mut prose = String::new();
+    let outside_fence = markdown_fenced_code_line_mask(md);
+    for (line, outside) in md.split('\n').zip(outside_fence) {
+        if outside {
+            prose.push_str(line);
+        }
+        prose.push('\n');
+    }
+    let mut out = Vec::new();
+    let mut rest = prose.as_str();
+    while let Some(start) = rest.find("<!--") {
+        let after = &rest[start + 4..];
+        let Some(end) = after.find("-->") else { break };
+        out.push(after[..end].to_string());
+        rest = &after[end + 3..];
+    }
+    out
+}
+
+/// Project-wide waivers recorded in DESIGN.md (docs/adr/0020): the rule ids
+/// of every `<!-- impeccino-disable <rule-id> [-- reason] -->` comment.
+/// Only HTML comments outside code fences count, so prose that explains the
+/// syntax waives nothing; the `-line` / `-next-line` variants have no
+/// meaning in a design document and are ignored; and a bare
+/// `impeccino-disable` (every rule) is not honored at project scope.
+pub fn parse_design_waivers(md: &str) -> Vec<String> {
+    let mut rules: Vec<String> = Vec::new();
+    for comment in html_comments(md) {
+        let one_line = comment.replace(['\n', '\r'], " ");
+        for rule in parse_inline_ignores(Some(&one_line)).file {
+            if rule != "*" && !rules.contains(&rule) {
+                rules.push(rule);
+            }
+        }
+    }
+    rules
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,5 +300,25 @@ mod tests {
         assert_eq!(d.next_line, vec![(4, vec!["bounce-easing".to_string()])]);
         let bare = parse_inline_ignores(Some("<!-- impeccino-disable -->"));
         assert_eq!(bare.file, vec!["*"]);
+    }
+
+    #[test]
+    fn design_waivers_come_from_comments_outside_fences() {
+        let md = "# Design\n\n## Named Rules\n\n**The Ink Rule.** Hairlines carry the grid. <!-- impeccino-disable side-tab, GRADIENT-TEXT -- the ledger rule -->\n\nWrite `impeccino-disable overused-font` to waive a rule.\n\n```md\n<!-- impeccino-disable bounce-easing -->\n```\n\n<!-- impeccino-disable -->\n<!--\nimpeccino-disable line-length: long legal copy\n-->\n";
+        assert_eq!(parse_design_waivers(md), vec!["side-tab", "gradient-text", "line-length"]);
+    }
+
+    #[test]
+    fn design_waivers_ignore_shorter_fences_nested_in_longer_fences() {
+        let md = "````md\n```html\n<!-- impeccino-disable low-contrast -->\n```\n````\n";
+        assert!(parse_design_waivers(md).is_empty());
+    }
+
+    #[test]
+    fn markdown_fences_require_a_matching_marker_and_valid_close() {
+        let md = "  ````md\n~~~html\n```html\n<!-- impeccino-disable low-contrast -->\n```` trailing\n````\n<!-- impeccino-disable side-tab -->";
+        let mask = markdown_fenced_code_line_mask(md);
+        assert_eq!(mask, vec![false, false, false, false, false, false, true]);
+        assert_eq!(parse_design_waivers(md), vec!["side-tab"]);
     }
 }

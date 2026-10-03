@@ -1,0 +1,37 @@
+{
+  "steps": [
+    {
+      "stdout": "SURFACES.md\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "SURFACES.md\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "## src/pages/index.astro\n<!-- impeccino:surface {\"target\":\"src/pages/index.astro\",\"related\":[\"route:/\"]} -->\n\nMode: Persuade\n\n### Direction contract\nTHESIS: the install command is the hero.\nFINISH: unreviewed and undocumented is unfinished.\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "## route:/pricing\n<!-- impeccino:surface {\"target\":\"route:/pricing\",\"related\":[]} -->\n\nMode: Persuade\n\n### Product strategy\nMake the middle tier the obvious pick.\n\n### Direction contract\nTHESIS: a price list that reads like a menu.\n\n## Notes kept by hand\nThe pricing page also ships in German.\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "[\n  {\n    \"path\": \"SURFACES.md\",\n    \"primaryTarget\": \"src/pages/index.astro\",\n    \"relatedTargets\": [\n      \"route:/\"\n    ]\n  },\n  {\n    \"path\": \"SURFACES.md\",\n    \"primaryTarget\": \"route:/pricing\",\n    \"relatedTargets\": []\n  },\n  {\n    \"path\": \"SURFACES.md\",\n    \"primaryTarget\": \"src/pages/about.astro\",\n    \"relatedTargets\": []\n  }\n]\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    }
+  ],
+  "files": {
+    "SURFACES.md": "# Surfaces\n\nPer-surface strategy: each section holds one surface's mode, direction contract, and other decisions that belong to that route or artifact alone. `impeccino surface-brief write` replaces a section by the target named in its marker comment. Edit the prose freely, but keep each heading and the marker line below it together.\n\n## src/pages/index.astro\n<!-- impeccino:surface {\"target\":\"src/pages/index.astro\",\"related\":[\"route:/\"]} -->\n\nMode: Persuade\n\n### Direction contract\nTHESIS: the install command is the hero.\nFINISH: unreviewed and undocumented is unfinished.\n\n## route:/pricing\n<!-- impeccino:surface {\"target\":\"route:/pricing\",\"related\":[]} -->\n\nMode: Persuade\n\n### Product strategy\nMake the middle tier the obvious pick.\n\n### Direction contract\nTHESIS: a price list that reads like a menu.\n\n## Notes kept by hand\nThe pricing page also ships in German.\n\n## src/pages/about.astro\n<!-- impeccino:surface {\"target\":\"src/pages/about.astro\",\"related\":[]} -->\n\nMode: Read\n"
+  }
+}

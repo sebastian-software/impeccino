@@ -15,7 +15,11 @@ set "arch=x64"
 if /I "%PROCESSOR_ARCHITECTURE%"=="ARM64" set "arch=arm64"
 set "version="
 if exist "%~dp0VERSION" set /p version=<"%~dp0VERSION"
-if not defined IMPECCINO_HOME set "IMPECCINO_HOME=%USERPROFILE%\.impeccino"
+rem The per-user cache: %LOCALAPPDATA%\impeccino (the sh launcher under an
+rem MSYS shell uses the same directory).
+set "user_cache=%LOCALAPPDATA%\impeccino"
+if not defined LOCALAPPDATA set "user_cache=%USERPROFILE%\AppData\Local\impeccino"
+if not defined IMPECCINO_HOME set "IMPECCINO_HOME=%user_cache%"
 set "cache_dir=%IMPECCINO_HOME%\bin\%version%"
 set "cached=%cache_dir%\impeccino.exe"
 set "failure_marker=%cache_dir%\.impeccino-download-failed"

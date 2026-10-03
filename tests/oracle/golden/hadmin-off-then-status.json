@@ -1,25 +1,25 @@
 {
   "steps": [
     {
-      "stdout": "Design hook disabled for this project (wrote .impeccino/config.json).\n",
+      "stdout": "No local hook entries to remove.\n",
       "stderr": "",
       "exit": 0,
       "signal": null
     },
     {
-      "stdout": "Impeccino design hook\n  state:        disabled\n  shared file:  .impeccino/config.json\n  local file:   .impeccino/config.local.json (not present)\n  ignoreRules:  (none)\n  ignoreFiles:  (none)\n  ignoreValues: (none)\n  maxFindings:  5\n  maxChars:     8000\n  env override: unset\n  cache file:   .impeccino/hook.cache.json (not present)\n",
+      "stdout": "Impeccino design hook\n  installed:    no (run /impeccino hooks on to install)\n  env override: unset\n  DESIGN.md:    not present (no project waivers)\n  cache file:   <WS>/.oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json (not present)\n",
       "stderr": "",
       "exit": 0,
       "signal": null
     },
     {
-      "stdout": "Design hook enabled for this project (wrote .impeccino/config.json). Recorded local hook consent in .impeccino/config.local.json. Installed or repaired hook manifests for: .claude, .cursor.\n",
+      "stdout": "Installed or repaired hook manifests for: .claude, .cursor.\n",
       "stderr": "",
       "exit": 0,
       "signal": null
     },
     {
-      "stdout": "Impeccino design hook\n  state:        enabled\n  shared file:  .impeccino/config.json\n  local file:   .impeccino/config.local.json\n  ignoreRules:  (none)\n  ignoreFiles:  (none)\n  ignoreValues: (none)\n  maxFindings:  5\n  maxChars:     8000\n  env override: unset\n  cache file:   .impeccino/hook.cache.json (not present)\n",
+      "stdout": "Impeccino design hook\n  installed:    .claude/settings.local.json, .cursor/hooks.json\n  env override: unset\n  DESIGN.md:    not present (no project waivers)\n  cache file:   <WS>/.oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json (not present)\n",
       "stderr": "",
       "exit": 0,
       "signal": null
@@ -27,8 +27,6 @@
   ],
   "files": {
     ".claude/settings.local.json": "{\n  \"description\": \"Impeccino design detector: immediate-tier checks after Edit/Write on UI files, full-rule deep pass on Stop.\",\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit|Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"\\\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\\\" hook\",\n            \"timeout\": 5,\n            \"statusMessage\": \"Checking UI changes\"\n          }\n        ]\n      }\n    ],\n    \"Stop\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"\\\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\\\" hook\",\n            \"timeout\": 30,\n            \"statusMessage\": \"Design deep pass\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
-    ".cursor/hooks.json": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"preToolUse\": [\n      {\n        \"command\": \"\\\".cursor/skills/impeccino/scripts/impeccino\\\" hook-before-edit\",\n        \"timeout\": 5\n      }\n    ]\n  }\n}\n",
-    ".impeccino/config.json": "{\n  \"hook\": {\n    \"enabled\": true,\n    \"limits\": {\n      \"maxFindings\": 5,\n      \"maxChars\": 8000\n    }\n  }\n}\n",
-    ".impeccino/config.local.json": "{\n  \"hook\": {\n    \"consent\": \"accepted\"\n  }\n}\n"
+    ".cursor/hooks.json": "{\n  \"version\": 1,\n  \"hooks\": {\n    \"preToolUse\": [\n      {\n        \"command\": \"\\\".cursor/skills/impeccino/scripts/impeccino\\\" hook-before-edit\",\n        \"timeout\": 5\n      }\n    ]\n  }\n}\n"
   }
 }

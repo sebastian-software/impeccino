@@ -39,7 +39,12 @@ async function exercise(t, scenario) {
   const name = WINDOWS ? 'impeccino.cmd' : 'impeccino';
   const launcher = path.join(scripts, name);
   fs.copyFileSync(path.join(ROOT, 'skill/scripts', name), launcher);
-  const cacheDir = path.join(cache, 'bin', '0.0.0-test');
+  // Without IMPECCINO_HOME the launcher caches under the per-user cache:
+  // $XDG_CACHE_HOME/impeccino, or %LOCALAPPDATA%\impeccino on Windows.
+  const defaultCache = scenario === 'default-cache';
+  const cacheDir = defaultCache
+    ? path.join(cache, 'impeccino', 'bin', '0.0.0-test')
+    : path.join(cache, 'bin', '0.0.0-test');
   const missingEnvBin = path.join(home, 'missing-engine');
   const overrideBin = path.join(home, WINDOWS ? 'override-engine.cmd' : 'override-engine');
   if (['sibling-marker-only', 'sibling-probe-failure', 'sibling-extra-output', 'cache-marker-only'].includes(scenario)) {
@@ -140,7 +145,7 @@ async function exercise(t, scenario) {
   const env = {
     PATH: WINDOWS ? `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}` : `${tools}:/usr/bin:/bin`,
     HOME: home, USERPROFILE: home, TEMP: root, TMP: root,
-    IMPECCINO_HOME: cache,
+    ...(defaultCache ? (WINDOWS ? { LOCALAPPDATA: cache } : { XDG_CACHE_HOME: cache }) : { IMPECCINO_HOME: cache }),
     ...(scenario === 'missing-env-bin' ? { IMPECCINO_BIN: missingEnvBin } : {}),
     ...(scenario === 'override-other-version' ? { IMPECCINO_BIN: overrideBin } : {}),
     IMPECCINO_DOWNLOAD_BASE: `http://127.0.0.1:${server.address().port}`,
@@ -166,7 +171,7 @@ async function exercise(t, scenario) {
   }
   const results = scenario === 'parallel-downloads' ? await Promise.all([run(), run()]) : [await run()];
   const result = results[0];
-  if (scenario === 'valid' && !WINDOWS) {
+  if ((scenario === 'valid' || defaultCache) && !WINDOWS) {
     const requestCount = requests.length;
     const cachedResult = await run();
     assert.equal(cachedResult.status, 0, cachedResult.stderr);
@@ -212,13 +217,15 @@ for (const scenario of ['cache-directory-failure', 'cache-write-failure', 'downl
   });
 }
 
-test('launcher downloads and runs a verified executable', async t => {
-  const result = await exercise(t, 'valid');
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /verified-engine/);
-  assert.deepEqual(result.files, [WINDOWS ? 'impeccino.exe' : 'impeccino']);
-  assert.equal(result.requests.length, 1, 'the pinned digest needs no checksum download');
-});
+for (const scenario of ['valid', 'default-cache']) {
+  test(`launcher downloads and runs a verified executable (${scenario})`, async t => {
+    const result = await exercise(t, scenario);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /verified-engine/);
+    assert.deepEqual(result.files, [WINDOWS ? 'impeccino.exe' : 'impeccino'], `cached under ${result.cacheDir}`);
+    assert.equal(result.requests.length, 1, 'the pinned digest needs no checksum download');
+  });
+}
 
 test('launcher refuses an unusable IMPECCINO_BIN instead of falling through', async t => {
   const result = await exercise(t, 'missing-env-bin');

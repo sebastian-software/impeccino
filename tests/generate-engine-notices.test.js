@@ -13,7 +13,7 @@ const licenseText = [
   '',
   'Packages using this license:',
   '- windows-link 0.2.1 (MIT OR Apache-2.0)',
-  '- core-foundation-sys 0.8.7 (MIT OR Apache-2.0)',
+  '- libc 0.2.189 (MIT OR Apache-2.0)',
   '',
   'Plain text retains <angle brackets>, an & ampersand, and "quotes".',
 ].join('\n');
@@ -82,8 +82,8 @@ describe('engine notice generator', () => {
     {
       name: 'missing target-specific packages',
       version: `cargo-about ${CARGO_ABOUT_VERSION}`,
-      listing: licenseText.replace('- core-foundation-sys 0.8.7 (MIT OR Apache-2.0)\n', ''),
-      message: /omitted the release target-union dependency core-foundation-sys/,
+      listing: licenseText.replace('- windows-link 0.2.1 (MIT OR Apache-2.0)\n', ''),
+      message: /omitted the release target-union dependency windows-link/,
     },
     {
       name: 'HTML-escaped license text',

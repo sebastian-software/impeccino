@@ -44,7 +44,17 @@ exe=""
 [ "$os" = windows ] && exe=".exe"
 bin="$dir/bin/$os-$arch/impeccino$exe"
 cached=""
-cache_root="${IMPECCINO_HOME:-${HOME:-/nonexistent}/.impeccino}"
+# The per-user cache: $XDG_CACHE_HOME/impeccino when that is an absolute path,
+# else ~/.cache/impeccino. On Windows (an MSYS/Git Bash shell) it sits under
+# %LOCALAPPDATA%\impeccino, so this launcher and impeccino.cmd share one cache.
+case "${XDG_CACHE_HOME:-}" in
+  /*) user_cache="$XDG_CACHE_HOME/impeccino" ;;
+  *) user_cache="${HOME:-/nonexistent}/.cache/impeccino" ;;
+esac
+if [ "$os" = windows ] && [ -n "${LOCALAPPDATA:-}" ]; then
+  user_cache="$(cygpath -u "$LOCALAPPDATA" 2>/dev/null || printf '%s' "$LOCALAPPDATA")/impeccino"
+fi
+cache_root="${IMPECCINO_HOME:-$user_cache}"
 cache_dir=""
 failure_marker=""
 if [ -n "$version" ]; then

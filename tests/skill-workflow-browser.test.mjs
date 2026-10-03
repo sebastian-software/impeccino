@@ -26,7 +26,11 @@ it('prepares real browser captures, interactions, and multimodal image results o
     const capture = await tools.browser_snapshot.execute({ path: './index.html', viewport: 'desktop', click: 'button' });
     assert.equal(capture.target, 'index.html');
     assert.match(capture.text, /Done/);
-    assert.ok(fs.existsSync(path.join(root, capture.screenshot)));
+    assert.ok(path.isAbsolute(capture.screenshot));
+    assert.ok(fs.existsSync(capture.screenshot));
+    const relativeCapture = path.relative(fs.realpathSync(root), fs.realpathSync(capture.screenshot));
+    assert.ok(relativeCapture === '..' || relativeCapture.startsWith(`..${path.sep}`) || path.isAbsolute(relativeCapture),
+      'review screenshots must live outside the project');
     assert.equal(capture.viewport, 'desktop');
     assert.equal(trace.toolCalls[0].name, 'browser_snapshot');
     const output = imageOutput({ output: capture });

@@ -9,6 +9,7 @@
 pub mod agent_browser;
 pub mod jsp;
 pub mod proc;
+pub mod project_files;
 
 /// Quote a launcher executable path for a command string printed to a shell.
 /// POSIX shells use single-quote escaping when the path needs it; Windows

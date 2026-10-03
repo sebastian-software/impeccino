@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "stdout": "Impeccino design hook\n  installed:    .claude/settings.json\n  env override: unset\n  DESIGN.md:    not present (no project waivers)\n  cache file:   <WS>/.oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json (not present)\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "stdout": "No local hook entries to remove. Still installed in .claude/settings.json, which the team shares; remove the entry there to turn the hook off for everyone, or set IMPECCINO_HOOK_DISABLED=1 for yourself.\n",
+      "stderr": "",
+      "exit": 0,
+      "signal": null
+    }
+  ],
+  "files": {
+    ".claude/settings.json": "{\n  \"hooks\": {\n    \"Stop\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"\\\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\\\" hook\"\n          }\n        ]\n      }\n    ]\n  }\n}\n"
+  }
+}

@@ -11,9 +11,8 @@ export function missingReferences(trace, filenames) {
 export function assertAdviceOnly(trace, text) {
   assert.ok(text.trim(), 'advice must reach the user, not stop at reference loading');
   assert.deepEqual(trace.writePaths, [], 'advice must not use the write tool');
-  const mutations = trace.toolCalls.flatMap((call) => call.mutatedPaths ?? [])
-    .filter((file) => !file.startsWith('.impeccino/') || file.startsWith('.impeccino/critique/'));
-  assert.deepEqual(mutations, [], 'advice must not edit project files or archive an unsolicited critique');
+  const mutations = trace.toolCalls.flatMap((call) => call.mutatedPaths ?? []);
+  assert.deepEqual(mutations, [], 'advice must not edit project files');
   assert.deepEqual(trace.questionCalls, [], 'advice must not start an init or design interview');
   assert.ok(!trace.bashCommands.some((command) => command.includes('impeccino detect')), 'workflow advice does not run menu scans');
 }
@@ -53,7 +52,7 @@ export function assertNewWorkLifecycle(trace, { target, redesign = false }) {
   const writes = (call, file) => (call.mutatedPaths || []).includes(file);
   const implementation = calls.findIndex((call) => writes(call, target));
   const question = calls.findIndex((call) => call.name === 'ask_user_question');
-  const brief = calls.findIndex((call) => (call.mutatedPaths || []).some((file) => file.startsWith('.impeccino/surfaces/')));
+  const brief = calls.findIndex((call) => (call.mutatedPaths || []).some((file) => file === 'SURFACES.md' || file.endsWith('/SURFACES.md')));
   assert.ok(implementation >= 0, `new-work did not produce the requested artifact: ${target}`);
   assert.ok(question >= 0 && question < implementation, 'implementation must follow a user answer');
   assert.ok(brief >= 0 && brief < implementation, 'the direction contract must be recorded in a surface brief before implementation');

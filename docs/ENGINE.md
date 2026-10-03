@@ -27,9 +27,9 @@ Changes to the internal interface require updating its callers and regression co
 
 ## Current internal callers
 
-The skill references call `context`, `doctor`, `pin`, `signals`, `concept-seed`, `surface-brief`, `critique-storage`, `detect`, and `hooks`. The hooks reference also directs the agent to `ignores` for detector filter management. Installed hook manifests call `hook` and `hook-before-edit`; the launchers use the hidden `engine-probe` handshake to validate the pinned engine.
+The skill references call `context`, `doctor`, `pin`, `signals`, `concept-seed`, `surface-brief`, `detect`, and `hooks`. Installed hook manifests call `hook` and `hook-before-edit`; the launchers use the hidden `engine-probe` handshake to validate the pinned engine. `palette` remains an internal engine verb; no direct caller appears in the current skill text. `critique-storage` and `ignores` now return their documented removal messages because critiques live in chat and projects have no config file (ADR 0020).
 
-`palette` has no direct invocation in the current skill text. The aliases `context-signals`, `hook-admin`, and `ignore`, root help, version flags, and implicit detector target syntax need a caller audit before any removal, including repository tests and engine-produced commands. This inventory describes the current integration; removing project-state features changes it and requires checking callers again.
+The aliases `context-signals`, `hook-admin`, root help, version flags, and implicit detector target syntax remain internal engine behavior. Check their callers, repository tests, and engine-produced commands before removing any of them.
 
 ## Internal detector invocation
 
@@ -38,17 +38,16 @@ These calls are for engine development, tests, and debugging skill or hook integ
 ```bash
 "<skill-base-dir>/scripts/impeccino" detect src/          # scan a directory
 "<skill-base-dir>/scripts/impeccino" detect --json .      # inspect structured output
-"<skill-base-dir>/scripts/impeccino" ignores list        # show detector ignores
-"<skill-base-dir>/scripts/impeccino" ignores add-file "src/legacy/**"
+"<skill-base-dir>/scripts/impeccino" detect --no-config src/ # scan without design decisions
 ```
 
 The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (low contrast, cramped padding, tiny text, skipped headings, and more). `detect` reads files, directories, and URLs. For a URL (`http`, `https`, or `file`), it loads the page headlessly through [agent-browser](https://github.com/vercel-labs/agent-browser) and adds the rules that need layout (line length, text overflow and occlusion, viewport edges, heading rhythm), rendered contrast including text over images, and script errors: `impeccino detect --viewport 390x844 http://localhost:3000/`. Set `AGENT_BROWSER_SESSION` to scan in a session that is already signed in. Rendered scans need agent-browser installed (`npm install -g agent-browser && agent-browser install`); source scans do not.
 
 Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports.
 
-By default, `detect` respects the same `.impeccino/config.json` and `.impeccino/config.local.json` detector config as the design hook: `detector.ignoreRules`, `detector.ignoreFiles`, `detector.ignoreValues`, and `detector.designSystem.enabled`. Hook lifecycle settings such as `hook.enabled` only affect automatic hook execution.
+`detect` has no project config file. It applies DESIGN.md waivers and declared design values, skips files excluded by the project's Git ignore rules, and honors in-file waiver comments. `--no-config` skips DESIGN.md decisions and in-file waivers; `--no-inline-ignores` skips only the in-file comments. A project-wide waiver belongs in DESIGN.md; a local waiver belongs in a comment next to the code.
 
-For a waiver that should travel with one file instead of the repo config, add an inline comment in the file: `<!-- impeccino-disable overused-font: exported brand doc -->`. The marker works in any comment syntax, scopes to the whole file (or one line with `impeccino-disable-line` / `impeccino-disable-next-line`), and is bypassed by `--no-inline-ignores` or `--no-config`.
+Rendered-page scanning is described above and in [ADR 0016](adr/0016-rendered-pages-through-agent-browser.md).
 
 ## Layout
 
@@ -61,10 +60,11 @@ crates/
                "was removed" answer for retired verbs
   common       Io handle (stdout/stderr/stdin/env/cwd), path + process helpers
   context      context, doctor, staleness, signals, concept-seed, pin,
-               palette, surface-brief, critique-storage
+               palette, surface-brief (SURFACES.md)
   hook         the design hook (hook, hook-before-edit, hooks / hook-admin)
-  detect       `impeccino detect` and `ignores`: file walk, config, ignores,
-               output, the text/regex engine
+  detect       `impeccino detect`: file walk (with the project's git
+               ignore rules), DESIGN.md decisions, output, the text/regex
+               engine
   html         the static HTML engine: parser, cascade, static document model,
                rule adapters
   foundation   JS-semantics helpers, color, findings, the rule registry,
@@ -73,16 +73,24 @@ crates/
   core         the rule logic: every `check_*` / `scan_*` and its heuristics
 ```
 
-The verbs: `context`, `doctor`, `pin`, `surface-brief`, `critique-storage`,
-`palette`, `signals` (alias `context-signals`), `concept-seed`, `detect`
-(files, directories, and rendered pages through agent-browser), `ignores`, `hook`, `hook-before-edit`, and
-`hooks` (alias `hook-admin`). The browser and comp verbs (`live*`,
-`detect-csp`, `serve-question`, `component-review`, `generate-image`,
-`comp-spec`, `comp-diff`, `font-match`, `build-phase`, `capture-server`,
-`embed-prompt`) print a "was removed" message and exit 1, so an older skill
-copy that calls one gets a clear answer
+The verbs: `context`, `doctor`, `pin`, `surface-brief`, `palette`, `signals`
+(alias `context-signals`), `concept-seed`, `detect` (files, directories, and
+URLs through agent-browser), `hook`, `hook-before-edit`, and `hooks` (alias
+`hook-admin`). The browser and comp verbs (`live*`, `detect-csp`,
+`serve-question`, `component-review`, `generate-image`, `comp-spec`,
+`comp-diff`, `font-match`, `build-phase`, `capture-server`, `embed-prompt`),
+`critique-storage`, and `ignores` print a "was removed" message and exit 1,
+so an older skill copy that calls one gets a clear answer
 ([ADR 0011](adr/0011-no-own-browser-stack.md),
-[ADR 0012](adr/0012-no-image-comps.md)). Rendered-page scanning is described above and in [ADR 0016](adr/0016-rendered-pages-through-agent-browser.md).
+[ADR 0012](adr/0012-no-image-comps.md),
+[ADR 0020](adr/0020-project-state-is-top-level-files.md)).
+
+No verb reads a config file. Project state is `SURFACES.md` and `DESIGN.json`
+beside DESIGN.md; `detect` and the hook take their waivers from DESIGN.md
+(`crates/detect/src/design_decisions.rs`) and skip what the project's
+`.gitignore` and `.gitattributes` exclude (`project_ignores.rs`); the hook's
+session cache and the boot's staleness throttle live in the per-user cache
+(`impeccino_common::project_files::user_cache_dir`).
 
 `crates/core` re-exports the foundation modules under its own paths, so every
 consumer names one crate: `impeccino_core::js`, `impeccino_core::color`,

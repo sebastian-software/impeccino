@@ -6,7 +6,7 @@ use crate::jsp;
 use crate::staleness::*;
 use crate::staleness_deep::*;
 use crate::target_args::{parse_target_options, TargetOptions};
-use crate::util::{exists, json_pretty, opt_string, Env};
+use crate::util::{homedir, json_pretty, opt_string, Env};
 use impeccino_common::Io;
 use serde_json::{Map, Value};
 
@@ -36,8 +36,8 @@ fn usage() -> String {
         "Usage: impeccino doctor [--json] [--fix] [--target <path>]",
         "",
         "Report drift between this project's Impeccino artifacts and what the",
-        "installed version reads: PRODUCT.md, DESIGN.md and its sidecar,",
-        ".impeccino/config.json, surface briefs, and the design hook.",
+        "installed version reads: PRODUCT.md, DESIGN.md and its DESIGN.json",
+        "sidecar, SURFACES.md, and the design hook.",
         "",
         "  --json           Emit findings as JSON.",
         "  --fix            Apply the mechanical migrations (severity \"auto\") only.",
@@ -50,17 +50,9 @@ struct Report {
     ctx: Ctx,
     project_root: String,
     abs_product_path: Option<String>,
-    sidecar_candidates: Vec<String>,
     findings: Vec<Finding>,
     workspaces: Vec<WorkspaceRow>,
     rule_registry_available: bool,
-}
-
-fn read_project_root_patterns(repo_root: &str) -> Vec<String> {
-    if repo_root.is_empty() {
-        return vec![];
-    }
-    read_impeccino_project_roots(repo_root)
 }
 
 fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> Report {
@@ -68,7 +60,7 @@ fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> R
     let project_root = if ctx.project_root.is_empty() { cwd.to_string() } else { ctx.project_root.clone() };
     let abs_product_path = ctx.product_path.as_deref().map(|p| jsp::resolve(cwd, &[p]));
     let abs_design_path = ctx.design_path.as_deref().map(|p| jsp::resolve(cwd, &[p]));
-    let sidecar_candidates = design_sidecar_candidates_for(&project_root, Some(&ctx.context_dir));
+    let sidecar_path = design_sidecar_path_for(&project_root, ctx.design_context_dir.as_deref());
     let known = load_known_rule_ids();
     let selection = resolve_target_selection(cwd, target, env);
     let workspace_candidates: Vec<TargetCandidate> = selection.map(|s| s.target_candidates).unwrap_or_default();
@@ -82,30 +74,26 @@ fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> R
         cwd,
         &BootExtras {
             abs_design_path: abs_design_path.clone(),
-            sidecar_candidates: sidecar_candidates.clone(),
-            project_root_patterns: Some(read_project_root_patterns(&ctx.repo_root)),
-            target_candidates: workspace_candidates,
+            sidecar_path,
+            home: Some(homedir(env)),
         },
     );
     let mut findings: Vec<Finding> = Vec::new();
+    findings.extend(boot.legacy_state);
     findings.extend(boot.product);
     findings.extend(boot.native_platform);
     findings.extend(boot.design_sidecar);
     findings.extend(check_design_drift(abs_design_path.as_deref(), &project_root, 25));
     findings.extend(check_design_coverage(ctx.design.as_deref(), ctx.design_path.as_deref()));
-    findings.extend(boot.config);
-    findings.extend(check_detector_ignores(&project_root, known.as_deref()));
+    findings.extend(check_design_waivers(ctx.design.as_deref(), ctx.design_path.as_deref(), known.as_deref()));
     findings.extend(boot.surface_briefs);
     findings.extend(check_hook_installation(&project_root, Some(&ctx.repo_root), provider_id));
-    findings.extend(check_legacy_live_state(&project_root));
-    findings.extend(boot.project_roots);
     findings.extend(ws_findings);
 
     Report {
         ctx,
         project_root,
         abs_product_path,
-        sidecar_candidates,
         findings,
         workspaces,
         rule_registry_available: known.is_some(),
@@ -132,26 +120,6 @@ fn apply_fixes(report: &Report) -> Fixes {
     for entry in &report.findings {
         if entry.severity != "auto" {
             skipped.push((entry.id.clone(), "needs a decision from the user".to_string()));
-            continue;
-        }
-        if entry.id == "design-sidecar-legacy-path" {
-            let canonical = report.sidecar_candidates.first();
-            let present = report.sidecar_candidates.iter().find(|c| exists(c));
-            let (Some(canonical), Some(present)) = (canonical, present) else { continue };
-            if jsp::resolve(canonical, &[]) == jsp::resolve(present, &[]) {
-                continue;
-            }
-            if exists(canonical) {
-                skipped.push((entry.id.clone(), format!("{} already exists; not overwriting", rel(canonical, &report.project_root))));
-                continue;
-            }
-            let _ = std::fs::create_dir_all(jsp::dirname(canonical));
-            let _ = std::fs::rename(present, canonical);
-            applied.push(format!("Moved {} to {}.", rel(present, &report.project_root), rel(canonical, &report.project_root)));
-            continue;
-        }
-        if entry.id == "legacy-live-state" {
-            skipped.push((entry.id.clone(), "delete by hand once no live session is running".to_string()));
             continue;
         }
         skipped.push((entry.id.clone(), "no automatic migration implemented".to_string()));
@@ -208,7 +176,7 @@ fn render_text(report: &Report, fixes: Option<&Fixes>, cwd: &str, command: &str,
         lines.push(String::new());
     }
     if !report.rule_registry_available {
-        lines.push("Note: the bundled detector could not be resolved, so ignored rule ids were not validated.".to_string());
+        lines.push("Note: the bundled detector could not be resolved, so waived rule ids were not validated.".to_string());
         lines.push(String::new());
     }
     if let Some(f) = fixes {

@@ -6,8 +6,7 @@
 
 The installer merged design-detector hooks into each harness's project
 settings at install time. The hooks run the detector after every edit and a
-deep pass on Stop, which only pays off in projects doing UI work, and
-Impeccino already asks for consent per project.
+deep pass on Stop, which only pays off in projects doing UI work.
 
 ## Decision
 
@@ -19,3 +18,6 @@ manifests). Without hooks, `context` asks for one manual detector run.
 
 - No hook manifests in the repository or in any package.
 - A skill manager may still offer hooks, but it is not required to.
+- Being installed is the whole switch: there is no config flag and no
+  consent record (0020). `hooks off` removes the entries;
+  `IMPECCINO_HOOK_DISABLED=1` silences an installed hook for one shell.

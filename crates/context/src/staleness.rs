@@ -1,9 +1,10 @@
 //! JS: lib/staleness.mjs (Tier 1)
 
 use crate::artifact_schema::*;
-use crate::context::{BriefSummary, Ctx, TargetCandidate};
+use crate::context::{BriefSummary, Ctx};
 use crate::jsp;
-use crate::util::{exists, js_trim, mtime_ms, read_json};
+use crate::util::{exists, is_dir, mtime_ms, read_json};
+use impeccino_common::project_files::{DESIGN_SIDECAR_FILE, LEGACY_STATE_DIR, SURFACES_FILE};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -35,12 +36,6 @@ pub fn finding(id: &str, artifact: &str, path: Option<String>, severity: &'stati
     Finding { id: id.to_string(), artifact: artifact.to_string(), path, severity, summary, fix }
 }
 
-// `updateCheck`, `buildPath`, and `browser` belong to retired features
-// (docs/adr/0004, 0011, 0012); existing configs keep them without a finding.
-const KNOWN_CONFIG_KEYS: [&str; 9] =
-    ["hook", "detector", "updateCheck", "stalenessCheck", "projectRoots", "buildPath", "browser", "$schema", "version"];
-const KNOWN_DETECTOR_KEYS: [&str; 5] = ["ignoreRules", "ignoreFiles", "ignoreValues", "designSystem", "extensions"];
-
 struct NativeEvidence {
     platform: &'static str,
     reason: &'static str,
@@ -58,14 +53,10 @@ const NATIVE_EVIDENCE_DEPENDENCIES: [(&str, &str, &str); 3] = [
     ("@react-native/metro-config", "adaptive", "a React Native metro config dependency"),
 ];
 
-/// JS: designSidecarCandidatesFor(projectRoot, contextDir)
-pub fn design_sidecar_candidates_for(project_root: &str, context_dir: Option<&str>) -> Vec<String> {
-    let mut c = vec![jsp::join(&[project_root, ".impeccino", "design.json"]), jsp::join(&[project_root, "DESIGN.json"])];
-    let ctx_legacy = jsp::join(&[context_dir.unwrap_or(project_root), "DESIGN.json"]);
-    if !c.contains(&ctx_legacy) {
-        c.push(ctx_legacy);
-    }
-    c
+/// The DESIGN.md sidecar: `DESIGN.json` next to DESIGN.md, or at the project
+/// root when there is no DESIGN.md (docs/adr/0020).
+pub fn design_sidecar_path_for(project_root: &str, design_dir: Option<&str>) -> String {
+    jsp::join(&[design_dir.unwrap_or(project_root), DESIGN_SIDECAR_FILE])
 }
 
 fn has_section(markdown: &str, heading: &str) -> bool {
@@ -80,10 +71,6 @@ pub fn to_relative(file_path: Option<&str>, root: &str) -> Option<String> {
     } else {
         Some(fp.to_string())
     }
-}
-
-fn wrap_ticks(items: &[String]) -> String {
-    items.iter().map(|k| format!("`{}`", k)).collect::<Vec<_>>().join(", ")
 }
 
 /// JS: checkProduct
@@ -227,33 +214,19 @@ pub fn js_truthy(v: &Value) -> bool {
 }
 
 /// JS: checkDesignSidecar
-pub fn check_design_sidecar(design_path: Option<&str>, sidecar_candidates: &[String], project_root: &str) -> Vec<Finding> {
+pub fn check_design_sidecar(design_path: Option<&str>, sidecar_path: &str, project_root: &str) -> Vec<Finding> {
     let mut out = Vec::new();
-    let canonical = sidecar_candidates.first();
-    let Some(present) = sidecar_candidates.iter().find(|c| exists(c)) else { return out };
-    let rel_present = to_relative(Some(present), project_root).unwrap();
-    if let Some(canon) = canonical {
-        if jsp::resolve(present, &[]) != jsp::resolve(canon, &[]) {
-            out.push(finding(
-                "design-sidecar-legacy-path",
-                "design.json",
-                Some(rel_present.clone()),
-                "auto",
-                format!("The design sidecar sits at {}, a location kept only for backward compatibility.", rel_present),
-                format!(
-                    "Move it to {} the next time the sidecar is written. No user decision is needed.",
-                    to_relative(Some(canon), project_root).unwrap()
-                ),
-            ));
-        }
+    if !exists(sidecar_path) {
+        return out;
     }
-    let sidecar = read_json(present);
+    let rel_present = to_relative(Some(sidecar_path), project_root).unwrap();
+    let sidecar = read_json(sidecar_path);
     let schema_version = read_sidecar_schema_version(sidecar.as_ref());
     if let Some(sc) = &sidecar {
         if js_truthy(sc) && (schema_version.is_none() || schema_version.unwrap() < DESIGN_SIDECAR_SCHEMA_VERSION) {
             out.push(finding(
                 "design-sidecar-schema-outdated",
-                "design.json",
+                DESIGN_SIDECAR_FILE,
                 Some(rel_present.clone()),
                 "route",
                 format!(
@@ -268,12 +241,12 @@ pub fn check_design_sidecar(design_path: Option<&str>, sidecar_candidates: &[Str
     }
     if let Some(dp) = design_path {
         let dm = mtime_ms(dp);
-        let sm = mtime_ms(present);
+        let sm = mtime_ms(sidecar_path);
         if let (Some(d), Some(s)) = (dm, sm) {
             if d > s {
                 out.push(finding(
                     "design-sidecar-stale",
-                    "design.json",
+                    DESIGN_SIDECAR_FILE,
                     Some(rel_present.clone()),
                     "mention",
                     format!(
@@ -286,6 +259,32 @@ pub fn check_design_sidecar(design_path: Option<&str>, sidecar_candidates: &[Str
         }
     }
     out
+}
+
+/// A `.impeccino/` directory left by the layout before docs/adr/0020. One
+/// stat at the project root, so it is cheap enough for the boot (Tier 1).
+/// The home directory is skipped: an older launcher kept its engine cache in
+/// `~/.impeccino/`.
+pub fn check_legacy_state_dir(project_root: &str, home: Option<&str>) -> Vec<Finding> {
+    if project_root.is_empty() {
+        return vec![];
+    }
+    if let Some(h) = home.filter(|h| !h.is_empty()) {
+        if jsp::resolve(h, &[]) == jsp::resolve(project_root, &[]) {
+            return vec![];
+        }
+    }
+    if !is_dir(&jsp::join(&[project_root, LEGACY_STATE_DIR])) {
+        return vec![];
+    }
+    vec![finding(
+        "legacy-state-dir",
+        ".impeccino/",
+        Some(format!("{}/", LEGACY_STATE_DIR)),
+        "mention",
+        "A `.impeccino/` directory from an earlier Impeccino layout sits at the project root. Nothing reads it any more: project state now lives in top-level files and Impeccino keeps no config file.".to_string(),
+        "Tell the user where its contents belong, then offer to delete the directory once they have moved what they want to keep: `design.json` becomes `DESIGN.json` next to DESIGN.md; each `surfaces/*.md` brief becomes a section of `SURFACES.md` (write it with `impeccino surface-brief write`); detector ignores in `config.json` and `config.local.json` become `<!-- impeccino-disable <rule> -->` waivers or declared tokens in DESIGN.md, or `.gitignore` / `.gitattributes` entries for whole files; decisions in `critique/ignore.md` become brand commitments in PRODUCT.md or rules in DESIGN.md. Everything else (critique snapshots, hook caches, review screenshots) can be deleted.".to_string(),
+    )]
 }
 
 pub fn unique_roots(a: &str, b: Option<&str>) -> Vec<String> {
@@ -301,54 +300,6 @@ pub fn unique_roots(a: &str, b: Option<&str>) -> Vec<String> {
     roots
 }
 
-/// JS: checkConfig
-pub fn check_config(project_root: &str, repo_root: Option<&str>) -> Vec<Finding> {
-    let mut out = Vec::new();
-    for root in unique_roots(project_root, repo_root) {
-        for name in ["config.json", "config.local.json"] {
-            let fp = jsp::join(&[&root, ".impeccino", name]);
-            let Some(raw) = read_json(&fp) else { continue };
-            let Some(obj) = raw.as_object() else { continue };
-            let rel = to_relative(Some(&fp), if project_root.is_empty() { &root } else { project_root }).unwrap();
-            let unknown: Vec<String> = obj.keys().filter(|k| !KNOWN_CONFIG_KEYS.contains(&k.as_str())).cloned().collect();
-            if !unknown.is_empty() {
-                out.push(finding(
-                    "config-unknown-keys",
-                    "config.json",
-                    Some(rel.clone()),
-                    "mention",
-                    format!(
-                        "{} has top-level key(s) nothing reads: {}. Recognized keys are {}.",
-                        rel,
-                        wrap_ticks(&unknown),
-                        wrap_ticks(&KNOWN_CONFIG_KEYS.iter().map(|s| s.to_string()).collect::<Vec<_>>())
-                    ),
-                    "Report the exact keys to the user. A near-miss of a real key is a setting that has never applied.".to_string(),
-                ));
-            }
-            if let Some(det) = obj.get("detector").and_then(|d| d.as_object()) {
-                let unknown_d: Vec<String> = det.keys().filter(|k| !KNOWN_DETECTOR_KEYS.contains(&k.as_str())).cloned().collect();
-                if !unknown_d.is_empty() {
-                    out.push(finding(
-                        "config-unknown-detector-keys",
-                        "config.json",
-                        Some(rel.clone()),
-                        "mention",
-                        format!(
-                            "{} has `detector` key(s) nothing reads: {}. Recognized keys are {}.",
-                            rel,
-                            wrap_ticks(&unknown_d),
-                            wrap_ticks(&KNOWN_DETECTOR_KEYS.iter().map(|s| s.to_string()).collect::<Vec<_>>())
-                        ),
-                        "Report the exact keys. `ignoreRule` for `ignoreRules` is the common one, and it silences nothing.".to_string(),
-                    ));
-                }
-            }
-        }
-    }
-    out
-}
-
 /// `JSON.stringify(v)` for a single value (undefined -> "undefined" never occurs here since key present).
 pub fn js_json_stringify(v: &Value) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "null".into())
@@ -361,7 +312,7 @@ pub fn check_surface_briefs(candidates: &[BriefSummary], project_root: &str) -> 
     }
     let mut orphaned: Vec<&BriefSummary> = Vec::new();
     for b in candidates {
-        let Some(t) = b.primary_target.as_deref() else { continue };
+        let t = b.primary_target.as_str();
         if t.is_empty() {
             continue;
         }
@@ -376,66 +327,48 @@ pub fn check_surface_briefs(candidates: &[BriefSummary], project_root: &str) -> 
     if orphaned.is_empty() {
         return vec![];
     }
-    let paths: Vec<String> = orphaned.iter().map(|b| b.path.clone()).filter(|p| !p.is_empty()).collect();
+    let path = orphaned.first().map(|b| b.path.clone()).filter(|p| !p.is_empty());
     vec![finding(
         "surface-brief-orphaned",
-        "surface brief",
-        if paths.is_empty() { None } else { Some(paths.join(", ")) },
+        SURFACES_FILE,
+        path,
         "mention",
         format!(
-            "{} persisted surface brief(s) name a primary target that no longer exists: {}.",
+            "{} surface brief(s) in {} name a primary target that no longer exists: {}.",
             orphaned.len(),
-            orphaned
-                .iter()
-                .map(|b| format!("{} → {}", b.path, b.primary_target.as_deref().unwrap_or("")))
-                .collect::<Vec<_>>()
-                .join("; ")
+            SURFACES_FILE,
+            orphaned.iter().map(|b| format!("`{}`", b.primary_target)).collect::<Vec<_>>().join(", ")
         ),
-        "Ask whether the surface moved (repoint the brief) or was removed (delete the brief). Until then the brief is authority for a file that is gone.".to_string(),
-    )]
-}
-
-/// JS: checkProjectRoots
-pub fn check_project_roots(patterns: &[String], candidates_len: usize) -> Vec<Finding> {
-    let positive: Vec<&String> = patterns.iter().filter(|p| !p.is_empty() && !js_trim(p).starts_with('!')).collect();
-    if positive.is_empty() || candidates_len > 0 {
-        return vec![];
-    }
-    vec![finding(
-        "config-project-roots-match-nothing",
-        "config.json",
-        Some(".impeccino/config.json".to_string()),
-        "mention",
         format!(
-            "`projectRoots` declares {}, but no directory matches any of them, so the repo root is being treated as the active project.",
-            positive.iter().map(|p| format!("`{}`", p)).collect::<Vec<_>>().join(", ")
+            "Ask whether the surface moved (write its brief again under the new target and delete the old section) or was removed (delete its section from {}). Until then the brief is authority for a file that is gone.",
+            SURFACES_FILE
         ),
-        "Report the patterns and ask which directories they should name. A renamed workspace folder is the usual cause.".to_string(),
     )]
 }
 
 pub struct BootExtras {
     pub abs_design_path: Option<String>,
-    pub sidecar_candidates: Vec<String>,
-    pub project_root_patterns: Option<Vec<String>>,
-    pub target_candidates: Vec<TargetCandidate>,
+    pub sidecar_path: String,
+    /// The user's home directory, which never counts as a project with a
+    /// leftover `.impeccino/`.
+    pub home: Option<String>,
 }
 
 /// JS: collectBootFindingGroups(ctx, extras) — the boot artifact checks
 /// grouped by artifact, so deeper reports (doctor) can interleave their own
 /// checks without rebuilding this policy (upstream 80997663).
 pub struct BootFindingGroups {
+    pub legacy_state: Vec<Finding>,
     pub product: Vec<Finding>,
     pub native_platform: Vec<Finding>,
     pub design_sidecar: Vec<Finding>,
-    pub config: Vec<Finding>,
     pub surface_briefs: Vec<Finding>,
-    pub project_roots: Vec<Finding>,
 }
 
 pub fn collect_boot_finding_groups(ctx: &Ctx, cwd: &str, extras: &BootExtras) -> BootFindingGroups {
     let project_root = if ctx.project_root.is_empty() { cwd.to_string() } else { ctx.project_root.clone() };
     BootFindingGroups {
+        legacy_state: check_legacy_state_dir(&project_root, extras.home.as_deref()),
         product: check_product(ctx.product.as_deref(), ctx.product_path.as_deref().unwrap_or("PRODUCT.md")),
         // Only checked once a PRODUCT.md exists. Without one the boot already
         // emits NO_PRODUCT_MD and routes into init, which asks for the
@@ -450,13 +383,8 @@ pub fn collect_boot_finding_groups(ctx: &Ctx, cwd: &str, extras: &BootExtras) ->
         } else {
             Vec::new()
         },
-        design_sidecar: check_design_sidecar(extras.abs_design_path.as_deref(), &extras.sidecar_candidates, &project_root),
-        config: check_config(&project_root, Some(&ctx.repo_root)),
+        design_sidecar: check_design_sidecar(extras.abs_design_path.as_deref(), &extras.sidecar_path, &project_root),
         surface_briefs: check_surface_briefs(&ctx.surface_brief_candidates, &project_root),
-        project_roots: match &extras.project_root_patterns {
-            Some(patterns) => check_project_roots(patterns, extras.target_candidates.len()),
-            None => Vec::new(),
-        },
     }
 }
 
@@ -464,12 +392,11 @@ pub fn collect_boot_finding_groups(ctx: &Ctx, cwd: &str, extras: &BootExtras) ->
 pub fn collect_boot_findings(ctx: &Ctx, cwd: &str, extras: &BootExtras) -> Vec<Finding> {
     let groups = collect_boot_finding_groups(ctx, cwd, extras);
     let mut out = Vec::new();
+    out.extend(groups.legacy_state);
     out.extend(groups.product);
     out.extend(groups.native_platform);
     out.extend(groups.design_sidecar);
-    out.extend(groups.config);
     out.extend(groups.surface_briefs);
-    out.extend(groups.project_roots);
     out
 }
 
