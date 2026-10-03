@@ -66,7 +66,7 @@ CLI scan:
 ```
 
 - Pass the markup source files or directories that render the target; do not pass CSS-only files.
-- The CLI scans files and directories, never URLs. For a URL target, scan the source files that render it when they are in the workspace; when none are, report deterministic scan unavailable and rely on the screenshots.
+- This source pass scans local files and directories, not URLs. For a URL target, scan the local markup that renders it when it is in the workspace; when no source is available, report the source scan unavailable. The rendered-page detector remains a separate required pass on the URL (step 3).
 - For very large trees (500+ scannable files), narrow scope or ask.
 - Exit code 0 = clean; 2 = findings.
 - If the launcher is missing or fails to load, report deterministic scan unavailable and continue with screenshot and manual review.
