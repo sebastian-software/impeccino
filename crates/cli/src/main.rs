@@ -15,6 +15,40 @@ mod page_scan;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+const ROOT_COMMANDS: &[(&str, &str)] = &[
+    ("context", "Resolve project and target context"),
+    ("doctor", "Diagnose or repair project state"),
+    ("pin", "Manage standalone command shortcuts"),
+    ("surface-brief", "Read or update a saved surface brief"),
+    ("critique-storage", "Manage saved critique snapshots"),
+    ("palette", "Generate a design color palette"),
+    ("signals, context-signals", "Read project context signals"),
+    ("concept-seed", "Explore visual concept directions"),
+    (
+        "detect",
+        "Scan source files and rendered pages for UI quality issues",
+    ),
+    (
+        "ignores, ignore",
+        "Manage detector ignore rules, files, and values",
+    ),
+    ("hook", "Run the design hook"),
+    ("hook-before-edit", "Inspect a proposed file edit"),
+    ("hooks, hook-admin", "Manage project hook integration"),
+    ("help", "Show this help message"),
+];
+
+fn root_usage() -> String {
+    let mut usage = String::from("Usage: impeccino <command> [options]\n\nCommands:\n");
+    for (names, description) in ROOT_COMMANDS {
+        usage.push_str(&format!("  {names:<31}{description}\n"));
+    }
+    usage.push_str(
+        "\nOptions:\n  --help       Show this help message\n  --version    Show version number\n\nThe skill itself lives in skill/ of https://github.com/sebastian-software/impeccino;\ninstall it with Dalo or skills.sh (npx skills add sebastian-software/impeccino).\n",
+    );
+    usage
+}
+
 fn main() {
     let args: Vec<String> = std::env::args_os()
         .skip(1)
@@ -29,13 +63,13 @@ fn main() {
 
 fn run(args: &[String], io: &mut Io) -> i32 {
     let Some(verb) = args.first().map(String::as_str) else {
-        io.out(impeccino_detect::ROOT_USAGE);
+        io.out(&root_usage());
         return 0;
     };
     let rest = &args[1..];
     match verb {
         "--help" | "-h" => {
-            io.out(impeccino_detect::ROOT_USAGE);
+            io.out(&root_usage());
             0
         }
         "--version" | "-v" => {
@@ -54,7 +88,7 @@ fn run(args: &[String], io: &mut Io) -> i32 {
         "detect" => impeccino_detect::run_detect(rest, io, &engines()),
         "ignores" | "ignore" => impeccino_detect::run_ignores(rest, io),
         "help" => {
-            io.out(impeccino_detect::ROOT_USAGE);
+            io.out(&root_usage());
             0
         }
         // Impeccino no longer installs itself (docs/adr/0003): Dalo or
@@ -76,7 +110,10 @@ fn run(args: &[String], io: &mut Io) -> i32 {
         "hook-before-edit" => impeccino_hook::run_hook_before_edit(rest, io, engines().html),
         "hooks" | "hook-admin" => impeccino_hook::run_hook_admin(rest, io),
         // Browser-run and image-comp verbs are gone (docs/adr/0011, 0012).
-        v if v.starts_with("live") || RETIRED_VERBS.contains(&v) => {
+        v if RETIRED_VERBS.contains(&v)
+            || (v.starts_with("live")
+                && !impeccino_detect::looks_like_detect_target(v, &io.cwd.to_string_lossy())) =>
+        {
             io.err(&format!("\"{v}\" was removed: Impeccino no longer runs anything in the browser or builds image comps.\n"));
             1
         }
@@ -99,8 +136,17 @@ fn run(args: &[String], io: &mut Io) -> i32 {
 }
 
 const RETIRED_VERBS: &[&str] = &[
-    "detect-csp", "embed-prompt", "generate-image", "serve-question", "component-review",
-    "comp-spec", "comp-diff", "font-match", "capture-server", "build-phase",
+    "live",
+    "detect-csp",
+    "embed-prompt",
+    "generate-image",
+    "serve-question",
+    "component-review",
+    "comp-spec",
+    "comp-diff",
+    "font-match",
+    "capture-server",
+    "build-phase",
 ];
 
 const SELF_INSTALL_RETIRED: &str = "Impeccino no longer installs or updates itself.\n\nInstall the skill with Dalo:\n  dalo source add impeccino https://github.com/sebastian-software/impeccino.git --subpath skill\n  dalo sync\nor with skills.sh:\n  npx skills add sebastian-software/impeccino\n";
@@ -113,4 +159,70 @@ fn engines() -> impeccino_detect::Engines<'static> {
         static_rule_pack: None,
     };
     impeccino_detect::Engines { html: &HTML, url: Some(&page_scan::AgentBrowserEngine) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn root_help_lists_every_public_verb_and_alias() {
+        let (mut io, captured) = Io::captured("", std::env::temp_dir(), HashMap::new());
+        let status = run(&["--help".to_string()], &mut io);
+        let stdout = String::from_utf8(captured.stdout.borrow().clone()).unwrap();
+
+        assert_eq!(status, 0);
+        for command in [
+            "context",
+            "doctor",
+            "pin",
+            "surface-brief",
+            "critique-storage",
+            "palette",
+            "signals",
+            "context-signals",
+            "concept-seed",
+            "detect",
+            "ignores",
+            "ignore",
+            "hook",
+            "hook-before-edit",
+            "hooks",
+            "hook-admin",
+        ] {
+            assert!(
+                stdout.contains(command),
+                "root help is missing {command}: {stdout}"
+            );
+        }
+    }
+
+    #[test]
+    fn live_prefixed_paths_still_use_detect_shorthand() {
+        let root =
+            std::env::temp_dir().join(format!("impeccino-cli-live-path-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("live-demo")).unwrap();
+        std::fs::write(root.join("liveblog.html"), "").unwrap();
+        std::fs::write(root.join("live"), "").unwrap();
+
+        for target in ["liveblog.html", "live-demo", "live-demo/"] {
+            let (mut io, captured) = Io::captured("", root.clone(), HashMap::new());
+            let status = run(&[target.to_string(), "--no-config".to_string()], &mut io);
+            let stderr = String::from_utf8(captured.stderr.borrow().clone()).unwrap();
+            assert_eq!(status, 0, "{target}: {stderr}");
+            assert!(!stderr.contains("was removed"), "{target}: {stderr}");
+        }
+
+        for retired in ["live", "detect-csp"] {
+            let (mut io, captured) = Io::captured("", root.clone(), HashMap::new());
+            let status = run(&[retired.to_string()], &mut io);
+            let stderr = String::from_utf8(captured.stderr.borrow().clone()).unwrap();
+            assert_eq!(status, 1, "{retired}: {stderr}");
+            assert!(stderr.contains("was removed"), "{retired}: {stderr}");
+        }
+
+        let _ = std::fs::remove_dir_all(root);
+    }
 }
