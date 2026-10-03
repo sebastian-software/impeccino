@@ -49,7 +49,7 @@ jobs:
         run: cargo install cross --locked --version 0.2.5
       - name: Build
         shell: bash
-        run: ${{ matrix.cross && 'cross' || 'cargo' }} build --release -p impeccino --target ${{ matrix.target }}
+        run: ${{ matrix.cross && 'cross' || 'cargo' }} build --locked --release -p impeccino --target ${{ matrix.target }}
       - name: Smoke the binary
         if: ${{ !matrix.cross }}
         shell: bash
@@ -83,6 +83,9 @@ jobs:
       id-token: write
       attestations: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: impeccino-*
@@ -98,6 +101,17 @@ jobs:
             cp "$d/$f" "$dest"
           done
           ls -la out
+      # The release notice is derived from the same locked graph used by every
+      # target build. Fetch all target-specific crate sources before asking
+      # cargo-about to run offline in frozen mode.
+      - name: Install the pinned toolchain
+        run: rustup show
+      - name: Fetch locked release dependencies
+        run: cargo fetch --locked
+      - name: Install pinned cargo-about
+        run: cargo install --locked --version 0.8.4 cargo-about
+      - name: Generate engine third-party notices
+        run: node scripts/generate-engine-notices.mjs out/THIRD-PARTY-NOTICES.txt
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
@@ -111,5 +125,5 @@ jobs:
           set -e
           tag="${GITHUB_REF_NAME}"
           gh release create "$tag" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "impeccino engine $tag" \
-            --notes "Prebuilt impeccino engine binaries ($tag). The skill's launcher downloads these on first run and checks them against the digests pinned in skill/scripts/engine.sha256. Verify provenance with: gh attestation verify <file> -R $GITHUB_REPOSITORY" out/*
+          --notes "Prebuilt impeccino engine binaries ($tag), with THIRD-PARTY-NOTICES.txt. The skill's launcher downloads the binaries on first run and checks them against the digests pinned in skill/scripts/engine.sha256. Verify binary provenance with: gh attestation verify <file> -R $GITHUB_REPOSITORY" out/*
           gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false

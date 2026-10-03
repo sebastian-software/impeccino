@@ -215,7 +215,7 @@ Workflow for either component:
 2. Commit and push.
 3. Run `pnpm run release:<engine|skill>`. Preview first with `node scripts/release.mjs <component> --dry-run`.
 
-The script refuses to run if the working tree is dirty, HEAD is ahead of origin, or the tag already exists. The engine release only tags and pushes; `release-engine.yml` builds the five binaries, attests each, and publishes them as one immutable release. Binaries are not code-signed. Skill releases attach nothing.
+The script refuses to run if the working tree is dirty, HEAD is ahead of origin, or the tag already exists. The engine release only tags and pushes; `release-engine.yml` builds the five binaries, attests each, generates `THIRD-PARTY-NOTICES.txt` from the locked dependency graph for every release target, and publishes everything as one immutable release. Binaries are not code-signed. Skill releases attach nothing.
 
 If you need to fix release notes after the fact: `gh release edit <tag> --notes-file <md>`.
 

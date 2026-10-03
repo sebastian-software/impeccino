@@ -10,8 +10,13 @@
 //! (Node on x86-64 matches it exactly). No recorded vector distinguishes the
 //! two, and every consumer rounds the result to an 8-bit channel.
 //!
-//! Original: Copyright (C) 1993 by Sun Microsystems, Inc. (fdlibm), as
-//! carried in V8 under the V8 license.
+//! Based on fdlibm, Copyright (C) 1993 by Sun Microsystems, Inc. All rights
+//! reserved. Developed at SunSoft, a Sun Microsystems, Inc. business.
+//! Permission to use, copy, modify, and distribute this software is freely
+//! granted, provided that this notice is preserved.
+//! The fdlibm source carried in V8 was modified significantly by Google Inc.
+//! Copyright 2016 the V8 project authors. All rights reserved. The V8
+//! BSD-style terms and complete notices are in the root NOTICE.md.
 
 #![allow(clippy::excessive_precision)]
 

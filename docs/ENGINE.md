@@ -154,7 +154,9 @@ runtime, in this order:
 1. **Engine** (`engine-v<version>`): `pnpm run release:engine` verifies
    the version and a clean tree, then tags and pushes;
    `.github/workflows/release-engine.yml` builds the five targets, attests
-   each binary, and publishes them as an immutable release.
+   each binary, generates `THIRD-PARTY-NOTICES.txt` from the locked Cargo
+   dependency union for all five targets, and publishes them as an immutable
+   release.
 2. **Pins**: `scripts/pin-engine.mjs` verifies each binary's build
    attestation and writes the digests to `skill/scripts/engine.sha256`, which
    the launchers check downloads against.

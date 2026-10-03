@@ -57,6 +57,16 @@ describe('ci-test-plan', () => {
     assert.equal(outputs.skill_behavior, 'false');
   });
 
+  it('runs Rust and notice generation checks when release notice inputs change', () => {
+    for (const file of ['about.toml', 'about.hbs', 'NOTICE.md', 'scripts/generate-engine-notices.mjs']) {
+      const outputs = runPlan({
+        GITHUB_EVENT_NAME: 'pull_request',
+        CI_CHANGED_FILES: file,
+      });
+      assert.equal(outputs.rust, 'true', `${file} should run the Rust and notice lanes`);
+    }
+  });
+
   it('keeps ordinary skill prose changes out of the Rust lanes', () => {
     const outputs = runPlan({
       GITHUB_EVENT_NAME: 'pull_request',

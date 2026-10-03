@@ -15,7 +15,12 @@ const forceSkillBehavior = eventName === 'workflow_dispatch'
 const RUST_PATTERNS = [
   /^crates\//,
   /^Cargo\.(toml|lock)$/,
+  /^about\.(toml|hbs)$/,
   /^rust-toolchain\.toml$/,
+  /^LICENSE$/,
+  /^NOTICE\.md$/,
+  /^skill\/(LICENSE|NOTICE\.md)$/,
+  /^scripts\/generate-engine-notices\.mjs$/,
   // The engine embeds this skill command metadata at compile time.
   /^skill\/scripts\/command-metadata\.json$/,
   /^tests\/oracle\//,
