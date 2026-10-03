@@ -64,7 +64,9 @@ machine-dependent fragments. Each is targeted at one script's output:
   8-hex digest (docs/adr/0020). The mask applies to snapshot file names too.
   The harness points the user cache at the isolated home: it unsets
   `XDG_CACHE_HOME` and `LOCALAPPDATA`, so state lands under
-  `.oracle-home/.cache/impeccino/`.
+  `.oracle-home/.cache/impeccino/` on POSIX and
+  `.oracle-home/AppData/Local/impeccino/` on Windows. Windows expectations
+  retain that native location for snapshots and displayed cache paths.
 - `<IMPECCINO> <verb>` / `<HOOK_ADMIN_CMD>`: self-referential command lines.
 
 Not covered on purpose: `palette` with no `--id` / `--from` / env seed (random),

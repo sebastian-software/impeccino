@@ -6,6 +6,7 @@
  *
  * Hook state lives in the user cache (docs/adr/0020), which the harness puts
  * under the isolated home: `.oracle-home/.cache/impeccino/projects/<PROJECT>/`.
+ * Windows uses `.oracle-home/AppData/Local/impeccino/projects/<PROJECT>/`.
  * The snapshot also lists the retired `.impeccino/`, so a golden would show
  * it if anything wrote project-local state again.
  */
@@ -14,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const WS = '<WS>';
-const CACHE_FILES = ['.oracle-home/.cache/impeccino/**', '.impeccino/**', '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json', '.github/hooks/impeccino.json'];
+const CACHE_FILES = ['.oracle-home/.cache/impeccino/**', '.oracle-home/AppData/Local/impeccino/**', '.impeccino/**', '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json', '.github/hooks/impeccino.json'];
 const write = (ws, rel, body) => {
   const abs = `${ws}/${rel}`;
   fs.mkdirSync(abs.slice(0, abs.lastIndexOf('/')), { recursive: true });

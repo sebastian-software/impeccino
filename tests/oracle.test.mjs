@@ -182,6 +182,26 @@ it('normalizes only declared Windows surface-path output lines', () => {
   );
 });
 
+it('expects the native Windows user cache without changing shared goldens', () => {
+  const shared = {
+    steps: [{ stdout: 'cache file: <WS>/.oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json\n', stderr: '', exit: 0 }],
+    files: {
+      '.oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json': '{"sessions":{}}',
+      'docs/.cache/impeccino/example.txt': 'keep literal cache prose',
+    },
+  };
+  const original = structuredClone(shared);
+  assert.deepEqual(expectedForPlatform({}, shared, 'win32'), {
+    steps: [{ stdout: 'cache file: <WS>/.oracle-home/AppData/Local/impeccino/projects/<PROJECT>/hook.cache.json\n', stderr: '', exit: 0 }],
+    files: {
+      '.oracle-home/AppData/Local/impeccino/projects/<PROJECT>/hook.cache.json': '{"sessions":{}}',
+      'docs/.cache/impeccino/example.txt': 'keep literal cache prose',
+    },
+  });
+  assert.deepEqual(shared, original);
+  assert.deepEqual(expectedForPlatform({}, shared, 'linux'), original);
+});
+
 it('keeps the PowerShell launcher note and quoted command in explicit Windows expectations', () => {
   const item = { id: 'detect-framework-vite-text', windowsPowerShellGuidance: true };
   const shared = { stderr: '  <IMPECCINO> detect http://localhost:5173\n\n' };

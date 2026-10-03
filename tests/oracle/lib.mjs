@@ -426,13 +426,31 @@ export function caseRunsHere(c, platform = process.platform) {
 }
 
 /**
- * The engine deliberately prints a Windows-specific PowerShell note and a
- * quoted launcher command for framework scans. Keep that contract in the
- * expected result rather than erasing it to match the shared Linux golden.
+ * The engine uses native Windows cache paths and deliberately prints a
+ * PowerShell note and quoted launcher command for framework scans. Keep
+ * these contracts in explicit expectations beside the shared POSIX golden.
  */
 export function expectedForPlatform(c, golden, platform = process.platform) {
   if (platform !== 'win32') return golden;
   const expected = structuredClone(golden);
+  // The isolated user cache follows the engine's native Windows fallback.
+  // Keep the actual storage location observable, with explicit expectations
+  // for cache-file snapshots and the engine's displayed absolute cache paths.
+  const windowsCachePath = (text) => text.replaceAll(
+    '<WS>/.oracle-home/.cache/impeccino/',
+    '<WS>/.oracle-home/AppData/Local/impeccino/',
+  );
+  for (const result of expected.steps || [expected]) {
+    for (const stream of ['stdout', 'stderr']) {
+      if (typeof result[stream] === 'string') result[stream] = windowsCachePath(result[stream]);
+    }
+  }
+  if (expected.files) {
+    expected.files = Object.fromEntries(Object.entries(expected.files).map(([key, value]) => [
+      key.replace(/^\.oracle-home\/\.cache\/impeccino\//, '.oracle-home/AppData/Local/impeccino/'),
+      value,
+    ]));
+  }
   if (c.windowsPowerShellGuidance) {
     const guidance = 'In PowerShell, prefix the quoted launcher path with `&`.';
     let totalReplacements = 0;

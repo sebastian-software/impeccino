@@ -7,7 +7,7 @@ import { isEntrypoint } from './lib/is-entrypoint.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const CARGO_ABOUT_VERSION = '0.8.4';
-export const RELEASE_TARGET_LICENSE_CRATES = ['windows-link', 'core-foundation-sys'];
+export const RELEASE_TARGET_LICENSE_CRATES = ['windows-link', 'libc'];
 
 function runCargoAbout(cargoAbout, cwd, args) {
   const result = spawnSync(cargoAbout, args, {

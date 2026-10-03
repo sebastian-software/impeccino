@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { parse } from 'yaml';
 import { readFileSync } from 'node:fs';
+import { RELEASE_TARGET_LICENSE_CRATES } from '../scripts/generate-engine-notices.mjs';
 
 const workflow = parse(readFileSync(new URL('../.github/workflows/release-engine.yml', import.meta.url), 'utf8'));
 const action = (job, name) => job.steps.find(step => step.uses?.startsWith(`${name}@`));
@@ -76,7 +77,12 @@ describe('engine release workflow', () => {
     const generator = readFileSync(new URL('../scripts/generate-engine-notices.mjs', import.meta.url), 'utf8');
     expect(generator).toContain("'--frozen'");
     expect(generator).toContain("'--fail'");
-    expect(generator).toContain("'windows-link', 'core-foundation-sys'");
+    const lock = readFileSync(new URL('../Cargo.lock', import.meta.url), 'utf8');
+    expect(RELEASE_TARGET_LICENSE_CRATES).toContain('windows-link');
+    expect(RELEASE_TARGET_LICENSE_CRATES).toContain('libc');
+    for (const crate of RELEASE_TARGET_LICENSE_CRATES) {
+      expect(lock).toContain(`name = "${crate}"\n`);
+    }
   });
 
   test('artifact downloads stay on the same-run runtime-token path', () => {
