@@ -101,7 +101,9 @@ fn replay_recorded_vectors() {
     let Some(dir) = vectors_dir() else {
         panic!(
             "vectors dir not found; set IMPECCINO_PUBLIC_REPO to a checkout of this repo that has \
-             tests/oracle/vectors/calls (generate with `node tests/oracle/vectors/record-calls.mjs`)"
+             tests/oracle/vectors/calls. The call vectors are frozen; review any expected/actual \
+             difference and fix the engine source, changing recorded data only for an intentional \
+             behavior update."
         );
     };
     let mut total_pass = 0usize;

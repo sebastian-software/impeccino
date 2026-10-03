@@ -104,14 +104,6 @@ impl Io {
         self.env.get(key).map(String::as_str)
     }
 
-    /// JS `truthy()` from hook-lib: `/^(1|true|yes|on)$/i` on a string.
-    pub fn env_truthy(&self, key: &str) -> bool {
-        matches!(
-            self.env(key).map(|v| v.to_ascii_lowercase()).as_deref(),
-            Some("1" | "true" | "yes" | "on")
-        )
-    }
-
     /// `os.homedir()`: `$HOME` on posix; on Windows Node reads `USERPROFILE`
     /// (a `HOME` left by an MSYS shell is only a fallback here).
     pub fn home(&self) -> Option<PathBuf> {

@@ -23,7 +23,7 @@ use serde_json::{Map, Value};
 
 use crate::util::{
     exists, iso_now, js_string, jsp, now_value, obj_field, safe_read, safe_read_json, slice_prefix,
-    slice_utf16, str_field, truthy_value, utf16_len,
+    str_field, truthy_value, utf16_len,
 };
 
 pub const ENVELOPE_PREFIX: &str = "[impeccino@1]";
@@ -2354,16 +2354,6 @@ pub fn write_audit_log(rt: &Runtime, entry: &Map<String, Value>, cwd: &str) -> b
 /// The value normalizer, re-exported for hook-admin.
 pub fn normalize_ignore_value_str(v: &str) -> String {
     normalize_ignore_value(v)
-}
-
-/// The rule normalizer, re-exported.
-pub fn normalize_rule_id(v: &str) -> String {
-    normalize_ignore_rule(v)
-}
-
-/// UTF-16 slice helper re-export used by the before-edit projection.
-pub fn js_slice(s: &str, start: usize, end: usize) -> String {
-    slice_utf16(s, start, end)
 }
 
 /// A live variant session owns files carrying preview scaffolding: the

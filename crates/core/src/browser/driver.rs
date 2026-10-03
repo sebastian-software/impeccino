@@ -3,12 +3,10 @@
 //! browser/mod.rs. (Pipeline-proof skeleton; the full port replaces the body
 //! of `collect_browser_findings`.)
 
-#![allow(unused_imports)]
-use super::dom::{tag_lower, Dom, ElId, Rect};
-use super::element_checks::check_element_borders_dom;
-use super::{BrowserConfig, BrowserFinding, DisabledValue, FindingGroup};
-use crate::js_ext_a::JsMap;
-use serde::Serialize;
+use super::dom::{tag_lower, Dom, ElId};
+use super::{BrowserConfig, BrowserFinding, FindingGroup};
+#[cfg(test)]
+use super::DisabledValue;
 
 /// The collect result type is shared.
 pub use impeccino_foundation::browser::CollectResult;
