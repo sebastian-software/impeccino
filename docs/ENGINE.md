@@ -1,6 +1,8 @@
 # The engine: the Rust runtime behind every skill verb
 
-Every command the skill text runs is `<skill-base-dir>/scripts/impeccino <verb>`. The
+The public interface is the skill and its agent workflows. The Rust engine, its CLI, and its crates are internal implementation details, not separately supported user APIs ([ADR 0005](adr/0005-no-marketplace-packages.md)).
+
+Every command the skill text runs is `"<skill-base-dir>/scripts/impeccino" <verb>`. The
 launcher next to the skill (`skill/scripts/impeccino`, `impeccino.cmd`)
 finds or downloads one static binary per platform and execs it. That binary
 is built from this repo's Cargo workspace. There is no Node at runtime, and
@@ -9,13 +11,44 @@ nothing in the engine runs in a browser
 
 This page is the map for anyone building or changing the runtime. The
 observable behavior of every verb is pinned byte-for-byte by the oracle
-corpus in `tests/oracle/`, which is the engine's behavioral contract
+corpus in `tests/oracle/`, which is the internal integration contract between the engine, skill, launcher, and hooks
 ([ADR 0015](adr/0015-history-lives-in-git.md)).
 
 Everything is in this repo, Apache-2.0, and builds offline from source. No
 part of the engine is fetched at build time, and the engine is one native
 binary: there is no WebAssembly build, no in-page bundle, and no browser
 extension ([ADR 0013](adr/0013-no-wasm-or-browser-extension.md)).
+
+## Internal interface policy
+
+Keep engine verbs and flags when the skill, launchers, hooks, or repository tooling need them. Their arguments, output streams, exit codes, and side effects must remain reliable for those callers. Public skill commands and internal engine verbs are different surfaces: `/impeccino audit` is a user workflow; `detect` is an implementation step in that workflow.
+
+Changes to the internal interface require updating its callers and regression coverage together. A pinned engine and skill can be released in sequence; installed older skill copies still need their pinned engine. Marking this interface internal does not itself remove existing verbs or bypass that release discipline. There is no separate standalone CLI product or downstream Rust API stability commitment.
+
+## Current internal callers
+
+The skill references call `context`, `doctor`, `pin`, `signals`, `concept-seed`, `surface-brief`, `critique-storage`, `detect`, and `hooks`. The hooks reference also directs the agent to `ignores` for detector filter management. Installed hook manifests call `hook` and `hook-before-edit`; the launchers use the hidden `engine-probe` handshake to validate the pinned engine.
+
+`palette` has no direct invocation in the current skill text. The aliases `context-signals`, `hook-admin`, and `ignore`, root help, version flags, and implicit detector target syntax need a caller audit before any removal, including repository tests and engine-produced commands. This inventory describes the current integration; removing project-state features changes it and requires checking callers again.
+
+## Internal detector invocation
+
+These calls are for engine development, tests, and debugging skill or hook integration. They are not a separate user workflow. Agents invoke the installed skill's quoted launcher; contributors can set `IMPECCINO_BIN` to a local build:
+
+```bash
+"<skill-base-dir>/scripts/impeccino" detect src/          # scan a directory
+"<skill-base-dir>/scripts/impeccino" detect --json .      # inspect structured output
+"<skill-base-dir>/scripts/impeccino" ignores list        # show detector ignores
+"<skill-base-dir>/scripts/impeccino" ignores add-file "src/legacy/**"
+```
+
+The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (low contrast, cramped padding, tiny text, skipped headings, and more). `detect` reads files, directories, and URLs. For a URL (`http`, `https`, or `file`), it loads the page headlessly through [agent-browser](https://github.com/vercel-labs/agent-browser) and adds the rules that need layout (line length, text overflow and occlusion, viewport edges, heading rhythm), rendered contrast including text over images, and script errors: `impeccino detect --viewport 390x844 http://localhost:3000/`. Set `AGENT_BROWSER_SESSION` to scan in a session that is already signed in. Rendered scans need agent-browser installed (`npm install -g agent-browser && agent-browser install`); source scans do not.
+
+Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports.
+
+By default, `detect` respects the same `.impeccino/config.json` and `.impeccino/config.local.json` detector config as the design hook: `detector.ignoreRules`, `detector.ignoreFiles`, `detector.ignoreValues`, and `detector.designSystem.enabled`. Hook lifecycle settings such as `hook.enabled` only affect automatic hook execution.
+
+For a waiver that should travel with one file instead of the repo config, add an inline comment in the file: `<!-- impeccino-disable overused-font: exported brand doc -->`. The marker works in any comment syntax, scopes to the whole file (or one line with `impeccino-disable-line` / `impeccino-disable-next-line`), and is bypassed by `--no-inline-ignores` or `--no-config`.
 
 ## Layout
 
@@ -42,15 +75,14 @@ crates/
 
 The verbs: `context`, `doctor`, `pin`, `surface-brief`, `critique-storage`,
 `palette`, `signals` (alias `context-signals`), `concept-seed`, `detect`
-(files and directories only), `ignores`, `hook`, `hook-before-edit`, and
+(files, directories, and rendered pages through agent-browser), `ignores`, `hook`, `hook-before-edit`, and
 `hooks` (alias `hook-admin`). The browser and comp verbs (`live*`,
 `detect-csp`, `serve-question`, `component-review`, `generate-image`,
 `comp-spec`, `comp-diff`, `font-match`, `build-phase`, `capture-server`,
 `embed-prompt`) print a "was removed" message and exit 1, so an older skill
 copy that calls one gets a clear answer
 ([ADR 0011](adr/0011-no-own-browser-stack.md),
-[ADR 0012](adr/0012-no-image-comps.md)). `detect` refuses URLs with a
-pointer to the harness's browser tool.
+[ADR 0012](adr/0012-no-image-comps.md)). Rendered-page scanning is described above and in [ADR 0016](adr/0016-rendered-pages-through-agent-browser.md).
 
 `crates/core` re-exports the foundation modules under its own paths, so every
 consumer names one crate: `impeccino_core::js`, `impeccino_core::color`,

@@ -18,7 +18,7 @@ After the engine release, `scripts/pin-engine.mjs` downloads every asset, verifi
 
 - The skill commit a skill manager pins also pins the binary bytes, and those bytes are attested to come from this repository's workflow.
 - The launcher itself only compares digests; provenance is checked once, when pinning, not on every user's machine.
-- Tools that install GitHub release binaries (for example mise's `github:` backend) work against the same release and check its attestations themselves.
+- Engine assets supply the internal skill runtime (0005). Users install the skill; contributor builds can use `IMPECCINO_BIN` instead of a downloaded asset.
 - A skill manager still cannot audit or approve the binary; it only sees the pin file.
 
 ## Revisit when

@@ -11,6 +11,8 @@ Design guidance for AI coding agents. 1 skill, 22 commands, and 61 deterministic
 
 Impeccino ("the little Impeccable") is a slimmed-down derivative of [Impeccable](https://github.com/pbakaus/impeccable) by Paul Bakaus. It keeps the design guidance, the engine, and the detector, and leaves out everything that existed only to install, package, or run the skill in a browser of its own. It publishes one shared `skill/` folder; [Dalo](https://dalo.sh) or [skills.sh](https://skills.sh) puts it in place. [How Impeccino differs from Impeccable](#how-impeccino-differs-from-impeccable) and the [Light ADRs](docs/adr/README.md) explain each cut.
 
+The public interface is the skill and its agent workflows. The native engine and its command-line interface are internal implementation details ([ADR 0005](docs/adr/0005-no-marketplace-packages.md)).
+
 > **Quick start:** Install the skill with Dalo or skills.sh (see [Installation](#installation)), then run `/impeccino init` inside your AI coding tool.
 
 ## Why Impeccino?
@@ -22,7 +24,7 @@ Every model trained on the same SaaS templates. Skip the guidance and you get th
 Impeccino adds:
 - **One setup flow.** `/impeccino init` records durable product truth in `PRODUCT.md`, so later commands know the audience, purpose, operating context, constraints, voice, and evidence without confusing those facts with surface-level visual direction.
 - **22 commands.** A shared design vocabulary with your AI: `polish`, `audit`, `critique`, `distill`, `animate`, `bolder`, `quieter`, and more.
-- **61 deterministic detector rules** plus LLM-only critique checks. The CLI and the design hook run them on source files with no LLM and no API key; the rules that need layout run on the rendered page with `detect <url>`, through agent-browser.
+- **61 deterministic detector rules** plus LLM-only critique checks. The skill and opt-in design hooks use the internal engine to check source files without model calls or API keys; layout rules measure the rendered page through agent-browser.
 
 ## What's Included
 
@@ -130,7 +132,7 @@ Impeccable compiles the skill into 19 harness-specific variants, commits those v
 | Releases | Changelog entry in the website repository, rendered into the release notes; Windows binaries signed with the upstream maintainer's certificate | Per-component tags (`skill-v`, `engine-v`) with notes GitHub generates from the commits; each engine asset carries a GitHub build attestation and its digest is pinned in the skill | [0014](docs/adr/0014-releases-are-tags.md) |
 | Docs | Finished plans, port contracts, release notes, and demos kept in `docs/` | `docs/` holds current guidance and ADRs; the oracle corpus is the behavioral contract; history lives in git | [0015](docs/adr/0015-history-lives-in-git.md) |
 
-Unchanged: the design guidance itself, every command that does not need a browser or an image model (22 commands; `live` and `generate` are gone), and the engine's context, hook, and detector. The detector keeps all 61 rules: the nine that need a rendered page now run through `detect <url>` and agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)).
+Unchanged: the design guidance itself, every command that does not need a browser or an image model (22 commands; `live` and `generate` are gone), and the engine's context, hook, and detector. The detector keeps all 61 rules: the nine that need a rendered page now run through agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)).
 
 **Verified so far.** Skill loading and launcher invocation have been verified in Claude Code and Codex; both resolve and run the launcher, and Codex names commands with `$`. Dalo and skills.sh both find and install it. The Rust workspace tests, the core suite, the full oracle corpus, and rendered-page scans through agent-browser pass. The harness notes are a [point-in-time reference](docs/HARNESSES.md), not a record of end-to-end Impeccino verification.
 
@@ -140,7 +142,7 @@ Unchanged: the design guidance itself, every command that does not need a browse
 
 `skill/` is the whole skill in one shared form, like an app bundle you drag into place. Impeccino has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)); install it with Dalo or skills.sh.
 
-The skill needs no runtime. Its launcher (`scripts/impeccino`, plus `impeccino.cmd` for Windows) runs the Impeccino engine, a self-contained binary that is downloaded once on first run into `~/.impeccino/bin/` from this repository's GitHub Releases, for the version in `skill/scripts/VERSION`. The download must match the digest pinned in `skill/scripts/engine.sha256`, and every release binary carries a GitHub build attestation (`gh attestation verify <file> -R sebastian-software/impeccino`). The engine release workflow also publishes `THIRD-PARTY-NOTICES.txt`; skill bundles include `LICENSE` and `NOTICE.md`. If you manage tools with [mise](https://mise.jdx.dev), `mise use github:sebastian-software/impeccino` (with `version_prefix = "engine-v"`) installs the same binary, and the launcher picks it up from your PATH. Rendered-page scans (`detect <url>`) also need [agent-browser](https://github.com/vercel-labs/agent-browser).
+No separate engine installation is needed. The skill's launcher downloads and caches the pinned native engine on first use, verifies its pinned digest, and runs it for the agent. This first run needs network access. Rendered-page checks also need agent-browser; see [Quality checks through the skill](#quality-checks-through-the-skill). Runtime distribution and provenance are documented for contributors in [ENGINE.md](docs/ENGINE.md).
 
 ### Dalo (recommended)
 
@@ -232,26 +234,13 @@ In Claude Code, command hooks run independently of model-tool approval, so the f
 
 For debugging, set `hook.auditLog` in `.impeccino/config.json` to a path (or the legacy `IMPECCINO_HOOK_LOG` env var) to write one NDJSON line per hook invocation. Leave it unset for normal use.
 
-The Stop pass suppresses confirmed pre-existing findings when a verified before-edit baseline is available (currently Claude Edit/Write results for text scans). Other findings are marked new or attribution unknown; unknown is not evidence that your session caused the problem. Explicit `detect` scans remain unchanged.
+The Stop pass suppresses confirmed pre-existing findings when a verified before-edit baseline is available (currently Claude Edit/Write results for text scans). Other findings are marked new or attribution unknown; unknown is not evidence that your session caused the problem. Explicit checks requested through the skill still report findings independently of session attribution.
 
-## Detector without an agent
+## Quality checks through the skill
 
-The detector is part of the skill's engine; there is no separate CLI package. To run it in CI or a terminal, call the launcher of an installed skill (it fetches the engine on first run), or download the binary for your platform from the `engine-v<version>` release:
+Use `/impeccino audit <target>` to have the agent check source files and rendered pages. The skill and opt-in hooks use the internal engine's 61 deterministic detector rules. Rendered checks need [agent-browser](https://github.com/vercel-labs/agent-browser) installed (`npm install -g agent-browser && agent-browser install`); source checks do not.
 
-```bash
-.claude/skills/impeccino/scripts/impeccino detect src/          # scan a directory
-.claude/skills/impeccino/scripts/impeccino detect --json .      # CI-friendly JSON output
-.claude/skills/impeccino/scripts/impeccino ignores list         # show detector ignores
-.claude/skills/impeccino/scripts/impeccino ignores add-file "src/legacy/**"
-```
-
-The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (low contrast, cramped padding, tiny text, skipped headings, and more). `detect` reads files, directories, and URLs. For a URL (`http`, `https`, or `file`), it loads the page headlessly through [agent-browser](https://github.com/vercel-labs/agent-browser) and adds the rules that need layout (line length, text overflow and occlusion, viewport edges, heading rhythm), rendered contrast including text over images, and script errors: `impeccino detect --viewport 390x844 http://localhost:3000/`. Set `AGENT_BROWSER_SESSION` to scan in a session that is already signed in. Rendered scans need agent-browser installed (`npm install -g agent-browser && agent-browser install`); source scans do not.
-
-Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports.
-
-By default, `detect` respects the same `.impeccino/config.json` and `.impeccino/config.local.json` detector config as the design hook: `detector.ignoreRules`, `detector.ignoreFiles`, `detector.ignoreValues`, and `detector.designSystem.enabled`. Hook lifecycle settings such as `hook.enabled` only affect automatic hook execution.
-
-For a waiver that should travel with one file instead of the repo config, add an inline comment in the file: `<!-- impeccino-disable overused-font: exported brand doc -->`. The marker works in any comment syntax, scopes to the whole file (or one line with `impeccino-disable-line` / `impeccino-disable-next-line`), and is bypassed by `--no-inline-ignores` or `--no-config`.
+The agent interprets findings alongside the design guidance and visual inspection. A clean detector run is evidence, not proof of visual or accessibility quality. Ask the agent to record justified waivers and inspect the experience across relevant viewports.
 
 ## Harnesses
 
