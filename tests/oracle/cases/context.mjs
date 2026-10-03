@@ -290,7 +290,7 @@ const cases = [
   { id: 'context-legacy-state-dir', verb: 'context', workspace: 'ctx-product-only', setup: leftoverStateDir, env: env(), files: IMPECCINO_FILES, steps: [{}, {}] },
   // The home directory is never reported: older launchers cached the engine
   // in ~/.impeccino/.
-  { id: 'context-legacy-state-dir-home-skipped', verb: 'context', workspace: 'ctx-product-only', setup: leftoverStateDir, env: env({ HOME: WS }), files: IMPECCINO_FILES },
+  { id: 'context-legacy-state-dir-home-skipped', verb: 'context', workspace: 'ctx-product-only', setup: leftoverStateDir, env: env({ HOME: WS, USERPROFILE: WS }), files: IMPECCINO_FILES },
   { id: 'context-legacy-state-dir-no-staleness-check', verb: 'context', workspace: 'ctx-product-only', setup: leftoverStateDir, env: env({ IMPECCINO_NO_STALENESS_CHECK: '1' }), files: IMPECCINO_FILES },
   { id: 'context-hook-manifest-source-provider', verb: 'context', workspace: 'ctx-product-only', setup: (ws) => write(ws, '.claude/settings.local.json', JSON.stringify({ hooks: { PostToolUse: [{ hooks: [{ type: 'command', command: 'node .claude/skills/impeccino/scripts/hook.mjs' }] }] } }, null, 2) + '\n'), env: env(), files: IMPECCINO_FILES },
   // Upgrade path (triage E8): a v3 install left a `.claude/settings.local.json`

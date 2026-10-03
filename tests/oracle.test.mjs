@@ -159,21 +159,22 @@ it('masks only the quoted engine binary path inside JSON-escaped output strings'
 });
 
 it('normalizes only declared Windows surface-path output lines', () => {
-  const slash = normalize(String.raw`..\..\..\..\..\..\.impeccino\surfaces\route.md
+  const slash = normalize(String.raw`..\..\..\..\..\..\SURFACES.md
 `, {
     platform: 'win32',
     caseId: 'surface-brief-path-slash',
     pathOutput: true,
   });
-  const outside = normalize(String.raw`..\elsewhere\.impeccino\surfaces\x-astro.md
+  const outside = normalize(String.raw`..\elsewhere\SURFACES.md
 `, {
     platform: 'win32',
     caseId: 'surface-brief-path-outside',
     pathOutput: true,
   });
 
-  assert.equal(slash, '<UP_TO_ROOT>/.impeccino/surfaces/route.md\n');
-  assert.equal(outside, '../elsewhere/.impeccino/surfaces/x-astro.md\n');
+  assert.equal(normalize('SURFACES.md\n', { platform: 'win32', caseId: 'surface-brief-path-file', pathOutput: true }), 'SURFACES.md\n');
+  assert.equal(slash, '<UP_TO_ROOT>/SURFACES.md\n');
+  assert.equal(outside, '../elsewhere/SURFACES.md\n');
   assert.equal(normalize(String.raw`keep\literal`, { platform: 'win32' }), String.raw`keep\literal`);
   assert.throws(
     () => normalize('not a path line\nsecond line\n', { platform: 'win32', caseId: 'surface-brief-path-file', pathOutput: true }),

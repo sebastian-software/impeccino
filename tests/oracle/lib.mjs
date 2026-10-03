@@ -184,12 +184,12 @@ function isInsideQuotedOrCodeText(text, index) {
 function normalizeWindowsPathOutput(text, caseId) {
   if (!text) return text;
   const match = text.match(/^([^\r\n]+)(\r?\n?)$/);
-  if (!match || !match[1].includes('.impeccino\\surfaces\\')) {
+  if (!match || !/(?:^|[\\/])SURFACES\.md$/.test(match[1])) {
     throw new Error(`Expected ${caseId}'s Windows stdout to be one surface path line`);
   }
   const [, pathLine, lineEnding] = match;
   const portablePath = caseId === 'surface-brief-path-slash'
-    ? pathLine.replace(/^(?:\.\.\\){2,}(?=\.impeccino\\surfaces\\)/, '<UP_TO_ROOT>/')
+    ? pathLine.replace(/^(?:\.\.\\){2,}(?=SURFACES\.md$)/, '<UP_TO_ROOT>/')
     : pathLine;
   return portablePath.replaceAll('\\', '/') + lineEnding;
 }
