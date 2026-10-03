@@ -58,6 +58,15 @@ export default [
   },
   // --- hook.mjs: per-edit ---
   { id: 'hook-edit-tsx-fresh', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/components/Card.tsx'), files: CACHE_FILES },
+  {
+    id: 'hook-edit-catch-all-route', verb: 'hook', workspace: 'hook-project', files: CACHE_FILES,
+    setup(ws) {
+      const route = `${ws}/app/[...slug]/page.tsx`;
+      fs.mkdirSync(`${ws}/app/[...slug]`, { recursive: true });
+      fs.writeFileSync(route, 'const Page = () => <div className="title">Title</div>;\nconst styles = css`\n.title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }\n`;\n');
+    },
+    stdin: claudeEdit('app/[...slug]/page.tsx'),
+  },
   { id: 'hook-edit-css-fresh', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/components/Card.module.css'), files: CACHE_FILES },
   { id: 'hook-edit-html-fresh', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/page.html'), files: CACHE_FILES },
   { id: 'hook-edit-clean-tsx', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/components/Clean.tsx'), files: CACHE_FILES },
