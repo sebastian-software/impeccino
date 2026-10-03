@@ -80,7 +80,7 @@ fn run(args: &[String], io: &mut Io) -> i32 {
             io.err(&format!("\"{v}\" was removed: Impeccino no longer runs anything in the browser or builds image comps.\n"));
             1
         }
-        // `npx impeccino src/` shorthand: a path-shaped, flag, URL, or existing
+        // `<launcher> src/` shorthand: a path-shaped, flag, URL, or existing
         // first arg is a detect target (cli.js looksLikeDetectTarget).
         v if impeccino_detect::looks_like_detect_target(v, &io.cwd.to_string_lossy()) => {
             impeccino_detect::run_detect(args, io, &engines())

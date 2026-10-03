@@ -23,6 +23,11 @@ The bar: **for every paragraph, point to the sentence that makes it specifically
 
 The build's `validateProse` step (in `scripts/build.js`) fails the build on these. The list is the editorial brief, enforced. Add a rule here when you ban a new pattern; remove a rule when the term has earned a real meaning here. **Do not silently allowlist** by working around the regex.
 
+### Stale commands
+| Banned | Why | Use instead |
+|---|---|---|
+| `npx impeccino` | Points at the retired Node CLI instead of the engine pinned by the installed skill. | Run the quoted `scripts/impeccino` launcher from the installed skill. |
+
 ### Stolen-engineer diction
 Engineering words that became AI flavor once they leaked into training data around late 2024.
 
