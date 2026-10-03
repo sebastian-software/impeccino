@@ -7,6 +7,7 @@
 //! code. Only the `cli` binary calls `std::process::exit`.
 
 pub mod agent_browser;
+pub mod atomic_file;
 pub mod jsp;
 pub mod proc;
 pub mod project_files;
