@@ -40,6 +40,7 @@ export const SUITES = {
         files: [
           'tests/skill-source.test.js',
           'tests/lib/utils.test.js',
+          'tests/repository-checks.test.mjs',
           'tests/release-engine-workflow.test.js',
           'tests/generate-engine-notices.test.js',
           'tests/workflow-security.test.js',
