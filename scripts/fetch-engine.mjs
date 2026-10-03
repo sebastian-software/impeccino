@@ -25,6 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { isEntrypoint } from './lib/is-entrypoint.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const DEFAULT_DOWNLOAD_BASE = 'https://github.com/sebastian-software/impeccino/releases/download';
@@ -156,6 +157,6 @@ export async function main(argv = process.argv.slice(2)) {
   return failures ? 1 : 0;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isEntrypoint(import.meta.url)) {
   main().then((code) => process.exit(code), (err) => { process.stderr.write(`fetch-engine: ${err.message}\n`); process.exit(1); });
 }

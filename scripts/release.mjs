@@ -13,7 +13,7 @@
 // The skill release is a tag on the commit skill managers pin; it has no
 // build and no artifacts (docs/adr/0003).
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,34 +30,27 @@ const COMPONENTS = {
     tagPrefix: 'skill-v',
     label: 'Skill',
     // The skill's launcher dead-ends without the engine release for the
-    // pinned skill/scripts/VERSION. Enforce release order (D4).
+    // pinned skill/scripts/VERSION. Enforce release order.
     engineGated: true,
-  },
-  engine: {
-    // Version comes from skill/scripts/VERSION, the file the launcher reads;
-    // releaseEngine() below owns this component's whole flow.
-    manifest: 'skill/scripts/VERSION',
-    tagPrefix: 'engine-v',
-    label: 'Engine',
   },
 };
 
-const REPO_URL = 'https://github.com/sebastian-software/impeccino';
+const REPO = 'sebastian-software/impeccino';
+const REPO_URL = `https://github.com/${REPO}`;
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const component = args.find((a) => !a.startsWith('--'));
 
-if (!component || !COMPONENTS[component]) {
+if (!component || (component !== 'engine' && !COMPONENTS[component])) {
   console.error('usage: release.mjs <skill|engine> [--dry-run]');
   process.exit(1);
 }
-const cfg = COMPONENTS[component];
-
 if (component === 'engine') {
   await releaseEngine();
   process.exit(0);
 }
+const cfg = COMPONENTS[component];
 
 function fail(msg) {
   console.error(`✗ ${msg}`);
@@ -80,7 +73,6 @@ function runMutating(cmd) {
   execSync(cmd, { cwd: repoRoot, stdio: 'inherit' });
 }
 
-/** `metadata.version` from SKILL.md frontmatter. */
 /** The highest `<prefix><semver>` tag in `names`, or ''. */
 function latestTag(names, prefix) {
   const parse = (name) => name.slice(prefix.length).split(/[.-]/).map((part) => (/^\d+$/.test(part) ? Number(part) : part));
@@ -99,131 +91,28 @@ function latestTag(names, prefix) {
   return candidates.at(-1) || '';
 }
 
+/** `metadata.version` from SKILL.md frontmatter. */
 function readSkillVersion(text) {
   const frontmatter = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? '';
   return frontmatter.match(/^metadata:\s*\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+version:\s*["']?([^"'\s]+)/m)?.[1];
 }
 
-step(`Reading version from ${cfg.manifest}`);
-const manifestText = readFileSync(path.join(repoRoot, cfg.manifest), 'utf8');
-const version = cfg.readVersion ? cfg.readVersion(manifestText) : JSON.parse(manifestText).version;
-if (!version) fail(`No version field in ${cfg.manifest}`);
-ok(`${cfg.label} ${version}`);
-
-// Release-order guard. The skill refuses to tag until the engine release for
-// the pinned skill/scripts/VERSION is live: the five engine-v<version> release
-// binaries. Without them the launcher dead-ends. Set
-// IMPECCINO_SKIP_ENGINE_CHECK=1 only when you know the assets exist and the
-// probe is unreachable.
-if (cfg.engineGated && process.env.IMPECCINO_SKIP_ENGINE_CHECK !== '1') {
-  const engineVersion = readEngineVersion(repoRoot);
-  step(`Verifying engine v${engineVersion} release assets are published (D4 release-order guard)`);
-  const result = await checkEngineRelease({ version: engineVersion });
-  if (!result.ok) {
-    console.error('✗ Engine release is incomplete. Missing assets:');
-    for (const m of result.missing) console.error(`    · ${m.what}\n        ${m.url}`);
-    fail(
-      `Refusing to release ${cfg.label} ${version}: engine v${engineVersion} is not fully published.\n` +
-      `  Publish engine v${engineVersion} first (pnpm run release:engine), then release the skill.\n` +
-      '  See CLAUDE.md "Releases".'
-    );
+function readWorkspacePackageVersion(text) {
+  let inWorkspacePackage = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (/^\s*\[/.test(line)) {
+      if (inWorkspacePackage) break;
+      inWorkspacePackage = /^\s*\[workspace\.package\]\s*$/.test(line);
+      continue;
+    }
+    if (!inWorkspacePackage) continue;
+    const match = line.match(/^\s*version\s*=\s*["']([^"']+)["']\s*(?:#.*)?$/);
+    if (match) return match[1];
   }
-  ok(`engine v${engineVersion} release assets all present`);
-} else if (cfg.engineGated) {
-  step('Skipping engine release-order guard (IMPECCINO_SKIP_ENGINE_CHECK=1)');
+  return undefined;
 }
 
-// The skill pins the engine bytes (skill/scripts/engine.sha256); a skill
-// release without pins for its engine version would ship launchers that
-// refuse to download the engine.
-if (component === 'skill') {
-  const engineVersion = readEngineVersion(repoRoot);
-  step(`Checking ${PIN_FILE} pins engine v${engineVersion}`);
-  const missing = missingPins(engineVersion, repoRoot);
-  if (missing.length) {
-    fail(`${PIN_FILE} has no pin for engine-v${engineVersion} (${missing.join(', ')}). Run \`node scripts/pin-engine.mjs\` after the engine release and commit the result.`);
-  }
-  ok('engine pins present');
-}
-
-const tag = `${cfg.tagPrefix}${version}`;
-
-step('Checking working tree is clean');
-const status = run('git status --porcelain');
-if (status) fail(`Working tree is dirty. Commit or stash first:\n${status}`);
-ok('clean');
-
-step('Checking HEAD is pushed to origin');
-const branch = run('git rev-parse --abbrev-ref HEAD');
-const head = run('git rev-parse HEAD');
-let remoteHead;
-try {
-  remoteHead = run(`git rev-parse origin/${branch}`);
-} catch {
-  fail(`No tracking branch origin/${branch}. Push first.`);
-}
-if (head !== remoteHead) fail(`HEAD is ahead of origin/${branch}. Push your commits first.`);
-ok(`origin/${branch} matches HEAD`);
-
-step(`Verifying tag ${tag} does not already exist`);
-let localTagExists = false;
-try {
-  run(`git rev-parse -q --verify "refs/tags/${tag}"`);
-  localTagExists = true;
-} catch {}
-if (localTagExists) fail(`Tag ${tag} already exists locally.`);
-const remoteTags = run('git ls-remote --tags origin');
-if (remoteTags.split('\n').some((line) => line.endsWith(`refs/tags/${tag}`))) {
-  fail(`Tag ${tag} already exists on origin.`);
-}
-ok('tag is free');
-
-// Notes come from GitHub: the commits since this component's previous tag.
-// The previous release on origin, not among local tags: a checkout can carry
-// tags that were never published here (an upstream remote's, for example),
-// and GitHub cannot start the notes from a tag it does not know.
-const previousTag = latestTag(
-  remoteTags.split('\n').map((line) => line.split('\t')[1]?.replace(/^refs\/tags\//, '').replace(/\^\{\}$/, '')),
-  cfg.tagPrefix,
-);
-
-console.log(`\nRelease notes: generated by GitHub${previousTag ? ` from ${previousTag}` : ''}.\n`);
-
-step(`Creating annotated tag ${tag}`);
-runMutating(`git tag -a ${tag} -m "${cfg.label} ${version}"`);
-runMutating(`git push origin ${tag}`);
-
-step(`Creating GitHub release ${tag}`);
-const notesStart = previousTag ? ` --notes-start-tag ${previousTag}` : '';
-// GitHub can take a moment to see a tag that was just pushed; retry briefly
-// instead of leaving a pushed tag without its release.
-const createRelease = `gh release create ${tag} --verify-tag --title "${cfg.label} ${version}" --generate-notes${notesStart}`;
-for (let attempt = 1; ; attempt++) {
-  try {
-    runMutating(createRelease);
-    break;
-  } catch (err) {
-    if (attempt === 4) fail(`Could not create the GitHub release for ${tag}; the tag is pushed. Retry with:\n  ${createRelease}`);
-    console.log(`  gh release create failed (attempt ${attempt}); retrying in ${attempt * 3}s`);
-    execSync(`sleep ${attempt * 3}`);
-  }
-}
-
-console.log(`\n✓ ${cfg.label} ${version} released as ${tag}`);
-
-
-// The engine release: verify, tag, push. CI does the building and publishing
-// (release-engine.yml), so the maintainer's machine never needs five
-// toolchains. The whole workspace builds from source, so there is nothing to
-// fetch and nothing to order ahead of it.
-async function releaseEngine() {
-  step('Reading version from skill/scripts/VERSION');
-  const version = readEngineVersion(repoRoot);
-  if (!/^\d+\.\d+\.\d+/.test(version)) fail(`skill/scripts/VERSION "${version}" is not a version`);
-  ok(`Engine ${version}`);
-
-  const tag = `${cfg.tagPrefix}${version}`;
-
+function checkReleasePreconditions(tag) {
   step('Checking working tree is clean');
   const status = run('git status --porcelain');
   if (status) fail(`Working tree is dirty. Commit or stash first:\n${status}`);
@@ -253,6 +142,111 @@ async function releaseEngine() {
     fail(`Tag ${tag} already exists on origin.`);
   }
   ok('tag is free');
+  return remoteTags;
+}
+
+step(`Reading version from ${cfg.manifest}`);
+const manifestText = readFileSync(path.join(repoRoot, cfg.manifest), 'utf8');
+const version = cfg.readVersion(manifestText);
+if (!version) fail(`No version field in ${cfg.manifest}`);
+ok(`${cfg.label} ${version}`);
+
+// Release-order guard. The skill refuses to tag until the engine release for
+// the pinned skill/scripts/VERSION is live: the five engine-v<version> release
+// binaries. Without them the launcher dead-ends. Set
+// IMPECCINO_SKIP_ENGINE_CHECK=1 only when you know the assets exist and the
+// probe is unreachable.
+if (cfg.engineGated && process.env.IMPECCINO_SKIP_ENGINE_CHECK !== '1') {
+  const engineVersion = readEngineVersion(repoRoot);
+  step(`Verifying engine v${engineVersion} release assets are published`);
+  const result = await checkEngineRelease({ version: engineVersion });
+  if (!result.ok) {
+    if (result.unreachable.length) {
+      console.error('✗ Could not verify these engine release assets after retries:');
+      for (const m of result.unreachable) console.error(`    · ${m.what}: ${m.error}\n        ${m.url}`);
+      for (const m of result.missing) console.error(`    · ${m.what} is missing\n        ${m.url}`);
+      fail(`Refusing to release ${cfg.label} ${version}: engine v${engineVersion} could not be verified. Retry after network access is restored.`);
+    }
+    console.error('✗ Engine release is incomplete. Missing assets:');
+    for (const m of result.missing) console.error(`    · ${m.what}\n        ${m.url}`);
+    fail(
+      `Refusing to release ${cfg.label} ${version}: engine v${engineVersion} is not fully published.\n` +
+      `  Publish engine v${engineVersion} first (pnpm run release:engine), then release the skill.\n` +
+      '  See CLAUDE.md "Releases".'
+    );
+  }
+  ok(`engine v${engineVersion} release assets all present`);
+} else if (cfg.engineGated) {
+  step('Skipping engine release-order guard (IMPECCINO_SKIP_ENGINE_CHECK=1)');
+}
+
+// The skill pins the engine bytes (skill/scripts/engine.sha256); a skill
+// release without pins for its engine version would ship launchers that
+// refuse to download the engine.
+if (component === 'skill') {
+  const engineVersion = readEngineVersion(repoRoot);
+  step(`Checking ${PIN_FILE} pins engine v${engineVersion}`);
+  const missing = missingPins(engineVersion, repoRoot);
+  if (missing.length) {
+    fail(`${PIN_FILE} has no pin for engine-v${engineVersion} (${missing.join(', ')}). Run \`node scripts/pin-engine.mjs\` after the engine release and commit the result.`);
+  }
+  ok('engine pins present');
+}
+
+const tag = `${cfg.tagPrefix}${version}`;
+const remoteTags = checkReleasePreconditions(tag);
+
+// Notes come from GitHub: the commits since this component's previous tag.
+// The previous release on origin, not among local tags: a checkout can carry
+// tags that were never published here (an upstream remote's, for example),
+// and GitHub cannot start the notes from a tag it does not know.
+const previousTag = latestTag(
+  remoteTags.split('\n').map((line) => line.split('\t')[1]?.replace(/^refs\/tags\//, '').replace(/\^\{\}$/, '')),
+  cfg.tagPrefix,
+);
+
+console.log(`\nRelease notes: generated by GitHub${previousTag ? ` from ${previousTag}` : ''}.\n`);
+
+step(`Creating annotated tag ${tag}`);
+runMutating(`git tag -a ${tag} -m "${cfg.label} ${version}"`);
+runMutating(`git push origin ${tag}`);
+
+step(`Creating GitHub release ${tag}`);
+const notesStart = previousTag ? ` --notes-start-tag ${previousTag}` : '';
+// GitHub can take a moment to see a tag that was just pushed; retry briefly
+// instead of leaving a pushed tag without its release.
+const createRelease = `gh release create ${tag} --repo ${REPO} --verify-tag --title "${cfg.label} ${version}" --generate-notes${notesStart}`;
+for (let attempt = 1; ; attempt++) {
+  try {
+    runMutating(createRelease);
+    break;
+  } catch (err) {
+    if (attempt === 4) fail(`Could not create the GitHub release for ${tag}; the tag is pushed. Retry with:\n  ${createRelease}`);
+    console.log(`  gh release create failed (attempt ${attempt}); retrying in ${attempt * 3}s`);
+    await new Promise((resolve) => setTimeout(resolve, attempt * 3000));
+  }
+}
+
+console.log(`\n✓ ${cfg.label} ${version} released as ${tag}`);
+
+
+// The engine release: verify, tag, push. CI does the building and publishing
+// (release-engine.yml), so the maintainer's machine never needs five
+// toolchains. The whole workspace builds from source, so there is nothing to
+// fetch and nothing to order ahead of it.
+async function releaseEngine() {
+  step('Reading version from skill/scripts/VERSION');
+  const version = readEngineVersion(repoRoot);
+  if (!/^\d+\.\d+\.\d+/.test(version)) fail(`skill/scripts/VERSION "${version}" is not a version`);
+  const cargoVersion = readWorkspacePackageVersion(readFileSync(path.join(repoRoot, 'Cargo.toml'), 'utf8'));
+  if (!cargoVersion) fail('Cargo.toml has no [workspace.package].version for the engine');
+  if (version !== cargoVersion) {
+    fail(`Engine version mismatch: skill/scripts/VERSION is ${version}, but Cargo.toml is ${cargoVersion}. Align both before tagging.`);
+  }
+  ok(`Engine ${version}`);
+
+  const tag = `engine-v${version}`;
+  checkReleasePreconditions(tag);
 
   step(`Creating annotated tag ${tag}`);
   runMutating(`git tag -a ${tag} -m "Engine ${version}"`);

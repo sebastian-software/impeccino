@@ -11,9 +11,9 @@
  * release binaries impeccino-<os>-<arch>[.exe] is fetchable. Their digests and
  * build attestations are checked by scripts/pin-engine.mjs.
  *
- * Exits 0 when everything is present, non-zero (naming exactly what is missing)
- * otherwise. release.mjs runs it before an engine-dependent release; CI runs it
- * as a soft warning until the first engine release exists.
+ * Exits 0 when every asset is present, 1 when an asset returns 404, and 2 when
+ * a request remains unverifiable after retries. release.mjs requires a verified
+ * release; CI warns on an unverifiable probe and fails on confirmed missing assets.
  *
  *   node scripts/check-engine-release.mjs            # check the pinned skill/scripts/VERSION
  *   node scripts/check-engine-release.mjs --json     # machine-readable report
@@ -27,59 +27,95 @@ import {
   readEngineVersion,
   assetUrl,
 } from './fetch-engine.mjs';
+import { isEntrypoint } from './lib/is-entrypoint.mjs';
 
-// A ranged GET is the most portable existence probe: GitHub release downloads
-// answer HEAD inconsistently across their 302 to object storage, but a
-// `Range: bytes=0-0` GET follows the redirect and returns 200/206 for a real
-// asset and 404 for a missing one without pulling the whole binary.
-async function urlExists(url) {
-  try {
-    const res = await fetch(url, { redirect: 'follow', headers: { Range: 'bytes=0-0' } });
-    return res.ok || res.status === 206;
-  } catch (err) {
-    return false;
+const DEFAULT_RETRIES = 2;
+const DEFAULT_RETRY_DELAY_MS = 250;
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+
+// A ranged GET follows GitHub's redirect without pulling the whole binary.
+// Only 404 proves an asset is absent; request failures and other HTTP errors
+// remain unverified and are retried before being reported separately.
+async function probeAsset(url, fetchImpl, retries, retryDelayMs, timeoutMs) {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetchImpl(url, {
+        redirect: 'follow',
+        headers: { Range: 'bytes=0-0' },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (res.status === 404) return { state: 'missing' };
+      if (res.ok || res.status === 206) return { state: 'present' };
+      lastError = new Error(`HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}`);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+    if (attempt < retries) await new Promise((resolve) => setTimeout(resolve, retryDelayMs * (attempt + 1)));
   }
+  return { state: 'unreachable', error: lastError?.message || 'request failed' };
 }
 
 /**
- * Check every asset for one engine version. Returns { ok, version, base, missing }
- * where missing is a list of { kind, target, what, url } entries.
+ * Check every asset for one engine version. Returns missing 404 assets and
+ * unverified assets separately.
  */
 export async function checkEngineRelease({
   version = readEngineVersion(),
   base = process.env.IMPECCINO_DOWNLOAD_BASE || DEFAULT_DOWNLOAD_BASE,
+  fetchImpl = fetch,
+  retries = DEFAULT_RETRIES,
+  retryDelayMs = DEFAULT_RETRY_DELAY_MS,
+  timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
 } = {}) {
   const missing = [];
+  const unreachable = [];
 
   await Promise.all(
     ENGINE_TARGETS.map(async (target) => {
       const binUrl = assetUrl(version, target, base);
-      const binOk = await urlExists(binUrl);
-
-      if (!binOk) missing.push({ kind: 'binary', target, what: `impeccino-${target} binary`, url: binUrl });
+      const probe = await probeAsset(binUrl, fetchImpl, retries, retryDelayMs, timeoutMs);
+      if (probe.state === 'missing') {
+        missing.push({ kind: 'binary', target, what: `impeccino-${target} binary`, url: binUrl });
+      } else if (probe.state === 'unreachable') {
+        unreachable.push({ kind: 'binary', target, what: `impeccino-${target} binary`, url: binUrl, error: probe.error });
+      }
     })
   );
 
   missing.sort((a, b) => ENGINE_TARGETS.indexOf(a.target) - ENGINE_TARGETS.indexOf(b.target));
+  unreachable.sort((a, b) => ENGINE_TARGETS.indexOf(a.target) - ENGINE_TARGETS.indexOf(b.target));
 
-  return { ok: missing.length === 0, version, base, missing };
+  return { ok: missing.length === 0 && unreachable.length === 0, version, base, missing, unreachable };
 }
 
 function report(result) {
-  const { ok, version, base, missing } = result;
+  const { ok, version, base, missing, unreachable } = result;
   if (ok) {
     console.log(`✓ engine v${version} release is complete: all ${ENGINE_TARGETS.length} binaries are published.`);
     console.log(`  release base: ${base}`);
     return;
   }
-  console.error(`✗ engine v${version} release is INCOMPLETE — ${missing.length} asset(s) missing:`);
-  for (const m of missing) {
-    console.error(`  · ${m.what}`);
-    console.error(`      ${m.url}`);
+  if (missing.length) {
+    console.error(`✗ engine v${version} release is INCOMPLETE — ${missing.length} asset(s) missing:`);
+    for (const m of missing) {
+      console.error(`  · ${m.what}`);
+      console.error(`      ${m.url}`);
+    }
   }
-  console.error('');
-  console.error(`Publish engine v${version} (tag engine-v${version}, pnpm run release:engine)`);
-  console.error('BEFORE releasing the skill. See CLAUDE.md "Releases".');
+  if (unreachable.length) {
+    console.error(`✗ could not verify ${unreachable.length} engine v${version} asset(s) after retries:`);
+    for (const m of unreachable) {
+      console.error(`  · ${m.what}: ${m.error}`);
+      console.error(`      ${m.url}`);
+    }
+  }
+  if (missing.length) {
+    console.error('');
+    console.error(`Publish engine v${version} (tag engine-v${version}, pnpm run release:engine)`);
+    console.error('BEFORE releasing the skill. See CLAUDE.md "Releases".');
+  }
+  if (unreachable.length) console.error('Check network access and rerun this probe before releasing the skill.');
   console.error(`  release base: ${base}`);
 }
 
@@ -91,10 +127,10 @@ async function main(argv = process.argv.slice(2)) {
   } else {
     report(result);
   }
-  return result.ok ? 0 : 1;
+  return result.ok ? 0 : result.missing.length ? 1 : 2;
 }
 
 // Run only when invoked directly, not when imported by release.mjs.
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isEntrypoint(import.meta.url)) {
   main().then((code) => process.exit(code));
 }
