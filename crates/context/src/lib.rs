@@ -4,7 +4,6 @@
 pub mod jsp;
 pub mod util;
 pub mod url;
-pub mod http;
 pub mod provider;
 pub mod hook_markers;
 pub mod target_args;
@@ -29,8 +28,6 @@ pub mod design_parser;
 pub mod staleness_deep;
 pub mod doctor;
 pub use doctor::run as run_doctor;
-pub mod catalog;
-pub mod roll_selection;
 pub mod seed_text;
 pub mod concept_seed;
 pub use concept_seed::run as run_concept_seed;

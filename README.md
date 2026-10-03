@@ -126,6 +126,7 @@ Impeccable compiles the skill into 19 harness-specific variants, commits those v
 | Browser | Live mode in the user's dev server, a local decision page, a component review page, URL scans over its own Chrome connection | No browser stack of its own: screenshots come from the agent's browser, decisions from the structured question tool | [0011](docs/adr/0011-no-own-browser-stack.md) |
 | Rendered-page rules | Run in the live overlay, the extension, or URL scans over Impeccable's own Chrome connection | `detect <url>` drives agent-browser: a read-only measurement in the page, the same rules evaluated natively, screenshot pixels for the rest | [0016](docs/adr/0016-rendered-pages-through-agent-browser.md) |
 | Build path | Comp-first (image-generated mock, comp fidelity tooling) or code-first, chosen by `buildPath` | Code-led build only, carried by the direction contract | [0012](docs/adr/0012-no-image-comps.md) |
+| Concept roll | `concept-seed` deals visual worlds from Impeccable's hosted catalog and reports the user's choice back to it | `concept-seed` assigns one of the agent's own grounded directions on your machine; no catalog, no network, no ping | [0019](docs/adr/0019-concept-seed-is-local.md) |
 | Rule engine targets | Native binary plus a WebAssembly build for the browser extension and the in-page overlay | One native binary; no WebAssembly build, no browser extension | [0013](docs/adr/0013-no-wasm-or-browser-extension.md) |
 | Releases | Changelog entry in the website repository, rendered into the release notes; Windows binaries signed with the upstream maintainer's certificate | Per-component tags (`skill-v`, `engine-v`) with notes GitHub generates from the commits; binaries verified by checksum | [0014](docs/adr/0014-releases-are-tags.md) |
 | Docs | Finished plans, port contracts, release notes, and demos kept in `docs/` | `docs/` holds current guidance and ADRs; the oracle corpus is the behavioral contract; history lives in git | [0015](docs/adr/0015-history-lives-in-git.md) |
@@ -135,7 +136,7 @@ Unchanged: the design guidance itself, every command that does not need a browse
 
 **Verified so far.** `skill/` loads in Claude Code and in Codex: both resolve and run the launcher, and Codex names commands with `$`. Dalo and skills.sh both find and install it. The Rust workspace tests, the core suite, the full oracle corpus, and rendered-page scans through agent-browser pass.
 
-**Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs. `concept-seed` still draws its visual-world catalog from Impeccable's public API (`impeccable.style/api`); see [#7](https://github.com/sebastian-software/impeccino/issues/7).
+**Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs.
 
 ## Installation
 

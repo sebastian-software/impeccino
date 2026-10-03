@@ -23,6 +23,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINE_TARGETS, PIN_FILE, assetName, assetUrl, missingPins, readEngineVersion } from './fetch-engine.mjs';
+import { isEntrypoint } from './lib/is-entrypoint.mjs';
 
 export { PIN_FILE, missingPins };
 
@@ -82,6 +83,6 @@ async function main(argv = process.argv.slice(2)) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isEntrypoint(import.meta.url)) {
   main().then((code) => process.exit(code), (err) => { console.error(`✗ ${err.message}`); process.exit(1); });
 }

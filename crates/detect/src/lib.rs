@@ -21,7 +21,6 @@ pub mod jsp;
 pub mod profiler;
 pub mod project_ignores;
 pub mod regex_matchers;
-pub mod skills;
 pub mod util;
 
 use impeccino_common::Io;
@@ -33,11 +32,6 @@ pub use engines::{
 /// `impeccino detect [args]` (`detectCli`). Returns the exit code.
 pub fn run_detect(args: &[String], io: &mut Io, engines: &Engines) -> i32 {
     cli::run_detect(args, io, engines)
-}
-
-/// `impeccino skills [args]` and the top-level `help|install|link|update|check`.
-pub fn run_skills(args: &[String], io: &mut Io) -> i32 {
-    skills::run(args, io)
 }
 
 /// JS: cli.js#looksLikeDetectTarget

@@ -21,7 +21,7 @@ The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the ro
 - **`skill/scripts/VERSION`** pins the engine release (`engine-v<X>` on this repo's GitHub Releases, built by `.github/workflows/release-engine.yml` when `pnpm run release:engine` pushes the tag). The launcher reads it to name the download and the cache dir (ADR 0009); the workspace `Cargo.toml` version must match it (`impeccino --version` prints the crate version, and a test checks the two agree). Bumping it is a release-time decision, like the other manifest versions.
 - **Binaries are never tracked.** `skill/scripts/bin/` is gitignored, so `skill/` ships launcher-only and users get the binary on first run (ADR 0010).
 - **Tests get a binary** from `IMPECCINO_BIN`, then `skill/scripts/bin/<os-arch>/` (`pnpm run fetch:engine`; `IMPECCINO_BIN=<local build> pnpm run fetch:engine` copies a local build there), then `target/release/impeccino` from a plain `cargo build --release -p impeccino`. `tests/lib/engine-bin.mjs` is the one resolver; suites that need the binary skip cleanly without it.
-- **The oracle is the behavior gate.** `tests/oracle/` holds goldens recorded from the JS scripts before they left the tree, plus reviewed deltas in `DELTAS.md`; `tests/oracle.test.mjs` replays them against the binary in `pnpm run test`. New cases are recorded from the binary (`record.mjs --bin`) and reviewed by hand. `tests/oracle/vectors/calls/` is the frozen function-level snapshot; it cannot be regenerated.
+- **The oracle is the behavior gate.** `tests/oracle/` holds the exact engine behavior goldens; `tests/oracle.test.mjs` replays them against the binary in `pnpm run test`. New cases and intentional behavior changes are recorded from the current source binary (`record.mjs --bin`) and reviewed by hand. `tests/oracle/vectors/calls/` is the frozen function-level snapshot; it cannot be regenerated.
 - **What stays JavaScript here:** the repository and test tooling. Impeccino injects nothing into the user's running app ([ADR 0011](docs/adr/0011-no-own-browser-stack.md)); screenshots come from agent-browser or the harness's browser tool, decisions from the host's structured question tool, and `detect <url>` measures rendered pages through agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)).
 
 **Do not add standalone skills** unless there's a strong reason. The consolidation was deliberate: the `/` menu pollution problem is real and gets worse as users install more plugins.
@@ -89,9 +89,9 @@ Impeccino writes files into user projects, so a released version has to cope wit
 
 **`doctor` is a utility command, not a design command.** It follows the `hooks` and `pin` pattern (a line in SKILL.md plus `reference/doctor.md`), not the Commands-table pattern. It is deliberately **not** in `IMPECCINO_SUB_COMMANDS`, `command-metadata.json`, `SKILL_CATEGORIES`, or the `pin` verb's valid-command list, and it does not count toward the 22. Keep maintenance tooling out of the design menu.
 
-## External service: the concept catalog
+## concept-seed is local
 
-`impeccino concept-seed` has no local catalog. It resolves data via `IMPECCINO_CATALOG_DIR` (tests, local experiments), then Impeccable's public roll API (`https://impeccable.style/api`, override with `IMPECCINO_API_URL`; card images from `IMPECCINO_CARD_BASE`), then a degraded promotion-only seed. Oracle cases run against `tests/fixtures/concept-catalog/`. The choice ping (`--chosen`) honors `DO_NOT_TRACK` and `IMPECCINO_NO_TELEMETRY` and only fires for API-dealt rolls. The catalog belongs to Impeccable's service; never copy its data into this repo.
+`impeccino concept-seed` assigns an index into the model's own ordered list of grounded directions (a surface round deals three) from a hash of the seed key. It has no catalog, makes no network calls, and sends no choice ping; `--chosen` and `--kind` answer with a "was removed" note ([ADR 0019](docs/adr/0019-concept-seed-is-local.md)). Impeccable's concept catalog belongs to its paid service: never fetch it or copy its data into this repo.
 
 ## Prose: read docs/STYLE.md before writing user-facing copy
 

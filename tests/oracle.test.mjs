@@ -1,7 +1,6 @@
 /**
  * Behavior gate: replays the oracle corpus (tests/oracle) against the engine
- * binary and asserts no case differs from its golden beyond the reviewed
- * deltas in tests/oracle/DELTAS.md.
+ * binary and asserts every runnable case matches its golden exactly.
  *
  * Skips cleanly when no binary is available: set IMPECCINO_BIN or run
  * `pnpm run fetch:engine` (which writes skill/scripts/bin/<os>-<arch>/).
@@ -21,7 +20,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const ENGINE_BIN = findEngineBinary();
 
 describe.skipIf(!ENGINE_BIN)('oracle corpus against the engine binary', () => {
-  it('replays every recorded case with zero unreviewed differences', () => {
+  it('replays every recorded case with zero differences', () => {
     const args = [path.join(REPO_ROOT, 'tests', 'oracle', 'run.mjs')];
     if (process.env.IMPECCINO_ORACLE_PREFIX) args.push(process.env.IMPECCINO_ORACLE_PREFIX);
     const result = spawnSync(process.execPath, args, {

@@ -7,20 +7,24 @@ skill's `reference/` and `SKILL.md` live (`../reference`, `../SKILL.md`).
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `IMPECCINO_SKILL_DIR` | The skill directory (holds `SKILL.md`, `reference/`, `scripts/`). Used for the native platform references `context` inlines, `pin`'s `command-metadata.json`, and `concept-seed`'s default catalog dir (`<skill>/scripts`). | Walk up from the executable's directory until a directory containing `reference/ios.md` is found (the binary ships at `<skill>/scripts/bin/<os>-<arch>/`). None if nothing matches: native refs are then skipped silently, like a missing file in the JS. |
+| `IMPECCINO_SKILL_DIR` | The skill directory (holds `SKILL.md`, `reference/`, `scripts/`). Used for the native platform references `context` inlines and `pin`'s `command-metadata.json`. | Walk up from the executable's directory until a directory containing `reference/ios.md` is found (the binary ships at `<skill>/scripts/bin/<os>-<arch>/`). None if nothing matches: native refs are then skipped silently, like a missing file in the JS. |
 | `IMPECCINO_PROVIDER_ID` | The provider id (`claude-code`, `codex`, `cursor`, ...). Selects the hook manifest paths `context` and `doctor` inspect and the `$`/`/` command prefix (`$` only for `codex`). | Derived from the skill dir's harness folder (`<root>/.codex/skills/impeccino` -> `codex`); otherwise `source`, which is what the JS reads in a source checkout. |
-| `IMPECCINO_SELF` | How to spell this binary in printed commands where the JS printed `node <scripts>/<script>.mjs` (`context`'s MANUAL_DETECTOR_REQUIRED, SURFACE_CONTEXT_AVAILABLE, and MONOREPO_TARGET_REQUIRED directives, `doctor`'s fix lines). Printed as `<self> <verb>`. | The executable path (`doctor` falls back to plain `impeccino`). |
+| `IMPECCINO_SELF` | How to spell this binary in printed commands where the JS printed `node <scripts>/<script>.mjs` (`context` directives, `doctor` fix lines, and detect dev-server tips). The path is shell-quoted before `<verb>` is appended. | The executable path (`doctor` falls back to plain `impeccino`). |
 
 The launcher (`skill/scripts/impeccino`) exports `IMPECCINO_SKILL_DIR`
 (its parent directory) and `IMPECCINO_SELF` (`$0`) unless they are already
-set, so directives name the launcher instead of the platform binary.
+set, so directives name the launcher instead of the platform binary. POSIX
+output uses single-quote escaping; Windows output quotes the path for `cmd.exe`.
+In PowerShell, prefix that quoted path with `&` to invoke it.
 
 Everything else is the engine's own environment (`IMPECCINO_CONTEXT_DIR`,
 `IMPECCINO_STALENESS_CACHE`, `IMPECCINO_NO_STALENESS_CHECK`,
-`IMPECCINO_CATALOG_DIR`, `IMPECCINO_API_URL`, `IMPECCINO_NO_TELEMETRY`,
-...), read unchanged from the JS contract. The update check and the image
-generation probes are gone ([ADR 0004](adr/0004-no-update-check.md),
-[ADR 0012](adr/0012-no-image-comps.md)), and so are the variables they read.
+`IMPECCINO_CONCEPT_SEED`, ...), read unchanged from the JS contract. The
+update check, the image generation probes, and the concept catalog service
+are gone ([ADR 0004](adr/0004-no-update-check.md),
+[ADR 0012](adr/0012-no-image-comps.md),
+[ADR 0019](adr/0019-concept-seed-is-local.md)), and so are the variables they
+read.
 
 The per-user cache (the hook's session state under `projects/`, the boot's
 `staleness-check.json`) follows `XDG_CACHE_HOME` when it is an absolute path,

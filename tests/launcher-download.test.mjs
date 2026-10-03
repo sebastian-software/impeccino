@@ -10,10 +10,12 @@ import { test } from 'vitest';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WINDOWS = process.platform === 'win32';
+const PLATFORM = WINDOWS ? 'windows' : process.platform === 'darwin' ? 'darwin' : 'linux';
+const ARCH = process.arch === 'arm64' ? 'arm64' : 'x64';
 const COMSPEC = process.env.ComSpec || process.env.COMSPEC || 'C:\\Windows\\System32\\cmd.exe';
 // Use the host's command interpreter as a harmless Windows executable. No
 // downloaded release binary is executed, and all network traffic is loopback.
-const PAYLOAD = WINDOWS ? fs.readFileSync(COMSPEC) : Buffer.from('#!/bin/sh\necho verified-engine\n');
+const PAYLOAD = WINDOWS ? fs.readFileSync(COMSPEC) : Buffer.from('#!/bin/sh\nif [ \"$1\" = engine-probe ]; then printf \'impeccino-engine 0.0.0-test\\n\'; else printf \'verified-engine\\n\'; fi\n');
 const HASH = createHash('sha256').update(PAYLOAD).digest('hex');
 
 async function exercise(t, scenario) {
@@ -43,21 +45,34 @@ async function exercise(t, scenario) {
   const cacheDir = defaultCache
     ? path.join(cache, 'impeccino', 'bin', '0.0.0-test')
     : path.join(cache, 'bin', '0.0.0-test');
+  const missingEnvBin = path.join(home, 'missing-engine');
+  const overrideBin = path.join(home, WINDOWS ? 'override-engine.cmd' : 'override-engine');
+  if (['sibling-marker-only', 'sibling-probe-failure', 'sibling-extra-output', 'cache-marker-only'].includes(scenario)) {
+    const sibling = scenario === 'cache-marker-only'
+      ? path.join(cacheDir, 'impeccino')
+      : path.join(scripts, 'bin', PLATFORM + '-' + ARCH, 'impeccino');
+    fs.mkdirSync(path.dirname(sibling), { recursive: true });
+    fs.writeFileSync(sibling,
+      scenario === 'sibling-probe-failure'
+        ? '#!/bin/sh\nif [ "$1" = engine-probe ]; then printf \'impeccino-engine 0.0.0-test\\n\'; exit 1; else printf \'untrusted-sibling\\n\'; fi\n'
+        : scenario === 'sibling-extra-output'
+          ? '#!/bin/sh\nif [ "$1" = engine-probe ]; then printf \'impeccino-engine 0.0.0-test\\n\\n\'; else printf \'untrusted-sibling\\n\'; fi\n'
+          : '#!/bin/sh\nif [ "$1" = engine-probe ]; then printf \'impeccino-engine\\n\'; else printf \'untrusted-sibling\\n\'; fi\n',
+      { mode: 0o755 },
+    );
+  }
+  if (scenario === 'expired-cooldown') {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, '.impeccino-download-failed'), `${Math.floor(Date.now() / 1000) - 1}\n`);
+  }
   if (scenario === 'cache-directory-failure') {
     // A file where the cache parent belongs makes mkdir fail on every OS,
     // including privileged test runners where chmod cannot deny writes.
     fs.mkdirSync(cache);
     fs.writeFileSync(path.join(cache, 'bin'), 'blocked');
   }
-  if (scenario === 'cache-write-failure') {
+  if (scenario === 'cache-write-failure' || scenario === 'cache-readonly-file') {
     fs.mkdirSync(cacheDir, { recursive: true });
-    if (WINDOWS) fs.mkdirSync(path.join(cacheDir, 'impeccino.exe.part'));
-  }
-  if (scenario === 'cache-readonly-file') {
-    fs.mkdirSync(cacheDir, { recursive: true });
-    const staging = path.join(cacheDir, 'impeccino.exe.part');
-    fs.writeFileSync(staging, 'read-only');
-    fs.chmodSync(staging, 0o444);
   }
   const tools = path.join(root, 'tools');
   fs.mkdirSync(tools);
@@ -65,6 +80,14 @@ async function exercise(t, scenario) {
     // The POSIX staging name contains the launcher's PID, so intercept the
     // preceding mkdir to place a directory at precisely that file path.
     fs.writeFileSync(path.join(tools, 'mkdir'), '#!/bin/sh\n/bin/mkdir "$@" || exit $?\n/bin/mkdir "$IMPECCINO_HOME/bin/0.0.0-test/.impeccino.part.$PPID"\n', { mode: 0o755 });
+  }
+  if (WINDOWS && ['cache-write-failure', 'cache-readonly-file'].includes(scenario)) {
+    // Windows cannot reliably deny writes when Vitest runs elevated. Pin the
+    // source copy at the exact staging boundary and leave the error path real.
+    const source = fs.readFileSync(launcher, 'utf8');
+    const operation = '(type nul >"%stage%") 2>nul || goto cache_write_failed';
+    assert.equal(source.split(operation).length, 2, 'instrument exactly one staging operation');
+    fs.writeFileSync(launcher, source.replace(operation, 'goto cache_write_failed'));
   }
   if (!WINDOWS && ['hash-failure', 'removed-during-hash'].includes(scenario)) {
     fs.writeFileSync(path.join(tools, 'shasum'),
@@ -85,22 +108,22 @@ async function exercise(t, scenario) {
     const fault = path.join(tools, 'fault.cmd');
     const hashFault = ['hash-failure', 'removed-during-hash'].includes(scenario);
     const operation = hashFault
-      ? 'certutil -hashfile "%cached%.part" SHA256 >"%cached%.hash" 2>nul'
-      : 'move /y "%cached%.part" "%cached%" >nul 2>nul';
+      ? 'certutil -hashfile "%stage%" SHA256 >"%hash_tmp%" 2>nul'
+      : 'move /y "%stage%" "%cached%" >nul 2>nul';
     let script;
     if (hashFault) {
-      script = `@echo off\n${scenario === 'removed-during-hash' ? 'del "%cached%.part" >nul 2>nul\n' : ''}echo hash header\necho ${HASH}\nexit /b 1\n`;
+      script = `@echo off\n${scenario === 'removed-during-hash' ? 'del "%stage%" >nul 2>nul\n' : ''}echo hash header\necho ${HASH}\nexit /b 1\n`;
     } else if (scenario === 'move-failure') {
       script = '@echo off\nexit /b 1\n';
     } else {
-      const before = scenario === 'removed-before-move' ? 'del "%cached%.part" >nul 2>nul\n' : '';
+      const before = scenario === 'removed-before-move' ? 'del "%stage%" >nul 2>nul\n' : '';
       const after = scenario === 'removed-after-move' ? 'del "%cached%" >nul 2>nul\n' : scenario === 'emptied-after-move' ? 'type nul >"%cached%"\n' : '';
       script = `@echo off\n${before}${operation}\nif errorlevel 1 exit /b 1\n${after}exit /b 0\n`;
     }
     fs.writeFileSync(fault, script.replaceAll('\n', '\r\n'));
     const source = fs.readFileSync(launcher, 'utf8');
     assert.equal(source.split(operation).length, 2, 'instrument exactly one operation');
-    const replacement = `call "${fault}"${hashFault ? ' >"%cached%.hash" 2>nul' : ''}`;
+    const replacement = `call "${fault}"${hashFault ? ' >"%hash_tmp%" 2>nul' : ''}`;
     fs.writeFileSync(launcher, source.replace(operation, replacement));
   }
   const requests = [];
@@ -111,7 +134,9 @@ async function exercise(t, scenario) {
       return;
     }
     if (scenario === 'download-failure') res.writeHead(404);
-    res.end(scenario === 'empty-download' ? '' : PAYLOAD);
+    const respond = () => res.end(scenario === 'empty-download' ? '' : PAYLOAD);
+    if (scenario === 'parallel-downloads') setTimeout(respond, 100);
+    else respond();
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.onTestFinished(() => new Promise(resolve => server.close(resolve)));
@@ -121,6 +146,8 @@ async function exercise(t, scenario) {
     PATH: WINDOWS ? `${process.env.SystemRoot}\\System32;${process.env.SystemRoot}` : `${tools}:/usr/bin:/bin`,
     HOME: home, USERPROFILE: home, TEMP: root, TMP: root,
     ...(defaultCache ? (WINDOWS ? { LOCALAPPDATA: cache } : { XDG_CACHE_HOME: cache }) : { IMPECCINO_HOME: cache }),
+    ...(scenario === 'missing-env-bin' ? { IMPECCINO_BIN: missingEnvBin } : {}),
+    ...(scenario === 'override-other-version' ? { IMPECCINO_BIN: overrideBin } : {}),
     IMPECCINO_DOWNLOAD_BASE: `http://127.0.0.1:${server.address().port}`,
     ...(WINDOWS ? { SystemRoot: process.env.SystemRoot, ComSpec: COMSPEC, PROCESSOR_ARCHITECTURE: 'AMD64' } : {}),
   };
@@ -135,20 +162,37 @@ async function exercise(t, scenario) {
     child.on('error', reject);
     child.on('close', (status, signal) => resolve({ status, signal, stdout, stderr }));
   });
-  const result = await run();
-  if (scenario === 'valid' || defaultCache) {
+  if (scenario === 'override-other-version') {
+    fs.writeFileSync(overrideBin, WINDOWS
+      ? '@echo off\r\necho override-engine\r\n'
+      : "#!/bin/sh\n" + "printf 'override-engine\\n'\n",
+      WINDOWS ? undefined : { mode: 0o755 },
+    );
+  }
+  const results = scenario === 'parallel-downloads' ? await Promise.all([run(), run()]) : [await run()];
+  const result = results[0];
+  if ((scenario === 'valid' || defaultCache) && !WINDOWS) {
     const requestCount = requests.length;
     const cachedResult = await run();
     assert.equal(cachedResult.status, 0, cachedResult.stderr);
     assert.match(cachedResult.stdout, /verified-engine/);
     assert.equal(cachedResult.stderr, '', 'cached execution stays quiet');
-    assert.equal(requests.length, requestCount, 'subsequent runs use the cached engine without network');
+    assert.equal(requests.length, requestCount, 'subsequent runs use the pinned cache without network');
   }
   assert.equal(result.signal, null, JSON.stringify(result));
-  const noDownload = scenario.startsWith('cache-') || ['no-pin', 'pinned-other-version'].includes(scenario);
-  assert.equal(requests.length, noDownload ? 0 : 1,
-    'cache failures and unpinned versions do not attempt a download; other scenarios download once');
-  return { ...result, files: fs.existsSync(cacheDir) ? fs.readdirSync(cacheDir) : [], requests, cacheDir };
+  for (const item of results) assert.equal(item.signal, null, JSON.stringify(item));
+  const noDownload = scenario.startsWith('cache-') && scenario !== 'cache-marker-only' || ['no-pin', 'pinned-other-version', 'missing-env-bin', 'override-other-version'].includes(scenario);
+  const expectedRequests = scenario === 'parallel-downloads' ? 2 : noDownload ? 0 : 1;
+  assert.equal(requests.length, expectedRequests,
+    'cache failures, unusable overrides, and unpinned versions do not attempt a download; parallel downloads use separate staging files');
+  let cooldownResult;
+  if (['download-failure', 'transport-failure'].includes(scenario)) {
+    cooldownResult = await run();
+    assert.equal(cooldownResult.status, 127, cooldownResult.stderr);
+    assert.match(cooldownResult.stderr, /five-minute cooldown/);
+    assert.equal(requests.length, 1, 'the retry cooldown suppresses another network request');
+  }
+  return { ...result, results, cooldownResult, files: fs.existsSync(cacheDir) ? fs.readdirSync(cacheDir) : [], requests, cacheDir };
 }
 
 for (const scenario of ['cache-directory-failure', 'cache-write-failure', 'download-failure', 'transport-failure', ...(WINDOWS ? ['cache-readonly-file'] : [])]) {
@@ -164,8 +208,9 @@ for (const scenario of ['cache-directory-failure', 'cache-write-failure', 'downl
     if (['download-failure', 'transport-failure'].includes(scenario)) {
       assert.match(result.stderr, /could not download/);
       assert.match(result.stderr, /network/);
-      assert.deepEqual(result.files, [], 'failed downloads leave no staging files');
+      assert.deepEqual(result.files, ['.impeccino-download-failed'], 'failed downloads leave only the cooldown marker');
       assert.equal(result.requests.length, 1, 'no verification without a download');
+      assert.match(result.cooldownResult.stderr, /five-minute cooldown/);
     } else {
       assert.match(result.stderr, scenario === 'cache-directory-failure' ? /cannot create/ : /cannot write/);
     }
@@ -180,6 +225,51 @@ for (const scenario of ['valid', 'default-cache']) {
     assert.deepEqual(result.files, [WINDOWS ? 'impeccino.exe' : 'impeccino'], `cached under ${result.cacheDir}`);
     assert.equal(result.requests.length, 1, 'the pinned digest needs no checksum download');
   });
+}
+
+test('launcher refuses an unusable IMPECCINO_BIN instead of falling through', async t => {
+  const result = await exercise(t, 'missing-env-bin');
+  assert.equal(result.status, 127, JSON.stringify(result));
+  assert.match(result.stderr, /IMPECCINO_BIN.*(missing|not found|usable|executable)/i);
+  assert.deepEqual(result.requests, [], 'an explicit but unusable override must not download another engine');
+});
+
+test('launcher honors an explicit IMPECCINO_BIN even when it has another version', async t => {
+  const result = await exercise(t, 'override-other-version');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /override-engine/);
+  assert.deepEqual(result.requests, [], 'an explicit developer override is not version-pinned or replaced');
+});
+
+test('launcher recovers after an expired failure cooldown', async t => {
+  const result = await exercise(t, 'expired-cooldown');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /verified-engine/);
+  assert.equal(result.requests.length, 1, 'an expired marker permits one new fetch');
+  assert.deepEqual(result.files, [WINDOWS ? 'impeccino.exe' : 'impeccino']);
+});
+
+if (!WINDOWS) {
+  test('parallel launcher downloads use distinct temporary files', async t => {
+    const result = await exercise(t, 'parallel-downloads');
+    assert.equal(result.results.length, 2);
+    for (const run of result.results) {
+      assert.equal(run.status, 0, run.stderr);
+      assert.match(run.stdout, /verified-engine/);
+    }
+    assert.equal(result.requests.length, 2);
+    assert.deepEqual(result.files, ['impeccino']);
+  });
+
+  for (const scenario of ['sibling-marker-only', 'sibling-probe-failure', 'sibling-extra-output', 'cache-marker-only']) {
+    test(`launcher rejects an unpinned sibling (${scenario}) instead of running it as the pinned engine`, async t => {
+      const result = await exercise(t, scenario);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /verified-engine/);
+      assert.doesNotMatch(result.stdout, /untrusted-sibling/);
+      assert.equal(result.requests.length, 1, 'a sibling without a successful exact-version probe must fall through to download');
+    });
+  }
 }
 
 for (const scenario of ['no-pin', 'pinned-other-version']) {

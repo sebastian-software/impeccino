@@ -10,6 +10,24 @@ pub mod jsp;
 pub mod proc;
 pub mod project_files;
 
+/// Quote a launcher executable path for a command string printed to a shell.
+/// POSIX shells use single-quote escaping when the path needs it; Windows
+/// paths are double-quoted for cmd.exe and PowerShell. PowerShell callers
+/// prefix the command with `&`.
+pub fn quote_executable_path(value: &str, win32: bool) -> String {
+    if !value.is_empty()
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b':' | b'-' | b'/'))
+    {
+        return value.to_string();
+    }
+    if win32 {
+        return format!("\"{value}\"");
+    }
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::{Read, Write};
@@ -191,6 +209,32 @@ impl Io {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quote_executable_path_keeps_paths_literal() {
+        assert_eq!(quote_executable_path("impeccino", false), "impeccino");
+        assert_eq!(
+            quote_executable_path("/opt/bin/impeccino", false),
+            "/opt/bin/impeccino"
+        );
+        assert_eq!(
+            quote_executable_path("/opt/Space Grotesk/impeccino", false),
+            "'/opt/Space Grotesk/impeccino'"
+        );
+        assert_eq!(
+            quote_executable_path("$(touch pwned)", false),
+            "'$(touch pwned)'"
+        );
+        assert_eq!(quote_executable_path("it's", false), "'it'\\''s'");
+        assert_eq!(
+            quote_executable_path("C:\\Program Files\\impeccino.cmd", true),
+            "\"C:\\Program Files\\impeccino.cmd\""
+        );
+        assert_eq!(
+            quote_executable_path(" /tmp/path with edge spaces/impeccino ", false),
+            "' /tmp/path with edge spaces/impeccino '",
+        );
+    }
 
     #[cfg(unix)]
     #[test]

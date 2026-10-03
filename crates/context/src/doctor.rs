@@ -208,9 +208,10 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     // IMPECCINO_SELF, and the plain `impeccino` verb otherwise.
     let self_cmd = env
         .get("IMPECCINO_SELF")
-        .map(|v| v.trim().to_string())
-        .filter(|v| !v.is_empty())
+        .filter(|v| !v.trim().is_empty())
+        .cloned()
         .unwrap_or_else(|| "impeccino".to_string());
+    let self_cmd = impeccino_common::quote_executable_path(&self_cmd, cfg!(windows));
     let (flags, target) = match parse_args(args) {
         Ok(v) => v,
         Err(msg) => {

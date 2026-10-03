@@ -37,10 +37,17 @@ fn sh_launcher_asset_naming_matches_engine() {
     let win_x64 = asset_url(DEFAULT_DOWNLOAD_BASE, "V", "windows", "x64");
     assert!(win_x64.ends_with("/engine-vV/impeccino-windows-x64.exe"));
     assert!(sh.contains(r#"url="$base/engine-v$version/impeccino-windows-x64.exe""#));
-    // The PATH and unversioned home candidates are probed; trusted paths are not.
+    // Only automatic, version-pinned candidates are probed; PATH and the
+    // unversioned user cache are not fallback candidates.
     assert!(sh.contains("engine-probe"));
-    assert!(sh.contains(r#"probe_ok "$home_bin""#));
-    assert!(sh.contains("probe_ok impeccino"));
+    assert!(sh.contains(r#"probe_ok "$bin" "$version""#));
+    assert!(sh.contains(r#"probe_ok "$cached" "$version""#));
+    assert!(sh.contains("cmp -s - "));
+    assert!(!sh.contains("home_bin"));
+    assert!(!sh.contains("command -v impeccino"));
+    assert!(sh.contains("IMPECCINO_BIN points to a missing or non-executable file"));
+    assert!(sh.contains("--connect-timeout 5 --max-time 60"));
+    assert!(sh.contains("record_failure || true"));
     // The final error must not recommend the npm package (it still serves 3.x).
     assert!(!sh.contains("npm i -g"));
     assert!(!sh.contains("npm install"));
@@ -59,10 +66,35 @@ fn cmd_launcher_asset_naming_matches_engine() {
     // sha256 verification via certutil against the pinned digest.
     assert!(cmd.contains("certutil -hashfile"));
     assert!(cmd.contains("engine.sha256"));
-    // engine-probe handshake for PATH / unversioned home candidates.
+    // Exact, successful engine/version handshake for sibling/cache candidates.
     assert!(cmd.contains("engine-probe"));
-    assert!(cmd.contains(r#"findstr /b /c:"impeccino-engine""#));
+    assert!(cmd.contains(r#"findstr /x /c:"impeccino-engine %~2""#));
+    assert!(cmd.contains(r#"if not "%probe_status%"=="0""#));
+    assert!(cmd.contains(r#"if not "%probe_lines%"=="1""#));
+    assert!(!cmd.contains("home_bin"));
+    assert!(!cmd.contains("where impeccino"));
+    assert!(cmd.contains("IMPECCINO_BIN points to a missing or unusable executable"));
+    assert!(cmd.contains("--connect-timeout 5 --max-time 60"));
+    assert!(cmd.contains(r#"set "stage=%cache_dir%\impeccino-%RANDOM%%RANDOM%.part""#));
+    assert!(cmd.contains(".impeccino-download-failed"));
+    assert!(cmd.contains(r#"System32\WindowsPowerShell\v1.0\powershell.exe"#));
+    assert_eq!(cmd.matches(r#"<nul >nul 2>nul"#).count(), 2);
+    assert!(cmd.contains("[IO.File]::ReadAllText($p)"));
+    assert!(cmd.contains("[IO.File]::Delete($p)"));
+    assert!(!cmd.contains("Get-Content -Raw"));
     assert!(!cmd.contains("npm i -g"));
+}
+
+#[test]
+fn launchers_fail_explicit_overrides_and_bound_downloads() {
+    let sh = launcher_file("impeccino");
+    let cmd = launcher_file("impeccino.cmd");
+    assert!(sh.contains("IMPECCINO_BIN points to a missing or non-executable file"));
+    assert!(cmd.contains("IMPECCINO_BIN points to a missing or unusable executable"));
+    assert!(sh.contains("--connect-timeout 5 --max-time 60"));
+    assert!(cmd.contains("--connect-timeout 5 --max-time 60"));
+    assert!(sh.contains(".impeccino-download-failed"));
+    assert!(cmd.contains(".impeccino-download-failed"));
 }
 
 #[test]
@@ -128,7 +160,7 @@ fn sh_launcher_exports_skill_dir_before_the_env_bin_exec() {
         .find("export IMPECCINO_SKILL_DIR IMPECCINO_SELF")
         .expect("launcher exports the skill-dir env");
     let env_bin_exec = sh
-        .find(r#"exec "${IMPECCINO_BIN}""#)
+        .find(r#"exec "$IMPECCINO_BIN""#)
         .expect("launcher execs IMPECCINO_BIN");
     assert!(
         export_pos < env_bin_exec,
@@ -160,4 +192,52 @@ fn sh_launcher_passes_skill_dir_to_the_env_bin() {
         "launcher must export a non-empty IMPECCINO_SKILL_DIR to the IMPECCINO_BIN binary; got: {stdout}"
     );
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[cfg(unix)]
+#[test]
+fn detect_dev_server_tip_quotes_the_actual_launcher_path() {
+    use std::collections::HashMap;
+    use std::net::TcpListener;
+
+    let root = std::env::temp_dir().join(format!("impeccino-detect-tip-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("next.config.js"), "module.exports = {};\n").unwrap();
+    let port = TcpListener::bind(("127.0.0.1", 0))
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    std::fs::write(
+        root.join("next.config.js"),
+        format!("module.exports = {{ port: {port} }};\n"),
+    )
+    .unwrap();
+
+    let self_path = "/tmp/impeccino space '$(touch marker)/scripts/impeccino";
+    let env = HashMap::from([("IMPECCINO_SELF".to_string(), self_path.to_string())]);
+    let (mut io, captured) = impeccino_common::Io::captured("", root.clone(), env);
+    let html = impeccino_detect::MissingHtmlEngine;
+    let engines = impeccino_detect::Engines {
+        html: &html,
+        url: None,
+    };
+    let status = impeccino_detect::run_detect(&[".".to_string()], &mut io, &engines);
+    let stderr = String::from_utf8(captured.stderr.borrow().clone()).unwrap();
+    assert_eq!(status, 0, "{stderr}");
+    assert!(
+        stderr.contains(
+            "'/tmp/impeccino space '\\''$(touch marker)/scripts/impeccino' detect http://localhost:"
+        ),
+        "{stderr}"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn detect_dev_server_tip_documents_powershell_invocation() {
+    let path = format!("{}/../detect/src/cli.rs", env!("CARGO_MANIFEST_DIR"));
+    let source = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+    assert!(source.contains("In PowerShell, prefix the quoted launcher path with `&`."));
+    assert!(source.contains("quote_executable_path(self_cmd, cfg!(windows))"));
 }

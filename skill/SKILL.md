@@ -4,7 +4,7 @@ description: "Use when the user wants to design, redesign, shape, critique, audi
 user-invocable: true
 argument-hint: "[craft|shape · audit|critique · animate|bolder|colorize|delight|layout|overdrive|quieter|typeset · adapt|clarify|distill · harden|onboard|optimize|polish · init|document|extract] [target]"
 license: Apache-2.0
-compatibility: "Needs shell access. The launcher downloads its self-contained engine binary once on first run (network). Rendered-page scans (detect <url>) also need agent-browser on PATH (npm install -g agent-browser && agent-browser install); everything else works without it."
+compatibility: "Needs shell access. The launcher downloads its self-contained engine binary once on first run (network); after that concept-seed, like every verb that reads project files, runs offline. Rendered-page scans (detect <url>) also need agent-browser on PATH (npm install -g agent-browser && agent-browser install); everything else works without it."
 metadata:
   version: 0.1.0
 ---

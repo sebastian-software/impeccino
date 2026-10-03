@@ -98,7 +98,7 @@ pub fn detect(env: &Env, cwd: &str) -> Provider {
     let command_prefix = if id == "codex" { "$" } else { "/" }.to_string();
     let command = format!("{}impeccino", command_prefix);
     let self_cmd = match env.get("IMPECCINO_SELF").filter(|v| !v.trim().is_empty()) {
-        Some(v) => v.trim().to_string(),
+        Some(v) => v.to_string(),
         None => exe_path().unwrap_or_else(|| "impeccino".to_string()),
     };
     Provider { id, command_prefix, command, skill_dir, self_cmd }
@@ -116,6 +116,10 @@ impl Provider {
     /// The command a directive should print for a sibling verb, in place of
     /// `node <scripts>/<verb>.mjs`.
     pub fn verb_cmd(&self, verb: &str) -> String {
-        format!("{} {}", self.self_cmd, verb)
+        format!(
+            "{} {}",
+            impeccino_common::quote_executable_path(&self.self_cmd, cfg!(windows)),
+            verb
+        )
     }
 }

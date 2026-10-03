@@ -314,11 +314,9 @@ function buildInvocation(c, { impl, bin, ws, isolatedHome }) {
     NO_COLOR: '1',
     FORCE_COLOR: '0',
     IMPECCINO_NO_UPDATE_CHECK: '1',
-    IMPECCINO_NO_TELEMETRY: '1',
     // Context reports a missing agent-browser; any existing file counts as
     // installed, so goldens do not depend on the recording machine's PATH.
     IMPECCINO_AGENT_BROWSER: process.execPath,
-    DO_NOT_TRACK: '1',
     // The per-user cache (hook state, the staleness throttle) follows the
     // isolated home: XDG_CACHE_HOME and LOCALAPPDATA from the recording
     // machine must not leak in.

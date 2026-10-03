@@ -16,6 +16,6 @@ Removed: the verbs above, `crates/comp` and `crates/comp-verbs`, the font index,
 
 ## Consequences
 
-- The finish reviewer judges the build against the direction contract, the screenshots, and the QUALITY BAR card; its dispositions are recapture, fix, and ship.
+- The finish reviewer judges the build against the direction contract and the screenshots; its dispositions are recapture, fix, and ship.
 - Gemini CLI no longer gets a hook manifest; Claude Code, Codex, Cursor, Copilot, and Grok keep theirs.
 - `buildPath` in an existing config is tolerated without a finding.

@@ -183,7 +183,18 @@ jobs:
 
       - name: Check engine release assets for the pinned engine version
         id: check
-        run: node scripts/check-engine-release.mjs
+        shell: bash
+        run: |
+          if node scripts/check-engine-release.mjs; then
+            exit 0
+          else
+            status=$?
+          fi
+          if [ "$status" -eq 2 ]; then
+            echo "::warning title=Engine release check unavailable::GitHub release assets could not be verified after retries. Rerun this check before changing the engine pin or releasing the skill."
+            exit 0
+          fi
+          exit "$status"
 
       - name: Check the skill pins that engine release
         run: node scripts/pin-engine.mjs --check
