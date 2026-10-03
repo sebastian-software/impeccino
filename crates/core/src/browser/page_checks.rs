@@ -13,7 +13,7 @@ use super::dom::{
 use super::element_checks::{class_selector, effective_opacity_dom, is_rendered_for_browser_rule};
 use super::{BrowserFinding, ElFinding};
 use crate::checks::measures::{
-    cream_from_class_list, is_cream_color, is_opaque_decorated_box,
+    cream_from_class_list, css_color_is_transparent, is_cream_color, is_opaque_decorated_box,
     is_screen_reader_only_text_style, SrOnlyMetrics, StyleMap,
 };
 use crate::checks::rules::{
@@ -251,7 +251,8 @@ pub fn is_card_like_dom(dom: &dyn Dom, el: ElId) -> bool {
     let has_border = BORDER_CLASS_RE.is_match(&cls);
     let has_radius = parse_float(&dom.style(el, "borderRadius")) > 0.0 || ROUNDED_CLASS_RE.is_match(&cls);
     let bg = dom.style(el, "backgroundColor");
-    let has_bg = (!bg.is_empty() && bg != "rgba(0, 0, 0, 0)") || BG_CLASS_RE.is_match(&cls);
+    let has_bg = (!bg.is_empty() && !css_color_is_transparent(Some(&bg)))
+        || BG_CLASS_RE.is_match(&cls);
     is_card_like_from_props(has_shadow, has_border, has_radius, has_bg)
 }
 
@@ -1448,6 +1449,108 @@ mod tests {
     }
 
     #[test]
+    fn typography_does_not_report_a_secondary_overused_face() {
+        let mut d = FakeDom::new();
+        let (_h, body) = d.with_page();
+        for i in 0..19 {
+            let p = d.add(Some(body), "p");
+            d.add_text(p, &format!("Georgia copy {i}"));
+            d.set_style(p, "fontFamily", "Georgia, serif");
+        }
+        let p = d.add(Some(body), "p");
+        d.add_text(p, "One Inter exception");
+        d.set_style(p, "fontFamily", "Inter, sans-serif");
+
+        let findings = check_typography(&d);
+        assert!(
+            findings.iter().all(|finding| finding.type_ != "overused-font"),
+            "a secondary Inter face must not be reported as the page's primary font: {findings:?}"
+        );
+    }
+
+    #[test]
+    fn typography_reports_a_unique_leader_without_a_majority_threshold() {
+        let mut d = FakeDom::new();
+        let (_h, body) = d.with_page();
+        for (count, font) in [(40, "Inter, sans-serif"), (35, "Georgia, serif"), (25, "Lato, sans-serif")] {
+            for i in 0..count {
+                let p = d.add(Some(body), "p");
+                d.add_text(p, &format!("{font} copy {i}"));
+                d.set_style(p, "fontFamily", font);
+            }
+        }
+
+        let findings = check_typography(&d);
+        let font = findings.iter().find(|finding| finding.type_ == "overused-font").unwrap();
+        assert_eq!(font.detail, "Primary font: inter (40% of text)");
+    }
+
+    #[test]
+    fn typography_ignores_tied_leaders() {
+        let mut d = FakeDom::new();
+        let (_h, body) = d.with_page();
+        for (font, count) in [("Inter, sans-serif", 20), ("Georgia, serif", 20)] {
+            for i in 0..count {
+                let p = d.add(Some(body), "p");
+                d.add_text(p, &format!("{font} copy {i}"));
+                d.set_style(p, "fontFamily", font);
+            }
+        }
+
+        let findings = check_typography(&d);
+        assert!(findings.iter().all(|finding| finding.type_ != "overused-font"), "{findings:?}");
+    }
+
+    #[test]
+    fn typography_ignores_tied_leaders_divs_and_own_tool_nodes() {
+        let mut d = FakeDom::new();
+        let (_h, body) = d.with_page();
+        let paragraph = d.add(Some(body), "p");
+        d.add_text(paragraph, "One regular paragraph");
+        d.set_style(paragraph, "fontFamily", "Georgia, serif");
+        for i in 0..19 {
+            let div = d.add(Some(body), "div");
+            d.add_text(div, &format!("Inter div {i}"));
+            d.set_style(div, "fontFamily", "Inter, sans-serif");
+        }
+        let overlay = d.add(Some(body), "div");
+        d.set_attr(overlay, "class", "impeccino-overlay");
+        d.add_selector(overlay, ".impeccino-overlay");
+        for i in 0..20 {
+            let p = d.add(Some(overlay), "p");
+            d.add_text(p, &format!("Overlay text {i}"));
+            d.set_style(p, "fontFamily", "Inter, sans-serif");
+        }
+
+        let findings = check_typography(&d);
+        assert!(findings.iter().all(|finding| finding.type_ != "overused-font"), "{findings:?}");
+    }
+
+    #[test]
+    fn typography_keeps_platform_faces_ahead_of_overused_fallbacks() {
+        for stack in [
+            "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+            "system-ui, sans-serif",
+            "\"Segoe UI\", Roboto, sans-serif",
+            "ui-sans-serif, Roboto, sans-serif",
+        ] {
+            let mut d = FakeDom::new();
+            let (_h, body) = d.with_page();
+            for i in 0..20 {
+                let p = d.add(Some(body), "p");
+                d.add_text(p, &format!("Platform copy {i}"));
+                d.set_style(p, "fontFamily", stack);
+            }
+
+            let findings = check_typography(&d);
+            assert!(
+                findings.iter().all(|finding| finding.type_ != "overused-font"),
+                "{stack}: {findings:?}"
+            );
+        }
+    }
+
+    #[test]
     fn flat_type_hierarchy_roles() {
         let mut d = FakeDom::new();
         let (_h, body) = d.with_page();
@@ -1508,6 +1611,45 @@ mod tests {
         assert_eq!(f[0].finding.detail, "Card inside card");
         d.set_style(inner, "position", "absolute");
         assert!(check_layout(&d).is_empty());
+        d.set_style(inner, "position", "fixed");
+        assert!(check_layout(&d).is_empty());
+    }
+
+    #[test]
+    fn nested_cards_recognizes_background_only_surfaces_from_snapshot_styles() {
+        let mut d = FakeDom::new();
+        let (_h, body) = d.with_page();
+        let outer = d.add(Some(body), "div");
+        d.set_styles(outer, &[("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"), ("backgroundColor", "rgb(255, 255, 255)"), ("position", "static")]);
+        d.set_rect(outer, 0.0, 0.0, 400.0, 300.0);
+        let inner = d.add(Some(outer), "div");
+        d.set_styles(inner, &[("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"), ("backgroundColor", "rgb(250, 250, 250)"), ("position", "static")]);
+        d.set_rect(inner, 10.0, 10.0, 200.0, 100.0);
+        d.add_text(inner, "Some card body text");
+        d.add_text(outer, "Outer text longer than ten");
+
+        let findings = check_layout(&d);
+        assert_eq!(findings.len(), 1, "{findings:?}");
+        assert_eq!(findings[0].finding.type_, "nested-cards");
+        assert_eq!(findings[0].el, Some(inner));
+    }
+
+    #[test]
+    fn nested_cards_ignores_transparent_snapshot_backgrounds() {
+        for background in ["rgba(0, 0, 0, 0)", "rgba(255, 255, 255, 0)"] {
+            let mut d = FakeDom::new();
+            let (_h, body) = d.with_page();
+            let outer = d.add(Some(body), "div");
+            d.set_styles(outer, &[("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"), ("backgroundColor", background), ("position", "static")]);
+            d.set_rect(outer, 0.0, 0.0, 400.0, 300.0);
+            let inner = d.add(Some(outer), "div");
+            d.set_styles(inner, &[("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"), ("backgroundColor", background), ("position", "static")]);
+            d.set_rect(inner, 10.0, 10.0, 200.0, 100.0);
+            d.add_text(inner, "Some card body text");
+            d.add_text(outer, "Outer text longer than ten");
+
+            assert!(check_layout(&d).is_empty(), "{background}");
+        }
     }
 
     #[test]

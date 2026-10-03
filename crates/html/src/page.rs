@@ -7,7 +7,9 @@ use crate::adapters::{class_selector, StyleRef};
 use crate::background::{read_own_background_color, resolve_border_radius_px, sv};
 use crate::dom::{StaticDocument, StaticElement};
 use crate::quality::{has_nonblank_direct_text, pf0};
-use impeccino_core::checks::measures::{cream_from_class_list, is_cream_color};
+use impeccino_core::checks::measures::{
+    cream_from_class_list, css_color_is_transparent, is_cream_color,
+};
 use impeccino_core::checks::rules::{
     check_flat_type_hierarchy_samples, is_card_like_from_props, type_hierarchy_role, RuleHit,
     TypeSample, TYPE_HIERARCHY_SELECTOR,
@@ -35,10 +37,17 @@ fn font_token(f: &str) -> String {
 /// JS: detect-html.mjs#checkStaticPageTypography(document, window)
 pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
     let mut findings = Vec::new();
-    let mut overused_found: Vec<String> = Vec::new();
+    let mut font_usage: Vec<(String, usize)> = Vec::new();
+    let mut total_text_elements = 0usize;
     for el in doc.query_selector_all(
-        "p, h1, h2, h3, h4, h5, h6, li, td, th, dd, blockquote, figcaption, a, button, label, span, div",
+        "p, h1, h2, h3, h4, h5, h6, li, td, th, dd, blockquote, figcaption, a, button, label, span",
     ) {
+        if el
+            .closest(".impeccino-overlay, .impeccino-label, .impeccino-banner, .impeccino-tooltip")
+            .is_some()
+        {
+            continue;
+        }
         if !has_nonblank_direct_text(&el) {
             continue;
         }
@@ -53,15 +62,37 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
         let Some(primary) = primary else {
             continue;
         };
-        if OVERUSED_FONTS.contains(&primary.as_str()) && !overused_found.contains(&primary) {
-            overused_found.push(primary);
+
+        if let Some((_, count)) = font_usage.iter_mut().find(|(font, _)| font == &primary) {
+            *count += 1;
+        } else {
+            font_usage.push((primary, 1));
         }
+        total_text_elements += 1;
     }
-    for font in &overused_found {
-        findings.push(RuleHit::new(
-            "overused-font",
-            format!("Primary font: {}", font),
-        ));
+
+    if total_text_elements >= 20 {
+        // Keep source order on ties, as Array.prototype.sort does in the
+        // browser path, then report only a unique leader. A static file scan
+        // has no page hostname, so it cannot apply the browser-only own-domain
+        // brand exemption.
+        let mut ranked: Vec<&(String, usize)> = font_usage.iter().collect();
+        ranked.sort_by(|a, b| b.1.cmp(&a.1));
+        if let Some((font, count)) = ranked.first().map(|(font, count)| (font, *count)) {
+            let tied = ranked.get(1).map(|entry| entry.1) == Some(count);
+            if !tied && OVERUSED_FONTS.contains(&font.as_str()) {
+                findings.push(RuleHit::new(
+                    "overused-font",
+                    format!(
+                        "Primary font: {} ({}% of text)",
+                        font,
+                        number_to_string(js::math_round(
+                            count as f64 / total_text_elements as f64 * 100.0
+                        ))
+                    ),
+                ));
+            }
+        }
     }
     findings.extend(check_flat_type_hierarchy_from_doc(doc));
     findings
@@ -136,13 +167,6 @@ static BORDER_RADIUS_RE: Lazy<Regex> =
 static BG_CLASS_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?-u:\b)bg-(?:white|gray-[0-9]+|slate-[0-9]+)(?-u:\b)").expect("BG_CLASS_RE")
 });
-static BG_DECL_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(&format!(
-        r"(?i)background(?:-color)?{ws}*:({ws}*)",
-        ws = js::WS
-    ))
-    .expect("BG_DECL_RE")
-});
 static POSITIONED_CLASS_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?-u:\b)(?:absolute|fixed)(?-u:\b)").expect("POSITIONED_CLASS_RE"));
 static POSITIONED_STYLE_RE: Lazy<Regex> = Lazy::new(|| {
@@ -156,25 +180,6 @@ static OVERLAY_CLASS_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)(?-u:\b)(?:dropdown|popover|tooltip|menu|modal|dialog)(?-u:\b)")
         .expect("OVERLAY_CLASS_RE")
 });
-
-/// JS `/background(?:-color)?\s*:\s*(?!transparent)/i.test(rawStyle)`. With
-/// backtracking, `\s*` gives back whitespace until the lookahead sees a
-/// space, so the test only fails when `transparent` follows the colon with
-/// no whitespace at all.
-fn bg_decl_not_transparent(raw_style: &str) -> bool {
-    for m in BG_DECL_RE.captures_iter(raw_style) {
-        let ws = m.get(1).map(|g| g.as_str()).unwrap_or("");
-        if !ws.is_empty() {
-            return true;
-        }
-        let rest = &raw_style[m.get(0).unwrap().end()..];
-        let head: String = rest.chars().take("transparent".len()).collect();
-        if !head.eq_ignore_ascii_case("transparent") {
-            return true;
-        }
-    }
-    false
-}
 
 /// JS: checks.mjs#isCardLike(el, win)
 pub fn is_card_like(el: &StaticElement<'_>) -> bool {
@@ -199,7 +204,9 @@ pub fn is_card_like(el: &StaticElement<'_>) -> bool {
     let has_radius = resolve_border_radius_px(style, width_px) > 0.0
         || ROUNDED_CLASS_RE.is_match(cls)
         || BORDER_RADIUS_RE.is_match(raw_style);
-    let has_bg = BG_CLASS_RE.is_match(cls) || bg_decl_not_transparent(raw_style);
+    let background = sv(style, "backgroundColor");
+    let has_bg = (!background.is_empty() && !css_color_is_transparent(Some(background)))
+        || BG_CLASS_RE.is_match(cls);
     is_card_like_from_props(has_shadow, has_border, has_radius, has_bg)
 }
 
@@ -221,7 +228,12 @@ pub fn check_page_layout(doc: &StaticDocument) -> Vec<RuleHit> {
         if tag == "pre" || tag == "code" {
             continue;
         }
-        if POSITIONED_CLASS_RE.is_match(cls) || POSITIONED_STYLE_RE.is_match(raw_style) {
+        let position = sv(el.style(), "position");
+        if position == "absolute"
+            || position == "fixed"
+            || POSITIONED_CLASS_RE.is_match(cls)
+            || POSITIONED_STYLE_RE.is_match(raw_style)
+        {
             continue;
         }
         if utf16_len(js::trim(&el.text_content())) < 10 {
@@ -419,4 +431,174 @@ pub fn check_cream_palette(doc: &StaticDocument) -> Vec<RuleHit> {
         }
     }
     findings
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adapters::check_element_clipped_overflow;
+    use crate::cascade::{build_static_style_map, collect_static_css_text};
+    use std::path::Path;
+
+    fn styled_document(source: &str) -> StaticDocument {
+        let mut doc = StaticDocument::parse(source);
+        let css = collect_static_css_text(&doc, Path::new("."), None, "fixture.html", None);
+        build_static_style_map(&mut doc, &css, None, "fixture.html");
+        doc
+    }
+
+    #[test]
+    fn overused_font_requires_a_uniquely_dominant_face_on_a_real_page() {
+        let mut content = String::new();
+        for i in 0..19 {
+            content.push_str(&format!("<p class='georgia'>Georgia copy {i}</p>"));
+        }
+        content.push_str("<p class='inter'>One Inter exception</p>");
+        let doc = styled_document(&format!(
+            "<html><head><style>.georgia {{ font-family: Georgia, serif; }} .inter {{ font-family: Inter, sans-serif; }}</style></head><body>{content}</body></html>"
+        ));
+
+        let findings = check_static_page_typography(&doc);
+        assert!(
+            findings.iter().all(|hit| hit.id != "overused-font"),
+            "a secondary Inter face must not be reported as the page's primary font: {findings:?}"
+        );
+    }
+
+    #[test]
+    fn overused_font_matches_unique_majority_detail_without_a_majority_threshold() {
+        let mut content = String::new();
+        for i in 0..40 {
+            content.push_str(&format!("<p class='inter'>Inter copy {i}</p>"));
+        }
+        for i in 0..35 {
+            content.push_str(&format!("<p class='georgia'>Georgia copy {i}</p>"));
+        }
+        for i in 0..25 {
+            content.push_str(&format!("<p class='lato'>Lato copy {i}</p>"));
+        }
+        let doc = styled_document(&format!(
+            "<html><head><style>.inter {{ font-family: Inter, sans-serif; }} .georgia {{ font-family: Georgia, serif; }} .lato {{ font-family: Lato, sans-serif; }}</style></head><body>{content}</body></html>"
+        ));
+
+        let findings = check_static_page_typography(&doc);
+        let font = findings.iter().find(|hit| hit.id == "overused-font").unwrap();
+        assert_eq!(font.snippet, "Primary font: inter (40% of text)");
+    }
+
+    #[test]
+    fn overused_font_ignores_tied_leaders() {
+        let content = (0..20)
+            .map(|i| format!("<p class='inter'>Inter copy {i}</p>"))
+            .chain((0..20).map(|i| format!("<p class='georgia'>Georgia copy {i}</p>")))
+            .collect::<String>();
+        let doc = styled_document(&format!(
+            "<html><head><style>.inter {{ font-family: Inter, sans-serif; }} .georgia {{ font-family: Georgia, serif; }}</style></head><body>{content}</body></html>"
+        ));
+
+        let findings = check_static_page_typography(&doc);
+        assert!(findings.iter().all(|hit| hit.id != "overused-font"), "{findings:?}");
+    }
+
+    #[test]
+    fn overused_font_excludes_direct_text_in_divs_and_own_tool_nodes() {
+        let divs = (0..19)
+            .map(|i| format!("<div class='inter'>Inter div {i}</div>"))
+            .collect::<String>();
+        let own_tool = (0..20)
+            .map(|i| format!("<p class='inter'>Overlay text {i}</p>"))
+            .collect::<String>();
+        let content = format!(
+            "<p class='georgia'>One regular paragraph</p>{divs}<div class='impeccino-overlay'>{own_tool}</div>"
+        );
+        let doc = styled_document(&format!(
+            "<html><head><style>.inter {{ font-family: Inter, sans-serif; }} .georgia {{ font-family: Georgia, serif; }}</style></head><body>{content}</body></html>"
+        ));
+
+        let findings = check_static_page_typography(&doc);
+        assert!(findings.iter().all(|hit| hit.id != "overused-font"), "{findings:?}");
+    }
+
+    #[test]
+    fn overused_font_keeps_platform_faces_ahead_of_overused_fallbacks() {
+        let stacks = [
+            (
+                "font: 16px/1.5 -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;",
+                "-apple-system",
+            ),
+            (
+                "font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;",
+                "-apple-system",
+            ),
+            ("font-family: system-ui, sans-serif;", "system-ui"),
+            ("font-family: \"Segoe UI\", Roboto, sans-serif;", "segoe ui"),
+            ("font-family: ui-sans-serif, Roboto, sans-serif;", "ui-sans-serif"),
+        ];
+
+        for (declaration, expected_primary) in stacks {
+            let content = (0..20)
+                .map(|i| format!("<p class='stack'>Platform copy {i}</p>"))
+                .collect::<String>();
+            let doc = styled_document(&format!(
+                "<html><head><style>.stack {{ {declaration} }}</style></head><body>{content}</body></html>"
+            ));
+            let first = doc.query_selector("p").unwrap();
+            assert!(
+                font_token(sv(first.style(), "fontFamily")).starts_with(expected_primary),
+                "{declaration}: {}",
+                sv(first.style(), "fontFamily")
+            );
+            let findings = check_static_page_typography(&doc);
+            assert!(
+                findings.iter().all(|hit| hit.id != "overused-font"),
+                "{declaration}: {findings:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn nested_cards_uses_background_from_the_computed_cascade() {
+        let doc = styled_document(
+            "<html><head><style>.surface { box-shadow: 0 2px 8px #000; background-color: white; }</style></head><body><div class='surface'>Outer card content that is long enough<div class='surface'>Inner card content that is long enough</div></div></body></html>",
+        );
+
+        let findings = check_page_layout(&doc);
+        assert_eq!(findings.iter().filter(|hit| hit.id == "nested-cards").count(), 1, "{findings:?}");
+    }
+
+    #[test]
+    fn nested_cards_uses_position_from_the_computed_cascade() {
+        for position in ["absolute", "fixed"] {
+            let doc = styled_document(&format!(
+                "<html><head><style>.card {{ box-shadow: 0 2px 8px #000; border-radius: 8px; }} .lifted {{ position: {position}; }}</style></head><body><div class='card'>Outer card content that is long enough<div class='card lifted'>Inner card content that is long enough</div></div></body></html>"
+            ));
+
+            let findings = check_page_layout(&doc);
+            assert!(findings.iter().all(|hit| hit.id != "nested-cards"), "{position}: {findings:?}");
+        }
+    }
+
+    #[test]
+    fn nested_cards_ignores_transparent_computed_backgrounds() {
+        for background in ["transparent", "rgba(255, 255, 255, 0)"] {
+            let doc = styled_document(&format!(
+                "<html><head><style>.surface {{ box-shadow: 0 2px 8px #000; }}</style></head><body><div class='surface' style='background-color: {background}'>Outer card content that is long enough<div class='surface' style='background-color: {background}'>Inner card content that is long enough</div></div></body></html>"
+            ));
+
+            let findings = check_page_layout(&doc);
+            assert!(findings.iter().all(|hit| hit.id != "nested-cards"), "{background}: {findings:?}");
+        }
+    }
+
+    #[test]
+    fn clipped_overflow_uses_ascii_viewport_identifier_boundaries() {
+        for ident in ["écarousel", "édemo-area"] {
+            let doc = styled_document(&format!(
+                "<html><head></head><body><div class='{ident}' style='overflow: hidden'><div style='position: absolute; top: 100%'>A slide outside the viewport</div></div></body></html>"
+            ));
+            let viewport = doc.query_selector(&format!(".{ident}")).unwrap();
+
+            assert!(check_element_clipped_overflow(&viewport, viewport.style()).is_empty(), "{ident}");
+        }
+    }
 }
