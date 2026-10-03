@@ -25,7 +25,7 @@ describe('engine release workflow', () => {
   });
 
   test('publishes every built binary', () => {
-    expect(workflow.jobs.publish.needs).toBe('build');
+    expect(workflow.jobs.publish.needs).toEqual(['build', 'smoke-linux-arm64']);
     expect(action(workflow.jobs.build, 'actions/upload-artifact').with.name).toBe('impeccino-${{ matrix.short }}');
     expect(action(workflow.jobs.publish, 'actions/download-artifact').with.pattern).toBe('impeccino-*');
     expect(workflow.jobs.publish.steps.find(step => step.name === 'Lay out release assets').run).not.toContain('sha256sum');
@@ -46,5 +46,28 @@ describe('engine release workflow', () => {
         if (step.uses) expect(step.uses).toMatch(/@[a-f0-9]{40}$/);
       }
     }
+  });
+
+  test('validates both engine version sources against the pushed tag', () => {
+    const check = workflow.jobs.build.steps.find(step => step.name === 'Check the tag matches both engine versions');
+    expect(check.shell).toBe('bash');
+    expect(check.run).toContain('node scripts/release.mjs engine --check-tag "$GITHUB_REF_NAME"');
+  });
+
+  test('pins cross and runs the exact arm64 artifact before publishing', () => {
+    const cross = workflow.jobs.build.steps.find(step => step.name === 'Install pinned cross');
+    expect(cross.run).toBe('cargo install cross --locked --version 0.2.5');
+
+    const smoke = workflow.jobs['smoke-linux-arm64'];
+    expect(smoke.needs).toBe('build');
+    expect(smoke['runs-on']).toBe('ubuntu-24.04-arm');
+    const download = action(smoke, 'actions/download-artifact');
+    expect(download.with.name).toBe('impeccino-linux-arm64');
+    const runStep = smoke.steps.find(step => step.name === 'Run the exact linux-arm64 release artifact');
+    expect(runStep.run).toContain('chmod +x artifact/impeccino');
+    expect(runStep.run).toContain('artifact/impeccino --version');
+    expect(runStep.run).toContain('artifact/impeccino engine-probe');
+    expect(smoke.steps.indexOf(download)).toBeLessThan(smoke.steps.indexOf(runStep));
+    expect(workflow.jobs.publish.needs).toEqual(['build', 'smoke-linux-arm64']);
   });
 });

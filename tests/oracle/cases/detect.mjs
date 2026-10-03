@@ -31,6 +31,7 @@ export default function cases() {
       verb: 'detect',
       args: ['--no-config', `<REPO>/${rel}`],
       isolateHome: false,
+      ...(ent.name.startsWith('framework-') ? { windowsPowerShellGuidance: true } : {}),
     });
   }
 
@@ -48,7 +49,7 @@ export default function cases() {
     { id: 'detect-multifile-text', verb: 'detect', args: ['--no-config', `<REPO>/tests/fixtures/antipatterns/multifile`], isolateHome: false },
     { id: 'detect-framework-vite-json', verb: 'detect', args: ['--no-config', '--json', `<REPO>/tests/fixtures/antipatterns/framework-vite`], isolateHome: false },
     { id: 'detect-framework-next-tailwind-json', verb: 'detect', args: ['--no-config', '--json', `<REPO>/tests/fixtures/antipatterns/framework-next-tailwind`], isolateHome: false },
-    { id: 'detect-framework-next-modules-text', verb: 'detect', args: ['--no-config', `<REPO>/tests/fixtures/antipatterns/framework-next-modules`], isolateHome: false },
+    { id: 'detect-framework-next-modules-text', verb: 'detect', args: ['--no-config', `<REPO>/tests/fixtures/antipatterns/framework-next-modules`], isolateHome: false, windowsPowerShellGuidance: true },
     { id: 'detect-framework-next-cssinjs-json', verb: 'detect', args: ['--no-config', '--json', `<REPO>/tests/fixtures/antipatterns/framework-next-cssinjs`], isolateHome: false },
     {
       id: 'detect-jsx-commented-img', verb: 'detect',
@@ -89,6 +90,8 @@ function Thumb({ url }: { url?: string }) {
     },
     {
       id: 'detect-unreadable-file-json', verb: 'detect',
+      platforms: ['linux', 'darwin'],
+      platformSkipReason: 'This case uses POSIX chmod(0) to deny reads, which Windows does not enforce.',
       setup: (ws) => {
         const p = path.join(ws, 'locked.html');
         fs.writeFileSync(p, '<div style="border-left: 4px solid #ff0000">x</div>\n');
@@ -106,6 +109,8 @@ function Thumb({ url }: { url?: string }) {
     },
     {
       id: 'detect-unreadable-file-in-dir', verb: 'detect',
+      platforms: ['linux', 'darwin'],
+      platformSkipReason: 'This case uses POSIX chmod(0) to deny reads, which Windows does not enforce.',
       setup: (ws) => {
         fs.writeFileSync(path.join(ws, 'a.html'), '<div style="border-left: 4px solid #ff0000">x</div>\n');
         const p = path.join(ws, 'b.html');

@@ -6,13 +6,18 @@
  */
 
 import fs from 'node:fs';
+import path from 'node:path';
 
 const WS = '<WS>';
 const CACHE_FILES = ['.impeccino/**', '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json', '.github/hooks/impeccino.json'];
 
-const claudeEdit = (file, extra = {}) => ({
+export function hookPath(platform, ...segments) {
+  return (platform === 'win32' ? path.win32 : path).join(...segments);
+}
+
+export const claudeEdit = (file, extra = {}, platform = process.platform) => ({
   session_id: 's1', cwd: WS, hook_event_name: 'PostToolUse', tool_name: 'Edit',
-  tool_input: { file_path: `${WS}/${file}` }, ...extra,
+  tool_input: { file_path: hookPath(platform, WS, file) }, ...extra,
 });
 const stop = (extra = {}) => ({ session_id: 's1', cwd: WS, hook_event_name: 'Stop', stop_hook_active: false, ...extra });
 
@@ -27,7 +32,7 @@ export default [
       { verb: 'hook', stdin: claudeEdit('src/new.css', {
         tool_name: 'Write',
         tool_response: {
-          type: 'create', filePath: `${WS}/src/new.css`, originalFile: null,
+          type: 'create', filePath: hookPath(process.platform, WS, 'src/new.css'), originalFile: null,
           content: '.card { border-left: 4px solid #6366f1; border-radius: 8px; }\n',
         },
       }) },
@@ -43,7 +48,7 @@ export default [
     steps: [
       { verb: 'hook', stdin: claudeEdit('src/report.ts', {
         tool_response: {
-          filePath: `${WS}/src/report.ts`,
+          filePath: hookPath(process.platform, WS, 'src/report.ts'),
           originalFile: "import dead from 'dead';\nconst report = `<style>body { font-family: Fraunces; }</style>`;\n",
           oldString: "import dead from 'dead';\n", newString: '', replaceAll: false, userModified: false,
         },
@@ -98,6 +103,7 @@ export default [
   },
   {
     id: 'hook-config-per-edit-all', verb: 'hook', workspace: 'hook-project',
+    windowsQuotedIgnoreValue: { rule: 'bounce-easing', value: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)' },
     setup: (ws) => { fs.mkdirSync(`${ws}/.impeccino`, { recursive: true }); fs.writeFileSync(`${ws}/.impeccino/config.json`, JSON.stringify({ hook: { perEditRules: 'all' } }, null, 2) + '\n'); },
     stdin: claudeEdit('src/components/Card.tsx'), files: CACHE_FILES,
   },

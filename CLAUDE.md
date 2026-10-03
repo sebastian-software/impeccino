@@ -168,11 +168,11 @@ IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 pnpm run test:skill-behavior    # dump per-sc
 
 **Frontier tiers, more than one family.** The lineup is `DEFAULT_MODELS` in `tests/skill-behavior/providers.mjs`, currently `claude-sonnet-5`, `gpt-5.6-terra`, and `gemini-3.7-flash`. `gpt-5.6-luna` and `deepseek-v4-flash` were dropped in 2026-08: below the frontier tier they fail scenarios for model-floor reasons rather than skill-text defects, and a suite that is always red is a suite nobody reads. **Don't substitute Claude alone**: many of the most useful findings come from divergence between families, so keep at least two. The dropped models stay selectable via `IMPECCINO_SKILL_BEHAVIOR_MODELS` when a Setup or routing change warrants a wider sweep.
 
-**Auth** lives in repo-root `.env` (gitignored). Providers skip cleanly when their key is unset; they don't fail.
+**Auth** lives in repo-root `.env` (gitignored). Local runs skip providers whose keys are unset. CI runs the billed suite only from the manual `skill_behavior` workflow checkbox, and that job fails if no provider scenario actually runs.
 
 **The scenario list and the baseline live in `tests/skill-behavior/README.md`**, not here. Read that table before changing Setup or routing text, and update it in the same change. Duplicating it in this file is how it went stale before.
 
-**Cost.** Each run is real LLM calls, billed to the keys in `.env`. Production-tier models put a full sweep around $0.50-1.50. Keep it out of CI unless you really want it there.
+**Cost.** Each run is real LLM calls, billed to the keys in `.env`. Production-tier models put a full sweep around $0.50-1.50. Keep it out of automatic CI; the workflow's manual checkbox is available when a billed CI run is wanted.
 
 **Adding a scenario.** Write the fixture in `tests/skill-behavior/fixtures.mjs`, add the `it()` block in `scenarios.test.mjs` (the harness uses the source `skill/` dir via a symlink, so no rebuild needed), and update the baseline table in the suite's README. The harness's `fileLoaded(trace, filename)` helper checks both `read` and bash `cat` — different models prefer different tools.
 
@@ -268,4 +268,3 @@ Order for a new rule: fixture here first, registry row in `crates/foundation/src
 ### Rule packs (downstream crates adding rules)
 
 A crate that depends on this workspace can add rules without forking it: implement `impeccino_core::rule_pack::RulePack` (the text hook) and, for the static engine, `impeccino_html::StaticRulePack`, call `impeccino_core::rule_pack::install(&PACK)` at startup, and hand the pack to the engine through `TextOptions` / `ScanOptions`, `DetectHtmlOptions`, or `StaticHtmlEngine`. Every hook runs after the built-ins and before inline ignores, so built-in output with no pack installed is byte-identical, which the oracle enforces. The registry keeps `ANTIPATTERNS` as the built-in list and `registry::extend` appends a pack's rows, panicking on an id collision. The DOM hooks and the wasm `detect` feature left with the WebAssembly build ([ADR 0013](docs/adr/0013-no-wasm-or-browser-extension.md)). Full contract in `docs/ENGINE.md` ("Rule packs"). The shipped `impeccino` binary installs no pack, and nothing in this repo should start doing so.
-

@@ -9,8 +9,9 @@
  * @ai-sdk/google for the same reason — uniform tool-use semantics across all
  * three keeps the harness tiny.
  *
- * .env is loaded from the repo root. Tests
- * skip cleanly when the matching key is unset rather than failing CI.
+ * .env is loaded from the repo root. Local tests skip cleanly when a provider
+ * key is unset; the manual CI lane separately requires at least one scenario
+ * to execute so all-skipped runs cannot report success.
  */
 import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
 import { google } from '@ai-sdk/google';
@@ -135,4 +136,16 @@ export function resolveModelList() {
     return override.split(',').map((s) => s.trim()).filter(Boolean);
   }
   return DEFAULT_MODELS;
+}
+
+/**
+ * CI's explicitly selected billed lane must execute at least one provider
+ * scenario. Local runs keep the existing missing-key and missing-engine skips.
+ */
+export function assertProviderExecution(providerRuns, {
+  required = process.env.IMPECCINO_SKILL_BEHAVIOR_REQUIRE_PROVIDER === '1',
+} = {}) {
+  if (required && providerRuns.size === 0) {
+    throw new Error('No provider-backed skill behavior scenarios ran. Check the selected provider keys and engine setup.');
+  }
 }
