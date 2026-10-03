@@ -703,12 +703,24 @@ fn scan_targets(
         };
         if stat.is_dir() {
             if !ctx.json_mode && !ctx.quiet_mode {
+                let self_cmd = ctx
+                    .io
+                    .env("IMPECCINO_SELF")
+                    .filter(|v| !v.trim().is_empty())
+                    .unwrap_or("impeccino");
+                let launcher_cmd =
+                    impeccino_common::quote_executable_path(self_cmd, cfg!(windows));
+                let powershell_note = if cfg!(windows) {
+                    "In PowerShell, prefix the quoted launcher path with `&`.\n"
+                } else {
+                    ""
+                };
                 if let Some(fw) = detect_framework_config(&resolved) {
                     let probe = is_port_listening(fw.port, Some(fw.fingerprint));
                     let msg = if probe.listening && probe.matched {
                         format!(
-                            "\n{} dev server detected on localhost:{}.\nFor more accurate results, scan the running site:\n  npx impeccino detect http://localhost:{}\n\n",
-                            fw.name, fw.port, fw.port
+                            "\n{} dev server detected on localhost:{}.\nFor more accurate results, scan the running site:\n  {} detect http://localhost:{}\n{}\n",
+                            fw.name, fw.port, launcher_cmd, fw.port, powershell_note
                         )
                     } else if probe.listening && !probe.matched {
                         format!(
@@ -720,10 +732,12 @@ fn scan_targets(
                         )
                     } else {
                         format!(
-                            "\n{} project detected ({}).\nStart the dev server and scan via URL for best results:\n  npx impeccino detect http://localhost:{}\n\n",
+                            "\n{} project detected ({}).\nStart the dev server and scan via URL for best results:\n  {} detect http://localhost:{}\n{}\n",
                             fw.name,
                             jsp::basename(&fw.config_path),
-                            fw.port
+                            launcher_cmd,
+                            fw.port,
+                            powershell_note
                         )
                     };
                     ctx.io.err(&msg);

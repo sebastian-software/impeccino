@@ -8,10 +8,9 @@
  * A prefix limits recording to ids starting with it (e.g. detect-);
  * --ids=a,b records exactly those ids.
  *
- * The committed goldens are frozen JS behavior plus the reviewed deltas in
- * DELTAS.md. Re-recording from the binary overwrites that history for the
- * cases it touches, so record only the cases you added or whose delta a
- * review accepted, and say so in the commit.
+ * The committed goldens are the behavior contract. Re-record only cases you
+ * added or intentionally changed, review each resulting diff by hand, and
+ * leave the frozen function-level vectors untouched.
  */
 import { allCases, runCase, writeGolden } from './lib.mjs';
 

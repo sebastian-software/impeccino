@@ -9,11 +9,13 @@ skill's `reference/` and `SKILL.md` live (`../reference`, `../SKILL.md`).
 |---|---|---|
 | `IMPECCINO_SKILL_DIR` | The skill directory (holds `SKILL.md`, `reference/`, `scripts/`). Used for the native platform references `context` inlines and `pin`'s `command-metadata.json`. | Walk up from the executable's directory until a directory containing `reference/ios.md` is found (the binary ships at `<skill>/scripts/bin/<os>-<arch>/`). None if nothing matches: native refs are then skipped silently, like a missing file in the JS. |
 | `IMPECCINO_PROVIDER_ID` | The provider id (`claude-code`, `codex`, `cursor`, ...). Selects the hook manifest paths `context` and `doctor` inspect and the `$`/`/` command prefix (`$` only for `codex`). | Derived from the skill dir's harness folder (`<root>/.codex/skills/impeccino` -> `codex`); otherwise `source`, which is what the JS reads in a source checkout. |
-| `IMPECCINO_SELF` | How to spell this binary in printed commands where the JS printed `node <scripts>/<script>.mjs` (`context`'s MANUAL_DETECTOR_REQUIRED, SURFACE_CONTEXT_AVAILABLE, and MONOREPO_TARGET_REQUIRED directives, `doctor`'s fix lines). Printed as `<self> <verb>`. | The executable path (`doctor` falls back to plain `impeccino`). |
+| `IMPECCINO_SELF` | How to spell this binary in printed commands where the JS printed `node <scripts>/<script>.mjs` (`context` directives, `doctor` fix lines, and detect dev-server tips). The path is shell-quoted before `<verb>` is appended. | The executable path (`doctor` falls back to plain `impeccino`). |
 
 The launcher (`skill/scripts/impeccino`) exports `IMPECCINO_SKILL_DIR`
 (its parent directory) and `IMPECCINO_SELF` (`$0`) unless they are already
-set, so directives name the launcher instead of the platform binary.
+set, so directives name the launcher instead of the platform binary. POSIX
+output uses single-quote escaping; Windows output quotes the path for `cmd.exe`.
+In PowerShell, prefix that quoted path with `&` to invoke it.
 
 Everything else is the engine's own environment (`IMPECCINO_CONTEXT_DIR`,
 `IMPECCINO_STALENESS_CACHE`, `IMPECCINO_NO_STALENESS_CHECK`,

@@ -4,17 +4,15 @@
 implementation and captures stdout, stderr, exit code, and named files, with
 machine-specific paths and timestamps normalized.
 
-- The goldens are **frozen JS behavior**: they were recorded from the Node
-  scripts (`skill/scripts`, `cli/bin`) before those left the tree with the
-  launcher swap, plus the reviewed deltas in `DELTAS.md`. They are the
-  behavior contract the engine binary is held to.
+- The goldens are the behavior contract the engine binary is held to. Record
+  them from the current source binary and review every changed golden by hand.
 - `record.mjs --bin` (with `$IMPECCINO_BIN` or `--bin=/path`) writes goldens
   from the binary, for new cases or a delta a review accepted. Plain
   `record.mjs` still targets the JS scripts and only works on a checkout that
   has them (history before the swap).
 - `run.mjs` replays the corpus against `$IMPECCINO_BIN` (or `--js` for a
-  self-check on a pre-swap checkout) and diffs. Byte-equal is the bar;
-  `DELTAS.md` lists reviewed exceptions.
+  self-check on a pre-swap checkout) and diffs. Every runnable case must match
+  its golden byte for byte; a behavior change requires a reviewed golden edit.
 - `tests/oracle.test.mjs` runs `run.mjs` under `pnpm run test` and skips when
   no binary is found (`IMPECCINO_BIN` or `skill/scripts/bin/<os>-<arch>/`,
   filled by `pnpm run fetch:engine`).
