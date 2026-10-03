@@ -54,9 +54,6 @@ machine-dependent fragments. Each is targeted at one script's output:
 
 - `IMAGE_TOOLS: <IMAGE_TOOLS_PROBE>`: `context` probes `which cwebp sips
   magick ffmpeg`; the set found describes the machine, not the script.
-- `"devServer": <DEV_SERVER_PROBE>`: `context-signals` probes localhost ports
-  4321/3000/5173/5174/8080/8000/4200; whatever is listening on the recording
-  host is not part of the contract.
 - `"<finding-id>": <EPOCH>`: the staleness notice cache
   (`<user cache>/impeccino/staleness-check.json`) keys epoch stamps by finding id.
 - `projects/<PROJECT>/`: the hook keeps its session state in a per-project

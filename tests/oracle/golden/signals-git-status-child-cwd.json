@@ -1,5 +1,5 @@
 {
-  "stdout": "{\n  \"setup\": {\n    \"hasProduct\": false,\n    \"productPath\": null,\n    \"hasDesign\": false,\n    \"designPath\": null,\n    \"hasCode\": true,\n    \"platform\": null\n  },\n  \"git\": {\n    \"isRepo\": true,\n    \"branch\": \"main\",\n    \"base\": null,\n    \"changedFiles\": [\n      \"src/Renamed page.html\",\n      \"src/deleted.html\",\n      \"src/New page.html\"\n    ],\n    \"changedCount\": 3\n  },\n  \"devServer\": <DEV_SERVER_PROBE>,\n  \"scan\": {\n    \"targets\": [\n      \"src/Renamed page.html\",\n      \"src/New page.html\"\n    ],\n    \"via\": \"git-changes\"\n  }\n}\n",
+  "stdout": "{\n  \"setup\": {\n    \"hasProduct\": false,\n    \"productPath\": null,\n    \"hasDesign\": false,\n    \"designPath\": null,\n    \"hasCode\": true,\n    \"platform\": null\n  },\n  \"git\": {\n    \"isRepo\": true,\n    \"branch\": \"main\",\n    \"base\": null,\n    \"changedFiles\": [\n      \"src/Renamed page.html\",\n      \"src/deleted.html\",\n      \"src/New page.html\"\n    ],\n    \"changedCount\": 3\n  },\n  \"scan\": {\n    \"targets\": [\n      \"src/Renamed page.html\",\n      \"src/New page.html\"\n    ],\n    \"via\": \"git-changes\"\n  }\n}\n",
   "stderr": "",
   "exit": 0,
   "signal": null,

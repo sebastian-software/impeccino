@@ -177,7 +177,7 @@ fn append_rendered_detector_availability(parts: &mut Vec<String>, ctx: &Ctx, env
     ].join(" "));
 }
 
-fn append_staleness_directive(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: &Env) {
+fn append_staleness_directive(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: &Env, io: &mut Io) {
     let project_root = if ctx.project_root.is_empty() { cwd.to_string() } else { ctx.project_root.clone() };
     if staleness_check_disabled(env) {
         return;
@@ -190,7 +190,13 @@ fn append_staleness_directive(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env
     };
     let findings = collect_boot_findings(ctx, cwd, &extras);
     let fresh = filter_fresh_findings(env, findings, &project_root, now_ms());
-    if let Some(d) = build_staleness_directive(&fresh) {
+    if let Some(error) = fresh.cache_error {
+        io.err(&format!(
+            "Warning: Could not persist staleness notices; skipping optional notices for this run ({}).\n",
+            error
+        ));
+    }
+    if let Some(d) = build_staleness_directive(&fresh.findings) {
         parts.push(d);
     }
 }
@@ -381,7 +387,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         if should_warn_missing_target(&ctx, target_provided, target_exists) {
             parts.push(build_missing_target_directive(&provider));
         }
-        append_staleness_directive(&mut parts, &ctx, &cwd, &env);
+        append_staleness_directive(&mut parts, &ctx, &cwd, &env, io);
         io.out(&format!("{}\n", parts.join("\n\n---\n\n")));
         return 0;
     }
@@ -413,7 +419,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             js_trim(&content)
         ));
     }
-    append_staleness_directive(&mut parts, &ctx, &cwd, &env);
+    append_staleness_directive(&mut parts, &ctx, &cwd, &env, io);
     if ctx.platform.is_none() {
         if let Some(raw) = extract_section_value(ctx.product.as_deref(), "Platform") {
             if !raw.is_empty() {
