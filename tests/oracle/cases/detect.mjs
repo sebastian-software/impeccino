@@ -90,6 +90,8 @@ function Thumb({ url }: { url?: string }) {
     },
     {
       id: 'detect-unreadable-file-json', verb: 'detect',
+      platforms: ['linux', 'darwin'],
+      platformSkipReason: 'This case uses POSIX chmod(0) to deny reads, which Windows does not enforce.',
       setup: (ws) => {
         const p = path.join(ws, 'locked.html');
         fs.writeFileSync(p, '<div style="border-left: 4px solid #ff0000">x</div>\n');
@@ -107,6 +109,8 @@ function Thumb({ url }: { url?: string }) {
     },
     {
       id: 'detect-unreadable-file-in-dir', verb: 'detect',
+      platforms: ['linux', 'darwin'],
+      platformSkipReason: 'This case uses POSIX chmod(0) to deny reads, which Windows does not enforce.',
       setup: (ws) => {
         fs.writeFileSync(path.join(ws, 'a.html'), '<div style="border-left: 4px solid #ff0000">x</div>\n');
         const p = path.join(ws, 'b.html');

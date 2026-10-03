@@ -473,13 +473,13 @@ const cases = [
   // ======================================================================
   { id: 'surface-brief-usage', verb: 'surface-brief', workspace: 'ctx-full', env: env() },
   { id: 'surface-brief-unknown', verb: 'surface-brief', workspace: 'ctx-full', args: ['delete', 'x'], env: env() },
-  { id: 'surface-brief-path-file', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'src/pages/index.astro'], env: env() },
-  { id: 'surface-brief-path-route', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'route:/docs/intro/'], env: env() },
-  { id: 'surface-brief-path-slash', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '/'], env: env() },
-  { id: 'surface-brief-path-url', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'https://Impeccino.Style/docs/audit/?x=1#top'], env: env() },
-  { id: 'surface-brief-path-outside', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '../elsewhere/x.astro'], env: env() },
+  { id: 'surface-brief-path-file', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'src/pages/index.astro'], env: env(), windowsPathOutput: true },
+  { id: 'surface-brief-path-route', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'route:/docs/intro/'], env: env(), windowsPathOutput: true },
+  { id: 'surface-brief-path-slash', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '/'], env: env(), windowsPathOutput: true },
+  { id: 'surface-brief-path-url', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'https://Impeccino.Style/docs/audit/?x=1#top'], env: env(), windowsPathOutput: true },
+  { id: 'surface-brief-path-outside', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '../elsewhere/x.astro'], env: env(), windowsPathOutput: true },
   { id: 'surface-brief-path-missing-target', verb: 'surface-brief', workspace: 'ctx-full', args: ['path'], env: env() },
-  { id: 'surface-brief-path-from-subdir', verb: 'surface-brief', workspace: 'ctx-full', cwd: 'src', args: ['path', 'pages/index.astro'], env: env() },
+  { id: 'surface-brief-path-from-subdir', verb: 'surface-brief', workspace: 'ctx-full', cwd: 'src', args: ['path', 'pages/index.astro'], env: env(), windowsPathOutput: true },
   { id: 'surface-brief-list', verb: 'surface-brief', workspace: 'ctx-full', args: ['list'], env: env() },
   { id: 'surface-brief-list-empty', verb: 'surface-brief', workspace: 'ctx-empty', args: ['list'], env: env() },
   { id: 'surface-brief-read-primary', verb: 'surface-brief', workspace: 'ctx-full', args: ['read', 'src/pages/index.astro'], env: env() },
@@ -498,18 +498,18 @@ const cases = [
     setup: (ws) => write(ws, 'body.md', '# Surface brief: About\n\n## Mode\nRead\n\nTell the story.\n\n'),
     env: env(), files: ['.impeccino/surfaces/**'],
     steps: [
-      { args: ['write', 'src/pages/about.astro', `${WS}/body.md`, 'src/components/Team.astro', 'src/pages/about.astro', 'src/components/Team.astro'] },
+      { args: ['write', 'src/pages/about.astro', `${WS}/body.md`, 'src/components/Team.astro', 'src/pages/about.astro', 'src/components/Team.astro'], windowsPathOutput: true },
       { args: ['read', 'src/components/Team.astro'] },
       { args: ['list'] },
-      { args: ['write', 'src/pages/about.astro', `${WS}/body.md`] },
+      { args: ['write', 'src/pages/about.astro', `${WS}/body.md`], windowsPathOutput: true },
       { args: ['read', 'src/components/Team.astro'] },
     ],
   },
-  { id: 'surface-brief-write-route', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'Root route brief.'), args: ['write', '/', `${WS}/body.md`, 'route:/home/'], env: env(), files: ['.impeccino/surfaces/**'] },
-  { id: 'surface-brief-write-url', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'URL brief.'), args: ['write', 'https://example.com/pricing/#plans', `${WS}/body.md`], env: env(), files: ['.impeccino/surfaces/**'] },
+  { id: 'surface-brief-write-route', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'Root route brief.'), args: ['write', '/', `${WS}/body.md`, 'route:/home/'], env: env(), files: ['.impeccino/surfaces/**'], platforms: ['linux', 'darwin'], platformSkipReason: 'On Windows, the slash-only target resolves to the drive root; this fixture must not write outside its staged workspace.' },
+  { id: 'surface-brief-write-url', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'URL brief.'), args: ['write', 'https://example.com/pricing/#plans', `${WS}/body.md`], env: env(), files: ['.impeccino/surfaces/**'], windowsPathOutput: true },
   { id: 'surface-brief-write-invalid-target', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'x'), args: ['write', '../outside.astro', `${WS}/body.md`], env: env(), files: ['.impeccino/surfaces/**'] },
   { id: 'surface-brief-write-missing-body', verb: 'surface-brief', workspace: 'ctx-empty', args: ['write', 'src/x.tsx', `${WS}/nope.md`], env: env(), files: ['.impeccino/surfaces/**'] },
-  { id: 'surface-brief-write-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'body.md', 'Child brief.'), args: ['write', 'apps/b/src/App.tsx', `${WS}/body.md`], env: env(), files: ['**/.impeccino/surfaces/**'] },
+  { id: 'surface-brief-write-monorepo-child', verb: 'surface-brief', workspace: 'ctx-monorepo', setup: (ws) => write(ws, 'body.md', 'Child brief.'), args: ['write', 'apps/b/src/App.tsx', `${WS}/body.md`], env: env(), files: ['**/.impeccino/surfaces/**'], windowsPathOutput: true },
 
   // ======================================================================
   // critique-storage
@@ -546,7 +546,7 @@ const cases = [
       { args: ['trend', 'src/App.tsx', '1'] },
     ],
   },
-  { id: 'critique-write-monorepo-child', verb: 'critique-storage', workspace: 'ctx-monorepo', cwd: 'apps/a', setup: (ws) => write(ws, 'body.md', 'Child critique.\n'), args: ['write', 'src/App.tsx', `${WS}/body.md`], env: env(), steps: [{}, { args: ['latest', 'src/App.tsx'] }, { args: ['latest', 'src/App.tsx'], cwd: 'apps/b' }] },
+  { id: 'critique-write-monorepo-child', verb: 'critique-storage', workspace: 'ctx-monorepo', cwd: 'apps/a', setup: (ws) => write(ws, 'body.md', 'Child critique.\n'), args: ['write', 'src/App.tsx', `${WS}/body.md`], env: env(), windowsDrivePathQuoteField: 'target_path', steps: [{}, { args: ['latest', 'src/App.tsx'] }, { args: ['latest', 'src/App.tsx'], cwd: 'apps/b' }] },
 
   // ======================================================================
   // palette

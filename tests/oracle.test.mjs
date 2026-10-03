@@ -15,7 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ENGINE_MISSING_MESSAGE, findEngineBinary } from './lib/engine-bin.mjs';
-import { allCases, assertRecordableCases, diffResults, expectedForPlatform, normalize } from './oracle/lib.mjs';
+import { allCases, assertRecordableCases, caseRunsHere, diffResults, expectedForPlatform, normalize, serializeOracleStdin } from './oracle/lib.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENGINE_BIN = findEngineBinary();
@@ -35,6 +35,82 @@ literal: keep\this\text
   assert.equal(actual, 'root: <WS>/skill/scripts\njson: {"root":"<WS>/skill/scripts"}\n' +
     'json path with spaces: {"root":"<WS>/skill docs/scripts"}\n' +
     'mixed: <WS>/skill/scripts keep\\literal "quoted\\thing"\nliteral: keep\\this\\text\n');
+});
+
+it('substitutes placeholders in object stdin before JSON serialization', () => {
+  const paths = {
+    ws: String.raw`D:\a\impeccino project\stage`,
+    repo: String.raw`D:\a\impeccino`,
+  };
+  const input = {
+    cwd: '<WS>',
+    '<WS>-key': 'placeholder in a property name',
+    workspace_roots: ['<WS>'],
+    tool_input: {
+      file_path: '<WS>/src/new.css',
+      content: String.raw`keep\literal`,
+      source: '<REPO>/tests/fixture.css',
+    },
+  };
+
+  assert.deepEqual(JSON.parse(serializeOracleStdin(input, paths)), {
+    cwd: paths.ws,
+    [`${paths.ws}-key`]: 'placeholder in a property name',
+    workspace_roots: [paths.ws],
+    tool_input: {
+      file_path: `${paths.ws}/src/new.css`,
+      content: String.raw`keep\literal`,
+      source: `${paths.repo}/tests/fixture.css`,
+    },
+  });
+  assert.equal(serializeOracleStdin('{not json', paths), '{not json');
+});
+
+it('normalizes only recognized Windows oracle path fields and hidden-path tokens', () => {
+  const sample = [
+    String.raw`{"productPath":"apps\\a\\PRODUCT.md","path":".impeccino\\surfaces\\x.md","file":".impeccino\\critique\\<STAMP>__x.md","message":"keep\\literal"}`,
+    String.raw`human paths: .impeccino\config.json, .claude\settings.local.json, .cursor\hooks.json.bak.`,
+    String.raw`literal text: keep\literal and .impeccino\not-a-path\keep`,
+    'code: `.impeccino\\config.json`',
+    'quoted text: ".impeccino\\config.json"',
+    '',
+  ].join('\n');
+  const actual = normalize(sample, {
+    ws: String.raw`D:\a\impeccino`,
+    platform: 'win32',
+  });
+
+  assert.equal(actual, [
+    String.raw`{"productPath":"apps/a/PRODUCT.md","path":".impeccino/surfaces/x.md","file":".impeccino/critique/<STAMP>__x.md","message":"keep\\literal"}`,
+    'human paths: .impeccino/config.json, .claude/settings.local.json, .cursor/hooks.json.bak.',
+    String.raw`literal text: keep\literal and .impeccino\not-a-path\keep`,
+    'code: `.impeccino\\config.json`',
+    'quoted text: ".impeccino\\config.json"',
+    '',
+  ].join('\n'));
+});
+
+it('normalizes only declared Windows surface-path output lines', () => {
+  const slash = normalize(String.raw`..\..\..\..\..\..\.impeccino\surfaces\route.md
+`, {
+    platform: 'win32',
+    caseId: 'surface-brief-path-slash',
+    pathOutput: true,
+  });
+  const outside = normalize(String.raw`..\elsewhere\.impeccino\surfaces\x-astro.md
+`, {
+    platform: 'win32',
+    caseId: 'surface-brief-path-outside',
+    pathOutput: true,
+  });
+
+  assert.equal(slash, '<UP_TO_ROOT>/.impeccino/surfaces/route.md\n');
+  assert.equal(outside, '../elsewhere/.impeccino/surfaces/x-astro.md\n');
+  assert.equal(normalize(String.raw`keep\literal`, { platform: 'win32' }), String.raw`keep\literal`);
+  assert.throws(
+    () => normalize('not a path line\nsecond line\n', { platform: 'win32', caseId: 'surface-brief-path-file', pathOutput: true }),
+    /one surface path line/,
+  );
 });
 
 it('keeps the PowerShell launcher note and quoted command in explicit Windows expectations', () => {
@@ -57,28 +133,58 @@ it('keeps the PowerShell launcher note and quoted command in explicit Windows ex
   assert.ok(diffResults(expectedWindows, duplicated).length > 0);
 });
 
-it('prevents Windows runs from overwriting shared goldens with platform-specific guidance', () => {
-  const item = { id: 'detect-framework-vite-text', windowsPowerShellGuidance: true };
+it('quotes the Windows drive-colon target_path without changing the shared golden', () => {
+  const item = { id: 'critique-write-monorepo-child', windowsDrivePathQuoteField: 'target_path' };
+  const shared = { stdout: 'target_path: <WS>/apps/a/src/App.tsx\n' };
+  const expectedWindows = expectedForPlatform(item, shared, 'win32');
 
-  assert.doesNotThrow(() => assertRecordableCases([item], 'darwin'));
+  assert.deepEqual(expectedForPlatform(item, shared, 'linux'), shared);
+  assert.deepEqual(expectedWindows, { stdout: 'target_path: "<WS>/apps/a/src/App.tsx"\n' });
+  assert.equal(diffResults(expectedWindows, { stdout: 'target_path: "<WS>/apps/a/src/App.tsx"\n' }).length, 0);
+  assert.ok(diffResults(expectedWindows, shared).length > 0);
+});
+
+it('prevents Windows runs from overwriting shared goldens with platform-specific guidance', () => {
+  const guidance = { id: 'detect-framework-vite-text', windowsPowerShellGuidance: true };
+  const driveQuote = { id: 'critique-write-monorepo-child', windowsDrivePathQuoteField: 'target_path' };
+
+  assert.doesNotThrow(() => assertRecordableCases([guidance, driveQuote], 'darwin'));
   assert.doesNotThrow(() => assertRecordableCases([{ id: 'detect-help' }], 'win32'));
   assert.throws(
-    () => assertRecordableCases([item], 'win32'),
-    /Cannot record shared oracle goldens on Windows.*Record these cases on Linux or macOS/,
+    () => assertRecordableCases([guidance, driveQuote], 'win32'),
+    /Cannot record shared oracle goldens on Windows.*detect-framework-vite-text, critique-write-monorepo-child.*Record these cases on Linux or macOS/,
   );
 });
 
-it('limits platform-specific oracle skips to the documented case-folding probe', async () => {
+it('limits platform-specific oracle skips to exact case-folding and POSIX-only probes', async () => {
   const cases = await allCases();
   const platformSpecific = cases
     .filter((item) => Array.isArray(item.platforms))
     .map(({ id, platforms, platformSkipReason }) => ({ id, platforms, platformSkipReason }));
+  platformSpecific.sort((a, b) => a.id.localeCompare(b.id));
 
   assert.deepEqual(platformSpecific, [{
     id: 'context-lowercase-product-name',
     platforms: ['darwin', 'win32'],
     platformSkipReason: 'This case tests case-insensitive PRODUCT.md discovery, which Linux filesystems do not provide.',
+  }, {
+    id: 'detect-unreadable-file-in-dir',
+    platforms: ['linux', 'darwin'],
+    platformSkipReason: 'This case uses POSIX chmod(0) to deny reads, which Windows does not enforce.',
+  }, {
+    id: 'detect-unreadable-file-json',
+    platforms: ['linux', 'darwin'],
+    platformSkipReason: 'This case uses POSIX chmod(0) to deny reads, which Windows does not enforce.',
+  }, {
+    id: 'surface-brief-write-route',
+    platforms: ['linux', 'darwin'],
+    platformSkipReason: 'On Windows, the slash-only target resolves to the drive root; this fixture must not write outside its staged workspace.',
   }]);
+  for (const item of platformSpecific) {
+    assert.equal(caseRunsHere(item, 'win32'), item.platforms.includes('win32'), `${item.id} Windows contract`);
+    assert.equal(caseRunsHere(item, 'linux'), item.platforms.includes('linux'), `${item.id} Linux contract`);
+    assert.equal(caseRunsHere(item, 'darwin'), item.platforms.includes('darwin'), `${item.id} macOS contract`);
+  }
 });
 
 it('limits explicit PowerShell golden differences to framework scan guidance', async () => {
@@ -92,6 +198,31 @@ it('limits explicit PowerShell golden differences to framework scan guidance', a
     'detect-fixture-text-framework-vite',
     'detect-framework-next-modules-text',
   ]);
+});
+
+it('limits Windows path-output contracts to exact single-path cases and steps', async () => {
+  const cases = await allCases();
+  const pathOutputCases = cases.filter((item) => item.windowsPathOutput).map((item) => item.id).sort();
+  const pathOutputSteps = cases.flatMap((item) => (item.steps || [])
+    .map((step, index) => step.windowsPathOutput ? `${item.id}[${index}]` : null)
+    .filter(Boolean)).sort();
+  const driveQuoteCases = cases.filter((item) => item.windowsDrivePathQuoteField).map((item) => item.id).sort();
+  const listCase = cases.find((item) => item.id === 'surface-brief-write-read-list');
+
+  assert.deepEqual(pathOutputCases, [
+    'surface-brief-path-file',
+    'surface-brief-path-from-subdir',
+    'surface-brief-path-outside',
+    'surface-brief-path-route',
+    'surface-brief-path-slash',
+    'surface-brief-path-url',
+    'surface-brief-write-monorepo-child',
+    'surface-brief-write-url',
+  ]);
+  assert.deepEqual(pathOutputSteps, ['surface-brief-write-read-list[0]', 'surface-brief-write-read-list[3]']);
+  assert.deepEqual(driveQuoteCases, ['critique-write-monorepo-child']);
+  assert.ok(listCase.files.includes('.impeccino/surfaces/**'));
+  assert.equal(normalize('Root route brief.', { platform: 'win32' }), 'Root route brief.');
 });
 
 describe.skipIf(!ENGINE_BIN)('oracle corpus against the engine binary', () => {

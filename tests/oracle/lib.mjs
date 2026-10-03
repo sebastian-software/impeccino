@@ -128,7 +128,81 @@ function normalizeTaggedPathSeparators(text) {
   });
 }
 
-export function normalize(text, { ws, home = os.homedir(), windowsPowerShellGuidance = false }) {
+function normalizeKnownWindowsJsonPathFields(text) {
+  return text.replace(/("(?:productPath|path|file)"\s*:\s*)("(?:\\.|[^"\\])*")/g, (match, fieldText, encodedValue) => {
+    const field = fieldText.match(/"([^"]+)"/)?.[1];
+    let value;
+    try { value = JSON.parse(encodedValue); } catch { return match; }
+    if (typeof value !== 'string' || !value.includes('\\')) return match;
+
+    const portable = value.replaceAll('\\', '/');
+    const isRelative = !/^(?:[A-Za-z]:[\\/]|[\\/]{1,2}|[A-Za-z][A-Za-z0-9+.-]*:\/\/)/.test(value);
+    const isKnownHiddenPath = /(?:^|\/)\.impeccino\/(?:config(?:\.local)?\.json|design\.json|surfaces\/|critique\/|live\/)/.test(portable) ||
+      /(?:^|\/)\.claude\/(?:settings\.local\.json|hooks\.json(?:\.bak)?)/.test(portable) ||
+      /(?:^|\/)\.cursor\/hooks\.json(?:\.bak)?/.test(portable);
+    if (field === 'productPath' ? !isRelative : !isKnownHiddenPath) return match;
+    return `${fieldText}${JSON.stringify(portable)}`;
+  });
+}
+
+function isInsideQuotedOrCodeText(text, index) {
+  let doubleQuoted = false;
+  let inCode = false;
+  let escaped = false;
+  for (let i = 0; i < index; i++) {
+    const char = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if ((doubleQuoted || inCode) && char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"' && !inCode) doubleQuoted = !doubleQuoted;
+    else if (char === '`' && !doubleQuoted) inCode = !inCode;
+  }
+  return doubleQuoted || inCode;
+}
+
+function normalizeWindowsPathOutput(text, caseId) {
+  if (!text) return text;
+  const match = text.match(/^([^\r\n]+)(\r?\n?)$/);
+  if (!match || !match[1].includes('.impeccino\\surfaces\\')) {
+    throw new Error(`Expected ${caseId}'s Windows stdout to be one surface path line`);
+  }
+  const [, pathLine, lineEnding] = match;
+  const portablePath = caseId === 'surface-brief-path-slash'
+    ? pathLine.replace(/^(?:\.\.\\){2,}(?=\.impeccino\\surfaces\\)/, '<UP_TO_ROOT>/')
+    : pathLine;
+  return portablePath.replaceAll('\\', '/') + lineEnding;
+}
+
+function normalizeKnownWindowsHiddenPaths(text) {
+  const contracts = {
+    '.impeccino': /^(?:config(?:\.local)?\.json|design\.json|surfaces|critique|live)$/,
+    '.claude': /^(?:settings\.local\.json|hooks\.json(?:\.bak)?)$/,
+    '.cursor': /^hooks\.json(?:\.bak)?$/,
+  };
+  const pathPattern = /(^|[^A-Za-z0-9_.-])(\.impeccino|\.claude|\.cursor)(\\{1,2}|\/)([^"'`()[\]{}<>\s,;]+)/g;
+  return text.replace(pathPattern, (match, boundary, root, separator, suffix, offset) => {
+    if (isInsideQuotedOrCodeText(text, offset + boundary.length)) return match;
+    const punctuation = suffix.match(/[.!?]+$/)?.[0] || '';
+    const pathSuffix = punctuation ? suffix.slice(0, -punctuation.length) : suffix;
+    const firstSegment = pathSuffix.match(/^[^\\/]+/)?.[0];
+    if (!firstSegment || !contracts[root].test(firstSegment)) return match;
+    return `${boundary}${root}${separator}${pathSuffix}`.replace(/\\{1,2}/g, '/') + punctuation;
+  });
+}
+
+export function normalize(text, {
+  ws,
+  home = os.homedir(),
+  windowsPowerShellGuidance = false,
+  platform = process.platform,
+  caseId,
+  pathOutput = false,
+}) {
   if (typeof text !== 'string') return text;
   let out = text.replaceAll('\r\n', '\n');
   // The hook footer embeds the admin command: JS prints "node '<scripts>/hook-admin.mjs'",
@@ -143,7 +217,7 @@ export function normalize(text, { ws, home = os.homedir(), windowsPowerShellGuid
   // The binary's own path: it may sit under $HOME or the repo.
   if (process.env.IMPECCINO_BIN) {
     const bin = process.env.IMPECCINO_BIN;
-    if (process.platform === 'win32' && windowsPowerShellGuidance) {
+    if (platform === 'win32' && windowsPowerShellGuidance) {
       const quotedCommand = `"${bin}" detect http://localhost:`;
       out = out.split(quotedCommand).join('<WINDOWS_QUOTED_IMPECCINO> detect http://localhost:');
     }
@@ -168,6 +242,11 @@ export function normalize(text, { ws, home = os.homedir(), windowsPowerShellGuid
   // above. Other backslashes in output (including Windows shell guidance)
   // remain observable.
   out = normalizeTaggedPathSeparators(out);
+  if (platform === 'win32') {
+    out = normalizeKnownWindowsJsonPathFields(out);
+    if (pathOutput) out = normalizeWindowsPathOutput(out, caseId);
+    out = normalizeKnownWindowsHiddenPaths(out);
+  }
   // Self-referential command lines: the JS prints "node <scripts>/<verb>.mjs", the
   // binary prints "<bin> <verb>". Both collapse to "<IMPECCINO> <verb>".
   out = out.replace(/node ['"]?<REPO>\/skill\/scripts\/([a-z-]+)\.mjs['"]?/g, (m, v) => `<IMPECCINO> ${v === 'context-signals' ? 'signals' : v === 'hook-admin' ? 'hooks' : v}`);
@@ -233,6 +312,27 @@ function globToRegex(glob) {
   return new RegExp("^" + re + "$");
 }
 
+export function replaceOraclePlaceholders(value, { ws, repo = REPO_ROOT }) {
+  if (typeof value === 'string') {
+    return value.replaceAll('<WS>', ws).replaceAll('<REPO>', repo);
+  }
+  if (Array.isArray(value)) return value.map((item) => replaceOraclePlaceholders(item, { ws, repo }));
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+      replaceOraclePlaceholders(key, { ws, repo }),
+      replaceOraclePlaceholders(item, { ws, repo }),
+    ]));
+  }
+  return value;
+}
+
+export function serializeOracleStdin(stdin, paths) {
+  if (typeof stdin === 'string') {
+    return replaceOraclePlaceholders(stdin, paths);
+  }
+  return stdin == null ? '' : JSON.stringify(replaceOraclePlaceholders(stdin, paths));
+}
+
 export function snapshotFiles(ws, globs) {
   const out = {};
   if (!globs || !globs.length) return out;
@@ -287,33 +387,72 @@ export function caseRunsHere(c, platform = process.platform) {
  * expected result rather than erasing it to match the shared Linux golden.
  */
 export function expectedForPlatform(c, golden, platform = process.platform) {
-  if (platform !== 'win32' || !c.windowsPowerShellGuidance) return golden;
+  if (platform !== 'win32') return golden;
   const expected = structuredClone(golden);
-  const guidance = 'In PowerShell, prefix the quoted launcher path with `&`.';
-  let totalReplacements = 0;
-  for (const stream of ['stdout', 'stderr']) {
-    if (typeof expected[stream] !== 'string') continue;
-    expected[stream] = expected[stream].replace(
-      /(^[ \t]*)<IMPECCINO> detect (http:\/\/localhost:\d+)\n\n/gm,
-      (_match, indent, url) => {
-        totalReplacements++;
-        return `${indent}<WINDOWS_QUOTED_IMPECCINO> detect ${url}\n${guidance}\n\n`;
-      },
-    );
+  if (c.windowsPowerShellGuidance) {
+    const guidance = 'In PowerShell, prefix the quoted launcher path with `&`.';
+    let totalReplacements = 0;
+    for (const stream of ['stdout', 'stderr']) {
+      if (typeof expected[stream] !== 'string') continue;
+      expected[stream] = expected[stream].replace(
+        /(^[ \t]*)<IMPECCINO> detect (http:\/\/localhost:\d+)\n\n/gm,
+        (_match, indent, url) => {
+          totalReplacements++;
+          return `${indent}<WINDOWS_QUOTED_IMPECCINO> detect ${url}\n${guidance}\n\n`;
+        },
+      );
+    }
+    if (totalReplacements !== 1) {
+      throw new Error(`Expected one framework launcher command in ${c.id}'s shared golden; found ${totalReplacements}`);
+    }
   }
-  if (totalReplacements !== 1) {
-    throw new Error(`Expected one framework launcher command in ${c.id}'s shared golden; found ${totalReplacements}`);
+
+  if (c.windowsDrivePathQuoteField) {
+    const field = c.windowsDrivePathQuoteField;
+    const quotePath = (text) => {
+      if (typeof text !== 'string') return { text, replacements: 0 };
+      let replacements = 0;
+      const pattern = new RegExp(`(^[ \\t]*${field}:[ \\t]*)(<WS>\\/[^\\r\\n]+)$`, 'gm');
+      return {
+        text: text.replace(pattern, (_match, prefix, value) => {
+          replacements++;
+          return `${prefix}"${value}"`;
+        }),
+        replacements,
+      };
+    };
+    let totalReplacements = 0;
+    if (Array.isArray(expected.steps)) {
+      for (const step of expected.steps) {
+        for (const stream of ['stdout', 'stderr']) {
+          if (typeof step[stream] !== 'string') continue;
+          const result = quotePath(step[stream]);
+          step[stream] = result.text;
+          totalReplacements += result.replacements;
+        }
+      }
+    } else {
+      for (const stream of ['stdout', 'stderr']) {
+        if (typeof expected[stream] !== 'string') continue;
+        const result = quotePath(expected[stream]);
+        expected[stream] = result.text;
+        totalReplacements += result.replacements;
+      }
+    }
+    if (totalReplacements !== 1) {
+      throw new Error(`Expected one ${field} path in ${c.id}'s shared golden; found ${totalReplacements}`);
+    }
   }
   return expected;
 }
 
 export function assertRecordableCases(cases, platform = process.platform) {
-  const windowsGuidanceCases = platform === 'win32'
-    ? cases.filter((c) => c.windowsPowerShellGuidance).map((c) => c.id)
+  const windowsExpectationCases = platform === 'win32'
+    ? cases.filter((c) => c.windowsPowerShellGuidance || c.windowsDrivePathQuoteField).map((c) => c.id)
     : [];
-  if (windowsGuidanceCases.length) {
+  if (windowsExpectationCases.length) {
     throw new Error(
-      `Cannot record shared oracle goldens on Windows for ${windowsGuidanceCases.join(', ')}. ` +
+      `Cannot record shared oracle goldens on Windows for ${windowsExpectationCases.join(', ')}. ` +
       'Record these cases on Linux or macOS; Windows output is checked against an explicit platform expectation.',
     );
   }
@@ -346,9 +485,14 @@ export function runCase(c, { impl = 'js', bin = process.env.IMPECCINO_BIN } = {}
     }
     const files = snapshotFiles(ws, c.files);
     const ctx = { ws };
-    const N = (text) => applyCaseNormalizers(normalize(text, { ...ctx, windowsPowerShellGuidance: c.windowsPowerShellGuidance }), c.normalize);
-    const norm = (r) => ({
-      stdout: N(r.stdout ?? ''),
+    const N = (text, { pathOutput = false } = {}) => applyCaseNormalizers(normalize(text, {
+      ...ctx,
+      windowsPowerShellGuidance: c.windowsPowerShellGuidance,
+      caseId: c.id,
+      pathOutput,
+    }), c.normalize);
+    const norm = (r, step) => ({
+      stdout: N(r.stdout ?? '', { pathOutput: step?.windowsPathOutput || (!c.steps && c.windowsPathOutput) }),
       stderr: N(r.stderr ?? ''),
       exit: r.status,
       signal: r.signal || null,
@@ -358,7 +502,7 @@ export function runCase(c, { impl = 'js', bin = process.env.IMPECCINO_BIN } = {}
     const daemonOut = daemons.length
       ? { daemon: daemons.map((d) => ({ stdout: N(d.stdout()), stderr: N(d.stderr()) })) }
       : {};
-    if (c.steps) return { steps: results.map(norm), files: filesNorm, ...daemonOut };
+    if (c.steps) return { steps: results.map((result, index) => norm(result, c.steps[index])), files: filesNorm, ...daemonOut };
     return { ...norm(results[0]), files: filesNorm, ...daemonOut };
   } finally {
     fs.rmSync(ws, { recursive: true, force: true });
@@ -394,7 +538,7 @@ function buildInvocation(c, { impl, bin, ws, isolatedHome }) {
     ...Object.fromEntries(Object.entries(c.env || {}).map(([k, v]) => [k, v == null ? v : sub(v)])),
   };
   for (const [k, v] of Object.entries(env)) if (v == null) delete env[k];
-  const stdin = typeof c.stdin === 'string' ? sub(c.stdin) : c.stdin != null ? sub(JSON.stringify(c.stdin)) : '';
+  const stdin = serializeOracleStdin(c.stdin, { ws, repo: REPO_ROOT });
   return { argv, cwd, env, stdin };
 }
 
