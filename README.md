@@ -9,7 +9,7 @@
 
 Design guidance for AI coding agents. 1 skill, 22 commands, and 61 deterministic detector rules for AI-generated frontend design.
 
-Impeccino ("the little Impeccable") is a slimmed-down derivative of [Impeccable](https://github.com/pbakaus/impeccable) by Paul Bakaus. It keeps the design guidance, the engine, and the detector, and leaves out everything that existed only to install, package, or run the skill in a browser of its own. One `skill/` folder works unchanged in every harness; [Dalo](https://dalo.sh) or [skills.sh](https://skills.sh) puts it in place. [How Impeccino differs from Impeccable](#how-impeccino-differs-from-impeccable) and the [Light ADRs](docs/adr/README.md) explain each cut.
+Impeccino ("the little Impeccable") is a slimmed-down derivative of [Impeccable](https://github.com/pbakaus/impeccable) by Paul Bakaus. It keeps the design guidance, the engine, and the detector, and leaves out everything that existed only to install, package, or run the skill in a browser of its own. It publishes one shared `skill/` folder; [Dalo](https://dalo.sh) or [skills.sh](https://skills.sh) puts it in place. [How Impeccino differs from Impeccable](#how-impeccino-differs-from-impeccable) and the [Light ADRs](docs/adr/README.md) explain each cut.
 
 > **Quick start:** Install the skill with Dalo or skills.sh (see [Installation](#installation)), then run `/impeccino init` inside your AI coding tool.
 
@@ -101,7 +101,7 @@ The skill includes explicit guidance on what to avoid:
 
 | Path | What it is |
 | --- | --- |
-| [`skill/`](skill/) | **The skill.** This folder is what you install, unchanged, in every harness. `SKILL.md` holds the setup flow, the design laws, and the command router; `reference/` has one playbook per command plus shared playbooks; `agents/` has the two shipped roles (finish reviewer and documenter) as Claude Code agent files; `scripts/` holds the launcher (`impeccino`, `impeccino.cmd`), the pinned engine version (`VERSION`), and command metadata. |
+| [`skill/`](skill/) | **The skill.** This is the single published skill folder. `SKILL.md` holds the setup flow, the design laws, and the command router; `reference/` has one playbook per command plus shared playbooks; `agents/` has the two shipped roles (finish reviewer and documenter) as Claude Code agent files; `scripts/` holds the launcher (`impeccino`, `impeccino.cmd`), the pinned engine version (`VERSION`), and command metadata. |
 | [`crates/`](crates/) | **The engine.** A Rust workspace that builds the `impeccino` binary behind every skill command: project context, the 61-rule detector for source files and rendered pages (`detect <url>` through agent-browser), the design hook, and `doctor`. It is one native binary with no WebAssembly build. Release binaries are published as `engine-v<version>` GitHub releases; the launcher fetches the one named in `skill/scripts/VERSION`. |
 | [`tests/`](tests/) | Vitest suites, the oracle corpus that pins every engine verb's output (`tests/oracle/`), and opt-in LLM-backed behavior and workflow checks. |
 | [`scripts/`](scripts/) | Tooling: `check.js` (`pnpm run check`), the release script, engine fetch and release checks, and the test runner. There is no skill build. |
@@ -120,25 +120,25 @@ Impeccable compiles the skill into 19 harness-specific variants, commits those v
 | Distribution | Claude Code, Grok, Cursor, and OpenAI plugins, VS Code extension, the npm detector CLI | No marketplace, editor, or npm packages | [0005](docs/adr/0005-no-marketplace-packages.md) |
 | Subagents | Compiled into Claude, Codex, Cursor, and Copilot formats plus fallback copies | Claude Code agent files in `skill/agents/`; other hosts spawn a general-purpose subagent with the same instructions | [0006](docs/adr/0006-agents-as-claude-code-files.md) |
 | Hooks | Merged into project settings at install time | Opt-in per project with `/impeccino hooks on` | [0007](docs/adr/0007-hooks-are-a-project-opt-in.md) |
-| Frontmatter | Claude-only keys in the Claude variant | Spec fields plus `user-invocable` and `argument-hint`, which every runtime tolerates | [0008](docs/adr/0008-frontmatter-carries-tolerated-harness-keys.md) |
+| Frontmatter | Claude-only keys in the Claude variant | Spec fields plus `user-invocable` and `argument-hint` for hosts that support them; see the [harness reference](docs/HARNESSES.md) | [0008](docs/adr/0008-frontmatter-carries-tolerated-harness-keys.md) |
 | Engine pin | Root `ENGINE_VERSION`, copied by the build | `skill/scripts/VERSION` only | [0009](docs/adr/0009-engine-version-in-one-file.md) |
 | Engine binary | Fetched by the installer or the launcher | Still fetched by the launcher, for now | [0010](docs/adr/0010-launcher-fetches-the-engine.md) |
 | Browser | Live mode in the user's dev server, a local decision page, a component review page, URL scans over its own Chrome connection | No browser stack of its own: screenshots come from the agent's browser, decisions from the structured question tool | [0011](docs/adr/0011-no-own-browser-stack.md) |
 | Rendered-page rules | Run in the live overlay, the extension, or URL scans over Impeccable's own Chrome connection | `detect <url>` drives agent-browser: a read-only measurement in the page, the same rules evaluated natively, screenshot pixels for the rest | [0016](docs/adr/0016-rendered-pages-through-agent-browser.md) |
 | Build path | Comp-first (image-generated mock, comp fidelity tooling) or code-first, chosen by `buildPath` | Code-led build only, carried by the direction contract | [0012](docs/adr/0012-no-image-comps.md) |
 | Rule engine targets | Native binary plus a WebAssembly build for the browser extension and the in-page overlay | One native binary; no WebAssembly build, no browser extension | [0013](docs/adr/0013-no-wasm-or-browser-extension.md) |
-| Releases | Changelog entry in the website repository, rendered into the release notes; Windows binaries signed with the upstream maintainer's certificate | Per-component tags (`skill-v`, `engine-v`) with notes GitHub generates from the commits; binaries verified by checksum | [0014](docs/adr/0014-releases-are-tags.md) |
+| Releases | Changelog entry in the website repository, rendered into the release notes; Windows binaries signed with the upstream maintainer's certificate | Per-component tags (`skill-v`, `engine-v`) with notes GitHub generates from the commits; each engine asset carries a GitHub build attestation and its digest is pinned in the skill | [0014](docs/adr/0014-releases-are-tags.md) |
 | Docs | Finished plans, port contracts, release notes, and demos kept in `docs/` | `docs/` holds current guidance and ADRs; the oracle corpus is the behavioral contract; history lives in git | [0015](docs/adr/0015-history-lives-in-git.md) |
 
 Unchanged: the design guidance itself, every command that does not need a browser or an image model (22 commands; `live` and `generate` are gone), and the engine's context, hook, and detector. The detector keeps all 61 rules: the nine that need a rendered page now run through `detect <url>` and agent-browser ([ADR 0016](docs/adr/0016-rendered-pages-through-agent-browser.md)).
 
-**Verified so far.** `skill/` loads in Claude Code and in Codex: both resolve and run the launcher, and Codex names commands with `$`. Dalo and skills.sh both find and install it. The Rust workspace tests, the core suite, the full oracle corpus, and rendered-page scans through agent-browser pass.
+**Verified so far.** Skill loading and launcher invocation have been verified in Claude Code and Codex; both resolve and run the launcher, and Codex names commands with `$`. Dalo and skills.sh both find and install it. The Rust workspace tests, the core suite, the full oracle corpus, and rendered-page scans through agent-browser pass. The harness notes are a [point-in-time reference](docs/HARNESSES.md), not a record of end-to-end Impeccino verification.
 
 **Open.** The generic-subagent fallback has not been exercised in a full build run. The LLM-backed behavior suite has not run against the labelled harness paragraphs. `concept-seed` still draws its visual-world catalog from Impeccable's public API (`impeccable.style/api`); see [#7](https://github.com/sebastian-software/impeccino/issues/7).
 
 ## Installation
 
-`skill/` is the whole skill, in one form for every harness, like an app bundle you drag into place. Impeccino has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)); install it with Dalo or skills.sh ([ADR 0003](docs/adr/0003-no-self-installer.md)).
+`skill/` is the whole skill in one shared form, like an app bundle you drag into place. Impeccino has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)); install it with Dalo or skills.sh.
 
 The skill needs no runtime. Its launcher (`scripts/impeccino`, plus `impeccino.cmd` for Windows) runs the Impeccino engine, a self-contained binary that is downloaded once on first run into `~/.impeccino/bin/` from this repository's GitHub Releases, for the version in `skill/scripts/VERSION`. The download must match the digest pinned in `skill/scripts/engine.sha256`, and every release binary carries a GitHub build attestation (`gh attestation verify <file> -R sebastian-software/impeccino`). The engine release workflow also publishes `THIRD-PARTY-NOTICES.txt`; skill bundles include `LICENSE` and `NOTICE.md`. If you manage tools with [mise](https://mise.jdx.dev), `mise use github:sebastian-software/impeccino` (with `version_prefix = "engine-v"`) installs the same binary, and the launcher picks it up from your PATH. Rendered-page scans (`detect <url>`) also need [agent-browser](https://github.com/vercel-labs/agent-browser).
 
@@ -224,7 +224,7 @@ Hook surfaces the engine manages:
 - Cursor: `.cursor/hooks.json`, which blocks bad proposed writes before they land.
 - GitHub Copilot: `.github/hooks/impeccino.json`, a team-shared file the Copilot CLI reads once it is committed to the default branch.
 
-The hook also understands Grok Build's events, and `context` recognizes a Grok manifest at `.grok/hooks/impeccino.json`; `hooks on` does not write that one. Gemini CLI has no hook manifest anymore ([ADR 0012](docs/adr/0012-no-image-comps.md)); the skill asks for a manual detector run there.
+The hook also understands Grok Build's events, and `context` recognizes a Grok manifest at `.grok/hooks/impeccino.json`; `hooks on` does not write that one. Gemini CLI has no hook manifest; the skill asks for a manual detector run there.
 
 Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. Hook lifecycle settings live under the `hook` key of `.impeccino/config.json`; detector ignores live under `detector`, shared by `/impeccino hooks` and `impeccino detect`.
 
@@ -253,7 +253,7 @@ By default, `detect` respects the same `.impeccino/config.json` and `.impeccino/
 
 For a waiver that should travel with one file instead of the repo config, add an inline comment in the file: `<!-- impeccino-disable overused-font: exported brand doc -->`. The marker works in any comment syntax, scopes to the whole file (or one line with `impeccino-disable-line` / `impeccino-disable-next-line`), and is bypassed by `--no-inline-ignores` or `--no-config`.
 
-## Supported Tools
+## Harnesses
 
 - [Cursor](https://cursor.com)
 - [Claude Code](https://claude.ai/code)
@@ -270,7 +270,6 @@ For a waiver that should travel with one file instead of the repo config, add an
 - [Rovo Dev](https://www.atlassian.com/software/rovo)
 - [Qoder](https://qoder.com)
 - [Mistral Vibe](https://docs.mistral.ai/vibe/code/overview)
-- [Veto](https://github.com/oleg-koval/veto)
 - [Google Antigravity](https://antigravity.google)
 
 ## Contributing

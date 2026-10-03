@@ -4,7 +4,7 @@
 
 ## Context
 
-`npx impeccino install|update|link|check` (crate `crates/skills`) detected harnesses, downloaded a signed `universal.zip`, copied one variant per harness, merged hook manifests into project settings, fetched the engine, and kept no lock file or uninstall. Every third-party skill shipping its own installer does not scale: each one invents placement, trust, updates, and removal, and none of them knows about the others.
+`npx impeccable install|update|link|check` (crate `crates/skills`) detected harnesses, downloaded a signed `universal.zip`, copied one variant per harness, merged hook manifests into project settings, fetched the engine, and kept no lock file or uninstall. The npm package was named `impeccable` before this tooling was removed. Every third-party skill shipping its own installer does not scale: each one invents placement, trust, updates, and removal, and none of them knows about the others.
 
 A submodule or a manual copy avoids the installer but leaves pinning, updates, removal, and placement into several harness folders to the user, which is the work a skill manager exists to do.
 
