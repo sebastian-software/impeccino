@@ -38,6 +38,7 @@ export const SUITES = {
           'tests/skill-source.test.js',
           'tests/lib/utils.test.js',
           'tests/release-engine-workflow.test.js',
+          'tests/generate-engine-notices.test.js',
           'tests/workflow-security.test.js',
           'tests/ci-test-plan.test.mjs',
           'tests/launcher-download.test.mjs',

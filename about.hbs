@@ -1,0 +1,12 @@
+{{#each licenses}}
+================================================================================
+License: {{{name}}}
+
+Packages using this license:
+{{#each used_by}}
+- {{crate.name}} {{crate.version}}{{#if crate.license}} ({{crate.license}}){{/if}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}
