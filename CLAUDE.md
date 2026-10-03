@@ -13,7 +13,7 @@ There is **one** user-invocable skill, `impeccino`, with **22 commands** underne
 
 ### Engine binary (the runtime behind every verb)
 
-The skill has no runtime of its own. Every command the skill text runs is `"<skill-base-dir>/scripts/impeccino" <verb>` (Setup step 1 says `impeccino context`; `impeccino.cmd` is the Windows twin for shells without `sh`). `skill/scripts/impeccino` is a POSIX `sh` launcher: it execs `$IMPECCINO_BIN` if set, else the sibling `scripts/bin/<os>-<arch>/impeccino[.exe]`, else `~/.impeccino/bin/impeccino`, else the version-pinned user cache `~/.impeccino/bin/<VERSION>/`, else `impeccino` on PATH, and as a last resort downloads the pinned version into that cache. It exports `IMPECCINO_SKILL_DIR` (the skill dir, for `reference/*.md` and `command-metadata.json`) and `IMPECCINO_SELF` (how the binary spells itself in the commands it prints).
+The skill uses an internal native runtime. Every command the skill text runs is `"<skill-base-dir>/scripts/impeccino" <verb>` (Setup step 1 says `impeccino context`; `impeccino.cmd` is the Windows twin for shells without `sh`). `skill/scripts/impeccino` is a POSIX `sh` launcher: it execs `$IMPECCINO_BIN` if set, else the sibling `scripts/bin/<os>-<arch>/impeccino[.exe]`, else the version-pinned user cache `~/.impeccino/bin/<VERSION>/`, and as a last resort downloads the pinned version into that cache. It exports `IMPECCINO_SKILL_DIR` (the skill dir, for `reference/*.md` and `command-metadata.json`) and `IMPECCINO_SELF` (how the binary spells itself in the commands it prints).
 
 The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the root, `crates/*`; `cargo build --release -p impeccino`). Its verbs are `context`, `doctor`, `pin`, `surface-brief`, `critique-storage`, `palette`, `signals` (alias of context-signals), `concept-seed`, `detect` (files, directories, and URLs through agent-browser), `ignores`, `hook`, `hook-before-edit`, and `hooks` (alias of hook-admin). The browser and comp verbs (`live*`, `detect-csp`, `serve-question`, `component-review`, `generate-image`, `comp-spec`, `comp-diff`, `font-match`, `build-phase`, `capture-server`, `embed-prompt`) print a "was removed" message and exit 1 ([ADR 0011](docs/adr/0011-no-own-browser-stack.md), [ADR 0012](docs/adr/0012-no-image-comps.md)). Observable behavior is pinned by `tests/oracle/`, which is the behavioral contract ([ADR 0015](docs/adr/0015-history-lives-in-git.md)). **Read `docs/ENGINE.md` before touching `crates/`**: it maps the crates.
 
@@ -178,17 +178,9 @@ IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 pnpm run test:skill-behavior    # dump per-sc
 
 **The harness copies `skill/` as-is**, the way a skill manager installs it, so SKILL.md and reference edits show up immediately; the launcher under `skill/scripts/` resolves the binary the same way tests do.
 
-## CLI
+## Internal engine interface
 
-The `impeccino` binary is the skill's engine; there is no separate npm package ([ADR 0005](docs/adr/0005-no-marketplace-packages.md)). To run the detector without an agent (for example in CI), call the launcher of an installed skill or a downloaded release binary:
-
-```bash
-<skill-dir>/scripts/impeccino detect src/              # detect anti-patterns
-<skill-dir>/scripts/impeccino detect --json src/       # JSON output
-<skill-dir>/scripts/impeccino detect http://localhost:3000/   # rendered page, needs agent-browser
-```
-
-`install`, `update`, `check`, `link`, and the legacy `skills` namespace only print the install routes ([ADR 0003](docs/adr/0003-no-self-installer.md)).
+The public interface is the skill and its agent workflows. The native CLI and Rust crates are internal implementation details ([ADR 0005](docs/adr/0005-no-marketplace-packages.md)). Direct calls are for skill/hook integration and contributor debugging; see [ENGINE.md](docs/ENGINE.md) for the internal detector contract. Update callers and regression coverage together when changing it. Do not introduce standalone terminal/CI workflows into user documentation.
 
 ## Versioning
 

@@ -6,6 +6,8 @@ Documentation for contributors to Impeccino.
 
 `skill/` is the skill, and it installs as-is in every harness: there is no build, installer, or per-harness variant. The decisions behind this are recorded as Light ADRs in [adr/](adr/README.md). For harness behavior (frontmatter, subagents, hooks), see [HARNESSES.md](HARNESSES.md).
 
+The public interface is the skill and its agent workflows. The CLI and Rust workspace are internal runtime implementation; [ENGINE.md](ENGINE.md) documents their invocation, integration contract, build, and release flow. Keep direct engine examples in contributor documentation rather than presenting a second user workflow.
+
 ## Source Format
 
 ### Skill (`skill/SKILL.md`)
