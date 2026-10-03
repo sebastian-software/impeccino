@@ -150,6 +150,17 @@ describe('release.mjs guards', () => {
     assert.match(stdout, /release-engine workflow/);
   });
 
+  it('checks an engine workflow tag against both versions without release preconditions', () => {
+    const valid = runRelease(workDir, 'engine', '--check-tag', 'engine-v0.1.0');
+    assert.equal(valid.code, 0, valid.stderr);
+    assert.match(valid.stdout, /Git ref engine-v0\.1\.0 matches the engine versions/);
+    assert.doesNotMatch(valid.stdout, /Checking working tree is clean|Checking HEAD is pushed/);
+
+    const mismatch = runRelease(workDir, 'engine', '--check-tag', 'engine-v0.2.0');
+    assert.notEqual(mismatch.code, 0);
+    assert.match(mismatch.stderr, /Engine tag mismatch/);
+  });
+
   it('allows matching engine prerelease versions', () => {
     write('skill/scripts/VERSION', '0.2.0-rc.1\n');
     write('Cargo.toml', '[workspace.package]\nversion = "0.2.0-rc.1"\n');

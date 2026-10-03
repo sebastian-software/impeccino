@@ -122,11 +122,8 @@ function escapeRegExp(value) {
 
 // Every suite must select itself when one of its own test files changes.
 // Generated from the files lists so the hand-written trigger patterns above
-// only carry source paths and fixture directories; before this, four test
-// files were registered in a suite that change-based CI could never select
-// by editing them (serve-question, ci-test-plan, both validate-plugin-*),
-// and tests/lib/detector-bundle.test.js triggered core while running in
-// detector. The meta-test in tests/test-suites.test.mjs pins this invariant.
+// only carry source paths and fixture directories. The meta-test in
+// tests/test-suites.test.mjs pins this invariant.
 for (const suite of Object.values(SUITES)) {
   const ownFiles = suite.commands.flatMap((command) => command.files);
   suite.triggers = [

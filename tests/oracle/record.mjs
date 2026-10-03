@@ -12,7 +12,7 @@
  * added or intentionally changed, review each resulting diff by hand, and
  * leave the frozen function-level vectors untouched.
  */
-import { allCases, runCase, writeGolden } from './lib.mjs';
+import { allCases, assertRecordableCases, runCase, writeGolden } from './lib.mjs';
 
 const argv = process.argv.slice(2);
 const binFlag = argv.find(a => a === '--bin' || a.startsWith('--bin='));
@@ -35,6 +35,12 @@ if (impl === 'js') {
 const prefix = argv.find(a => !a.startsWith('--')) || '';
 const exact = argv.find(a => a.startsWith('--ids='))?.slice(6).split(',').filter(Boolean);
 const cases = (await allCases()).filter(c => (exact ? exact.includes(c.id) : c.id.startsWith(prefix)));
+try {
+  assertRecordableCases(cases);
+} catch (error) {
+  process.stderr.write(`record.mjs: ${error.message}\n`);
+  process.exit(2);
+}
 let n = 0;
 for (const c of cases) {
   const res = runCase(c, { impl, bin });

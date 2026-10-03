@@ -1,5 +1,6 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   DEFAULT_SUITES,
@@ -12,6 +13,11 @@ import {
 } from '../scripts/test-suites.mjs';
 
 describe('test suite registry', () => {
+  it('does not describe retired suite families in the trigger comments', () => {
+    const source = readFileSync(new URL('../scripts/test-suites.mjs', import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /serve-question|validate-plugin-|detector-bundle/);
+  });
+
   it('separates protocol checkpoints from opt-in browser-backed completion', () => {
     assert.deepEqual(suiteFiles(['skill-behavior']), ['tests/skill-behavior/scenarios.test.mjs']);
     assert.ok(OPT_IN_SUITES.includes('skill-workflow'));

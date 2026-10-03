@@ -8,6 +8,16 @@ import { assertLauncherDenialWarningBeforeNextTool, assertPlanningFallbackWarnin
 import { CASE_STUDY_ANSWER } from './skill-behavior/fixtures.mjs';
 import { sourceHash as hashSources } from './skill-workflow/source-hash.mjs';
 import { assertCompleted, assertFreshCaptures, assertNoChangeDocumentation, assertDocumentationArtifacts } from './skill-workflow/assertions.mjs';
+import { assertProviderExecution } from './skill-behavior/providers.mjs';
+
+it('requires provider execution only when the CI caller opts into that gate', () => {
+  assert.doesNotThrow(() => assertProviderExecution(new Set(), { required: false }));
+  assert.throws(
+    () => assertProviderExecution(new Set(), { required: true }),
+    /No provider-backed skill behavior scenarios ran/,
+  );
+  assert.doesNotThrow(() => assertProviderExecution(new Set(['claude-sonnet-5']), { required: true }));
+});
 
 it('documentation artifacts require tokens and the v2 sidecar independently of wrapper coverage', () => {
   const design = '---\ncolors:\n  ink: "#222"\ntypography:\n  body:\n    fontFamily: system-ui\n---\n## Overview\nA reading surface.\n';

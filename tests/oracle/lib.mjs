@@ -20,8 +20,8 @@
  *     step and its captured output lands in the golden as `daemon`.
  *
  * Normalization replaces the staged workspace path with <WS>, the repo root
- * with <REPO>, $HOME with <HOME>, and masks ISO timestamps, so goldens are
- * stable across machines and runs.
+ * with <REPO>, $HOME with <HOME>, and masks ISO timestamps. Windows path
+ * separators and CRLF are normalized only after these known roots are tagged.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -110,9 +110,27 @@ function maskPath(text, needle, tag) {
   return out + text.slice(i);
 }
 
-export function normalize(text, { ws, home = os.homedir() }) {
+function normalizeTaggedPathSeparators(text) {
+  // JSON and quoted human-readable paths can contain spaces, so consume their
+  // known-root suffix through a paired quote immediately surrounding the tag.
+  // The unquoted pass below stops at the first token boundary.
+  const quoted = text.replace(/(["'])(<(?:WS|REPO|HOME)>)([^"'\r\n]*)\1/g, (whole, quote, root, suffix) => {
+    if (!/^[/\\]/.test(suffix)) return whole;
+    const tag = root.slice(1, -1);
+    return quote + '<' + tag + '>' + suffix.replace(/\\{1,2}/g, '/') + quote;
+  });
+  return quoted.replace(/<(WS|REPO|HOME)>([^\r\n]*)/g, (line, tag, suffix) => {
+    const boundary = suffix.search(/[\s"'`<>),;\]}]/);
+    const pathPart = boundary === -1 ? suffix : suffix.slice(0, boundary);
+    if (!/^[/\\]/.test(pathPart)) return line;
+    const rest = boundary === -1 ? '' : suffix.slice(boundary);
+    return `<${tag}>${pathPart.replace(/\\{1,2}/g, '/')}${rest}`;
+  });
+}
+
+export function normalize(text, { ws, home = os.homedir(), windowsPowerShellGuidance = false }) {
   if (typeof text !== 'string') return text;
-  let out = text;
+  let out = text.replaceAll('\r\n', '\n');
   // The hook footer embeds the admin command: JS prints "node '<scripts>/hook-admin.mjs'",
   // the binary prints "'<bin>' hooks". Both collapse to <HOOK_ADMIN_CMD>. This must run
   // before the generic binary-path mask below.
@@ -125,6 +143,10 @@ export function normalize(text, { ws, home = os.homedir() }) {
   // The binary's own path: it may sit under $HOME or the repo.
   if (process.env.IMPECCINO_BIN) {
     const bin = process.env.IMPECCINO_BIN;
+    if (process.platform === 'win32' && windowsPowerShellGuidance) {
+      const quotedCommand = `"${bin}" detect http://localhost:`;
+      out = out.split(quotedCommand).join('<WINDOWS_QUOTED_IMPECCINO> detect http://localhost:');
+    }
     for (const form of [`'${bin}'`, `"${bin}"`, bin]) out = out.split(form).join('<IMPECCINO>');
   }
   let wsReal = null;
@@ -132,8 +154,20 @@ export function normalize(text, { ws, home = os.homedir() }) {
   for (const [needle, tag] of [
     [wsReal, '<WS>'], [ws, '<WS>'], [REPO_ROOT, '<REPO>'], [home, '<HOME>'],
   ]) {
-    if (needle) out = maskPath(out, needle, tag);
+    if (!needle) continue;
+    const spellings = new Set([needle]);
+    if (needle.includes('\\')) {
+      spellings.add(needle.replaceAll('\\', '/'));
+      spellings.add(needle.replaceAll('\\', '\\\\'));
+    }
+    for (const spelling of [...spellings].sort((a, b) => b.length - a.length)) {
+      out = maskPath(out, spelling, tag);
+    }
   }
+  // Keep path separator normalization scoped to roots already identified
+  // above. Other backslashes in output (including Windows shell guidance)
+  // remain observable.
+  out = normalizeTaggedPathSeparators(out);
   // Self-referential command lines: the JS prints "node <scripts>/<verb>.mjs", the
   // binary prints "<bin> <verb>". Both collapse to "<IMPECCINO> <verb>".
   out = out.replace(/node ['"]?<REPO>\/skill\/scripts\/([a-z-]+)\.mjs['"]?/g, (m, v) => `<IMPECCINO> ${v === 'context-signals' ? 'signals' : v === 'hook-admin' ? 'hooks' : v}`);
@@ -247,6 +281,44 @@ export function caseRunsHere(c, platform = process.platform) {
   return !Array.isArray(c.platforms) || c.platforms.includes(platform);
 }
 
+/**
+ * The engine deliberately prints a Windows-specific PowerShell note and a
+ * quoted launcher command for framework scans. Keep that contract in the
+ * expected result rather than erasing it to match the shared Linux golden.
+ */
+export function expectedForPlatform(c, golden, platform = process.platform) {
+  if (platform !== 'win32' || !c.windowsPowerShellGuidance) return golden;
+  const expected = structuredClone(golden);
+  const guidance = 'In PowerShell, prefix the quoted launcher path with `&`.';
+  let totalReplacements = 0;
+  for (const stream of ['stdout', 'stderr']) {
+    if (typeof expected[stream] !== 'string') continue;
+    expected[stream] = expected[stream].replace(
+      /(^[ \t]*)<IMPECCINO> detect (http:\/\/localhost:\d+)\n\n/gm,
+      (_match, indent, url) => {
+        totalReplacements++;
+        return `${indent}<WINDOWS_QUOTED_IMPECCINO> detect ${url}\n${guidance}\n\n`;
+      },
+    );
+  }
+  if (totalReplacements !== 1) {
+    throw new Error(`Expected one framework launcher command in ${c.id}'s shared golden; found ${totalReplacements}`);
+  }
+  return expected;
+}
+
+export function assertRecordableCases(cases, platform = process.platform) {
+  const windowsGuidanceCases = platform === 'win32'
+    ? cases.filter((c) => c.windowsPowerShellGuidance).map((c) => c.id)
+    : [];
+  if (windowsGuidanceCases.length) {
+    throw new Error(
+      `Cannot record shared oracle goldens on Windows for ${windowsGuidanceCases.join(', ')}. ` +
+      'Record these cases on Linux or macOS; Windows output is checked against an explicit platform expectation.',
+    );
+  }
+}
+
 export function runCase(c, { impl = 'js', bin = process.env.IMPECCINO_BIN } = {}) {
   const ws = stageWorkspace(c.workspace);
   try {
@@ -274,7 +346,7 @@ export function runCase(c, { impl = 'js', bin = process.env.IMPECCINO_BIN } = {}
     }
     const files = snapshotFiles(ws, c.files);
     const ctx = { ws };
-    const N = (text) => applyCaseNormalizers(normalize(text, ctx), c.normalize);
+    const N = (text) => applyCaseNormalizers(normalize(text, { ...ctx, windowsPowerShellGuidance: c.windowsPowerShellGuidance }), c.normalize);
     const norm = (r) => ({
       stdout: N(r.stdout ?? ''),
       stderr: N(r.stderr ?? ''),

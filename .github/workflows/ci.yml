@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      skill_behavior:
+        description: 'Run billed, provider-backed skill behavior checks'
+        type: boolean
+        default: false
       skill_workflow:
         description: 'Run billed, browser-backed Claude workflow completion tests'
         type: boolean
@@ -16,10 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  # Scheduled runs get their own group: the 07:00 UTC nightly and a push to
-  # main share github.ref, and cancel-in-progress would let them kill each
-  # other mid-run.
-  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' && 'nightly' || github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -45,6 +46,7 @@ jobs:
         id: plan
         env:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+          GITHUB_EVENT_INPUTS_SKILL_BEHAVIOR: ${{ inputs.skill_behavior }}
         run: node scripts/ci-test-plan.mjs
 
   test-matrix:
@@ -140,9 +142,14 @@ jobs:
   # runs on developer laptops: tests/oracle.test.mjs skips cleanly when no
   # binary is present, so the default suite is silent about it on CI.
   oracle:
-    runs-on: ubuntu-latest
+    name: oracle (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     needs: changes
     if: needs.changes.outputs.oracle == 'true' || needs.changes.outputs.rust == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -163,7 +170,7 @@ jobs:
 
       - name: Replay oracle goldens
         env:
-          IMPECCINO_BIN: ${{ github.workspace }}/target/release/impeccino
+          IMPECCINO_BIN: ${{ github.workspace }}/target/release/impeccino${{ matrix.os == 'windows-latest' && '.exe' || '' }}
         run: node tests/oracle/run.mjs
 
   # Release-order guard: the engine release for the pinned skill/scripts/VERSION
@@ -221,11 +228,12 @@ jobs:
   skill-behavior:
     runs-on: ubuntu-latest
     needs: changes
-    if: needs.changes.outputs.skill_behavior == 'true' && github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch' && inputs.skill_behavior
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       GOOGLE_CLOUD_API_KEY: ${{ secrets.GOOGLE_CLOUD_API_KEY }}
+      IMPECCINO_SKILL_BEHAVIOR_REQUIRE_PROVIDER: '1'
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

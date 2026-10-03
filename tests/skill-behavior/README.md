@@ -20,7 +20,9 @@ IMPECCINO_SKILL_BEHAVIOR_EFFORT=xhigh pnpm run test:skill-behavior             #
 
 Requires `.env` at repo root with at least one of `ANTHROPIC_API_KEY`,
 `OPENAI_API_KEY`, `GOOGLE_CLOUD_API_KEY`, `DEEPSEEK_API_KEY`. Providers without a key are
-skipped, not failed.
+skipped on ordinary local runs. The billed CI lane is manual-only; when selected,
+it fails if no provider scenario actually runs (for example, because all
+provider secrets or the engine binary are missing).
 
 Also requires the engine binary (`pnpm run fetch:engine`, or `IMPECCINO_BIN`).
 The staged skill dir ships the launcher (`scripts/impeccino`); the harness
@@ -66,8 +68,11 @@ workflows require desktop and mobile captures matching the final local sources a
 its last edit. Approval/brief-before-code and redesign documentation-at-finish
 checks remain, as does exactly one context load across the completed turn.
 CI runs this lane only when its manual `skill_workflow` checkbox is enabled.
-Ordinary protocol CI now fetches its engine instead of silently skipping for
-a missing binary. Full-build results must be reported separately from routing.
+The billed protocol suite is separate and runs only when its manual
+`skill_behavior` checkbox is enabled. That CI job requires at least one
+provider scenario to complete; local runs without keys or an engine keep their
+existing clean skips. Full-build results must be reported separately from
+routing.
 
 ## Scenarios
 
