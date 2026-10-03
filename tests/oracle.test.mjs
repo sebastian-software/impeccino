@@ -336,3 +336,28 @@ describe.skipIf(!ENGINE_BIN)('oracle corpus against the engine binary', () => {
     );
   });
 });
+
+it('expects Windows Claude exec-form only for declared generated hook manifests', () => {
+  const command = 'if [ -x "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino" ]; then "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino" hook; fi';
+  const entry = { type: 'command', command, timeout: 10, statusMessage: 'checking' };
+  const settings = { permissions: { allow: ['Bash(ls)'] }, hooks: { PostToolUse: [{ hooks: [entry, { type: 'command', command: 'echo other' }] }], Stop: [{ hooks: [entry] }] } };
+  const shared = { files: { '.claude/settings.local.json': JSON.stringify(settings, null, 2) + '\n', 'other.json': 'keep' } };
+  const original = structuredClone(shared);
+  const item = { id: 'hadmin-on', windowsClaudeExecForm: true };
+  const expected = expectedForPlatform(item, shared, 'win32');
+  const windows = JSON.parse(expected.files['.claude/settings.local.json']);
+  const generated = windows.hooks.PostToolUse[0].hooks[0];
+  assert.equal(generated.command, 'powershell.exe');
+  assert.deepEqual(Object.keys(generated), ['type', 'command', 'args', 'timeout', 'statusMessage']);
+  assert.deepEqual(generated.args, ['-NoProfile', '-Command', "if (Test-Path -LiteralPath '<WS>/.claude/skills/impeccino/scripts/impeccino.cmd' -PathType Leaf) { & '<WS>/.claude/skills/impeccino/scripts/impeccino.cmd' hook }"]);
+  assert.deepEqual(windows.hooks.Stop[0].hooks[0], generated);
+  assert.deepEqual(windows.permissions, settings.permissions);
+  assert.equal(windows.hooks.PostToolUse[0].hooks[1].command, 'echo other');
+  assert.equal(expected.files['other.json'], 'keep');
+  assert.deepEqual(shared, original);
+  assert.deepEqual(expectedForPlatform(item, shared, 'linux'), original);
+  assert.deepEqual(expectedForPlatform({}, shared, 'win32'), original);
+  assert.deepEqual(expectedForPlatform(item, { files: {} }, 'win32'), { files: {} });
+  assert.throws(() => expectedForPlatform(item, { files: { '.claude/settings.local.json': '{}' } }, 'win32'), /Expected generated Claude/);
+  assert.throws(() => assertRecordableCases([item], 'win32'), /Cannot record shared oracle goldens.*hadmin-on/);
+});

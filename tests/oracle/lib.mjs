@@ -451,6 +451,30 @@ export function expectedForPlatform(c, golden, platform = process.platform) {
       value,
     ]));
   }
+  if (c.windowsClaudeExecForm && typeof expected.files?.['.claude/settings.local.json'] === 'string') {
+    const key = '.claude/settings.local.json';
+    const settings = JSON.parse(expected.files[key]);
+    const sharedCommand = 'if [ -x "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino" ]; then "${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino" hook; fi';
+    const launcher = '<WS>/.claude/skills/impeccino/scripts/impeccino.cmd';
+    const args = ['-NoProfile', '-Command', `if (Test-Path -LiteralPath '${launcher}' -PathType Leaf) { & '${launcher}' hook }`];
+    let replacements = 0;
+    const rewrite = (value) => {
+      if (Array.isArray(value)) return value.map(rewrite);
+      if (!value || typeof value !== 'object') return value;
+      if (value.command === sharedCommand) {
+        replacements++;
+        return Object.fromEntries(Object.entries(value).flatMap(([field, item]) => field === 'command'
+          ? [['command', 'powershell.exe'], ['args', args]]
+          : [[field, rewrite(item)]]));
+      }
+      return Object.fromEntries(Object.entries(value).map(([field, item]) => [field, rewrite(item)]));
+    };
+    const rewritten = rewrite(settings);
+    if (replacements === 0) {
+      throw new Error(`Expected generated Claude launcher entries in ${c.id}'s shared golden`);
+    }
+    expected.files[key] = JSON.stringify(rewritten, null, 2) + '\n';
+  }
   if (c.windowsPowerShellGuidance) {
     const guidance = 'In PowerShell, prefix the quoted launcher path with `&`.';
     let totalReplacements = 0;
@@ -529,7 +553,7 @@ export function expectedForPlatform(c, golden, platform = process.platform) {
 
 export function assertRecordableCases(cases, platform = process.platform) {
   const windowsExpectationCases = platform === 'win32'
-    ? cases.filter((c) => c.windowsPowerShellGuidance || c.windowsDrivePathQuoteField || c.windowsQuotedIgnoreValue).map((c) => c.id)
+    ? cases.filter((c) => c.windowsPowerShellGuidance || c.windowsDrivePathQuoteField || c.windowsQuotedIgnoreValue || c.windowsClaudeExecForm).map((c) => c.id)
     : [];
   if (windowsExpectationCases.length) {
     throw new Error(

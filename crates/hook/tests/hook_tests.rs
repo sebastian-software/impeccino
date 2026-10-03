@@ -8,7 +8,7 @@
 //! (deferred tier).
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use impeccino_common::{jsp, Io};
 use impeccino_core::findings::{finding, Finding};
@@ -98,6 +98,25 @@ fn env(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
+}
+
+fn install_test_skill(t: &Tmp, skill_rel: &str) {
+    let launcher = t.write(&format!("{skill_rel}/scripts/impeccino"), "#!/bin/sh\nexit 0\n");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(launcher, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    t.write(&format!("{skill_rel}/scripts/impeccino.cmd"), "@echo off\r\nexit /b 0\r\n");
+}
+
+fn init_test_git(repo_root: &str) {
+    let status = std::process::Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(repo_root)
+        .status()
+        .unwrap();
+    assert!(status.success(), "could not initialize test repository at {repo_root}");
 }
 
 fn f(id: &str, line: f64, name: &str, description: &str, snippet: &str) -> Finding {
@@ -1664,6 +1683,22 @@ fn admin_run(r: &Runtime, args: &[&str]) -> (String, String, i32) {
     (out, err, code)
 }
 
+fn assert_claude_launcher_entry(entry: &Value, unix_command: &str, launcher_suffix: &str) {
+    if cfg!(windows) {
+        assert_eq!(entry["command"], json!("powershell.exe"));
+        let args = entry["args"].as_array().unwrap();
+        assert_eq!(args[0], json!("-NoProfile"));
+        assert_eq!(args[1], json!("-Command"));
+        let script = args[2].as_str().unwrap();
+        assert!(script.contains(launcher_suffix), "{script}");
+        assert!(script.contains("Test-Path -LiteralPath"), "{script}");
+        assert!(impeccino_context::hook_markers::is_launcher_design_hook_command(script), "{script}");
+    } else {
+        assert_eq!(entry["command"], json!(unix_command));
+        assert!(entry.get("args").is_none());
+    }
+}
+
 #[test]
 fn admin_retired_ignore_actions_point_at_design_md() {
     let t = Tmp::new();
@@ -1688,10 +1723,11 @@ fn admin_on_off_status_and_reset_follow_the_manifests() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
+    t.write(".git/keep", "");
     let (out, _, _) = admin_run(&r, &["status"]);
     assert!(out.contains("installed:    no (run /impeccino hooks on to install)\n"), "{out}");
     assert!(out.contains("DESIGN.md:    not present (no project waivers)\n"), "{out}");
-    std::fs::create_dir_all(t.0.join(".github/skills/impeccino")).unwrap();
+    install_test_skill(&t, ".github/skills/impeccino");
     let (out, _, _) = admin_run(&r, &["on"]);
     assert_eq!(out, "Installed or repaired hook manifests for: .github.\n");
     assert!(t
@@ -1701,7 +1737,7 @@ fn admin_on_off_status_and_reset_follow_the_manifests() {
     assert_eq!(out, "Hook manifests already installed for: .github.\n");
     t.write("DESIGN.md", "# D\n\n<!-- impeccino-disable side-tab -- ledger rails -->\n");
     let (out, _, _) = admin_run(&r, &["status"]);
-    assert!(out.contains("installed:    .github/hooks/impeccino.json\n"), "{out}");
+    assert!(out.contains(".github/hooks/impeccino.json"), "{out}");
     assert!(out.contains("DESIGN.md:    DESIGN.md (waived rules: side-tab; declared fonts: none)\n"), "{out}");
     assert!(!t.exists(".impeccino"), "no config, no consent record");
     let (out, _, _) = admin_run(&r, &["off"]);
@@ -1730,7 +1766,7 @@ fn admin_on_prunes_local_manifest_when_shared_settings_carry_the_hook() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
-    std::fs::create_dir_all(t.0.join(".claude/skills/impeccino")).unwrap();
+    install_test_skill(&t, ".claude/skills/impeccino");
     t.write(
         ".claude/settings.json",
         r#"{"hooks":{"PostToolUse":[{"matcher":"Edit","hooks":[{"type":"command","command":"node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\""}]}]}}"#,
@@ -1764,47 +1800,56 @@ fn admin_on_writes_launcher_manifests_for_every_harness() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
+    t.write(".git/keep", "");
     for skill in [
         ".claude/skills/impeccino",
         ".agents/skills/impeccino",
         ".cursor/skills/impeccino",
         ".github/skills/impeccino",
     ] {
-        std::fs::create_dir_all(t.0.join(skill)).unwrap();
+        install_test_skill(&t, skill);
     }
     let (out, _, code) = admin_run(&r, &["on"]);
     assert_eq!(code, 0, "{out}");
     assert!(out.ends_with("Installed or repaired hook manifests for: .claude, .agents, .cursor, .github.\n"), "{out}");
 
     let claude: Value = serde_json::from_str(&t.read(".claude/settings.local.json")).unwrap();
-    let cmd = "\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook";
-    assert_eq!(claude["hooks"]["PostToolUse"][0]["hooks"][0]["command"], json!(cmd));
-    assert_eq!(claude["hooks"]["Stop"][0]["hooks"][0]["command"], json!(cmd));
+    let cmd = "if [ -x \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" ]; then \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook; fi";
+    assert_claude_launcher_entry(
+        &claude["hooks"]["PostToolUse"][0]["hooks"][0],
+        cmd,
+        ".claude/skills/impeccino/scripts/impeccino.cmd",
+    );
+    assert_claude_launcher_entry(
+        &claude["hooks"]["Stop"][0]["hooks"][0],
+        cmd,
+        ".claude/skills/impeccino/scripts/impeccino.cmd",
+    );
     assert!(claude["hooks"]["PostToolUse"][0]["hooks"][0].get("commandWindows").is_none());
     assert!(!t.read(".claude/settings.local.json").contains("node "));
 
     let codex: Value = serde_json::from_str(&t.read(".codex/hooks.json")).unwrap();
     let entry = &codex["hooks"]["PostToolUse"][0]["hooks"][0];
-    assert_eq!(entry["command"], json!("\".agents/skills/impeccino/scripts/impeccino\" hook"));
-    assert_eq!(entry["commandWindows"], json!("\".agents/skills/impeccino/scripts/impeccino.cmd\" hook"));
+    assert_eq!(entry["command"], json!("if [ -x \"$(git rev-parse --show-toplevel)/.agents/skills/impeccino/scripts/impeccino\" ]; then \"$(git rev-parse --show-toplevel)/.agents/skills/impeccino/scripts/impeccino\" hook; fi"));
+    assert_eq!(entry["commandWindows"], json!("for /f \"delims=\" %i in ('git rev-parse --show-toplevel') do if exist \"%i\\.agents\\skills\\impeccino\\scripts\\impeccino.cmd\" \"%i\\.agents\\skills\\impeccino\\scripts\\impeccino.cmd\" hook"));
     assert_eq!(
         entry.as_object().unwrap().keys().cloned().collect::<Vec<_>>(),
         vec!["type", "command", "commandWindows", "timeout", "statusMessage"]
     );
     let stop = &codex["hooks"]["Stop"][0]["hooks"][0];
-    assert_eq!(stop["command"], json!("\".agents/skills/impeccino/scripts/impeccino\" hook"));
-    assert_eq!(stop["commandWindows"], json!("\".agents/skills/impeccino/scripts/impeccino.cmd\" hook"));
+    assert_eq!(stop["command"], json!("if [ -x \"$(git rev-parse --show-toplevel)/.agents/skills/impeccino/scripts/impeccino\" ]; then \"$(git rev-parse --show-toplevel)/.agents/skills/impeccino/scripts/impeccino\" hook; fi"));
+    assert_eq!(stop["commandWindows"], json!("for /f \"delims=\" %i in ('git rev-parse --show-toplevel') do if exist \"%i\\.agents\\skills\\impeccino\\scripts\\impeccino.cmd\" \"%i\\.agents\\skills\\impeccino\\scripts\\impeccino.cmd\" hook"));
     assert_eq!(stop["timeout"], json!(30));
 
     let cursor: Value = serde_json::from_str(&t.read(".cursor/hooks.json")).unwrap();
     assert_eq!(
         cursor["hooks"]["preToolUse"][0]["command"],
-        json!("\".cursor/skills/impeccino/scripts/impeccino\" hook-before-edit")
+        json!("if [ -x \"$(git rev-parse --show-toplevel)/.cursor/skills/impeccino/scripts/impeccino\" ]; then \"$(git rev-parse --show-toplevel)/.cursor/skills/impeccino/scripts/impeccino\" hook-before-edit; fi")
     );
     let github: Value = serde_json::from_str(&t.read(".github/hooks/impeccino.json")).unwrap();
     assert_eq!(
         github["hooks"]["postToolUse"][0]["bash"],
-        json!("\"$(git rev-parse --show-toplevel)/.github/skills/impeccino/scripts/impeccino\" hook")
+        json!("if [ -x \"$(git rev-parse --show-toplevel)/.github/skills/impeccino/scripts/impeccino\" ]; then \"$(git rev-parse --show-toplevel)/.github/skills/impeccino/scripts/impeccino\" hook; fi")
     );
 
     // A second `on` is a no-op against the manifests it just wrote.
@@ -1817,8 +1862,9 @@ fn admin_on_repairs_legacy_mjs_manifests_to_the_launcher_form() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
-    std::fs::create_dir_all(t.0.join(".claude/skills/impeccino")).unwrap();
-    std::fs::create_dir_all(t.0.join(".agents/skills/impeccino")).unwrap();
+    t.write(".git/keep", "");
+    install_test_skill(&t, ".claude/skills/impeccino");
+    install_test_skill(&t, ".agents/skills/impeccino");
     // JS-era Claude manifest with a foreign entry alongside the impeccino one.
     t.write(
         ".claude/settings.local.json",
@@ -1840,14 +1886,20 @@ fn admin_on_repairs_legacy_mjs_manifests_to_the_launcher_form() {
     let post = claude["hooks"]["PostToolUse"].as_array().unwrap();
     assert_eq!(post.len(), 2, "foreign entry kept, impeccino entry replaced once: {post:?}");
     assert_eq!(post[0]["hooks"][0]["command"], json!("echo other"));
-    assert_eq!(
-        post[1]["hooks"][0]["command"],
-        json!("\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook")
+    assert_claude_launcher_entry(
+        &post[1]["hooks"][0],
+        "if [ -x \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" ]; then \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook; fi",
+        ".claude/skills/impeccino/scripts/impeccino.cmd",
     );
     // Upstream 611147a3: the repaired Claude group must exist and carry the
     // current Edit|Write matcher (MultiEdit is retired; see 55fb8e8).
     assert_eq!(post[1]["matcher"], json!("Edit|Write"));
     assert_eq!(claude["hooks"]["Stop"].as_array().unwrap().len(), 1);
+    assert_claude_launcher_entry(
+        &claude["hooks"]["Stop"][0]["hooks"][0],
+        "if [ -x \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" ]; then \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook; fi",
+        ".claude/skills/impeccino/scripts/impeccino.cmd",
+    );
 
     let codex = t.read(".codex/hooks.json");
     assert!(!codex.contains(".mjs"), "{codex}");
@@ -1855,7 +1907,7 @@ fn admin_on_repairs_legacy_mjs_manifests_to_the_launcher_form() {
     assert_eq!(codex["hooks"]["PostToolUse"].as_array().unwrap().len(), 1);
     assert_eq!(
         codex["hooks"]["PostToolUse"][0]["hooks"][0]["commandWindows"],
-        json!("\".agents/skills/impeccino/scripts/impeccino.cmd\" hook")
+        json!("for /f \"delims=\" %i in ('git rev-parse --show-toplevel') do if exist \"%i\\.agents\\skills\\impeccino\\scripts\\impeccino.cmd\" \"%i\\.agents\\skills\\impeccino\\scripts\\impeccino.cmd\" hook")
     );
 
     // A launcher-form manifest written by another checkout is recognized as
@@ -1872,6 +1924,508 @@ fn admin_on_repairs_legacy_mjs_manifests_to_the_launcher_form() {
     assert_eq!(local["hooks"]["PostToolUse"][0]["hooks"][0]["command"], json!("echo other"));
     assert!(local["hooks"].get("Stop").is_none());
     assert_eq!(local["permissions"]["allow"], json!(["Bash(ls)"]));
+}
+
+#[test]
+fn admin_on_without_a_supported_project_launcher_fails_actionably() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains("No supported project-local Impeccino launcher"), "{err}");
+    assert!(!t.exists(".claude/settings.local.json"));
+    assert!(!t.exists(".codex/hooks.json"));
+}
+
+#[test]
+fn admin_rejects_percent_workspace_paths_only_when_codex_windows_command_is_needed() {
+    let t = Tmp::new();
+    let repo_marker = t.write("repo/.git/keep", "");
+    let _repo_root = jsp::dirname(&repo_marker);
+    t.write("repo/%workspace%/package.json", r#"{"workspaces":["apps/*"]}"#);
+    let app = t.write("repo/%workspace%/apps/site/package.json", "{}");
+    install_test_skill(&t, "repo/%workspace%/.agents/skills/impeccino");
+    let r = rt(&jsp::dirname(&app));
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains("path contains `%`"), "{err}");
+    assert!(!t.exists("repo/%workspace%/.codex/hooks.json"));
+
+    t.write("repo/%cursor-workspace%/package.json", r#"{"workspaces":["apps/*"]}"#);
+    let cursor_app = t.write("repo/%cursor-workspace%/apps/site/package.json", "{}");
+    install_test_skill(&t, "repo/%cursor-workspace%/.cursor/skills/impeccino");
+    let r = rt(&jsp::dirname(&cursor_app));
+    let (out, err, code) = admin_run(&r, &["on"]);
+    assert_eq!(code, 0, "{err} {out}");
+    assert!(t.exists("repo/%cursor-workspace%/.cursor/hooks.json"));
+}
+
+#[test]
+fn admin_on_rejects_a_skill_folder_without_its_launcher() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    std::fs::create_dir_all(t.0.join(".github/skills/impeccino")).unwrap();
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains("launcher") && err.contains(".github/skills/impeccino/scripts/impeccino"), "{err}");
+    assert!(!t.exists(".github/hooks/impeccino.json"));
+}
+
+#[test]
+fn admin_on_skips_malformed_claude_settings_without_replacing_them_or_their_backup() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    install_test_skill(&t, ".claude/skills/impeccino");
+    t.write(".claude/settings.local.json", "{ broken");
+    t.write(".claude/settings.local.json.bak", "keep this older backup");
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains(".claude/settings.local.json") && err.contains("valid JSON"), "{err}");
+    assert_eq!(t.read(".claude/settings.local.json"), "{ broken");
+    assert_eq!(t.read(".claude/settings.local.json.bak"), "keep this older backup");
+}
+
+#[test]
+fn admin_on_preserves_non_object_claude_settings() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    install_test_skill(&t, ".claude/skills/impeccino");
+    t.write(".claude/settings.local.json", "[]");
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains(".claude/settings.local.json") && err.contains("JSON object"), "{err}");
+    assert_eq!(t.read(".claude/settings.local.json"), "[]");
+    assert!(!t.exists(".claude/settings.local.json.bak"));
+}
+
+#[test]
+fn admin_on_backs_up_non_object_dedicated_manifest_before_replacing_it() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    t.write(".git/keep", "");
+    install_test_skill(&t, ".github/skills/impeccino");
+    t.write(".github/hooks/impeccino.json", "[]");
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains("Backed up malformed manifest(s): .github/hooks/impeccino.json.bak"), "{out}");
+    assert_eq!(t.read(".github/hooks/impeccino.json.bak"), "[]");
+    assert!(t.read(".github/hooks/impeccino.json").contains("impeccino"));
+}
+
+#[test]
+fn admin_off_does_not_claim_success_for_a_malformed_manifest_with_an_impeccino_entry() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    let malformed = r#"{"hooks":{"preToolUse":[{"command":"\".cursor/skills/impeccino/scripts/impeccino\" hook-before-edit"}]}} broken"#;
+    t.write(".cursor/hooks.json", malformed);
+
+    let (out, err, code) = admin_run(&r, &["off"]);
+
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains("malformed") && err.contains(".cursor/hooks.json"), "{err}");
+    assert_eq!(t.read(".cursor/hooks.json"), malformed);
+}
+
+#[test]
+fn admin_on_never_overwrites_an_existing_backup() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    t.write(".git/keep", "");
+    install_test_skill(&t, ".cursor/skills/impeccino");
+    t.write(".cursor/hooks.json", "{ broken");
+    t.write(".cursor/hooks.json.bak", "keep this older backup");
+
+    let (out, _, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(t.read(".cursor/hooks.json.bak"), "keep this older backup");
+    assert_eq!(t.read(".cursor/hooks.json.bak.1"), "{ broken");
+    assert!(t.read(".cursor/hooks.json").contains("hook-before-edit"));
+}
+
+#[cfg(unix)]
+#[test]
+fn admin_on_refuses_to_replace_a_symlink_manifest() {
+    use std::os::unix::fs::symlink;
+
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    t.write(".git/keep", "");
+    install_test_skill(&t, ".github/skills/impeccino");
+    let outside = t.write("outside.json", "{\"hooks\":{}}\n");
+    std::fs::create_dir_all(t.0.join(".github/hooks")).unwrap();
+    symlink(&outside, t.0.join(".github/hooks/impeccino.json")).unwrap();
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains("symlink"), "{err}");
+    assert!(std::fs::symlink_metadata(t.0.join(".github/hooks/impeccino.json")).unwrap().file_type().is_symlink());
+    assert_eq!(t.read("outside.json"), "{\"hooks\":{}}\n");
+}
+
+#[test]
+fn admin_on_with_global_claude_skill_writes_only_the_current_projects_local_settings() {
+    let t = Tmp::new();
+    let repo = t.write("repo/.git/keep", "");
+    let repo_root = jsp::dirname(&repo);
+    let home = jsp::join(&[&t.path(), "home with spaces"]);
+    let skill_dir = jsp::join(&[&home, ".claude/skills/impeccino"]);
+    install_test_skill(&t, "home with spaces/.claude/skills/impeccino");
+    let r = rt_with(&repo_root, env(&[("HOME", &home), ("USERPROFILE", &home), ("IMPECCINO_SKILL_DIR", &skill_dir)]));
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 0, "{err}");
+    assert!(out.contains(".claude"), "{out}");
+    assert!(t.exists("repo/.claude/settings.local.json"), "{out} {err}");
+    let manifest: Value = serde_json::from_str(&t.read("repo/.claude/settings.local.json")).unwrap();
+    let entry = &manifest["hooks"]["PostToolUse"][0]["hooks"][0];
+    if cfg!(windows) {
+        assert_eq!(entry["command"], json!("powershell.exe"));
+        let args = entry["args"].as_array().unwrap();
+        assert_eq!(args[0], json!("-NoProfile"));
+        assert_eq!(args[1], json!("-Command"));
+        let script = args[2].as_str().unwrap();
+        let launcher = PathBuf::from(&skill_dir).join("scripts/impeccino.cmd");
+        let launcher = launcher.to_string_lossy().replace('\\', "/");
+        assert!(script.contains(&launcher), "{script}");
+        assert!(!script.contains("\\\\?\\"), "extended path leaked into command: {script}");
+        assert!(script.contains("Test-Path -LiteralPath"), "{script}");
+        assert!(script.contains("hook"), "{script}");
+        assert!(impeccino_context::hook_markers::is_launcher_design_hook_command(script));
+    } else {
+        let command = entry["command"].as_str().unwrap();
+        let canonical_skill_dir = std::fs::canonicalize(&skill_dir).unwrap().to_string_lossy().replace('\\', "/");
+        let canonical_skill_dir = canonical_skill_dir.strip_prefix("//?/").unwrap_or(&canonical_skill_dir);
+        assert!(command.replace('\\', "/").contains(canonical_skill_dir), "{command}");
+    }
+    assert!(!t.exists("home with spaces/.claude/settings.json"));
+
+    let (status, _, code) = admin_run(&r, &["status"]);
+    assert_eq!(code, 0);
+    assert!(status.contains(".claude/settings.local.json"), "{status}");
+    let (out, _, code) = admin_run(&r, &["on"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.contains("already installed for: .claude"), "{out}");
+    let stable: Value = serde_json::from_str(&t.read("repo/.claude/settings.local.json")).unwrap();
+    assert_eq!(stable["hooks"]["PostToolUse"].as_array().unwrap().len(), 1);
+
+    let (out, _, code) = admin_run(&r, &["off"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(!t.exists("repo/.claude/settings.local.json"));
+    assert!(!t.exists("home with spaces/.claude/settings.json"));
+}
+
+#[test]
+fn admin_on_does_not_guess_a_harness_for_a_global_agents_skill() {
+    let t = Tmp::new();
+    let repo = t.write("repo/.git/keep", "");
+    let repo_root = jsp::dirname(&repo);
+    let home = jsp::join(&[&t.path(), "home"]);
+    let skill_dir = jsp::join(&[&home, ".agents/skills/impeccino"]);
+    install_test_skill(&t, "home/.agents/skills/impeccino");
+    let r = rt_with(&repo_root, env(&[("HOME", &home), ("USERPROFILE", &home), ("IMPECCINO_SKILL_DIR", &skill_dir)]));
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains("supported project-local") || err.contains("ambiguous"), "{err}");
+    assert!(!t.exists("repo/.claude/settings.local.json"));
+    assert!(!t.exists("repo/.codex/hooks.json"));
+    assert!(!t.exists("home/.codex/hooks.json"));
+}
+
+#[test]
+fn admin_actions_from_a_nested_directory_use_the_repository_manifests() {
+    let t = Tmp::new();
+    let repo_marker = t.write("repo/keep", "");
+    init_test_git(&jsp::dirname(&repo_marker));
+    t.write("repo/workspace/package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write("repo/workspace/apps/site/package.json", "{}");
+    install_test_skill(&t, "repo/workspace/.agents/skills/impeccino");
+    install_test_skill(&t, "repo/workspace/.cursor/skills/impeccino");
+    install_test_skill(&t, "repo/workspace/.github/skills/impeccino");
+    let nested = t.write("repo/workspace/apps/site/src/keep", "");
+    let nested_cwd = jsp::dirname(&nested);
+    let r = rt(&nested_cwd);
+    let workspace_root = jsp::join(&[&t.path(), "repo/workspace"]);
+    let workspace = rt(&workspace_root);
+
+    for launcher in [
+        "repo/workspace/.agents/skills/impeccino/scripts/impeccino",
+        "repo/workspace/.cursor/skills/impeccino/scripts/impeccino",
+    ] {
+        t.write(launcher, "#!/bin/sh\nprintf '%s' \"$1\" > \"$HOOK_TEST_MARKER\"\n");
+    }
+
+    let (out, err, code) = admin_run(&r, &["on"]);
+    assert_eq!(code, 0, "{err} {out}");
+    assert!(t.exists("repo/workspace/.github/hooks/impeccino.json"));
+    assert!(t.exists("repo/workspace/.codex/hooks.json"));
+    assert!(t.exists("repo/workspace/.cursor/hooks.json"));
+    assert!(!t.exists("repo/workspace/apps/site/.github/hooks/impeccino.json"));
+
+    let (out, err, code) = admin_run(&workspace, &["on"]);
+    assert_eq!(code, 0, "{err} {out}");
+    assert!(out.contains("Hook manifests already installed for:"), "{out}");
+    let (workspace_status, _, workspace_code) = admin_run(&workspace, &["status"]);
+    let (nested_status, _, nested_code) = admin_run(&r, &["status"]);
+    assert_eq!(workspace_code, 0);
+    assert_eq!(nested_code, 0);
+    for manifest in [".github/hooks/impeccino.json", ".codex/hooks.json", ".cursor/hooks.json"] {
+        assert!(workspace_status.contains(manifest), "{workspace_status}");
+        assert!(nested_status.contains(manifest), "{nested_status}");
+    }
+
+    #[cfg(unix)]
+    {
+        use std::process::Command;
+        for (manifest, command_field, marker_name, expected) in [
+            ("repo/workspace/.codex/hooks.json", "command", "codex-hook-ran", "hook"),
+            ("repo/workspace/.cursor/hooks.json", "command", "cursor-hook-ran", "hook-before-edit"),
+        ] {
+            let parsed: Value = serde_json::from_str(&t.read(manifest)).unwrap();
+            let command = if manifest.contains("codex") {
+                parsed["hooks"]["PostToolUse"][0]["hooks"][0][command_field].as_str().unwrap()
+            } else {
+                parsed["hooks"]["preToolUse"][0][command_field].as_str().unwrap()
+            };
+            let marker = jsp::join(&[&t.path(), marker_name]);
+            let status = Command::new("sh")
+                .arg("-c")
+                .arg(command)
+                .current_dir(&nested_cwd)
+                .env("HOOK_TEST_MARKER", &marker)
+                .status()
+                .unwrap();
+            assert!(status.success(), "{command}");
+            assert_eq!(std::fs::read_to_string(marker).unwrap(), expected, "{command}");
+
+            let launcher = if manifest.contains("codex") {
+                "repo/workspace/.agents/skills/impeccino/scripts/impeccino"
+            } else {
+                "repo/workspace/.cursor/skills/impeccino/scripts/impeccino"
+            };
+            std::fs::remove_file(t.0.join(launcher)).unwrap();
+            let marker = jsp::join(&[&t.path(), marker_name]);
+            std::fs::remove_file(&marker).unwrap();
+            let skipped = Command::new("sh")
+                .arg("-c")
+                .arg(command)
+                .current_dir(&nested_cwd)
+                .env("HOOK_TEST_MARKER", &marker)
+                .status()
+                .unwrap();
+            assert!(skipped.success(), "missing launcher should be a silent no-op: {command}");
+            assert!(!Path::new(&marker).exists(), "missing launcher should not run: {command}");
+        }
+    }
+
+    let (out, _, code) = admin_run(&workspace, &["off"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(!t.exists("repo/workspace/.github/hooks/impeccino.json"));
+    assert!(!t.exists("repo/workspace/.codex/hooks.json"));
+    assert!(!t.exists("repo/workspace/.cursor/hooks.json"));
+    let (workspace_status, _, workspace_code) = admin_run(&workspace, &["status"]);
+    let (nested_status, _, nested_code) = admin_run(&r, &["status"]);
+    assert_eq!(workspace_code, 0);
+    assert_eq!(nested_code, 0);
+    assert!(workspace_status.contains("installed:    no"), "{workspace_status}");
+    assert!(nested_status.contains("installed:    no"), "{nested_status}");
+    let (out, _, code) = admin_run(&r, &["off"]);
+    assert_eq!(code, 0, "{out}");
+    assert_eq!(out, "No local hook entries to remove.\n");
+}
+
+#[cfg(windows)]
+#[test]
+fn admin_codex_command_windows_executes_from_nested_cwd_and_skips_missing_launcher() {
+    use std::process::Command;
+
+    let t = Tmp::new();
+    let repo_marker = t.write("repo/keep", "");
+    let repo_root = jsp::dirname(&repo_marker);
+    init_test_git(&repo_root);
+    install_test_skill(&t, "repo/.agents/skills/impeccino");
+    let launcher = t.write(
+        "repo/.agents/skills/impeccino/scripts/impeccino.cmd",
+        "@echo off\r\necho %1> \"%HOOK_TEST_MARKER%\"\r\nexit /b 0\r\n",
+    );
+    let nested = t.write("repo/apps/site/src/keep", "");
+    let nested_cwd = jsp::dirname(&nested);
+    let rt = rt(&nested_cwd);
+    let (out, err, code) = admin_run(&rt, &["on"]);
+    assert_eq!(code, 0, "{err} {out}");
+
+    let manifest: Value = serde_json::from_str(&t.read("repo/.codex/hooks.json")).unwrap();
+    let command = manifest["hooks"]["PostToolUse"][0]["hooks"][0]["commandWindows"]
+        .as_str()
+        .unwrap();
+    let marker = jsp::join(&[&t.path(), "codex-hook-ran"]);
+    let status = Command::new("cmd.exe")
+        .args(["/d", "/s", "/c", command])
+        .current_dir(&nested_cwd)
+        .env("HOOK_TEST_MARKER", &marker)
+        .status()
+        .unwrap();
+    assert!(status.success(), "{command}");
+    assert_eq!(std::fs::read_to_string(&marker).unwrap().trim(), "hook");
+
+    std::fs::remove_file(launcher).unwrap();
+    std::fs::remove_file(&marker).unwrap();
+    let status = Command::new("cmd.exe")
+        .args(["/d", "/s", "/c", command])
+        .current_dir(&nested_cwd)
+        .env("HOOK_TEST_MARKER", &marker)
+        .status()
+        .unwrap();
+    assert!(status.success(), "missing launcher should be a silent no-op: {command}");
+    assert!(!Path::new(&marker).exists());
+}
+
+#[cfg(windows)]
+#[test]
+fn admin_global_claude_exec_form_is_detected_and_runs_with_powershell_args() {
+    use std::process::Command;
+
+    let t = Tmp::new();
+    let repo_marker = t.write("repo/.git/keep", "");
+    let repo_root = jsp::dirname(&repo_marker);
+    let home = jsp::join(&[&t.path(), "home with spaces"]);
+    let skill_dir = jsp::join(&[&home, ".claude/skills/impeccino"]);
+    install_test_skill(&t, "home with spaces/.claude/skills/impeccino");
+    let launcher = t.write(
+        "home with spaces/.claude/skills/impeccino/scripts/impeccino.cmd",
+        "@echo off\r\necho %1> \"%HOOK_TEST_MARKER%\"\r\nexit /b 0\r\n",
+    );
+    let test_env = env(&[
+        ("HOME", &home),
+        ("USERPROFILE", &home),
+        ("IMPECCINO_SKILL_DIR", &skill_dir),
+    ]);
+    let runtime = rt_with(&repo_root, test_env.clone());
+    let (out, err, code) = admin_run(&runtime, &["on"]);
+    assert_eq!(code, 0, "{err} {out}");
+    let manifest: Value = serde_json::from_str(&t.read("repo/.claude/settings.local.json")).unwrap();
+    let entry = &manifest["hooks"]["PostToolUse"][0]["hooks"][0];
+    assert_eq!(entry["command"], json!("powershell.exe"));
+    let args = entry["args"].as_array().unwrap();
+    let args = args.iter().map(|value| value.as_str().unwrap()).collect::<Vec<_>>();
+    let marker = jsp::join(&[&t.path(), "claude-hook-ran"]);
+    let status = Command::new("powershell.exe")
+        .args(&args)
+        .env("HOOK_TEST_MARKER", &marker)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert_eq!(std::fs::read_to_string(&marker).unwrap().trim(), "hook");
+
+    let context = impeccino_context::context::load_context(
+        &repo_root,
+        &impeccino_context::target_args::TargetOptions::default(),
+        &test_env,
+    );
+    let provider = impeccino_context::provider::detect(&test_env, &repo_root);
+    assert_eq!(
+        impeccino_context::context_cli::automatic_hook_mode(&context, &repo_root, &test_env, &provider),
+        "stop",
+        "context must recognize the exec-form launcher in args",
+    );
+
+    std::fs::remove_file(launcher).unwrap();
+    std::fs::remove_file(&marker).unwrap();
+    let status = Command::new("powershell.exe")
+        .args(&args)
+        .env("HOOK_TEST_MARKER", &marker)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(!Path::new(&marker).exists());
+}
+
+#[test]
+fn admin_off_from_child_finds_workspace_manifest_after_skill_removal() {
+    let t = Tmp::new();
+    let repo_marker = t.write("repo/keep", "");
+    let repo_root = jsp::dirname(&repo_marker);
+    init_test_git(&repo_root);
+    t.write("repo/workspace/package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write("repo/workspace/apps/site/package.json", "{}");
+    install_test_skill(&t, "repo/workspace/.github/skills/impeccino");
+    let workspace_root = jsp::join(&[&t.path(), "repo/workspace"]);
+    let nested = t.write("repo/workspace/apps/site/src/keep", "");
+    let nested_cwd = jsp::dirname(&nested);
+    let workspace = rt(&workspace_root);
+    let nested = rt(&nested_cwd);
+
+    let (out, err, code) = admin_run(&workspace, &["on"]);
+    assert_eq!(code, 0, "{err} {out}");
+    assert!(t.exists("repo/workspace/.github/hooks/impeccino.json"));
+    std::fs::remove_dir_all(t.0.join("repo/workspace/.github/skills/impeccino")).unwrap();
+
+    let (status, _, code) = admin_run(&nested, &["status"]);
+    assert_eq!(code, 0);
+    assert!(status.contains(".github/hooks/impeccino.json"), "{status}");
+    let (out, err, code) = admin_run(&nested, &["on"]);
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains("No supported project-local"), "{err}");
+    let (out, err, code) = admin_run(&nested, &["off"]);
+    assert_eq!(code, 0, "{err} {out}");
+    assert!(out.contains("Removed hook entries from: .github"), "{out}");
+    assert!(!t.exists("repo/workspace/.github/hooks/impeccino.json"));
+
+    let (workspace_status, _, workspace_code) = admin_run(&workspace, &["status"]);
+    let (nested_status, _, nested_code) = admin_run(&nested, &["status"]);
+    assert_eq!(workspace_code, 0);
+    assert_eq!(nested_code, 0);
+    assert!(workspace_status.contains("installed:    no"), "{workspace_status}");
+    assert!(nested_status.contains("installed:    no"), "{nested_status}");
+}
+
+#[test]
+fn admin_reset_reports_state_file_delete_errors() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    let pending = get_pending_path(&cwd);
+    std::fs::create_dir_all(&pending).unwrap();
+
+    let (out, err, code) = admin_run(&r, &["reset"]);
+
+    assert_eq!(code, 1);
+    assert!(out.is_empty());
+    assert!(err.contains("could not remove hook state file"), "{err}");
+    assert!(err.contains(&pending), "{err}");
 }
 
 // ── Grok Build + Codex (#646, #603, upstream 35ae0733/bfe634e2/3c442af7/c9e7cd8a) ──

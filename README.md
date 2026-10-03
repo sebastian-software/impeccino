@@ -195,7 +195,7 @@ Runtime state stays out of the project: the hook's session cache and the weekly 
 
 ## Design hook
 
-The design hook runs the Impeccino detector on direct UI file edits and surfaces findings back into the agent flow. It is a per-project opt-in ([ADR 0007](docs/adr/0007-hooks-are-a-project-opt-in.md)): run `/impeccino hooks on` in a project, and the engine writes the harness's own hook manifest; `/impeccino hooks off` and `reset` undo it. Without the hook, the skill asks for one manual detector run when a change is finished.
+The design hook runs the Impeccino detector on direct UI file edits and surfaces findings back into the agent flow. It is a per-project opt-in ([ADR 0007](docs/adr/0007-hooks-are-a-project-opt-in.md)): run `/impeccino hooks on` in a project with its skill launcher installed, and the engine writes that project's harness manifest; `/impeccino hooks off` and `reset` undo it. Running the action from a nested directory still uses the repository's manifest set. Codex, Cursor, and Copilot hook commands resolve launchers from the Git root, so those targets require a Git checkout. Codex also refuses a project subpath containing `%`, which Windows command parsing expands as an environment variable; move that workspace under a path without `%`. A global Claude skill can write its absolute launcher path into the current project's gitignored `.claude/settings.local.json`; other global skill locations do not activate hooks or change user-level hook settings. Without the hook, the skill asks for one manual detector run when a change is finished.
 
 Hook surfaces the engine manages:
 
@@ -206,7 +206,7 @@ Hook surfaces the engine manages:
 
 The hook also understands Grok Build's events, and `context` recognizes a Grok manifest at `.grok/hooks/impeccino.json`; `hooks on` does not write that one. Gemini CLI has no hook manifest; the skill asks for a manual detector run there.
 
-Every hook command goes through the skill's launcher, guarded so a missing launcher is a silent no-op. Unrelated hook entries and settings are preserved. The hook is on where its entries are installed; there is nothing else to configure. `IMPECCINO_HOOK_DISABLED=1` turns an installed hook off for one shell, and `IMPECCINO_HOOK_QUIET=1` silences the clean-edit acks.
+Every hook command goes through the skill's launcher. `hooks on` checks that the detected skill includes its launchers; it returns an actionable error when no supported project launcher exists or a whole Claude settings file is malformed. Unrelated hook entries and settings are preserved. The hook is on where its entries are installed; there is nothing else to configure. `IMPECCINO_HOOK_DISABLED=1` turns an installed hook off for one shell, and `IMPECCINO_HOOK_QUIET=1` silences the clean-edit acks.
 
 In Claude Code, command hooks run independently of model-tool approval, so the first edit or Stop event can download and cache the engine even if the session denies the model's launcher command. Review hooks before unattended runs; to disable all Claude Code hooks for a run, pass `--settings '{"disableAllHooks": true}'`.
 
