@@ -79,6 +79,11 @@ function Thumb({ url }: { url?: string }) {
     // Flag surface and errors
     { id: 'detect-help', verb: 'detect', args: ['--help'] },
     { id: 'detect-no-args', verb: 'detect', args: [] },
+    {
+      id: 'detect-stdin-dash', verb: 'detect',
+      args: ['--no-config', '--json', '-'],
+      stdin: '<div style="border-left: 4px solid #ff0000">x</div>\n',
+    },
     { id: 'detect-missing-file', verb: 'detect', args: ['--no-config', 'does-not-exist.html'] },
     { id: 'detect-missing-file-json', verb: 'detect', args: ['--no-config', '--json', 'does-not-exist.html'] },
     // #711: a target that cannot be scanned forces exit 1, and that takes
