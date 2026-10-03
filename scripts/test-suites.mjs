@@ -24,9 +24,12 @@ export const SUITES = {
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^scripts\//,
+      /^crates\//,
       /^skill\/(SKILL\.md|agents\/|reference\/|scripts\/)/,
       /^skill\/scripts\/VERSION$/,
       /^README\.md$/,
+      /^docs\/RUNTIME-ENV\.md$/,
+      /^tests\/(?!oracle\/|fixtures\/).+\.(js|mjs|rs)$/,
       /^\.github\/workflows\/release-engine\.yml$/,
     ],
     commands: [
@@ -47,6 +50,7 @@ export const SUITES = {
           'tests/skill-reference.test.mjs',
           'tests/skill-behavior-harness.test.mjs',
           'tests/readme-gitignore.test.mjs',
+          'tests/runtime-env.test.mjs',
           'tests/test-suites.test.mjs',
         ],
       },

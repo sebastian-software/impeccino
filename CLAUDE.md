@@ -1,6 +1,6 @@
 # Project Instructions for Claude
 
-## Architecture (v3.0+)
+## Architecture
 
 There is **one** user-invocable skill, `impeccino`, with **22 commands** underneath it. Users type `/impeccino polish`, `/impeccino audit`, etc. The skill is defined in `skill/`:
 
@@ -26,11 +26,11 @@ The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the ro
 
 **Do not add standalone skills** unless there's a strong reason. The consolidation was deliberate: the `/` menu pollution problem is real and gets worse as users install more plugins.
 
-**Do not reintroduce per-domain reference files.** v4 removed `typography.md`, `color-and-contrast.md`, `spatial-design.md`, `motion-design.md`, `interaction-design.md`, `responsive-design.md`, `ux-writing.md`, `cognitive-load.md`, `personas.md`, `heuristics-scoring.md`, `build-floor.md`, and `live-generation.md`. Their content lives in the command references and `craft-floor.md`, where it is loaded only when it applies.
+**Do not reintroduce per-domain reference files.** The former `typography.md`, `color-and-contrast.md`, `spatial-design.md`, `motion-design.md`, `interaction-design.md`, `responsive-design.md`, `ux-writing.md`, `cognitive-load.md`, `personas.md`, `heuristics-scoring.md`, `build-floor.md`, and `live-generation.md` guidance now lives in command references and `craft-floor.md`, where it is loaded only when it applies.
 
 ### Modes (Persuade / Operate / Read / Experience)
 
-v4 replaced the old brand/product **register** axis with four modes, named in SKILL.md's `## Modes` section. A mode names what the visitor's success looks like on the surface in hand:
+The skill uses four modes, named in SKILL.md's `## Modes` section, instead of the former brand/product **register** axis. A mode names what the visitor's success looks like on the surface in hand:
 
 - **Persuade** — the visitor decides and acts; design is the product. Landing pages, marketing, campaigns, pricing.
 - **Operate** — the visitor completes a task. App UI, dashboards, editors, admin, settings, tools.
@@ -40,7 +40,7 @@ v4 replaced the old brand/product **register** axis with four modes, named in SK
 Three differences from register that matter when editing skill text:
 
 1. **Mode is per surface, not per project.** A tool's landing page is Persuade even though the product is Operate; a fashion house's documentation is Read. Choose from the requested surface.
-2. **Mode is not stored in PRODUCT.md.** It persists only in that surface's brief under `.impeccino/surfaces/`. There is no `## Register` field and no `extractRegister()`; PRODUCT.md's only bare-value field is `## Platform`. A `## Register` section left over from v3 is reported at boot as deprecated (see the engine's staleness module, `crates/context/src/staleness.rs`) and read by nothing.
+2. **Mode is not stored in PRODUCT.md.** It persists only in that surface's brief under `.impeccino/surfaces/`. There is no `## Register` field and no `extractRegister()`; PRODUCT.md's only bare-value field is `## Platform`. A `## Register` section left over from the former format is reported at boot as deprecated (see the engine's staleness module, `crates/context/src/staleness.rs`) and read by nothing.
 3. **There are no register reference files.** `reference/brand.md` and `reference/product.md` are gone. `reference/operate.md` carries the deeper Operate and Read guidance; `reference/new-work.md` owns new surfaces.
 
 **a11y lives in `audit.md`**, not in SKILL.md or the mode guidance. Models over-cautious themselves into safe, underdesigned output when reminded about accessibility at design time. The audit command is the dedicated place for that check.
@@ -79,11 +79,11 @@ Impeccino writes files into user projects, so a released version has to cope wit
 
 **Emission discipline.** Boot output is already heavy, so Tier 1 emits **one** `CONTEXT_STALE` directive for the whole set, and `mention` and `route` findings are throttled to once a week per project (cached in `~/.impeccino/staleness-check.json`, outside the project, so no gitignore entry is owed). `auto` findings are never throttled and never shown to the user. Opt out with `"stalenessCheck": false` or `IMPECCINO_NO_STALENESS_CHECK=1`. **An oracle case that asserts on other boot directives should pin that env var.**
 
-**Provenance stamps.** PRODUCT.md carries `<!-- impeccino:product-schema N -->` (schema constants live in the engine; template in `init.md`). Without it, every check is a heuristic reconstruction of what era a file came from. **Stamps are schema versions, not release versions**: a PRODUCT.md written by v4.0.0 is not stale under v4.0.1, and a schema version changes only when the shape does. **DESIGN.md deliberately carries no stamp** because it follows the external design.md spec that Stitch's linter validates, and every DESIGN.md signal (sidecar `schemaVersion`, sidecar mtime, section coverage, git drift) is measurable without one.
+**Provenance stamps.** PRODUCT.md carries `<!-- impeccino:product-schema N -->` (schema constants live in the engine; template in `init.md`). Without it, every check is a heuristic reconstruction of what era a file came from. **Stamps are schema versions, not release versions**: routine releases do not make PRODUCT.md stale; the schema version changes only when the shape does. **DESIGN.md deliberately carries no stamp** because it follows the external design.md spec that Stitch's linter validates, and every DESIGN.md signal (sidecar `schemaVersion`, sidecar mtime, section coverage, git drift) is measurable without one.
 
 **When you retire a PRODUCT.md field, add it to the engine's deprecated-sections list** with the reason (and record the new boot output as an oracle case). The reason is not decoration: told only that a field is deprecated, models preserve it "just in case", which is how a retired axis keeps steering current output.
 
-**`doctor` is a utility command, not a design command.** It follows the `hooks` and `pin` pattern (a line in SKILL.md plus `reference/doctor.md`), not the Commands-table pattern. It is deliberately **not** in `IMPECCINO_SUB_COMMANDS`, `command-metadata.json`, `SKILL_CATEGORIES`, or the `pin` verb's valid-command list, and it does not count toward the 22. Keep maintenance tooling out of the design menu.
+**`doctor` is a utility command, not a design command.** It has a route in SKILL.md and instructions in `reference/doctor.md`, but no row in the `## Commands` table, no entry in `command-metadata.json`, and no place in the `pin` verb's valid-command list. It is not part of the 22 commands counted from that table. Keep maintenance tooling out of the design menu.
 
 ## External service: the concept catalog
 
@@ -95,7 +95,7 @@ Editorial brief is at `docs/STYLE.md`. Read it before editing the READMEs or any
 
 `pnpm run check`'s `validateProse` step (in `scripts/check.js`) enforces a denylist: em dashes (`—` and HTML entities), the `--` em-dash substitute, `load-bearing`, `highest-leverage`, `biggest unlock`, `seamless`, `robust`, `delve`, `elevate`, `empower`, `underscore`, `pivotal`, `tapestry`, `data-driven`, `reflex defaults`, `collapses into monoculture`, `in today's`, `gone are the days`, `whether you're`, `let's dive in`, `in summary`, `in conclusion`, `moreover`, `furthermore`. Each rule prints a rationale and a suggested replacement when it fires. **Do not silently work around the regex.** If a banned word has earned a real meaning here, raise it as a `docs/STYLE.md` amendment.
 
-`validateProse` scans `README.md` and the docs.
+`validateProse` scans `README.md` only. Docs use the same editorial brief but are not part of this automated gate.
 
 **`skill/` is checked too, by a second gate.** `validateProse` skips it because the full ruleset does not fit LLM-facing reference instructions. `validateSkillProse` then scans `skill/**/*.md` (markdown only, not the launcher under `skill/scripts/`) and fails the build on em dashes plus the subset of phrases with no technical reading: `load-bearing`, `highest-leverage`, `biggest unlock`, `reflex defaults`, `collapses into monoculture`, `data-driven`, `delve`, `tapestry`, `in today's`, `gone are the days`, `let's dive in`, `in summary`, `in conclusion`. The words it does *not* enforce in `skill/` (`seamless`, `robust`, `elevate`, and friends) are the ones with legitimate technical uses. Net effect: an em dash in `skill/reference/*.md` fails `pnpm run check`; an em dash in a `scripts/*.js` code comment does not.
 
@@ -103,7 +103,7 @@ The deeper structural issues (negation pivot, triadic auto-pilot, uniform paragr
 
 ## No build
 
-`skill/` is the skill and installs as-is; there is no build, installer, update check, or marketplace package. The decisions are recorded as Light ADRs in `docs/adr/` (0001 to 0015); add a new one when a change alters how the skill is built or delivered.
+`skill/` is the skill and installs as-is; there is no build, installer, update check, or marketplace package. The decisions are recorded as living Light ADRs in `docs/adr/`; update an existing one when a decision changes, and add one when a change alters how the skill is built or delivered.
 
 ```bash
 pnpm run check            # Count claims, skill frontmatter limits, prose gates
@@ -236,18 +236,16 @@ The launchers and `fetch-engine.mjs` accept a download only if it matches `engin
 All commands live under `/impeccino`. To add a new one:
 
 1. Create `skill/reference/<command>.md` with the command's instructions (this is what the LLM loads when the command is invoked)
-2. Add a row to the **Sub-command reference table** in `skill/SKILL.md`
-3. Add an entry to the **Command menu** section in the same file
-4. Add the command to the `/impeccino <command>` lists in `skill/reference/audit.md`, `audit.native.md`, and `critique.md`
-5. Add it to the `pin` verb's valid-command list (`crates/context`) and record the pin/unpin oracle case
-6. Add its metadata (description + argumentHint) to `skill/scripts/command-metadata.json`
+2. Add a row to the `## Commands` table in `skill/SKILL.md` and add the command to its `argument-hint` frontmatter field
+3. Add the command to the `/impeccino <command>` lists in `skill/reference/audit.md`, `audit.native.md`, and `critique.md`
+4. Add it to the `pin` verb's valid-command list (`crates/context`) and record the pin/unpin oracle case
+5. Add its metadata (description + argumentHint) to `skill/scripts/command-metadata.json`
 
-`pnpm run check` counts commands from the router table automatically. Update the command count in **all** of these locations when the total changes:
+`pnpm run check` counts commands from the `## Commands` table automatically. Update the command list and count in these README locations when the total changes:
 
 - `README.md` — intro, command count, commands table
-- `AGENTS.md` — intro command count
 
-`checkCounts` in `scripts/check.js` flags stale numeric counts in these files and fails `pnpm run check` if any disagree with the router table.
+`checkCounts` in `scripts/check.js` checks command counts in `README.md` and detector-rule counts in both `README.md` and `AGENTS.md`.
 
 ## Adding or modifying anti-pattern detection rules
 

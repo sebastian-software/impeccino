@@ -17,6 +17,6 @@ Removed: CODEOWNERS, the sheriff workflow, script, and tests, the Windows signin
 
 ## Consequences
 
-- The engine release publishes unsigned binaries for every platform. The launcher verifies each download against its `.sha256` sidecar from the same release, which guards against corruption, not a compromised release (0010).
+- The engine release publishes unsigned binaries for every platform. When a version is pinned, `scripts/pin-engine.mjs` verifies the GitHub build attestation and writes each asset's digest to `skill/scripts/engine.sha256`; the launcher checks downloads against those pinned digests (0010).
 - Windows may show a SmartScreen prompt for a downloaded binary; the launcher runs it without one.
 - Contributor triage, if this repository needs it, gets its own setup.
