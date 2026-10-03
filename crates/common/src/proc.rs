@@ -7,6 +7,7 @@
 
 use std::process::Command;
 use std::sync::atomic::AtomicBool;
+use std::sync::{Mutex, MutexGuard, TryLockError};
 
 /// `process.kill(pid, 0)`: `Ok(())` when the process exists and can be
 /// signalled, otherwise the errno name Node would report (`ESRCH` when there
@@ -163,8 +164,91 @@ pub fn on_interrupt(flag: &'static AtomicBool) {
     }
 }
 
+/// Temporarily observe Ctrl-C and termination signals, restoring the prior
+/// process handlers when the guard is dropped. Rendered-page scans use this
+/// only for the duration of a browser session so ordinary verbs keep their
+/// existing signal behavior.
+pub struct InterruptGuard {
+    _lock: MutexGuard<'static, ()>,
+    previous_flag: *mut AtomicBool,
+    #[cfg(unix)]
+    previous_sigint: libc::sigaction,
+    #[cfg(unix)]
+    previous_sigterm: libc::sigaction,
+}
+
+impl InterruptGuard {
+    pub fn install(flag: &'static AtomicBool) -> std::io::Result<Self> {
+        let lock = match INTERRUPT_GUARD_LOCK.try_lock() {
+            Ok(lock) => lock,
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(TryLockError::WouldBlock) => {
+                return Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, "another interrupt listener is active"));
+            }
+        };
+        flag.store(false, std::sync::atomic::Ordering::SeqCst);
+        let previous_flag = FLAG.swap(flag as *const AtomicBool as *mut AtomicBool, std::sync::atomic::Ordering::SeqCst);
+        #[cfg(unix)]
+        {
+            let mut action: libc::sigaction = unsafe { std::mem::zeroed() };
+            action.sa_sigaction = unix_on_signal as *const () as libc::sighandler_t;
+            unsafe {
+                libc::sigemptyset(&mut action.sa_mask);
+            }
+            action.sa_flags = libc::SA_RESTART;
+            let mut previous_sigint: libc::sigaction = unsafe { std::mem::zeroed() };
+            let mut previous_sigterm: libc::sigaction = unsafe { std::mem::zeroed() };
+            if unsafe { libc::sigaction(libc::SIGINT, &action, &mut previous_sigint) } != 0 {
+                let error = std::io::Error::last_os_error();
+                FLAG.store(previous_flag, std::sync::atomic::Ordering::SeqCst);
+                return Err(error);
+            }
+            if unsafe { libc::sigaction(libc::SIGTERM, &action, &mut previous_sigterm) } != 0 {
+                let error = std::io::Error::last_os_error();
+                unsafe {
+                    libc::sigaction(libc::SIGINT, &previous_sigint, std::ptr::null_mut());
+                }
+                FLAG.store(previous_flag, std::sync::atomic::Ordering::SeqCst);
+                return Err(error);
+            }
+            Ok(InterruptGuard { _lock: lock, previous_flag, previous_sigint, previous_sigterm })
+        }
+        #[cfg(windows)]
+        {
+            let ok = unsafe { win::SetConsoleCtrlHandler(Some(win_ctrl_handler), 1) };
+            if ok == 0 {
+                let error = std::io::Error::last_os_error();
+                FLAG.store(previous_flag, std::sync::atomic::Ordering::SeqCst);
+                return Err(error);
+            }
+            Ok(InterruptGuard { _lock: lock, previous_flag })
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            FLAG.store(previous_flag, std::sync::atomic::Ordering::SeqCst);
+            Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "interrupt handling is unavailable"))
+        }
+    }
+}
+
+impl Drop for InterruptGuard {
+    fn drop(&mut self) {
+        #[cfg(unix)]
+        unsafe {
+            libc::sigaction(libc::SIGINT, &self.previous_sigint, std::ptr::null_mut());
+            libc::sigaction(libc::SIGTERM, &self.previous_sigterm, std::ptr::null_mut());
+        }
+        #[cfg(windows)]
+        unsafe {
+            win::SetConsoleCtrlHandler(Some(win_ctrl_handler), 0);
+        }
+        FLAG.store(self.previous_flag, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
 static FLAG: std::sync::atomic::AtomicPtr<AtomicBool> =
     std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
+static INTERRUPT_GUARD_LOCK: Mutex<()> = Mutex::new(());
 
 fn set_flag() {
     let p = FLAG.load(std::sync::atomic::Ordering::SeqCst);
@@ -286,6 +370,9 @@ mod win {
 mod tests {
     use super::*;
 
+    static INTERRUPT_TEST_FLAG: AtomicBool = AtomicBool::new(false);
+    static INTERRUPT_TEST_SECOND_FLAG: AtomicBool = AtomicBool::new(false);
+
     #[test]
     fn own_pid_is_alive_and_bogus_pid_is_not() {
         assert_eq!(kill0(std::process::id() as i64), Ok(()));
@@ -315,5 +402,40 @@ mod tests {
         detach(&mut cmd);
         let mut child = cmd.spawn().expect("detached spawn");
         let _ = child.wait();
+    }
+
+    #[test]
+    fn interrupt_guard_resets_only_after_lock_and_restores_the_previous_handler() {
+        INTERRUPT_TEST_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
+        INTERRUPT_TEST_SECOND_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
+        #[cfg(unix)]
+        let previous_sigint = unsafe {
+            let mut action: libc::sigaction = std::mem::zeroed();
+            assert_eq!(libc::sigaction(libc::SIGINT, std::ptr::null(), &mut action), 0);
+            action.sa_sigaction
+        };
+
+        let guard = InterruptGuard::install(&INTERRUPT_TEST_FLAG).unwrap();
+        assert!(!INTERRUPT_TEST_FLAG.load(std::sync::atomic::Ordering::SeqCst));
+        #[cfg(unix)]
+        unsafe {
+            let mut action: libc::sigaction = std::mem::zeroed();
+            assert_eq!(libc::sigaction(libc::SIGINT, std::ptr::null(), &mut action), 0);
+            assert_eq!(action.sa_sigaction, unix_on_signal as *const () as libc::sighandler_t);
+        }
+
+        INTERRUPT_TEST_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
+        let nested_error = InterruptGuard::install(&INTERRUPT_TEST_SECOND_FLAG).err().expect("nested guard must be rejected");
+        assert_eq!(nested_error.kind(), std::io::ErrorKind::WouldBlock);
+        assert!(INTERRUPT_TEST_FLAG.load(std::sync::atomic::Ordering::SeqCst), "a rejected nested guard cleared the active listener");
+        assert!(INTERRUPT_TEST_SECOND_FLAG.load(std::sync::atomic::Ordering::SeqCst), "a rejected nested guard reset its caller's flag");
+        drop(guard);
+
+        #[cfg(unix)]
+        unsafe {
+            let mut action: libc::sigaction = std::mem::zeroed();
+            assert_eq!(libc::sigaction(libc::SIGINT, std::ptr::null(), &mut action), 0);
+            assert_eq!(action.sa_sigaction, previous_sigint);
+        }
     }
 }
