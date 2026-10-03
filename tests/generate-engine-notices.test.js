@@ -3,7 +3,10 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { CARGO_ABOUT_VERSION, generateEngineNotices } from '../scripts/generate-engine-notices.mjs';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const licenseText = [
   'License: MIT License',
@@ -22,6 +25,25 @@ const projectNotices = [
 ].join('\n');
 
 describe('engine notice generator', () => {
+  test('keeps the installable skill license files complete and tied to their source', async () => {
+    const [rootLicense, skillLicense, rootNotices, skillNotices] = await Promise.all([
+      readFile(path.join(repoRoot, 'LICENSE')),
+      readFile(path.join(repoRoot, 'skill', 'LICENSE')),
+      readFile(path.join(repoRoot, 'NOTICE.md'), 'utf8'),
+      readFile(path.join(repoRoot, 'skill', 'NOTICE.md'), 'utf8'),
+    ]);
+
+    expect(skillLicense).toEqual(rootLicense);
+    const rootMit = extractPlatformMitNotice(rootNotices);
+    const skillMit = extractPlatformMitNotice(skillNotices);
+    expect(skillMit).toBe(rootMit);
+    expect(skillMit).toMatch(/^MIT License\n\nCopyright \(c\) 2026/);
+    expect(skillMit).toContain('Permission is hereby granted, free of charge');
+    expect(skillMit).toContain('THE SOFTWARE IS PROVIDED "AS IS"');
+    expect(skillNotices).toContain('dc2be825d8b439caea78e9eaa8fb3ac23b0ff3e9');
+    expect(skillNotices).toContain('https://github.com/ehmo/platform-design-skills/blob/dc2be825d8b439caea78e9eaa8fb3ac23b0ff3e9/LICENSE');
+  });
+
   test('writes the plain-text locked license listing after validating the pinned tool', async () => {
     const root = await createRoot();
     try {
@@ -90,4 +112,10 @@ async function createRoot() {
   await writeFile(path.join(root, 'LICENSE'), 'Apache project license\n');
   await writeFile(path.join(root, 'NOTICE.md'), projectNotices);
   return root;
+}
+
+function extractPlatformMitNotice(notices) {
+  const match = notices.match(/The upstream MIT notice and permission terms are reproduced here[^\n]*\n\n```text\n([\s\S]*?)\n```/);
+  if (!match) throw new Error('The complete platform MIT notice is missing');
+  return match[1];
 }

@@ -12,16 +12,23 @@ reviews, and need their own sync machinery.
 
 ## Decision
 
-Only source is tracked. `skill/` is source and the install payload at once
-(0001), so git-based consumers (skill managers, submodules, `npx skills`)
-read it directly. Root harness folders are ignored local developer state.
+Build output and generated files are not tracked. `skill/` is source and the
+install payload at once (0001), so git-based consumers (skill managers,
+submodules, `npx skills`) read it directly. Maintained license and notice
+files required by a standalone install are part of that source payload, not
+generated copies. Root harness folders are ignored local developer state.
 
 ## Consequences
 
 - The generated-output sync workflow is gone.
-- Anything that needs a derived file must derive it at the consumer, not
-  commit it. This rules out committed Codex agent TOMLs (0006) and copied
-  LICENSE/NOTICE files inside `skill/` (open, see below).
-- Open: Apache-2.0 §4 asks redistributors to pass on the license and notices.
-  `skill/` relies on the repository's root LICENSE and NOTICE.md today; moving
-  the canonical files into `skill/` would satisfy both without a copy.
+- Anything that needs a derived build file must derive it where it is
+  consumed, not commit it. This rules out committed Codex agent TOMLs (0006)
+  and generated engine output.
+- Root `LICENSE` and `NOTICE.md` remain maintained source for repository and
+  GitHub consumers. The installable `skill/` bundle also carries a byte-for-
+  byte copy of the Apache `LICENSE` plus a scoped `NOTICE.md` with the full
+  MIT notice for its platform references. These static redistribution files
+  are an intentional exception to the generated-output rule, not build
+  output.
+- Engine release `THIRD-PARTY-NOTICES.txt` remains generated and untracked; the
+  release workflow derives it from the locked Cargo dependency graph.
