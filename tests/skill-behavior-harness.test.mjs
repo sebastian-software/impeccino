@@ -145,6 +145,19 @@ it('stages the universal references independently of the source skill', async ()
   }
 });
 
+it('can index skill references when a partial fixture has no agents directory', async () => {
+  const workspace = prepareWorkspace();
+  try {
+    fs.rmSync(path.join(workspace, '.claude/skills/impeccino/agents'), { recursive: true });
+    const { tools, trace } = makeTools(workspace);
+    const output = await tools.bash.execute({ command: 'cat .claude/skills/impeccino/reference/critique.md' });
+    assert.match(output, /structured question tool when it has one/);
+    assert.equal(fileLoaded(trace, 'reference/critique.md'), true);
+  } finally {
+    cleanupWorkspace(workspace);
+  }
+});
+
 it('reference-loading evidence requires content, not a failed read or a filename mention', async () => {
   const workspace = prepareWorkspace();
   try {

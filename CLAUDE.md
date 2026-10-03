@@ -115,7 +115,7 @@ pnpm run fetch:engine     # Download the pinned engine binary for this machine i
 There are no build-time placeholders or provider blocks. Write skill text that holds in every harness:
 
 - Commands are `/impeccino <command>`; SKILL.md tells hosts with another sigil (Codex: `$impeccino`) to translate.
-- The launcher is `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted because install paths can contain spaces. Agents never load SKILL.md, so the parent passes them `<scripts-path>`.
+- The launcher is `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted because install paths can contain spaces.
 - Questions go through "the host's structured question tool", not a named tool.
 - Harness- or model-specific guidance is a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`).
 - SKILL.md frontmatter uses the Agent Skills spec fields plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0008); keep `allowed-tools` out, since Claude Code then blocks non-interactive activation.
@@ -268,4 +268,3 @@ Order for a new rule: fixture here first, registry row in `crates/foundation/src
 ### Rule packs (downstream crates adding rules)
 
 A crate that depends on this workspace can add rules without forking it: implement `impeccino_core::rule_pack::RulePack` (the text hook) and, for the static engine, `impeccino_html::StaticRulePack`, call `impeccino_core::rule_pack::install(&PACK)` at startup, and hand the pack to the engine through `TextOptions` / `ScanOptions`, `DetectHtmlOptions`, or `StaticHtmlEngine`. Every hook runs after the built-ins and before inline ignores, so built-in output with no pack installed is byte-identical, which the oracle enforces. The registry keeps `ANTIPATTERNS` as the built-in list and `registry::extend` appends a pack's rows, panicking on an id collision. The DOM hooks and the wasm `detect` feature left with the WebAssembly build ([ADR 0013](docs/adr/0013-no-wasm-or-browser-extension.md)). Full contract in `docs/ENGINE.md` ("Rule packs"). The shipped `impeccino` binary installs no pack, and nothing in this repo should start doing so.
-

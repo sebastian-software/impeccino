@@ -66,9 +66,37 @@ describe('universal skill source', () => {
     }
   });
 
-  test('agents get the scripts path from the parent, not from SKILL.md', () => {
+  test('agent roles do not depend on the launcher path', () => {
     for (const file of fs.readdirSync(path.join(SKILL_DIR, 'agents'))) {
-      expect(fs.readFileSync(path.join(SKILL_DIR, 'agents', file), 'utf-8')).not.toContain('<skill-base-dir>');
+      const source = fs.readFileSync(path.join(SKILL_DIR, 'agents', file), 'utf-8');
+      expect(source).not.toContain('<skill-base-dir>');
+      expect(source).not.toContain('<scripts-path>');
     }
+  });
+
+  test('dispatches shipped roles without harness-specific agent names and reads generic fallback instructions', () => {
+    const skill = fs.readFileSync(path.join(SKILL_DIR, 'SKILL.md'), 'utf-8');
+    const dispatch = skill.split('## Shipped agents')[1].split(/\n## /)[0];
+    const newWork = fs.readFileSync(path.join(SKILL_DIR, 'reference/new-work.md'), 'utf-8');
+
+    expect(dispatch).not.toMatch(/impeccino_finish_reviewer|\/impeccino-finish-reviewer|GitHub Copilot/);
+    expect(dispatch).toMatch(/installed role definition when the host exposes it/i);
+    expect(dispatch).toMatch(/read the matching file.*pass its full Markdown body.*fresh general-purpose subagent/i);
+    expect(dispatch).toMatch(/no inherited conversation history/i);
+    expect(dispatch).toMatch(/tools.*frontmatter.*child tool limits/i);
+    expect(dispatch).toMatch(/complete the role locally according to its full output contract before resuming the parent workflow/i);
+    expect(dispatch).toMatch(/inline finish review is not independent/i);
+    expect(dispatch).toMatch(/keep that disclosure outside the role's contracted return/i);
+
+    expect(newWork).not.toMatch(/Never read the shipped agents' definition files before spawning/);
+    expect(newWork).toMatch(/<skill-base-dir>\/agents\/impeccino-finish-reviewer\.md/);
+    expect(newWork).toMatch(/<skill-base-dir>\/agents\/impeccino-documenter\.md/);
+    expect(newWork).toMatch(/pass its full Markdown body.*general-purpose subagent/i);
+    expect(newWork).toMatch(/role file's `tools` frontmatter as child tool limits/i);
+    expect(newWork).toMatch(/complete its full five-section review locally before acting on its disposition/i);
+    expect(newWork).toMatch(/read the same role file and \[document\.md\]\(document\.md\) in full before writing/i);
+    expect(newWork).toMatch(/Perform the documentation pass locally.*then produce the role's full output contract/i);
+    expect(newWork).toMatch(/label it as a local pass, outside the role's contracted return/i);
+    expect(newWork).toMatch(/keep this disclosure outside the reviewer's contracted return/i);
   });
 });
