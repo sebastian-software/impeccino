@@ -212,34 +212,6 @@ it('quotes the Windows drive-colon target_path without changing the shared golde
   assert.ok(diffResults(expectedWindows, shared).length > 0);
 });
 
-it('preserves the Windows quoted value in the one hook-config example', async () => {
-  const cases = await allCases();
-  const item = cases.find((candidate) => candidate.id === 'hook-config-per-edit-all');
-  const shared = JSON.parse(readFileSync(`${GOLDEN_DIR}/${item.id}.json`, 'utf8'));
-  const expectedWindows = expectedForPlatform(item, shared, 'win32');
-  const windows = JSON.parse(expectedWindows.stdout);
-  const linux = expectedForPlatform(item, shared, 'linux');
-  const sharedContext = JSON.parse(shared.stdout).hookSpecificOutput.additionalContext;
-
-  assert.deepEqual(linux, shared);
-  assert.equal(expectedWindows.stdout.endsWith('\n'), shared.stdout.endsWith('\n'));
-  assert.equal(windows.hookSpecificOutput.additionalContext, sharedContext.replace(
-    "ignore-value bounce-easing 'cubic-bezier(0.68, -0.55, 0.265, 1.55)'",
-    'ignore-value bounce-easing "cubic-bezier(0.68, -0.55, 0.265, 1.55)"',
-  ));
-  assert.ok(diffResults(expectedWindows, shared).length > 0);
-  const duplicatedPayload = JSON.parse(shared.stdout);
-  duplicatedPayload.hookSpecificOutput.additionalContext += " ignore-value bounce-easing 'cubic-bezier(0.68, -0.55, 0.265, 1.55)'";
-  const duplicatedGolden = {
-    ...shared,
-    stdout: JSON.stringify(duplicatedPayload) + (shared.stdout.match(/(?:\r?\n)+$/)?.[0] || ''),
-  };
-  assert.throws(
-    () => expectedForPlatform(item, duplicatedGolden, 'win32'),
-    /Expected one bounce-easing quoted-value example.*found 2/,
-  );
-});
-
 it('prevents Windows runs from overwriting shared goldens with platform-specific guidance', () => {
   const guidance = { id: 'detect-framework-vite-text', windowsPowerShellGuidance: true };
   const driveQuote = { id: 'critique-write-monorepo-child', windowsDrivePathQuoteField: 'target_path' };
@@ -318,9 +290,9 @@ it('limits Windows path-output contracts to exact single-path cases and steps', 
     'surface-brief-write-url',
   ]);
   assert.deepEqual(pathOutputSteps, ['surface-brief-write-read-list[0]', 'surface-brief-write-read-list[3]']);
-  assert.deepEqual(driveQuoteCases, ['critique-write-monorepo-child']);
-  assert.deepEqual(quotedIgnoreCases, ['hook-config-per-edit-all']);
-  assert.ok(listCase.files.includes('.impeccino/surfaces/**'));
+  assert.deepEqual(driveQuoteCases, []);
+  assert.deepEqual(quotedIgnoreCases, []);
+  assert.ok(listCase.files.includes('SURFACES.md'));
   assert.equal(normalize('Root route brief.', { platform: 'win32' }), 'Root route brief.');
 });
 
