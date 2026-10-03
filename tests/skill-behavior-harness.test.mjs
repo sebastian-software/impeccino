@@ -8,6 +8,16 @@ import { assertLauncherDenialWarningBeforeNextTool, assertPlanningFallbackWarnin
 import { CASE_STUDY_ANSWER } from './skill-behavior/fixtures.mjs';
 import { sourceHash as hashSources } from './skill-workflow/source-hash.mjs';
 import { assertCompleted, assertFreshCaptures, assertNoChangeDocumentation, assertDocumentationArtifacts } from './skill-workflow/assertions.mjs';
+import { assertProviderExecution } from './skill-behavior/providers.mjs';
+
+it('requires provider execution only when the CI caller opts into that gate', () => {
+  assert.doesNotThrow(() => assertProviderExecution(new Set(), { required: false }));
+  assert.throws(
+    () => assertProviderExecution(new Set(), { required: true }),
+    /No provider-backed skill behavior scenarios ran/,
+  );
+  assert.doesNotThrow(() => assertProviderExecution(new Set(['claude-sonnet-5']), { required: true }));
+});
 
 it('documentation artifacts require tokens and the v2 sidecar independently of wrapper coverage', () => {
   const design = '---\ncolors:\n  ink: "#222"\ntypography:\n  body:\n    fontFamily: system-ui\n---\n## Overview\nA reading surface.\n';
@@ -140,6 +150,19 @@ it('stages the universal references independently of the source skill', async ()
     const shellRead = await tools.bash.execute({ command: 'cat .claude/skills/impeccino/reference/critique.md' });
     assert.ok(shellRead.includes(critique), 'shell and read tools must see the same resolved reference');
     assert.match(await tools.write.execute({ path: '.claude/skills/impeccino/reference/critique.md', contents: 'bad' }), /^Error:/);
+  } finally {
+    cleanupWorkspace(workspace);
+  }
+});
+
+it('can index skill references when a partial fixture has no agents directory', async () => {
+  const workspace = prepareWorkspace();
+  try {
+    fs.rmSync(path.join(workspace, '.claude/skills/impeccino/agents'), { recursive: true });
+    const { tools, trace } = makeTools(workspace);
+    const output = await tools.bash.execute({ command: 'cat .claude/skills/impeccino/reference/critique.md' });
+    assert.match(output, /structured question tool when it has one/);
+    assert.equal(fileLoaded(trace, 'reference/critique.md'), true);
   } finally {
     cleanupWorkspace(workspace);
   }

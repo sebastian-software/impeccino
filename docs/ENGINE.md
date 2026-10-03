@@ -1,6 +1,8 @@
 # The engine: the Rust runtime behind every skill verb
 
-Every command the skill text runs is `<skill-base-dir>/scripts/impeccino <verb>`. The
+The public interface is the skill and its agent workflows. The Rust engine, its CLI, and its crates are internal implementation details, not separately supported user APIs ([ADR 0005](adr/0005-no-marketplace-packages.md)).
+
+Every command the skill text runs is `"<skill-base-dir>/scripts/impeccino" <verb>`. The
 launcher next to the skill (`skill/scripts/impeccino`, `impeccino.cmd`)
 finds or downloads one static binary per platform and execs it. That binary
 is built from this repo's Cargo workspace. There is no Node at runtime, and
@@ -9,13 +11,43 @@ nothing in the engine runs in a browser
 
 This page is the map for anyone building or changing the runtime. The
 observable behavior of every verb is pinned byte-for-byte by the oracle
-corpus in `tests/oracle/`, which is the engine's behavioral contract
+corpus in `tests/oracle/`, which is the internal integration contract between the engine, skill, launcher, and hooks
 ([ADR 0015](adr/0015-history-lives-in-git.md)).
 
 Everything is in this repo, Apache-2.0, and builds offline from source. No
 part of the engine is fetched at build time, and the engine is one native
 binary: there is no WebAssembly build, no in-page bundle, and no browser
 extension ([ADR 0013](adr/0013-no-wasm-or-browser-extension.md)).
+
+## Internal interface policy
+
+Keep engine verbs and flags when the skill, launchers, hooks, or repository tooling need them. Their arguments, output streams, exit codes, and side effects must remain reliable for those callers. Public skill commands and internal engine verbs are different surfaces: `/impeccino audit` is a user workflow; `detect` is an implementation step in that workflow.
+
+Changes to the internal interface require updating its callers and regression coverage together. A pinned engine and skill can be released in sequence; installed older skill copies still need their pinned engine. Marking this interface internal does not itself remove existing verbs or bypass that release discipline. There is no separate standalone CLI product or downstream Rust API stability commitment.
+
+## Current internal callers
+
+The skill references call `context`, `doctor`, `pin`, `signals`, `concept-seed`, `surface-brief`, `detect`, and `hooks`. Installed hook manifests call `hook` and `hook-before-edit`; the launchers use the hidden `engine-probe` handshake to validate the pinned engine. `palette` remains an internal engine verb; no direct caller appears in the current skill text. `critique-storage` and `ignores` now return their documented removal messages because critiques live in chat and projects have no config file (ADR 0020).
+
+The aliases `context-signals`, `hook-admin`, root help, version flags, and implicit detector target syntax remain internal engine behavior. Check their callers, repository tests, and engine-produced commands before removing any of them.
+
+## Internal detector invocation
+
+These calls are for engine development, tests, and debugging skill or hook integration. They are not a separate user workflow. Agents invoke the installed skill's quoted launcher; contributors can set `IMPECCINO_BIN` to a local build:
+
+```bash
+"<skill-base-dir>/scripts/impeccino" detect src/          # scan a directory
+"<skill-base-dir>/scripts/impeccino" detect --json .      # inspect structured output
+"<skill-base-dir>/scripts/impeccino" detect --no-config src/ # scan without design decisions
+```
+
+The detector catches 61 deterministic issues across AI slop (side-tab borders, purple gradients, bounce easing, dark glows) and general design quality (low contrast, cramped padding, tiny text, skipped headings, and more). `detect` reads files, directories, and URLs. For a URL (`http`, `https`, or `file`), it loads the page headlessly through [agent-browser](https://github.com/vercel-labs/agent-browser) and adds the rules that need layout (line length, text overflow and occlusion, viewport edges, heading rhythm), rendered contrast including text over images, and script errors: `impeccino detect --viewport 390x844 http://localhost:3000/`. Set `AGENT_BROWSER_SESSION` to scan in a session that is already signed in. Rendered scans need agent-browser installed (`npm install -g agent-browser && agent-browser install`); source scans do not.
+
+Human-readable findings are diagnostics written to stderr, so redirect them with `2> findings.txt`. Use `--json` for machine-readable results on stdout. Exit `0` means the scan completed without primary findings, exit `2` means it completed with primary findings, and exit `1` means at least one requested target could not be scanned; operational failure takes precedence for a partial multi-target scan. A clean detector run is evidence, not proof of visual or accessibility quality: it does not replace inspecting the rendered experience across relevant viewports.
+
+`detect` has no project config file. It applies DESIGN.md waivers and declared design values, skips files excluded by the project's Git ignore rules, and honors in-file waiver comments. `--no-config` skips DESIGN.md decisions and in-file waivers; `--no-inline-ignores` skips only the in-file comments. A project-wide waiver belongs in DESIGN.md; a local waiver belongs in a comment next to the code.
+
+Rendered-page scanning is described above and in [ADR 0016](adr/0016-rendered-pages-through-agent-browser.md).
 
 ## Layout
 
@@ -63,7 +95,8 @@ session cache and the boot's staleness throttle live in the per-user cache
 `crates/core` re-exports the foundation modules under its own paths, so every
 consumer names one crate: `impeccino_core::js`, `impeccino_core::color`,
 `impeccino_core::checks::rules::check_colors`. The split between the two
-crates is about what a check is written against, not about who may see it.
+crates separates shared data and helpers from rule logic within the internal
+runtime.
 
 The detector ships 61 built-in rules, listed in
 `crates/foundation/src/registry.rs`; `pnpm run check` reads the count from
@@ -162,7 +195,9 @@ runtime, in this order:
 1. **Engine** (`engine-v<version>`): `pnpm run release:engine` verifies
    the version and a clean tree, then tags and pushes;
    `.github/workflows/release-engine.yml` builds the five targets, attests
-   each binary, and publishes them as an immutable release.
+   each binary, generates `THIRD-PARTY-NOTICES.txt` from the locked Cargo
+   dependency union for all five targets, and publishes them as an immutable
+   release.
 2. **Pins**: `scripts/pin-engine.mjs` verifies each binary's build
    attestation and writes the digests to `skill/scripts/engine.sha256`, which
    the launchers check downloads against.

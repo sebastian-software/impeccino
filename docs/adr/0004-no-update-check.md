@@ -17,7 +17,6 @@ it.
 
 ## Consequences
 
-- No phone-home from `context`; `IMPECCINO_NO_UPDATE_CHECK` and the
-  `updateCheck` config key have nothing left to switch off (the key stays
-  tolerated in existing configs).
+- No phone-home from `context`; the `updateCheck` config key has nothing left
+  to switch off and remains tolerated in existing configs.
 - `doctor` describes tool-version drift as the installer's job.

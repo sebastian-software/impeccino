@@ -1,6 +1,6 @@
 # Project Instructions for Claude
 
-## Architecture (v3.0+)
+## Architecture
 
 There is **one** user-invocable skill, `impeccino`, with **22 commands** underneath it. Users type `/impeccino polish`, `/impeccino audit`, etc. The skill is defined in `skill/`:
 
@@ -13,7 +13,7 @@ There is **one** user-invocable skill, `impeccino`, with **22 commands** underne
 
 ### Engine binary (the runtime behind every verb)
 
-The skill has no runtime of its own. Every command the skill text runs is `"<skill-base-dir>/scripts/impeccino" <verb>` (Setup step 1 says `impeccino context`; `impeccino.cmd` is the Windows twin for shells without `sh`). `skill/scripts/impeccino` is a POSIX `sh` launcher: it execs `$IMPECCINO_BIN` if set, else the sibling `scripts/bin/<os>-<arch>/impeccino[.exe]`, else `<cache>/bin/impeccino`, else the version-pinned `<cache>/bin/<VERSION>/`, else `impeccino` on PATH, and as a last resort downloads the pinned version into that cache. `<cache>` is the per-user cache: `$XDG_CACHE_HOME/impeccino` (absolute paths only), else `~/.cache/impeccino`; `%LOCALAPPDATA%\impeccino` in `impeccino.cmd` and under an MSYS shell. `IMPECCINO_HOME` replaces it for the version-pinned cache. It exports `IMPECCINO_SKILL_DIR` (the skill dir, for `reference/*.md` and `command-metadata.json`) and `IMPECCINO_SELF` (how the binary spells itself in the commands it prints).
+The skill has no runtime of its own. Every command the skill text runs is `"<skill-base-dir>/scripts/impeccino" <verb>` (Setup step 1 says `impeccino context`; `impeccino.cmd` is the Windows twin for shells without `sh`). `skill/scripts/impeccino` is a POSIX `sh` launcher: it uses `$IMPECCINO_BIN` when explicitly set, otherwise it checks the sibling binary and the version-pinned user-cache binary, then downloads the pinned release into that cache. Automatic candidates must answer the exact engine/version probe; the explicit developer override is not version-checked. The cache is `$XDG_CACHE_HOME/impeccino` when that is absolute, else `~/.cache/impeccino`; on Windows it is `%LOCALAPPDATA%\impeccino` (also used by the MSYS launcher). `IMPECCINO_HOME` overrides the cache root. The launcher exports `IMPECCINO_SKILL_DIR` (the skill dir, for `reference/*.md` and `command-metadata.json`) and `IMPECCINO_SELF` (how the binary spells itself in the commands it prints).
 
 The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the root, `crates/*`; `cargo build --release -p impeccino`). Its verbs are `context`, `doctor`, `pin`, `surface-brief`, `palette`, `signals` (alias of context-signals), `concept-seed`, `detect` (files, directories, and URLs through agent-browser), `hook`, `hook-before-edit`, and `hooks` (alias of hook-admin). The browser and comp verbs (`live*`, `detect-csp`, `serve-question`, `component-review`, `generate-image`, `comp-spec`, `comp-diff`, `font-match`, `build-phase`, `capture-server`, `embed-prompt`) print a "was removed" message and exit 1 ([ADR 0011](docs/adr/0011-no-own-browser-stack.md), [ADR 0012](docs/adr/0012-no-image-comps.md)), and so do `critique-storage` and `ignores` ([ADR 0020](docs/adr/0020-project-state-is-top-level-files.md)). Observable behavior is pinned by `tests/oracle/`, which is the behavioral contract ([ADR 0015](docs/adr/0015-history-lives-in-git.md)). **Read `docs/ENGINE.md` before touching `crates/`**: it maps the crates.
 
@@ -26,11 +26,11 @@ The binary is built from **this repo's Cargo workspace** (`Cargo.toml` at the ro
 
 **Do not add standalone skills** unless there's a strong reason. The consolidation was deliberate: the `/` menu pollution problem is real and gets worse as users install more plugins.
 
-**Do not reintroduce per-domain reference files.** v4 removed `typography.md`, `color-and-contrast.md`, `spatial-design.md`, `motion-design.md`, `interaction-design.md`, `responsive-design.md`, `ux-writing.md`, `cognitive-load.md`, `personas.md`, `heuristics-scoring.md`, `build-floor.md`, and `live-generation.md`. Their content lives in the command references and `craft-floor.md`, where it is loaded only when it applies.
+**Do not reintroduce per-domain reference files.** The former `typography.md`, `color-and-contrast.md`, `spatial-design.md`, `motion-design.md`, `interaction-design.md`, `responsive-design.md`, `ux-writing.md`, `cognitive-load.md`, `personas.md`, `heuristics-scoring.md`, `build-floor.md`, and `live-generation.md` guidance now lives in command references and `craft-floor.md`, where it is loaded only when it applies.
 
 ### Modes (Persuade / Operate / Read / Experience)
 
-v4 replaced the old brand/product **register** axis with four modes, named in SKILL.md's `## Modes` section. A mode names what the visitor's success looks like on the surface in hand:
+The skill uses four modes, named in SKILL.md's `## Modes` section, instead of the former brand/product **register** axis. A mode names what the visitor's success looks like on the surface in hand:
 
 - **Persuade** — the visitor decides and acts; design is the product. Landing pages, marketing, campaigns, pricing.
 - **Operate** — the visitor completes a task. App UI, dashboards, editors, admin, settings, tools.
@@ -83,11 +83,11 @@ Impeccino writes files into user projects, so a released version has to cope wit
 
 **Emission discipline.** Boot output is already heavy, so Tier 1 emits **one** `CONTEXT_STALE` directive for the whole set, and `mention` and `route` findings are throttled to once a week per project (cached in `<user cache>/impeccino/staleness-check.json`, outside the project, so no gitignore entry is owed). `auto` findings are never throttled and never shown to the user. Opt out with `IMPECCINO_NO_STALENESS_CHECK=1`; there is no config file to carry a switch. **An oracle case that asserts on other boot directives should pin that env var.**
 
-**Provenance stamps.** PRODUCT.md carries `<!-- impeccino:product-schema N -->` (schema constants live in the engine; template in `init.md`). Without it, every check is a heuristic reconstruction of what era a file came from. **Stamps are schema versions, not release versions**: a PRODUCT.md written by v4.0.0 is not stale under v4.0.1, and a schema version changes only when the shape does. **DESIGN.md deliberately carries no stamp** because it follows the external design.md spec that Stitch's linter validates, and every DESIGN.md signal (sidecar `schemaVersion`, sidecar mtime, section coverage, git drift) is measurable without one.
+**Provenance stamps.** PRODUCT.md carries `<!-- impeccino:product-schema N -->` (schema constants live in the engine; template in `init.md`). Without it, every check is a heuristic reconstruction of what era a file came from. **Stamps are schema versions, not release versions**: routine releases do not make PRODUCT.md stale; the schema version changes only when the shape does. **DESIGN.md deliberately carries no stamp** because it follows the external design.md spec that Stitch's linter validates, and every DESIGN.md signal (sidecar `schemaVersion`, sidecar mtime, section coverage, git drift) is measurable without one.
 
 **When you retire a PRODUCT.md field, add it to the engine's deprecated-sections list** with the reason (and record the new boot output as an oracle case). The reason is not decoration: told only that a field is deprecated, models preserve it "just in case", which is how a retired axis keeps steering current output.
 
-**`doctor` is a utility command, not a design command.** It follows the `hooks` and `pin` pattern (a line in SKILL.md plus `reference/doctor.md`), not the Commands-table pattern. It is deliberately **not** in `IMPECCINO_SUB_COMMANDS`, `command-metadata.json`, `SKILL_CATEGORIES`, or the `pin` verb's valid-command list, and it does not count toward the 22. Keep maintenance tooling out of the design menu.
+**`doctor` is a utility command, not a design command.** It has a route in SKILL.md and instructions in `reference/doctor.md`, but no row in the `## Commands` table, no entry in `command-metadata.json`, and no place in the `pin` verb's valid-command list. It is not part of the 22 commands counted from that table. Keep maintenance tooling out of the design menu.
 
 ## concept-seed is local
 
@@ -99,7 +99,7 @@ Editorial brief is at `docs/STYLE.md`. Read it before editing the READMEs or any
 
 `pnpm run check`'s `validateProse` step (in `scripts/check.js`) enforces a denylist: em dashes (`—` and HTML entities), the `--` em-dash substitute, `load-bearing`, `highest-leverage`, `biggest unlock`, `seamless`, `robust`, `delve`, `elevate`, `empower`, `underscore`, `pivotal`, `tapestry`, `data-driven`, `reflex defaults`, `collapses into monoculture`, `in today's`, `gone are the days`, `whether you're`, `let's dive in`, `in summary`, `in conclusion`, `moreover`, `furthermore`. Each rule prints a rationale and a suggested replacement when it fires. **Do not silently work around the regex.** If a banned word has earned a real meaning here, raise it as a `docs/STYLE.md` amendment.
 
-`validateProse` scans `README.md` and the docs.
+`validateProse` scans `README.md` only. Docs use the same editorial brief but are not part of this automated gate.
 
 **`skill/` is checked too, by a second gate.** `validateProse` skips it because the full ruleset does not fit LLM-facing reference instructions. `validateSkillProse` then scans `skill/**/*.md` (markdown only, not the launcher under `skill/scripts/`) and fails the build on em dashes plus the subset of phrases with no technical reading: `load-bearing`, `highest-leverage`, `biggest unlock`, `reflex defaults`, `collapses into monoculture`, `data-driven`, `delve`, `tapestry`, `in today's`, `gone are the days`, `let's dive in`, `in summary`, `in conclusion`. The words it does *not* enforce in `skill/` (`seamless`, `robust`, `elevate`, and friends) are the ones with legitimate technical uses. Net effect: an em dash in `skill/reference/*.md` fails `pnpm run check`; an em dash in a `scripts/*.js` code comment does not.
 
@@ -107,7 +107,7 @@ The deeper structural issues (negation pivot, triadic auto-pilot, uniform paragr
 
 ## No build
 
-`skill/` is the skill and installs as-is; there is no build, installer, update check, or marketplace package. The decisions are recorded as Light ADRs in `docs/adr/` (0001 to 0015); add a new one when a change alters how the skill is built or delivered.
+`skill/` is the skill and installs as-is; there is no build, installer, update check, or marketplace package. The decisions are recorded as living Light ADRs in `docs/adr/`; update an existing one when a decision changes, and add one when a change alters how the skill is built or delivered.
 
 ```bash
 pnpm run check            # Count claims, skill frontmatter limits, prose gates
@@ -119,7 +119,7 @@ pnpm run fetch:engine     # Download the pinned engine binary for this machine i
 There are no build-time placeholders or provider blocks. Write skill text that holds in every harness:
 
 - Commands are `/impeccino <command>`; SKILL.md tells hosts with another sigil (Codex: `$impeccino`) to translate.
-- The launcher is `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted because install paths can contain spaces. Agents never load SKILL.md, so the parent passes them `<scripts-path>`.
+- The launcher is `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted because install paths can contain spaces.
 - Questions go through "the host's structured question tool", not a named tool.
 - Harness- or model-specific guidance is a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`).
 - SKILL.md frontmatter uses the Agent Skills spec fields plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0008); keep `allowed-tools` out, since Claude Code then blocks non-interactive activation.
@@ -172,27 +172,19 @@ IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1 pnpm run test:skill-behavior    # dump per-sc
 
 **Frontier tiers, more than one family.** The lineup is `DEFAULT_MODELS` in `tests/skill-behavior/providers.mjs`, currently `claude-sonnet-5`, `gpt-5.6-terra`, and `gemini-3.7-flash`. `gpt-5.6-luna` and `deepseek-v4-flash` were dropped in 2026-08: below the frontier tier they fail scenarios for model-floor reasons rather than skill-text defects, and a suite that is always red is a suite nobody reads. **Don't substitute Claude alone**: many of the most useful findings come from divergence between families, so keep at least two. The dropped models stay selectable via `IMPECCINO_SKILL_BEHAVIOR_MODELS` when a Setup or routing change warrants a wider sweep.
 
-**Auth** lives in repo-root `.env` (gitignored). Providers skip cleanly when their key is unset; they don't fail.
+**Auth** lives in repo-root `.env` (gitignored). Local runs skip providers whose keys are unset. CI runs the billed suite only from the manual `skill_behavior` workflow checkbox, and that job fails if no provider scenario actually runs.
 
 **The scenario list and the baseline live in `tests/skill-behavior/README.md`**, not here. Read that table before changing Setup or routing text, and update it in the same change. Duplicating it in this file is how it went stale before.
 
-**Cost.** Each run is real LLM calls, billed to the keys in `.env`. Production-tier models put a full sweep around $0.50-1.50. Keep it out of CI unless you really want it there.
+**Cost.** Each run is real LLM calls, billed to the keys in `.env`. Production-tier models put a full sweep around $0.50-1.50. Keep it out of automatic CI; the workflow's manual checkbox is available when a billed CI run is wanted.
 
 **Adding a scenario.** Write the fixture in `tests/skill-behavior/fixtures.mjs`, add the `it()` block in `scenarios.test.mjs` (the harness uses the source `skill/` dir via a symlink, so no rebuild needed), and update the baseline table in the suite's README. The harness's `fileLoaded(trace, filename)` helper checks both `read` and bash `cat` — different models prefer different tools.
 
 **The harness copies `skill/` as-is**, the way a skill manager installs it, so SKILL.md and reference edits show up immediately; the launcher under `skill/scripts/` resolves the binary the same way tests do.
 
-## CLI
+## Internal engine interface
 
-The `impeccino` binary is the skill's engine; there is no separate npm package ([ADR 0005](docs/adr/0005-no-marketplace-packages.md)). To run the detector without an agent (for example in CI), call the launcher of an installed skill or a downloaded release binary:
-
-```bash
-<skill-dir>/scripts/impeccino detect src/              # detect anti-patterns
-<skill-dir>/scripts/impeccino detect --json src/       # JSON output
-<skill-dir>/scripts/impeccino detect http://localhost:3000/   # rendered page, needs agent-browser
-```
-
-`install`, `update`, `check`, `link`, and the legacy `skills` namespace only print the install routes ([ADR 0003](docs/adr/0003-no-self-installer.md)).
+The public interface is the skill and its agent workflows. The native CLI and Rust crates are internal implementation details ([ADR 0005](docs/adr/0005-no-marketplace-packages.md)). Direct calls are for skill/hook integration and contributor debugging; see [ENGINE.md](docs/ENGINE.md) for the internal detector contract. Update callers and regression coverage together when changing it. Do not introduce standalone terminal/CI workflows into user documentation.
 
 ## Versioning
 
@@ -219,7 +211,7 @@ Workflow for either component:
 2. Commit and push.
 3. Run `pnpm run release:<engine|skill>`. Preview first with `node scripts/release.mjs <component> --dry-run`.
 
-The script refuses to run if the working tree is dirty, HEAD is ahead of origin, or the tag already exists. The engine release only tags and pushes; `release-engine.yml` builds the five binaries, attests each, and publishes them as one immutable release. Binaries are not code-signed. Skill releases attach nothing.
+The script refuses to run if the working tree is dirty, HEAD is ahead of origin, or the tag already exists. The engine release only tags and pushes; `release-engine.yml` builds the five binaries, attests each, generates `THIRD-PARTY-NOTICES.txt` from the locked dependency graph for every release target, and publishes everything as one immutable release. Binaries are not code-signed. Skill releases attach nothing.
 
 If you need to fix release notes after the fact: `gh release edit <tag> --notes-file <md>`.
 
@@ -240,18 +232,16 @@ The launchers and `fetch-engine.mjs` accept a download only if it matches `engin
 All commands live under `/impeccino`. To add a new one:
 
 1. Create `skill/reference/<command>.md` with the command's instructions (this is what the LLM loads when the command is invoked)
-2. Add a row to the **Sub-command reference table** in `skill/SKILL.md`
-3. Add an entry to the **Command menu** section in the same file
-4. Add the command to the `/impeccino <command>` lists in `skill/reference/audit.md`, `audit.native.md`, and `critique.md`
-5. Add it to the `pin` verb's valid-command list (`crates/context`) and record the pin/unpin oracle case
-6. Add its metadata (description + argumentHint) to `skill/scripts/command-metadata.json`
+2. Add a row to the `## Commands` table in `skill/SKILL.md` and add the command to its `argument-hint` frontmatter field
+3. Add the command to the `/impeccino <command>` lists in `skill/reference/audit.md`, `audit.native.md`, and `critique.md`
+4. Add it to the `pin` verb's valid-command list (`crates/context`) and record the pin/unpin oracle case
+5. Add its metadata (description + argumentHint) to `skill/scripts/command-metadata.json`
 
-`pnpm run check` counts commands from the router table automatically. Update the command count in **all** of these locations when the total changes:
+`pnpm run check` counts commands from the `## Commands` table automatically. Update the command list and count in these README locations when the total changes:
 
 - `README.md` — intro, command count, commands table
-- `AGENTS.md` — intro command count
 
-`checkCounts` in `scripts/check.js` flags stale numeric counts in these files and fails `pnpm run check` if any disagree with the router table.
+`checkCounts` in `scripts/check.js` checks command counts in `README.md` and detector-rule counts in both `README.md` and `AGENTS.md`.
 
 ## Adding or modifying anti-pattern detection rules
 
@@ -272,4 +262,3 @@ Order for a new rule: fixture here first, registry row in `crates/foundation/src
 ### Rule packs (downstream crates adding rules)
 
 A crate that depends on this workspace can add rules without forking it: implement `impeccino_core::rule_pack::RulePack` (the text hook) and, for the static engine, `impeccino_html::StaticRulePack`, call `impeccino_core::rule_pack::install(&PACK)` at startup, and hand the pack to the engine through `TextOptions` / `ScanOptions`, `DetectHtmlOptions`, or `StaticHtmlEngine`. Every hook runs after the built-ins and before inline ignores, so built-in output with no pack installed is byte-identical, which the oracle enforces. The registry keeps `ANTIPATTERNS` as the built-in list and `registry::extend` appends a pack's rows, panicking on an id collision. The DOM hooks and the wasm `detect` feature left with the WebAssembly build ([ADR 0013](docs/adr/0013-no-wasm-or-browser-extension.md)). Full contract in `docs/ENGINE.md` ("Rule packs"). The shipped `impeccino` binary installs no pack, and nothing in this repo should start doing so.
-

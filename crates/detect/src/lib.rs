@@ -1,8 +1,6 @@
 //! impeccino-detect: `impeccino detect` orchestration and the non-DOM
-//! engines, ported from `cli/bin/cli.js`, `cli/engine/cli/main.mjs`,
-//! `cli/engine/node/file-system.mjs`, `cli/lib/impeccino-config.mjs`,
-//! `cli/engine/engines/regex/detect-text.mjs`, `cli/engine/design-system.mjs`,
-//! and `cli/engine/profile/profiler.mjs`.
+//! engines, ported from the detector CLI, file walker, design-decision reader,
+//! text engine, design-system engine, and profiler.
 //!
 //! Engine seams: [`engines::HtmlEngine`] (static HTML, crates/html) and
 //! [`engines::UrlEngine`] (browser, crates/browser). This crate never depends
@@ -45,21 +43,6 @@ pub fn looks_like_detect_target(arg: &str, cwd: &str) -> bool {
     let is_existing = util::exists(&jsp::resolve(cwd, &[arg]));
     is_flag || is_url || is_path_shaped || is_existing
 }
-
-/// The root `impeccino --help` text (`cli.js`).
-pub const ROOT_USAGE: &str = "Usage: impeccino <command> [options]
-
-Commands:
-  detect [file-or-dir-or-url...]   Scan for UI anti-patterns and design quality issues
-  help                             Show this help message
-
-Options:
-  --help       Show this help message
-  --version    Show version number
-
-The skill itself lives in skill/ of https://github.com/sebastian-software/impeccino;
-install it with Dalo or skills.sh (npx skills add sebastian-software/impeccino).
-";
 
 /// The `impeccino init` mistake message (`cli.js`).
 pub const INIT_MESSAGE: &str = "\"init\" is not a CLI command. Type /impeccino init in your AI coding agent's chat (Claude Code, Cursor, Codex, ...), not in this terminal.\n";

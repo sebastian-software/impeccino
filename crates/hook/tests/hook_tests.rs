@@ -121,6 +121,19 @@ fn stop_event(cwd: &str, session: &str) -> String {
 
 const GRADIENT_CSS: &str = ".title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }\n";
 const SIDE_TAB_CSS: &str = ".card { border-left: 4px solid #6366f1; border-radius: 8px; }\n";
+const CATCH_ALL_ROUTE_SOURCE: &str = r#"export default function Page() { return <div className="title">Title</div>; }
+const styles = css`
+.title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }
+`;
+"#;
+
+fn catch_all_route_fixture() -> (Tmp, String, String) {
+    let t = Tmp::new();
+    let cwd = t.path();
+    t.write("package.json", "{}");
+    let route = t.write("app/[...slug]/page.tsx", CATCH_ALL_ROUTE_SOURCE);
+    (t, cwd, route)
+}
 
 fn monorepo_design_fixture(root_design: bool) -> Tmp {
     let t = Tmp::new();
@@ -553,6 +566,29 @@ fn truthy_and_depth() {
     assert!(!depth_is_set(Some("0")));
     assert!(!depth_is_set(Some("")));
     assert!(!depth_is_set(None));
+}
+
+#[test]
+fn has_path_traversal_matches_parent_segments_only() {
+    for path in [
+        "/repo/app/[...slug]/page.tsx",
+        r"C:\repo\app\[...path]\page.astro",
+        "/repo/foo..bar/page.tsx",
+        "/repo/%2e%2e/page.tsx",
+    ] {
+        assert!(!has_path_traversal(path), "not traversal: {path}");
+    }
+    for path in [
+        "..",
+        "../outside.tsx",
+        "/repo/src/../outside.tsx",
+        "/repo/src/..",
+        r"..\outside.tsx",
+        r"C:\repo\src\..\outside.tsx",
+        r"C:\repo/src\..\outside.tsx",
+    ] {
+        assert!(has_path_traversal(path), "parent segment: {path}");
+    }
 }
 
 #[test]
@@ -1158,6 +1194,26 @@ fn run_hook_fresh_then_pending_then_stop() {
 }
 
 #[test]
+fn run_hook_scans_catch_all_route_files() {
+    let (_t, cwd, route) = catch_all_route_fixture();
+    let r = rt(&cwd);
+    let res = hook::run_hook(&r, &edit_event(&cwd, &route, "s1"));
+    assert_ne!(audit_str(&res.audit, "skipped"), Some("sensitive"), "{}", res.stdout);
+    assert!(res.stdout.contains("[gradient-text]"), "{}", res.stdout);
+}
+
+#[test]
+fn stop_scans_catch_all_route_files() {
+    let (_t, cwd, route) = catch_all_route_fixture();
+    let r = rt(&cwd);
+    let mut cache = read_cache(&cwd);
+    touch_file(&mut cache, "s1", &route);
+    persist_cache(&r, &cwd, &cache);
+    let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
+    assert!(stop.stdout.contains("[gradient-text]"), "{}", stop.stdout);
+}
+
+#[test]
 fn run_hook_acks_and_quiet_modes() {
     let t = Tmp::new();
     let cwd = t.path();
@@ -1451,6 +1507,23 @@ fn before_edit_skips_oversized_proposed_content() {
     );
     assert_eq!(code, 0);
     assert_eq!(out, "{\"permission\":\"allow\"}");
+}
+
+#[test]
+fn before_edit_scans_catch_all_route_files() {
+    let (_t, cwd, route) = catch_all_route_fixture();
+    let r = rt(&cwd);
+    let (out, code) = hbe(
+        &r,
+        &cursor(
+            &cwd,
+            "Write",
+            json!({"file_path": route, "content": CATCH_ALL_ROUTE_SOURCE}),
+        ),
+    );
+    assert_eq!(code, 0);
+    assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
+    assert!(out.contains("[gradient-text]"), "{out}");
 }
 
 #[test]

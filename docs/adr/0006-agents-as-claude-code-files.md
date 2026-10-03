@@ -16,11 +16,14 @@ harnesses without any subagent support.
 ## Decision
 
 `skill/agents/*.md` are plain Claude Code agent files and the only agent
-source. SKILL.md's "Shipped agents" section says: use the installed agent of
-that name; if the host has subagents but not this agent, spawn a fresh
-general-purpose subagent with the agent file as its instructions; only a
-host without subagents runs the role inline. Agents never see SKILL.md, so
-the parent passes them `<scripts-path>`.
+source. SKILL.md's "Shipped agents" section says to use an installed role
+definition when the host exposes it. If the role is missing but the host can
+spawn subagents, the parent reads the matching file and passes its Markdown
+body as instructions to a fresh general-purpose subagent, along with the task
+inputs and no conversation history. If no subagent tool is available, the
+parent reads the same file and performs the role locally, disclosing that the
+pass was not independent. Neither role runs an engine command, so neither
+needs the launcher's path.
 
 ## Consequences
 

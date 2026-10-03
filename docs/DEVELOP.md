@@ -6,6 +6,8 @@ Documentation for contributors to Impeccino.
 
 `skill/` is the skill, and it installs as-is in every harness: there is no build, installer, or per-harness variant. The decisions behind this are recorded as Light ADRs in [adr/](adr/README.md). For harness behavior (frontmatter, subagents, hooks), see [HARNESSES.md](HARNESSES.md).
 
+The public interface is the skill and its agent workflows. The CLI and Rust workspace are internal runtime implementation; [ENGINE.md](ENGINE.md) documents their invocation, integration contract, build, and release flow. Keep direct engine examples in contributor documentation rather than presenting a second user workflow.
+
 ## Source Format
 
 ### Skill (`skill/SKILL.md`)
@@ -28,7 +30,7 @@ Frontmatter uses the [Agent Skills spec](https://agentskills.io/specification) f
 - `description` (required): what the skill provides (1-1024 chars)
 - `license`, `compatibility` (optional); `compatibility` names what the machine needs
 - `metadata` (optional): `metadata.version` carries the skill version
-- `user-invocable`, `argument-hint`: Claude Code's slash-command entry and hint; other runtimes ignore them
+- `user-invocable`, `argument-hint`: provider extensions supported by some hosts; see [HARNESSES.md](HARNESSES.md) for current support
 
 The body is the same for every harness (ADR 0001). Write the launcher as `"<skill-base-dir>/scripts/impeccino" <verb>`, commands as `/impeccino <command>`, questions as "the host's structured question tool", and harness- or model-specific guidance as a labelled paragraph (`In Codex: ...`).
 
@@ -53,16 +55,9 @@ The skill-behavior suite runs the models in `DEFAULT_MODELS` (`tests/skill-behav
 
 Impeccino itself runs nothing in a browser ([ADR 0011](adr/0011-no-own-browser-stack.md)). The skill-workflow suite uses Playwright Chromium only inside its test harness, standing in for the browser tool a real harness provides.
 
-## Best Practices
+## Skill authoring
 
-### Skill Writing
-
-1. **Focused scope**: One clear domain per skill
-2. **Clear descriptions**: Make purpose obvious
-3. **Clear instructions**: LLM should understand exactly what to do
-4. **Include examples**: Where they clarify intent
-5. **State constraints**: What NOT to do as clearly as what to do
-6. **Test across providers**: Verify it works in multiple contexts. For Setup-related edits to `skill/`, `pnpm run test:skill-behavior` automates this across several model families.
+Follow [AGENTS.md](../AGENTS.md) for cross-harness writing rules, command conventions, and change-specific validation.
 
 ## Reference Documentation
 

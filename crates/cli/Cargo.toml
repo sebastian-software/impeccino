@@ -18,3 +18,6 @@ tungstenite = { version = "0.28", default-features = false, features = ["handsha
 
 [dev-dependencies]
 serde_json = { workspace = true }
+
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2"

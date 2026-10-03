@@ -29,6 +29,7 @@ Options:
   --quiet             In text mode, only print the final findings count
   --scope <name>      Only report rules in the given design domain
                       (type, layout). Comma-separated.
+  --viewport <WxH>    Set the viewport for rendered-page scans (e.g. 390x844)
   --no-config         Scan raw: ignore DESIGN.md (tokens, waivers, declared
                       fonts) and in-file ignore comments
   --no-inline-ignores Do not honor in-file impeccino-disable* ignore comments
@@ -36,6 +37,10 @@ Options:
                       design-system rules (waivers still apply)
   --no-advisory       Suppress advisory findings entirely (e.g. em-dash overuse)
   --help              Show this help message
+
+Targets and stdin:
+  Pass - to read source from stdin. A non-interactive run without a target
+  prints usage and exits 1; an interactive run without a target scans the cwd.
 
 Advisory findings:
   Some rules are advisory: detected and listed in a separate section, but never
@@ -80,6 +85,7 @@ Detection modes:
 Examples:
   impeccino detect src/
   impeccino detect index.html
+  impeccino detect - < index.html
   impeccino detect --json .
   impeccino detect --no-config src/
   impeccino detect http://localhost:3000/
@@ -308,7 +314,7 @@ impl<'a> Ctx<'a> {
                 .html
                 .detect_html(file_path, options, &mut *self.io.stderr);
         }
-        let content = match std::fs::read_to_string(file_path) {
+        let content = match crate::util::read_text_with_error(file_path) {
             Ok(c) => c,
             Err(e) => {
                 // JS `fs.readFileSync` throws with Node's errno message.
@@ -430,7 +436,6 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
         .iter()
         .map(|a| match a.as_str() {
             "-json" => "--json".to_string(),
-            "-fast" => "--fast".to_string(),
             _ => a.clone(),
         })
         .collect();
@@ -442,12 +447,6 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
     let quiet_mode = has(&args, "--quiet");
     let help_mode = has(&args, "--help");
     let no_advisory = has(&args, "--no-advisory");
-    if has(&args, "--fast") {
-        io.err("Note: --fast is deprecated and ignored. The full scan is fast now and runs every rule.\n");
-    }
-    if has(&args, "--gpt") || has(&args, "--gemini") {
-        io.err("Note: --gpt and --gemini are deprecated and ignored. Generated-UI tells now run by default.\n");
-    }
     let config_enabled = !has(&args, "--no-config");
     let cwd = io.cwd.to_string_lossy().into_owned();
     let scopes_valid = rule_scopes().join(", ");
@@ -535,16 +534,24 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
         // does sets this before handing the options to an engine.
         rule_pack: None,
     };
-    let targets: Vec<String> = expand_joined_url_targets(
+    let mut targets: Vec<String> = expand_joined_url_targets(
         args.iter()
             .filter(|a| !a.starts_with("--"))
             .cloned()
             .collect(),
     );
+    let stdin_target = targets.iter().any(|target| target == "-");
+    targets.retain(|target| target != "-");
 
     if help_mode {
         io.out(USAGE);
         return Ok(0);
+    }
+
+    if targets.is_empty() && !stdin_target && !io.stdin_is_tty {
+        io.err("Error: detect requires a target. Pass '-' to scan stdin.\n\n");
+        io.err(USAGE);
+        return Err(Exit(1));
     }
 
     let stdin_tty = io.stdin_is_tty;
@@ -571,9 +578,10 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
     };
 
     let mut all: Vec<Finding> = Vec::new();
-    if !stdin_tty && targets.is_empty() {
+    if stdin_target {
         all = ctx.handle_stdin().map_err(|e| fatal(ctx.io, e))?;
-    } else {
+    }
+    if !targets.is_empty() || !stdin_target {
         let paths: Vec<String> = if targets.is_empty() {
             vec![cwd.clone()]
         } else {
@@ -897,5 +905,100 @@ pub fn stderr_is_tty() -> bool {
     #[cfg(not(unix))]
     {
         std::io::IsTerminal::is_terminal(&std::io::stderr())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engines::MissingHtmlEngine;
+    use std::collections::HashMap;
+
+    fn run_with_stdin(args: &[&str], stdin: &str) -> (i32, String, String) {
+        let args: Vec<String> = args.iter().map(|arg| (*arg).to_string()).collect();
+        let html = MissingHtmlEngine;
+        let engines = Engines {
+            html: &html,
+            url: None,
+        };
+        let (mut io, captured) = Io::captured(stdin, std::env::temp_dir(), HashMap::new());
+        let status = run_detect(&args, &mut io, &engines);
+        let stdout = String::from_utf8(captured.stdout.borrow().clone()).unwrap();
+        let stderr = String::from_utf8(captured.stderr.borrow().clone()).unwrap();
+        (status, stdout, stderr)
+    }
+
+    #[test]
+    fn help_documents_viewport_and_explicit_stdin_target() {
+        let (status, stdout, stderr) = run_with_stdin(&["--help"], "");
+
+        assert_eq!(status, 0);
+        assert!(stdout.contains("--viewport <WxH>"), "{stdout}");
+        assert!(
+            stdout.contains("Pass - to read source from stdin"),
+            "{stdout}"
+        );
+        assert!(stderr.is_empty(), "{stderr}");
+    }
+
+    #[test]
+    fn non_interactive_detect_requires_a_target_instead_of_reading_stdin() {
+        let input = "<div style=\"border-left: 4px solid #ff0000\">x</div>\n";
+        for stdin in ["", input] {
+            let (status, stdout, stderr) = run_with_stdin(&["--json"], stdin);
+
+            assert_eq!(
+                status, 1,
+                "stdin={stdin:?}; stdout={stdout}; stderr={stderr}"
+            );
+            assert!(
+                stdout.is_empty(),
+                "stdin was scanned without an explicit target: {stdout}"
+            );
+            assert!(stderr.contains("Usage: impeccino detect"), "{stderr}");
+        }
+    }
+
+    #[test]
+    fn targetless_detect_does_not_read_stdin() {
+        struct PanicOnRead;
+        impl std::io::Read for PanicOnRead {
+            fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+                panic!("targetless detect attempted to read stdin");
+            }
+        }
+
+        let html = MissingHtmlEngine;
+        let engines = Engines {
+            html: &html,
+            url: None,
+        };
+        let (mut io, captured) =
+            Io::captured_reader(Box::new(PanicOnRead), std::env::temp_dir(), HashMap::new());
+        let status = run_detect(&["--json".to_string()], &mut io, &engines);
+        let stderr = String::from_utf8(captured.stderr.borrow().clone()).unwrap();
+
+        assert_eq!(status, 1, "{stderr}");
+        assert!(stderr.contains("Usage: impeccino detect"), "{stderr}");
+    }
+
+    #[test]
+    fn dash_explicitly_scans_stdin() {
+        let input = "<div style=\"border-left: 4px solid #ff0000\">x</div>\n";
+        let (status, stdout, stderr) = run_with_stdin(&["--no-config", "--json", "-"], input);
+
+        assert_eq!(status, 2, "{stderr}");
+        assert!(stdout.contains("\"file\": \"<stdin>\""), "{stdout}");
+        assert!(stdout.contains("side-tab"), "{stdout}");
+    }
+
+    #[test]
+    fn never_shipped_flags_do_not_emit_legacy_warnings() {
+        for flag in ["-fast", "--fast", "--gpt", "--gemini"] {
+            let (status, stdout, stderr) = run_with_stdin(&[flag, "--help"], "");
+
+            assert_eq!(status, 0, "{flag}: {stdout}\n{stderr}");
+            assert!(!stderr.contains("deprecated"), "{flag}: {stderr}");
+        }
     }
 }

@@ -11,7 +11,7 @@
 use super::checks_shim::CustomProps;
 use super::{
     apply_static_declaration, collect_static_css_rules, compare_static_priority,
-    is_static_inherited_prop, make_default_style, normalize_static_css_value,
+    is_static_inherited_prop, normalize_static_css_value,
     parse_static_style_attribute, static_default_style, CssRule, DeclMeta, SpecifiedDecl,
     SpecifiedStore, StyleValues, STATIC_DEFAULT_STYLE,
 };
@@ -418,15 +418,17 @@ fn compute_styles(
             .unwrap_or_else(|| empty_custom.clone());
         let specified_map = specified.get(&node).unwrap_or(&empty_specified);
 
-        let mut custom_props: CustomProps = (*parent_custom).clone();
+        // Most elements don't declare custom properties. Share the parent's
+        // map until this element actually needs to add one.
+        let mut custom_props = parent_custom;
         for (prop, decl) in specified_map {
             if prop.starts_with("--") {
                 let resolved = super::checks_shim::resolve_var_refs(&decl.value, &custom_props);
-                custom_props.insert(prop.clone(), resolved);
+                Rc::make_mut(&mut custom_props).insert(prop.clone(), resolved);
             }
         }
 
-        let mut values: StyleValues = make_default_style();
+        let mut values: StyleValues = StyleValues::new();
         for (prop, default) in STATIC_DEFAULT_STYLE {
             let inherited = if is_static_inherited_prop(prop) {
                 parent_style.as_ref().and_then(|ps| ps.get(*prop)).cloned()
@@ -443,8 +445,24 @@ fn compute_styles(
         if doc.element(node).is_some_and(|el| matches!(el.tag_lower().as_str(), "em" | "i" | "cite" | "dfn" | "var" | "address")) {
             values.insert("fontStyle".to_string(), "italic".to_string());
         }
+        // Font size supplies the basis for local em letter spacing and line
+        // height. Resolve it first so declaration order cannot affect those
+        // computed values.
+        if let Some(decl) = specified_map.get("fontSize") {
+            let next = normalize_static_css_value(
+                "fontSize",
+                &decl.value,
+                &custom_props,
+                parent_style.as_deref(),
+                Some(&values),
+            );
+            values.insert("fontSize".to_string(), next);
+        }
         for (prop, decl) in specified_map {
             if prop.starts_with("--") {
+                continue;
+            }
+            if prop == "fontSize" {
                 continue;
             }
             let next = normalize_static_css_value(
@@ -503,7 +521,7 @@ fn compute_styles(
 
         let style_rc = Rc::new(values);
         computed.insert(node, style_rc);
-        customs.insert(node, Rc::new(custom_props));
+        customs.insert(node, custom_props);
 
         if let Some(el) = doc.element(node) {
             let children = el.children();

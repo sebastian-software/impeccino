@@ -11,6 +11,7 @@
  */
 
 import fs from 'node:fs';
+import path from 'node:path';
 
 const WS = '<WS>';
 const CACHE_FILES = ['.oracle-home/.cache/impeccino/**', '.impeccino/**', '.claude/settings.local.json', '.codex/hooks.json', '.cursor/hooks.json', '.github/hooks/impeccino.json'];
@@ -23,9 +24,13 @@ const write = (ws, rel, body) => {
 // .gitignore and .gitattributes apply.
 const gitRepo = (ws) => fs.mkdirSync(`${ws}/.git`, { recursive: true });
 
-const claudeEdit = (file, extra = {}) => ({
+export function hookPath(platform, ...segments) {
+  return (platform === 'win32' ? path.win32 : path).join(...segments);
+}
+
+export const claudeEdit = (file, extra = {}, platform = process.platform) => ({
   session_id: 's1', cwd: WS, hook_event_name: 'PostToolUse', tool_name: 'Edit',
-  tool_input: { file_path: `${WS}/${file}` }, ...extra,
+  tool_input: { file_path: hookPath(platform, WS, file) }, ...extra,
 });
 const stop = (extra = {}) => ({ session_id: 's1', cwd: WS, hook_event_name: 'Stop', stop_hook_active: false, ...extra });
 
@@ -40,7 +45,7 @@ export default [
       { verb: 'hook', stdin: claudeEdit('src/new.css', {
         tool_name: 'Write',
         tool_response: {
-          type: 'create', filePath: `${WS}/src/new.css`, originalFile: null,
+          type: 'create', filePath: hookPath(process.platform, WS, 'src/new.css'), originalFile: null,
           content: '.card { border-left: 4px solid #6366f1; border-radius: 8px; }\n',
         },
       }) },
@@ -56,7 +61,7 @@ export default [
     steps: [
       { verb: 'hook', stdin: claudeEdit('src/report.ts', {
         tool_response: {
-          filePath: `${WS}/src/report.ts`,
+          filePath: hookPath(process.platform, WS, 'src/report.ts'),
           originalFile: "import dead from 'dead';\nconst report = `<style>body { font-family: Fraunces; }</style>`;\n",
           oldString: "import dead from 'dead';\n", newString: '', replaceAll: false, userModified: false,
         },
@@ -66,6 +71,15 @@ export default [
   },
   // --- hook.mjs: per-edit ---
   { id: 'hook-edit-tsx-fresh', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/components/Card.tsx'), files: CACHE_FILES },
+  {
+    id: 'hook-edit-catch-all-route', verb: 'hook', workspace: 'hook-project', files: CACHE_FILES,
+    setup(ws) {
+      const route = `${ws}/app/[...slug]/page.tsx`;
+      fs.mkdirSync(`${ws}/app/[...slug]`, { recursive: true });
+      fs.writeFileSync(route, 'const Page = () => <div className="title">Title</div>;\nconst styles = css`\n.title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }\n`;\n');
+    },
+    stdin: claudeEdit('app/[...slug]/page.tsx'),
+  },
   { id: 'hook-edit-css-fresh', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/components/Card.module.css'), files: CACHE_FILES },
   { id: 'hook-edit-html-fresh', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/page.html'), files: CACHE_FILES },
   { id: 'hook-edit-clean-tsx', verb: 'hook', workspace: 'hook-project', stdin: claudeEdit('src/components/Clean.tsx'), files: CACHE_FILES },

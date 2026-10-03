@@ -1,0 +1,29 @@
+# The engine binaries are built for this complete target set. cargo-about
+# evaluates the union so target-specific and transitive crates are included.
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "MPL-2.0",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+    "Zlib",
+]
+
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-musl",
+    "x86_64-pc-windows-msvc",
+]
+
+ignore-build-dependencies = false
+ignore-dev-dependencies = true
+ignore-transitive-dependencies = false
+workarounds = ["ring", "rustls"]
+private = { ignore = true }
+
+[ring]
+accepted = ["OpenSSL"]

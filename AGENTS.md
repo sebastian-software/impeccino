@@ -24,7 +24,7 @@ Run `pnpm run check` after changing anything in `skill/` or user-facing counts.
 Write skill text so it holds in every harness:
 
 - Name commands as `/impeccino <command>`; SKILL.md tells hosts with another sigil (Codex: `$impeccino`) to translate.
-- Run the launcher as `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted, because install paths can contain spaces. Agents never see SKILL.md, so they receive `<scripts-path>` from the parent instead.
+- Run the launcher as `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted, because install paths can contain spaces.
 - Ask through "the host's structured question tool", not a named tool.
 - Put harness- or model-specific guidance in a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`) instead of a build-time block.
 - SKILL.md frontmatter uses the Agent Skills spec fields (`name`, `description`, `license`, `compatibility`, `metadata`) plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0008); strict validators such as Codex's `quick_validate.py` flag the extras, which is expected. Keep `allowed-tools` out. `metadata.version` is the skill version.

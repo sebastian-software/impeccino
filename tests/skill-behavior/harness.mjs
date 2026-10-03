@@ -232,10 +232,17 @@ function defaultSimulatedAnswer(question) {
 }
 
 export function makeTools(workspace, extraEnv = {}, simulatedUser = {}, { contextOnlyBash = false, denyBash = false } = {}) {
-  const referenceDir = path.join(workspace, '.claude/skills/impeccino/reference');
-  const references = fs.readdirSync(referenceDir, { recursive: true })
-    .filter((file) => file.endsWith('.md'))
-    .map((file) => ({ file: file.split(path.sep).join('/'), content: fs.readFileSync(path.join(referenceDir, file), 'utf8').trim() }));
+  const skillDir = path.join(workspace, '.claude/skills/impeccino');
+  const references = ['reference', 'agents'].flatMap((dir) => {
+    const directory = path.join(skillDir, dir);
+    if (!fs.existsSync(directory)) return [];
+    return fs.readdirSync(directory, { recursive: true })
+      .filter((file) => file.endsWith('.md'))
+      .map((file) => {
+        const relative = `${dir}/${file.split(path.sep).join('/')}`;
+        return { file: relative, content: fs.readFileSync(path.join(skillDir, relative), 'utf8').trim() };
+      });
+  });
   const trace = {
     toolCalls: [],
     bashCommands: [],
@@ -285,7 +292,7 @@ export function makeTools(workspace, extraEnv = {}, simulatedUser = {}, { contex
         const res = await execBash(workspace, command, 20_000, extraEnv);
         call.mutatedPaths = changedPaths(before, snapshotWorkspaceFiles(workspace));
         call.loadedFiles = references.filter(({ content }) => content && res.stdout.includes(content))
-          .map(({ file }) => `.claude/skills/impeccino/reference/${file}`);
+          .map(({ file }) => `.claude/skills/impeccino/${file}`);
         const head = `exit=${res.exitCode}`;
         const body = (res.stdout ? `stdout:\n${res.stdout}` : '') + (res.stderr ? `\nstderr:\n${res.stderr}` : '');
         const out = `${head}\n${body}${res.truncated ? '\n[output truncated]' : ''}`;

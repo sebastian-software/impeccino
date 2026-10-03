@@ -8,8 +8,8 @@ Impeccino runs nothing in the browser ([ADR 0011](adr/0011-no-own-browser-stack.
 Last verified: 2026-04-28 (subagent landscape spot-checked 2026-06-28; Mistral Vibe row verified 2026-07-16; Grok Build skills row verified 2026-07-21; Grok Build hook stdin captured 2026-08-24; DeepSeek Harness row verified 2026-09-06)
 
 > This file is point-in-time. Capabilities move fast; verify live before relying
-> on any "only X supports Y" claim. Notably, the subagent table below lists
-> Impeccino's *emission targets*, not the support landscape (see its note).
+> on any "only X supports Y" claim. The subagent table below lists documented
+> on-disk formats, not the full support landscape (see its note).
 
 ## Official Documentation
 
@@ -67,7 +67,7 @@ Notes:
 - Hermes Agent reads the Agent Skills spec as-is. Spec-defined fields (`name`, `description`, `license`, `compatibility`, `metadata`) are parsed and stored; harness-specific extensions (`user-invocable`, `argument-hint`, `allowed-tools`, `disable-model-invocation`, `model`, `effort`, `context`, `agent`, `hooks`) are unknown keys and silently ignored. Hermes has no hook surface, no per-skill tool ACL, and no slash-command equivalent of `user-invocable` (skills are loaded via `/skill <name>` or auto-loaded; sub-commands like `/impeccino polish` are routed from the skill body, not declared in frontmatter). Hermes adds two frontmatter fields not in the spec: `platforms:` (OS filter; default = all) and `environments:` (relevance gate over `kanban`, `docker`, `s6`). Unknown fields are silently ignored.
 - Kiro recognizes `user-invocable` and `disable-model-invocation` per community reports but does not formally document them.
 - Antigravity supports standard Agent Skills spec frontmatter fields (`name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`).
-- OpenCode 1.18.10 recognises only the spec subset on SKILL.md (`name`, `description`, `license`, `compatibility`, `metadata`). Claude-style extensions (`user-invocable`, `argument-hint`, `allowed-tools`, `model`, `agent`) are silently ignored; Impeccino still emits them today for other harnesses, but they have no effect in OpenCode. Use `commands/<name>.md` (see Placeholder / Variable Substitution below) for slash UX; OpenCode honours only `description`, `agent`, `model`, `variant`, `subtask` on command files.
+- OpenCode 1.18.10 recognises only the spec subset on SKILL.md (`name`, `description`, `license`, `compatibility`, `metadata`). Claude-style extensions (`user-invocable`, `argument-hint`, `allowed-tools`, `model`, `agent`) are silently ignored. The shared SKILL.md includes `user-invocable` and `argument-hint` for hosts that support them; those fields have no effect in OpenCode. Use `commands/<name>.md` (see Placeholder / Variable Substitution below) for slash UX; OpenCode honours only `description`, `agent`, `model`, `variant`, `subtask` on command files.
 - DeepSeek Harness parses the Agent Skills frontmatter and requires `name` and `description`; it reads `metadata`, `user-invocable`, and `disable-model-invocation`. Spec fields it does not consume (`license`, `compatibility`, `allowed-tools`) and Claude-style extensions (`argument-hint`, `model`, `effort`, `context`, `agent`, `hooks`) are silently ignored. Hooks are in-process plugins configured via cordis.yml, not on-disk manifests, so there is no hook surface to install. Subagents exist but are composed from preset config, not an on-disk skill-adjacent format. Verified against the [filesystem skill provider](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.md).
 - Unknown fields are silently ignored by all harnesses.
 
@@ -122,7 +122,7 @@ All harnesses support the `{skill-name}/SKILL.md` directory structure with optio
 | Grok Build | `.grok/agents/` (project) | Markdown with YAML frontmatter (Claude-compatible) |
 | Codex CLI | `<skill>/agents/` (nested, auto-discovered) | TOML |
 
-Impeccino ships two agents, `impeccino-finish-reviewer` and `impeccino-documenter`, as plain Claude Code agent files in `skill/agents/` and emits no provider-native copies ([ADR 0006](adr/0006-agents-as-claude-code-files.md)). Claude Code uses them when they are linked into `.claude/agents/`; Grok reads the same markdown from `.grok/agents/`. Any other host with subagents spawns a general-purpose subagent with the agent file as its instructions.
+Impeccino ships two roles as plain Claude Code agent files in `skill/agents/` and emits no provider-native copies ([ADR 0006](adr/0006-agents-as-claude-code-files.md)). Claude Code uses them when they are linked into `.claude/agents/`; Grok reads the same markdown from `.grok/agents/`. A host with subagents but no installed role can read the matching file and pass its Markdown body as instructions to a fresh general-purpose subagent.
 
 **Spawn / permission model** (matters more than directory support when building skills):
 

@@ -8,7 +8,7 @@
 
 ## Decision
 
-`docs/` keeps only current guidance (development, engine, harness notes, style, signing) and these ADRs. Finished plans, snapshots, and demos are removed; git history keeps them.
+`docs/` keeps current development, engine, harness, and style guidance with these ADRs. Finished plans, snapshots, demos, and the retired Windows signing guide are removed; git history keeps them.
 
 ## Consequences
 

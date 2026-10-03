@@ -6,6 +6,8 @@ import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { tool } from 'ai';
+import { z } from 'zod';
 
 import {
   prepareWorkspace,
@@ -29,11 +31,12 @@ async function runTurn(options) {
   // HTML fixtures: no dependencies, font downloads, or browser discovery.
   const browser = await prepareBrowser(options.workspace);
   try {
+    const additionalTools = options.additionalTools;
     const result = await runHarnessTurn({
       ...options, maxSteps: 50, timeoutMs: 840000,
       userPrompt: `${options.userPrompt}\nUse system fonts and no external assets for this text-only fixture. The browser_snapshot and view_image tools are ready for visual review.`,
-      environment: browser.environment,
-      additionalTools: (trace) => browser.tools(trace),
+      environment: [browser.environment, options.environment].filter(Boolean).join('\n\n'),
+      additionalTools: (trace) => ({ ...browser.tools(trace), ...(additionalTools?.(trace) ?? {}) }),
     });
     assertCompleted(result);
     const contextCalls = result.trace.toolCalls.filter(({ name, input }) => name === 'bash' && /impeccino\s+context\b/.test(input.command));
@@ -125,6 +128,66 @@ function workflowTraceMessage(trace) {
   return JSON.stringify(summarizeTrace(trace), null, 2);
 }
 
+function roleDefinition(workspace, filename) {
+  const source = fs.readFileSync(path.join(workspace, '.claude/skills/impeccino/agents', filename), 'utf8');
+  const tools = source.match(/^tools:\s*(.+)$/m)?.[1].split(',').map((name) => name.trim());
+  const body = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '').trim();
+  assert.ok(tools?.length, `${filename} must declare role tool limits`);
+  return { body, tools };
+}
+
+/**
+ * Simulates a host that has no installed native roles but can spawn a generic
+ * child. It records the parent's handoff and returns scripted role reports;
+ * it does not execute a child model or prove that the role completed its work.
+ */
+function genericRoleSpawnTool(trace, workspace) {
+  const roles = [
+    {
+      id: 'finish-reviewer',
+      filename: 'impeccino-finish-reviewer.md',
+      result: `disposition: ship\n\npersistence\npass — PRODUCT.md exists.\n\nworld\nTYPE: matches the chosen system.\nMATERIAL: no unsupported material claims.\nGROUND: matches the documented palette.\n\nceiling\nreached\n\nmaterial_fixes\nnone\n\nkeep\nPreserve the approved reading surface.`,
+    },
+    {
+      id: 'documenter',
+      filename: 'impeccino-documenter.md',
+      result: `No changes: checked PRODUCT.md, DESIGN.md, and index.html.\nPalette: white, near-black, blue links.\nType ramp: system-ui body, bold headings.\nNamed rules: single-column reading layout.\nNamed rules: no decorative containers.\nNamed rules: preserve keyboard affordances.\nDefects or drift not canonized: none found.`,
+    },
+  ].map((role) => ({ ...role, ...roleDefinition(workspace, role.filename) }));
+
+  return {
+    spawn_general_purpose_agent: tool({
+      description: 'Start a fresh general-purpose subagent with role instructions, role tool limits, and task inputs. This test host records the request and returns a scripted role report; it does not execute a child model.',
+      inputSchema: z.object({
+        roleInstructions: z.string().describe('Full Markdown body from the shipped role file.'),
+        tools: z.array(z.string()).describe('Tool limits from the role file frontmatter.'),
+        task: z.string().describe('The inputs and task for this role.'),
+      }),
+      execute: async (input) => {
+        const role = roles.find(({ body }) => input.roleInstructions.includes(body));
+        trace.toolCalls.push({
+          name: 'spawn_general_purpose_agent',
+          input,
+          role: role?.id,
+          mutatedPaths: [],
+        });
+        return role?.result ?? 'Fixture error: include the full shipped role body in the instructions.';
+      },
+    }),
+  };
+}
+
+function assertRoleLoadedBeforeGenericSpawn(trace, workspace, { id, filename }) {
+  const role = roleDefinition(workspace, filename);
+  const path = `.claude/skills/impeccino/agents/${filename}`;
+  const read = trace.toolCalls.findIndex((call) => call.loadedFiles?.includes(path));
+  const spawn = trace.toolCalls.findIndex((call) => call.name === 'spawn_general_purpose_agent' && call.role === id);
+  assert.ok(read >= 0, `must load the shipped ${id} role body before spawning it.\n${workflowTraceMessage(trace)}`);
+  assert.ok(spawn > read, `must read ${filename} before the generic spawn.\n${workflowTraceMessage(trace)}`);
+  assert.equal(trace.toolCalls[spawn].input.roleInstructions, role.body);
+  assert.deepEqual(trace.toolCalls[spawn].input.tools, role.tools);
+}
+
 // Full builds are separately opt-in and default to one provider. The existing
 // model selection variable can explicitly request a cross-provider sweep.
 for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModelList() : ['claude-sonnet-5']) {
@@ -164,24 +227,58 @@ for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModel
       }
     });
 
-    it('an initialized natural build request asks for the task concept before implementation', async () => {
+    it('an initialized build completes both inline role passes when the host has no subagent tool', async () => {
       const workspace = prepareWorkspace({
         files: { 'PRODUCT.md': PRODUCT_MD_SAMPLE, 'DESIGN.md': DESIGN_MD_SAMPLE },
       });
       try {
+        for (const filename of ['impeccino-finish-reviewer.md', 'impeccino-documenter.md']) {
+          assert.equal(fs.existsSync(path.join(workspace, '.claude/agents', filename)), false, `${filename} must be absent from the native-agent directory`);
+        }
         const { trace } = await runTurn({
           workspace,
           model,
           userPrompt: '/impeccino create a concise evidence-led case-study page. Leave it at index.html.',
           simulatedUser: { answer: () => CASE_STUDY_ANSWER },
+          environment: 'This host has no subagent tool and no native Impeccino roles.',
         });
         const question = firstCall(trace, ({ name }) => name === 'ask_user_question');
         assert.ok(fileLoaded(trace, 'new-work.md'), `new-work.md was not loaded.\n${workflowTraceMessage(trace)}`);
         assert.ok(question >= 0, `task concept was never put to the user.\n${workflowTraceMessage(trace)}`);
         assertNewWorkLifecycle(trace, { target: 'index.html' });
         assertFreshCaptures(trace, workspace, 'index.html');
-        assert.ok(fileLoaded(trace, 'finish-reviewer.md'), 'new-work must run the shipped finish review');
-        assert.ok(fileLoaded(trace, 'documenter.md'), 'new-work must run the shipped documentation pass');
+        assert.ok(fileLoaded(trace, 'impeccino-finish-reviewer.md'), 'inline fallback must read the shipped finish-reviewer role');
+        assert.ok(fileLoaded(trace, 'impeccino-documenter.md'), 'inline fallback must read the shipped documenter role');
+        assert.equal(trace.toolCalls.some(({ name }) => name === 'spawn_general_purpose_agent'), false, 'the no-subagent scenario must not claim a spawned reviewer or documenter');
+        assert.equal(fs.existsSync(path.join(workspace, 'index.html')), true, 'new-work must still produce the requested artifact');
+      } finally {
+        cleanupWorkspace(workspace);
+      }
+    });
+
+    it('an initialized build passes shipped role bodies to a generic subagent when native definitions are absent', async () => {
+      const workspace = prepareWorkspace({
+        files: { 'PRODUCT.md': PRODUCT_MD_SAMPLE, 'DESIGN.md': DESIGN_MD_SAMPLE },
+      });
+      try {
+        for (const filename of ['impeccino-finish-reviewer.md', 'impeccino-documenter.md']) {
+          assert.equal(fs.existsSync(path.join(workspace, '.claude/agents', filename)), false, `${filename} must be absent from the native-agent directory`);
+        }
+        const { trace } = await runTurn({
+          workspace,
+          model,
+          userPrompt: '/impeccino create a concise evidence-led case-study page. Leave it at index.html.',
+          simulatedUser: { answer: () => CASE_STUDY_ANSWER },
+          environment: 'No named Impeccino roles are installed in .claude/agents. The host can spawn a fresh general-purpose subagent with role instructions, tool limits, and task inputs.',
+          additionalTools: (trace) => genericRoleSpawnTool(trace, workspace),
+        });
+        const question = firstCall(trace, ({ name }) => name === 'ask_user_question');
+        assert.ok(fileLoaded(trace, 'new-work.md'), `new-work.md was not loaded.\n${workflowTraceMessage(trace)}`);
+        assert.ok(question >= 0, `task concept was never put to the user.\n${workflowTraceMessage(trace)}`);
+        assertNewWorkLifecycle(trace, { target: 'index.html' });
+        assertFreshCaptures(trace, workspace, 'index.html');
+        assertRoleLoadedBeforeGenericSpawn(trace, workspace, { id: 'finish-reviewer', filename: 'impeccino-finish-reviewer.md' });
+        assertRoleLoadedBeforeGenericSpawn(trace, workspace, { id: 'documenter', filename: 'impeccino-documenter.md' });
         assert.equal(fs.existsSync(path.join(workspace, 'index.html')), true, 'new-work must still produce the requested artifact');
       } finally {
         cleanupWorkspace(workspace);

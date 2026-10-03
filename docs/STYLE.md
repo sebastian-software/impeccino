@@ -21,7 +21,7 @@ The bar: **for every paragraph, point to the sentence that makes it specifically
 
 ## Denylist
 
-The build's `validateProse` step (in `scripts/build.js`) fails the build on these. The list is the editorial brief, enforced. Add a rule here when you ban a new pattern; remove a rule when the term has earned a real meaning here. **Do not silently allowlist** by working around the regex.
+The `validateProse` gate in `scripts/check.js` applies this denylist to `README.md`; `pnpm run check` fails on matches. The rules remain the editorial brief for docs and other reader-facing copy, though the automated gate does not scan them. Add a rule here when you ban a new pattern; remove a rule when the term has earned a real meaning here. **Do not silently allowlist** by working around the regex.
 
 ### Stale commands
 | Banned | Why | Use instead |

@@ -331,6 +331,7 @@ dependencies = [
  "impeccino-detect",
  "impeccino-hook",
  "impeccino-html",
+ "libc",
  "png",
  "serde_json",
  "tungstenite",

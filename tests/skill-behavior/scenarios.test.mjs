@@ -11,7 +11,7 @@
  * Skips per-provider when its API key is unset. The default model lineup is
  * the cheapest tier of each major provider so a full sweep costs a few cents.
  */
-import { describe, it } from 'vitest';
+import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
@@ -27,7 +27,7 @@ import {
   ENGINE_BIN,
   ENGINE_MISSING_MESSAGE,
 } from './harness.mjs';
-import { detectProvider, getModel, hasKey, resolveModelList, PROVIDERS } from './providers.mjs';
+import { assertProviderExecution, detectProvider, getModel, hasKey, resolveModelList, PROVIDERS } from './providers.mjs';
 import { assertLauncherDenialWarningBeforeNextTool, assertPlanningFallbackWarning, LAUNCHER_FAILURE_WARNING, assertAdviceOnly, assertWorkflowAdvice, assertCommandComparison, missingReferences } from './assertions.mjs';
 import { assertCompleted } from '../skill-workflow/assertions.mjs';
 import {
@@ -43,9 +43,11 @@ import {
 
 // Protocol-only shell access; successful checkpoints end observation, not the task.
 async function runTurn({ checkpoint, ...options }) {
-  return runHarnessTurn({ contextOnlyBash: true, timeoutMs: 180000, ...options,
+  const result = await runHarnessTurn({ contextOnlyBash: true, timeoutMs: 180000, ...options,
     stopAfter: typeof checkpoint === 'function' ? checkpoint
       : checkpoint ? (trace) => fileLoaded(trace, checkpoint) : undefined });
+  providerRuns.add(`completed provider turn ${providerRuns.size + 1}`);
+  return result;
 }
 
 const CRAFT_PROMPT = '/impeccino craft a landing page for the project in this workspace';
@@ -61,6 +63,9 @@ const PRIMER_PROMPT =
   'Take a quick look at the project. What context should guide later design work? Run the impeccino context loader once if you need to.';
 
 const VERBOSE = process.env.IMPECCINO_SKILL_BEHAVIOR_VERBOSE === '1';
+const providerRuns = new Set();
+
+afterAll(() => assertProviderExecution(providerRuns));
 
 function logTrace(label, scenario, model, trace, extras = {}) {
   if (!VERBOSE) return;

@@ -24,9 +24,12 @@ export const SUITES = {
     triggers: [
       ...COMMON_INFRA_PATTERNS,
       /^scripts\//,
+      /^crates\//,
       /^skill\/(SKILL\.md|agents\/|reference\/|scripts\/)/,
       /^skill\/scripts\/VERSION$/,
       /^README\.md$/,
+      /^docs\/RUNTIME-ENV\.md$/,
+      /^tests\/(?!oracle\/|fixtures\/).+\.(js|mjs|rs)$/,
       /^\.github\/workflows\/release-engine\.yml$/,
     ],
     commands: [
@@ -38,6 +41,7 @@ export const SUITES = {
           'tests/skill-source.test.js',
           'tests/lib/utils.test.js',
           'tests/release-engine-workflow.test.js',
+          'tests/generate-engine-notices.test.js',
           'tests/workflow-security.test.js',
           'tests/ci-test-plan.test.mjs',
           'tests/launcher-download.test.mjs',
@@ -45,6 +49,8 @@ export const SUITES = {
           'tests/release.test.mjs',
           'tests/skill-reference.test.mjs',
           'tests/skill-behavior-harness.test.mjs',
+          'tests/readme-gitignore.test.mjs',
+          'tests/runtime-env.test.mjs',
           'tests/test-suites.test.mjs',
         ],
       },
@@ -121,11 +127,8 @@ function escapeRegExp(value) {
 
 // Every suite must select itself when one of its own test files changes.
 // Generated from the files lists so the hand-written trigger patterns above
-// only carry source paths and fixture directories; before this, four test
-// files were registered in a suite that change-based CI could never select
-// by editing them (serve-question, ci-test-plan, both validate-plugin-*),
-// and tests/lib/detector-bundle.test.js triggered core while running in
-// detector. The meta-test in tests/test-suites.test.mjs pins this invariant.
+// only carry source paths and fixture directories. The meta-test in
+// tests/test-suites.test.mjs pins this invariant.
 for (const suite of Object.values(SUITES)) {
   const ownFiles = suite.commands.flatMap((command) => command.files);
   suite.triggers = [

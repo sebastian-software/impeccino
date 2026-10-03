@@ -42,6 +42,7 @@ export default function cases() {
       verb: 'detect',
       args: ['--no-config', `<REPO>/${rel}`],
       isolateHome: false,
+      ...(ent.name.startsWith('framework-') ? { windowsPowerShellGuidance: true } : {}),
     });
   }
 
@@ -59,7 +60,7 @@ export default function cases() {
     { id: 'detect-multifile-text', verb: 'detect', args: ['--no-config', `<REPO>/tests/fixtures/antipatterns/multifile`], isolateHome: false },
     { id: 'detect-framework-vite-json', verb: 'detect', args: ['--no-config', '--json', `<REPO>/tests/fixtures/antipatterns/framework-vite`], isolateHome: false },
     { id: 'detect-framework-next-tailwind-json', verb: 'detect', args: ['--no-config', '--json', `<REPO>/tests/fixtures/antipatterns/framework-next-tailwind`], isolateHome: false },
-    { id: 'detect-framework-next-modules-text', verb: 'detect', args: ['--no-config', `<REPO>/tests/fixtures/antipatterns/framework-next-modules`], isolateHome: false },
+    { id: 'detect-framework-next-modules-text', verb: 'detect', args: ['--no-config', `<REPO>/tests/fixtures/antipatterns/framework-next-modules`], isolateHome: false, windowsPowerShellGuidance: true },
     { id: 'detect-framework-next-cssinjs-json', verb: 'detect', args: ['--no-config', '--json', `<REPO>/tests/fixtures/antipatterns/framework-next-cssinjs`], isolateHome: false },
     {
       id: 'detect-jsx-commented-img', verb: 'detect',
@@ -89,6 +90,11 @@ function Thumb({ url }: { url?: string }) {
     // Flag surface and errors
     { id: 'detect-help', verb: 'detect', args: ['--help'] },
     { id: 'detect-no-args', verb: 'detect', args: [] },
+    {
+      id: 'detect-stdin-dash', verb: 'detect',
+      args: ['--no-config', '--json', '-'],
+      stdin: '<div style="border-left: 4px solid #ff0000">x</div>\n',
+    },
     { id: 'detect-missing-file', verb: 'detect', args: ['--no-config', 'does-not-exist.html'] },
     { id: 'detect-missing-file-json', verb: 'detect', args: ['--no-config', '--json', 'does-not-exist.html'] },
     // #711: a target that cannot be scanned forces exit 1, and that takes
@@ -100,6 +106,8 @@ function Thumb({ url }: { url?: string }) {
     },
     {
       id: 'detect-unreadable-file-json', verb: 'detect',
+      platforms: ['linux', 'darwin'],
+      platformSkipReason: 'This case uses POSIX chmod(0) to deny reads, which Windows does not enforce.',
       setup: (ws) => {
         const p = path.join(ws, 'locked.html');
         fs.writeFileSync(p, '<div style="border-left: 4px solid #ff0000">x</div>\n');
@@ -108,7 +116,17 @@ function Thumb({ url }: { url?: string }) {
       args: ['--no-config', '--json', 'locked.html'],
     },
     {
+      id: 'detect-latin1-css-json', verb: 'detect',
+      setup: (ws) => fs.writeFileSync(
+        path.join(ws, 'latin1.css'),
+        Buffer.from([0x61, 0x7b, 0x63, 0x6f, 0x6c, 0x6f, 0x72, 0x3a, 0x72, 0x65, 0x64, 0x7d, 0x2f, 0x2a, 0x20, 0x63, 0x61, 0x66, 0xe9, 0x20, 0x2a, 0x2f, 0x0a]),
+      ),
+      args: ['--no-config', '--json', 'latin1.css'],
+    },
+    {
       id: 'detect-unreadable-file-in-dir', verb: 'detect',
+      platforms: ['linux', 'darwin'],
+      platformSkipReason: 'This case uses POSIX chmod(0) to deny reads, which Windows does not enforce.',
       setup: (ws) => {
         fs.writeFileSync(path.join(ws, 'a.html'), '<div style="border-left: 4px solid #ff0000">x</div>\n');
         const p = path.join(ws, 'b.html');

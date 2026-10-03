@@ -5,7 +5,7 @@
  *   node tests/oracle/run.mjs --js [prefix]     # self-check: JS vs its own goldens
  * Exit 1 on any difference or missing golden.
  */
-import { allCases, runCase, readGolden, diffResults, caseRunsHere } from './lib.mjs';
+import { allCases, runCase, readGolden, diffResults, caseRunsHere, expectedForPlatform } from './lib.mjs';
 
 const argv = process.argv.slice(2);
 const impl = argv.includes('--js') ? 'js' : 'bin';
@@ -13,9 +13,14 @@ const prefix = argv.find(a => !a.startsWith('--')) || '';
 const cases = (await allCases()).filter(c => c.id.startsWith(prefix));
 let pass = 0, fail = 0, missing = 0, skipped = 0;
 for (const c of cases) {
-  if (!caseRunsHere(c)) { skipped++; process.stdout.write(`-- ${c.id}: skipped (platforms: ${c.platforms.join(', ')})\n`); continue; }
-  const golden = readGolden(c.id);
-  if (!golden) { missing++; process.stdout.write(`?? ${c.id}: no golden (run record.mjs)\n`); continue; }
+  if (!caseRunsHere(c)) {
+    skipped++;
+    process.stdout.write(`-- ${c.id}: skipped on ${process.platform} — ${c.platformSkipReason}\n`);
+    continue;
+  }
+  const recorded = readGolden(c.id);
+  if (!recorded) { missing++; process.stdout.write(`?? ${c.id}: no golden (run record.mjs)\n`); continue; }
+  const golden = expectedForPlatform(c, recorded);
   const actual = runCase(c, { impl });
   const diffs = diffResults(golden, actual);
   if (!diffs.length) { pass++; continue; }

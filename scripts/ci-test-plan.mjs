@@ -5,41 +5,35 @@ import { DEFAULT_SUITES, matchesSuiteTriggers } from './test-suites.mjs';
 
 const eventName = process.env.GITHUB_EVENT_NAME || '';
 const localNoChanges = !eventName && !process.env.CI_CHANGED_FILES;
-// The nightly schedule exists for exactly one thing: the full live-e2e
-// matrix. A schedule event has no diff base, so the change-detection path
-// degenerates to "everything changed"; without this guard that would flip on
-// every file-triggered opt-in suite, including the ones that bill LLM APIs
-// (skill-behavior, accept-cleanup, deepseek), every single night.
-const isSchedule = eventName === 'schedule';
-const changedFiles = localNoChanges || isSchedule ? [] : getChangedFiles();
-const forceDeterministic = localNoChanges || isSchedule || eventName === 'push' || eventName === 'workflow_dispatch';
-const forceOptIn = eventName === 'workflow_dispatch';
+const changedFiles = localNoChanges ? [] : getChangedFiles();
+const forceDeterministic = localNoChanges || eventName === 'push' || eventName === 'workflow_dispatch';
+const forceSkillBehavior = eventName === 'workflow_dispatch'
+  && process.env.GITHUB_EVENT_INPUTS_SKILL_BEHAVIOR === 'true';
 // The Rust workspace (the engine) builds and tests when its own inputs move.
 // tests/oracle is included: the goldens are the engine's behavior gate and
 // the oracle job replays them against a source build.
 const RUST_PATTERNS = [
   /^crates\//,
   /^Cargo\.(toml|lock)$/,
+  /^about\.(toml|hbs)$/,
   /^rust-toolchain\.toml$/,
-  /^browser-bundle\//,
+  /^LICENSE$/,
+  /^NOTICE\.md$/,
+  /^skill\/(LICENSE|NOTICE\.md)$/,
+  /^scripts\/generate-engine-notices\.mjs$/,
+  // The engine embeds this skill command metadata at compile time.
+  /^skill\/scripts\/command-metadata\.json$/,
   /^tests\/oracle\//,
   /^\.github\/workflows\/ci\.yml$/,
 ];
 const rustChanged = changedFiles.some((file) => RUST_PATTERNS.some((re) => re.test(file)));
 
-const plan = isSchedule
-  ? {
-    core: true,
-    oracle: true,
-    rust: true,
-    skill_behavior: false,
-  }
-  : {
-    core: true,
-    oracle: forceDeterministic || matchesSuiteTriggers('oracle', changedFiles),
-    rust: forceDeterministic || rustChanged,
-    skill_behavior: forceOptIn || matchesSuiteTriggers('skill-behavior', changedFiles),
-  };
+const plan = {
+  core: true,
+  oracle: forceDeterministic || matchesSuiteTriggers('oracle', changedFiles),
+  rust: forceDeterministic || rustChanged,
+  skill_behavior: forceSkillBehavior || matchesSuiteTriggers('skill-behavior', changedFiles),
+};
 
 writeGithubOutputs(plan);
 printSummary(plan, changedFiles);

@@ -1011,9 +1011,9 @@ re!(
 re!(CAROUSEL_ROLE_RE, r"(?-u:\b)(carousel|slider)(?-u:\b)");
 re!(
     VIEWPORT_IDENT_RE,
-    r"\b(carousel|comparison|compare|fisheye|marquee|preview|scroller|slider|slideshow|split|viewport)\b"
+    r"(?-u:\b)(carousel|comparison|compare|fisheye|marquee|preview|scroller|slider|slideshow|split|viewport)(?-u:\b)"
 );
-re!(DEMO_IDENT_RE, r"\b(demo-area|demo-stage|demo-viewport)\b");
+re!(DEMO_IDENT_RE, r"(?-u:\b)(demo-area|demo-stage|demo-viewport)(?-u:\b)");
 
 /// JS: checks.mjs#positionedChildHasSubstantiveContent(child)
 pub fn positioned_child_has_substantive_content(dom: &dyn Dom, child: ElId) -> bool {
@@ -1799,6 +1799,21 @@ mod tests {
         let hits = check_element_text_overflow_dom(&d, cell);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].snippet, "div.cell overflows its box by 40px");
+    }
+
+    #[test]
+    fn clipped_overflow_viewport_identifiers_use_ascii_word_boundaries() {
+        let (mut d, body) = page();
+        for ident in ["écarousel", "édemo-area"] {
+            let viewport = d.add(Some(body), "div");
+            d.set_attr(viewport, "class", ident);
+            d.set_styles(viewport, &[("overflow", "hidden"), ("overflowX", "hidden"), ("overflowY", "hidden")]);
+            let slide = d.add(Some(viewport), "div");
+            d.add_text(slide, "A slide outside the viewport");
+            d.set_styles(slide, &[("position", "absolute"), ("top", "100%")]);
+
+            assert!(check_element_clipped_overflow_dom(&d, viewport).is_empty(), "{ident}");
+        }
     }
 
     #[test]

@@ -1836,7 +1836,8 @@ re!(
 
 /// JS: hasPathTraversal(filePath)
 pub fn has_path_traversal(p: &str) -> bool {
-    p.contains("..")
+    p.split(|character| matches!(character, '/' | '\\'))
+        .any(|segment| segment == "..")
 }
 
 /// JS: isInsideProject(filePath, projectCwd)

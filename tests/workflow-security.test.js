@@ -26,4 +26,12 @@ describe('workflow execution boundaries', () => {
       expect(job.permissions).toBeUndefined();
     }
   });
+
+  test('runner-scoped contexts are not used in any job-level environment', () => {
+    for (const [name, workflow] of Object.entries(workflows)) {
+      for (const [jobName, job] of Object.entries(workflow.jobs)) {
+        expect(JSON.stringify(job.env || {}), `${name}: ${jobName}`).not.toMatch(/\$\{\{\s*runner\./);
+      }
+    }
+  });
 });

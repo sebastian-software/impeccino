@@ -2,7 +2,7 @@
 // Tags and publishes a GitHub release for one of the independently versioned
 // components: skill, engine.
 //
-// Usage: node scripts/release.mjs <skill|engine> [--dry-run]
+// Usage: node scripts/release.mjs <skill|engine> [--dry-run | --check-tag <ref>]
 //
 // `engine` is different: it only tags `engine-v<version>` and pushes the
 // tag; .github/workflows/release-engine.yml builds the five binaries and
@@ -41,9 +41,15 @@ const REPO_URL = `https://github.com/${REPO}`;
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const component = args.find((a) => !a.startsWith('--'));
+const checkTagIndex = args.indexOf('--check-tag');
+const checkTag = checkTagIndex >= 0 ? args[checkTagIndex + 1] : undefined;
 
 if (!component || (component !== 'engine' && !COMPONENTS[component])) {
-  console.error('usage: release.mjs <skill|engine> [--dry-run]');
+  console.error('usage: release.mjs <skill|engine> [--dry-run | --check-tag <ref>]');
+  process.exit(1);
+}
+if (checkTagIndex >= 0 && (component !== 'engine' || !checkTag || checkTag.startsWith('--'))) {
+  console.error('usage: release.mjs engine --check-tag <ref>');
   process.exit(1);
 }
 if (component === 'engine') {
@@ -246,6 +252,11 @@ async function releaseEngine() {
   ok(`Engine ${version}`);
 
   const tag = `engine-v${version}`;
+  if (checkTagIndex >= 0) {
+    if (checkTag !== tag) fail(`Engine tag mismatch: Git ref is ${checkTag}, but the engine versions require ${tag}.`);
+    ok(`Git ref ${checkTag} matches the engine versions`);
+    return;
+  }
   checkReleasePreconditions(tag);
 
   step(`Creating annotated tag ${tag}`);

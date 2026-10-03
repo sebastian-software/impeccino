@@ -271,7 +271,14 @@ const cases = [
   // case-sensitive file system the fallback scan finds it as `product.md`.
   // Both are right for their host, so the case runs only where the golden
   // was recorded.
-  { id: 'context-lowercase-product-name', platforms: ['darwin', 'win32'], verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'product.md', '# lower\n\n<!-- impeccino:product-schema 1 -->\n\n## Positioning\nLowercase filename.\n'), env: env(), files: IMPECCINO_FILES },
+  {
+    id: 'context-lowercase-product-name',
+    platforms: ['darwin', 'win32'],
+    platformSkipReason: 'This case tests case-insensitive PRODUCT.md discovery, which Linux filesystems do not provide.',
+    verb: 'context', workspace: 'ctx-empty',
+    setup: (ws) => write(ws, 'product.md', '# lower\n\n<!-- impeccino:product-schema 1 -->\n\n## Positioning\nLowercase filename.\n'),
+    env: env(), files: IMPECCINO_FILES,
+  },
   { id: 'context-design-only', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'DESIGN.md', '---\nname: Only\n---\n# Design: Only\n\n## Colors\n- **Ink** (#111): Text.\n'), env: env(), files: IMPECCINO_FILES },
   { id: 'context-empty-platform-section', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccino:product-schema 1 -->\n\n## Platform\n\n## Positioning\nEmpty platform section.\n'), env: env(), files: IMPECCINO_FILES },
   { id: 'context-android', verb: 'context', workspace: 'ctx-empty', setup: (ws) => write(ws, 'PRODUCT.md', '# P\n\n<!-- impeccino:product-schema 1 -->\n\n## Platform\n\nAndroid\n\n## Positioning\nNative android.\n'), env: env(), files: IMPECCINO_FILES },
@@ -429,13 +436,13 @@ const cases = [
   // ======================================================================
   { id: 'surface-brief-usage', verb: 'surface-brief', workspace: 'ctx-full', env: env() },
   { id: 'surface-brief-unknown', verb: 'surface-brief', workspace: 'ctx-full', args: ['delete', 'x'], env: env() },
-  { id: 'surface-brief-path-file', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'src/pages/index.astro'], env: env() },
-  { id: 'surface-brief-path-route', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'route:/docs/intro/'], env: env() },
-  { id: 'surface-brief-path-slash', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '/'], env: env() },
-  { id: 'surface-brief-path-url', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'https://Impeccino.Style/docs/audit/?x=1#top'], env: env() },
-  { id: 'surface-brief-path-outside', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '../elsewhere/x.astro'], env: env() },
+  { id: 'surface-brief-path-file', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'src/pages/index.astro'], env: env(), windowsPathOutput: true },
+  { id: 'surface-brief-path-route', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'route:/docs/intro/'], env: env(), windowsPathOutput: true },
+  { id: 'surface-brief-path-slash', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '/'], env: env(), windowsPathOutput: true },
+  { id: 'surface-brief-path-url', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', 'https://Impeccino.Style/docs/audit/?x=1#top'], env: env(), windowsPathOutput: true },
+  { id: 'surface-brief-path-outside', verb: 'surface-brief', workspace: 'ctx-full', args: ['path', '../elsewhere/x.astro'], env: env(), windowsPathOutput: true },
   { id: 'surface-brief-path-missing-target', verb: 'surface-brief', workspace: 'ctx-full', args: ['path'], env: env() },
-  { id: 'surface-brief-path-from-subdir', verb: 'surface-brief', workspace: 'ctx-full', cwd: 'src', args: ['path', 'pages/index.astro'], env: env() },
+  { id: 'surface-brief-path-from-subdir', verb: 'surface-brief', workspace: 'ctx-full', cwd: 'src', args: ['path', 'pages/index.astro'], env: env(), windowsPathOutput: true },
   { id: 'surface-brief-list', verb: 'surface-brief', workspace: 'ctx-full', args: ['list'], env: env() },
   { id: 'surface-brief-list-empty', verb: 'surface-brief', workspace: 'ctx-empty', args: ['list'], env: env() },
   { id: 'surface-brief-read-primary', verb: 'surface-brief', workspace: 'ctx-full', args: ['read', 'src/pages/index.astro'], env: env() },
@@ -454,10 +461,10 @@ const cases = [
     setup: (ws) => write(ws, 'body.md', 'Mode: Read\n\n### Product strategy\nTell the story.\n\n'),
     env: env(), files: ['SURFACES.md'],
     steps: [
-      { args: ['write', 'src/pages/about.astro', `${WS}/body.md`, 'src/components/Team.astro', 'src/pages/about.astro', 'src/components/Team.astro'] },
+      { args: ['write', 'src/pages/about.astro', `${WS}/body.md`, 'src/components/Team.astro', 'src/pages/about.astro', 'src/components/Team.astro'], windowsPathOutput: true },
       { args: ['read', 'src/components/Team.astro'] },
       { args: ['list'] },
-      { args: ['write', 'src/pages/about.astro', `${WS}/body.md`] },
+      { args: ['write', 'src/pages/about.astro', `${WS}/body.md`], windowsPathOutput: true },
       { args: ['read', 'src/components/Team.astro'] },
     ],
   },
@@ -465,7 +472,7 @@ const cases = [
   // SURFACES.md cannot be written; the OS names that failure differently
   // (read-only on macOS, permission denied on Linux).
   { id: 'surface-brief-write-route', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'Root route brief.'), args: ['write', '/', `${WS}/body.md`, 'route:/home/'], env: env(), files: ['SURFACES.md'],
-    normalize: [['(?:Read-only file system|Permission denied) \\(os error \\d+\\)', 'g', '<UNWRITABLE>']] },
+    normalize: [['(?:Read-only file system|Permission denied|Operation not permitted) \\(os error \\d+\\)', 'g', '<UNWRITABLE>']] },
   { id: 'surface-brief-write-url', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'URL brief.'), args: ['write', 'https://example.com/pricing/#plans', `${WS}/body.md`], env: env(), files: ['SURFACES.md'] },
   { id: 'surface-brief-write-invalid-target', verb: 'surface-brief', workspace: 'ctx-empty', setup: (ws) => write(ws, 'body.md', 'x'), args: ['write', '../outside.astro', `${WS}/body.md`], env: env(), files: ['SURFACES.md'] },
   { id: 'surface-brief-write-missing-body', verb: 'surface-brief', workspace: 'ctx-empty', args: ['write', 'src/x.tsx', `${WS}/nope.md`], env: env(), files: ['SURFACES.md'] },
