@@ -342,6 +342,7 @@ name = "impeccino-common"
 version = "0.2.0"
 dependencies = [
  "libc",
+ "windows-sys",
 ]
 
 [[package]]

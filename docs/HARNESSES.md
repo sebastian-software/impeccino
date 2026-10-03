@@ -73,11 +73,11 @@ Notes:
 
 ## Hook surface used by Impeccino
 
-Hooks are a per-project opt-in ([ADR 0007](adr/0007-hooks-are-a-project-opt-in.md)): `/impeccino hooks on` makes the engine write the manifest for each harness whose skill folder it finds. Every hook command runs the skill's launcher (`scripts/impeccino hook` or `hook-before-edit`).
+Hooks are a per-project opt-in ([ADR 0007](adr/0007-hooks-are-a-project-opt-in.md)): `/impeccino hooks on` writes manifests only for supported project-local skill launchers it finds. A globally installed Claude skill can opt in the current project through its machine-local `.claude/settings.local.json`; global user hook settings are never changed. Codex, Cursor, and Copilot hook commands resolve from the Git root, so those targets require a Git checkout and keep working when invoked from a nested directory. Codex also refuses a project subpath containing `%`, which Windows command parsing expands as an environment variable; move that workspace under a path without `%`. Every hook command runs the skill's launcher (`scripts/impeccino hook` or `hook-before-edit`), and `hooks on` reports an error if the matching launcher is missing.
 
 | Harness | Edit hook | Stop pass | Manifest location | Notes |
 |---------|:---------:|:---------:|-------------------|-------|
-| Claude Code | Yes (`PostToolUse`) | Yes | `.claude/settings.local.json` | Machine-local and gitignored; a hook moved into the shared `.claude/settings.json` is honored in place. |
+| Claude Code | Yes (`PostToolUse`) | Yes | `.claude/settings.local.json` | Machine-local and gitignored; a hook moved into the shared `.claude/settings.json` is honored in place. A global Claude skill uses its absolute launcher path here, still opting in only this project. |
 | Codex CLI | Yes (`PostToolUse`) | Yes | `.codex/hooks.json` | Runs `.agents/skills/impeccino/scripts/impeccino` from the git root, with a `commandWindows` sibling for cmd.exe. Requires normal `/hooks` trust approval. |
 | Cursor | Yes (`preToolUse`) | No | `.cursor/hooks.json` | Runs `hook-before-edit` to block bad proposed writes before they land. Reloads on save; restart Cursor if hooks do not pick up. |
 | GitHub Copilot | Yes (post-tool-use) | No | `.github/hooks/impeccino.json` | Team-shared committed file; the Copilot CLI loads it once it is on the default branch, and the cloud agent reads it from the repo. |
