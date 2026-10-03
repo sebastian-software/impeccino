@@ -122,7 +122,7 @@ All harnesses support the `{skill-name}/SKILL.md` directory structure with optio
 | Grok Build | `.grok/agents/` (project) | Markdown with YAML frontmatter (Claude-compatible) |
 | Codex CLI | `<skill>/agents/` (nested, auto-discovered) | TOML |
 
-Impeccino ships two agents, `impeccino-finish-reviewer` and `impeccino-documenter`, as plain Claude Code agent files in `skill/agents/` and emits no provider-native copies ([ADR 0006](adr/0006-agents-as-claude-code-files.md)). Claude Code uses them when they are linked into `.claude/agents/`; Grok reads the same markdown from `.grok/agents/`. Any other host with subagents spawns a general-purpose subagent with the agent file as its instructions.
+Impeccino ships two roles as plain Claude Code agent files in `skill/agents/` and emits no provider-native copies ([ADR 0006](adr/0006-agents-as-claude-code-files.md)). Claude Code uses them when they are linked into `.claude/agents/`; Grok reads the same markdown from `.grok/agents/`. A host with subagents but no installed role can read the matching file and pass its Markdown body as instructions to a fresh general-purpose subagent.
 
 **Spawn / permission model** (matters more than directory support when building skills):
 

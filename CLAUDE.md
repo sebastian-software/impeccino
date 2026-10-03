@@ -115,7 +115,7 @@ pnpm run fetch:engine     # Download the pinned engine binary for this machine i
 There are no build-time placeholders or provider blocks. Write skill text that holds in every harness:
 
 - Commands are `/impeccino <command>`; SKILL.md tells hosts with another sigil (Codex: `$impeccino`) to translate.
-- The launcher is `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted because install paths can contain spaces. Agents never load SKILL.md, so the parent passes them `<scripts-path>`.
+- The launcher is `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted because install paths can contain spaces.
 - Questions go through "the host's structured question tool", not a named tool.
 - Harness- or model-specific guidance is a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`).
 - SKILL.md frontmatter uses the Agent Skills spec fields plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0008); keep `allowed-tools` out, since Claude Code then blocks non-interactive activation.
