@@ -61,6 +61,14 @@ describe('repository check entrypoint', () => {
     expect(result.stderr).toContain('exceeds maximum length of 1024');
   });
 
+  test('ignores historical changelog counts while checking current claims', () => {
+    const historical = '<ul class="changelog-items"><li>21 commands and 54 rules</li></ul>\n';
+    expect(checkFixture({ readme: historical }).status).toBe(0);
+    const current = checkFixture({ readme: historical + '3 commands and 61 deterministic rules.\n' });
+    expect(current.status).toBe(1);
+    expect(current.stderr).toContain('detection count is 1');
+  });
+
   test('requires the single current skill instead of the retired multi-skill fallback', () => {
     const result = checkFixture({ mainSkill: '---\nname: other\ndescription: Other\n---\n' });
     expect(result.status).toBe(1);

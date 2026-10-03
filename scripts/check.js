@@ -48,8 +48,10 @@ function checkCounts(rootDir, skills) {
     const content = fs.readFileSync(absPath, 'utf-8');
 
     // Check for stale command counts (look for "N commands" or "N skills" patterns)
+    // Historical changelog counts do not describe the current skill.
+    const currentContent = content.replace(/<ul class="changelog-items">[\s\S]*?<\/ul>/g, '');
     const countPattern = /\b(\d+)\s+(design\s+)?(commands|sub-commands|skills|steering commands)/gi;
-    for (const match of content.matchAll(countPattern)) {
+    for (const match of currentContent.matchAll(countPattern)) {
       const num = parseInt(match[1]);
       // Allow 1 (for "1 skill") and the correct count
       if (num !== commandCount && num !== 1) {
@@ -63,7 +65,7 @@ function checkCounts(rootDir, skills) {
     // qualified "issues" both evaded the old pattern, which is how five
     // stale counts shipped while the validator reported clean.
     const detectPattern = /\b(\d+)\s+(deterministic\s+)?(detector\s+)?(checks|patterns|rules|detections|issues)\b/gi;
-    for (const match of detectionCount == null ? [] : content.matchAll(detectPattern)) {
+    for (const match of detectionCount == null ? [] : currentContent.matchAll(detectPattern)) {
       const num = parseInt(match[1]);
       if (match[4] === 'issues' && !match[2]) continue; // plain "issues" is prose, not a count claim
       if (num !== detectionCount && num > 10) { // ignore small numbers like "3 patterns"
