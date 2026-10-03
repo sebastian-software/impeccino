@@ -94,6 +94,9 @@ fn consume_until_semicolon_included(code: u32) -> u8 {
 /// css-tree `parse(source)` with the cascade's options; `Err` mirrors the
 /// throw the JS `try/catch` swallows.
 pub fn parse_stylesheet(source: &str) -> PResult<Node> {
+    if super::nesting::exceeds_nesting_limit(source) {
+        return Err(ParseError);
+    }
     let mut p = Parser {
         ts: TokenStream::new(source),
         parse_custom_property: false,

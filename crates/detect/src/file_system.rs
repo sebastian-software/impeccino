@@ -9,7 +9,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 
 use crate::jsp;
-use crate::util::{re, read_text, ANY, D, WS};
+use crate::util::{re, read_text, read_text_with_error, ANY, D, WS};
 
 /// JS `SKIP_DIRS`.
 pub const SKIP_DIRS: &[&str] = &["node_modules", "dist", "build", "__pycache__"];
@@ -159,7 +159,7 @@ pub fn build_import_graph_reporting(
 ) -> Vec<(String, Vec<String>)> {
     let mut graph = Vec::new();
     for file in files {
-        let content = match std::fs::read_to_string(file) {
+        let content = match read_text_with_error(file) {
             Ok(c) => c,
             Err(e) => {
                 on_read_error(file, &e);
@@ -557,5 +557,40 @@ mod tests {
         assert_eq!(resolve_import("./a", root, &files).as_deref(), Some(a.as_str()));
         assert_eq!(resolve_import("./b", root, &files).as_deref(), Some(b_index.as_str()));
         assert_eq!(resolve_import("react", root, &files), None);
+    }
+
+    #[test]
+    fn import_graph_keeps_files_with_invalid_utf8() {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock after Unix epoch")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "impeccino-latin1-import-{}-{suffix}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("main.css");
+        let dependency = dir.join("dep.css");
+        std::fs::write(&source, b"@import \"./dep.css\"; /* caf\xe9 */\n").unwrap();
+        std::fs::write(&dependency, b".dep { color: red; }\n").unwrap();
+        let source = source.to_string_lossy().into_owned();
+        let dependency = dependency.to_string_lossy().into_owned();
+        let files = vec![source.clone(), dependency.clone()];
+        let mut errors = Vec::new();
+
+        let graph = build_import_graph_reporting(&files, &mut |file, error| {
+            errors.push((file.to_string(), error.kind()));
+        });
+
+        assert!(errors.is_empty(), "unexpected read errors: {errors:?}");
+        assert_eq!(
+            graph,
+            vec![
+                (source, vec![dependency.clone()]),
+                (dependency, Vec::new()),
+            ]
+        );
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

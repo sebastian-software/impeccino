@@ -6,6 +6,7 @@
 
 pub mod ast;
 pub mod generator;
+pub(crate) mod nesting;
 pub mod parser;
 pub mod strings;
 pub mod tokenizer;

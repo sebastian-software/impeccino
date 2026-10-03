@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280, initial-scale=1">
+  <title>Static Cascade Line Height — Flag and Pass</title>
+  <style>
+    body { width: 1280px; min-height: 800px; margin: 0; padding: 24px; font-family: Georgia, serif; font-size: 16px; line-height: 1.5; }
+    .columns { display: grid; grid-template-columns: 600px 600px; gap: 24px; }
+    .column { width: 600px; padding: 16px; }
+    .case { width: 560px; min-height: 100px; margin: 0 0 12px; }
+    h2 { font-size: 20px; line-height: 1.2; margin: 0 0 12px; }
+    h3 { font-size: 15px; line-height: 1.2; margin: 0 0 4px; }
+    p { font-size: 16px; margin: 0; }
+
+    /* Should flag: explicit tight leading and inherited computed lengths. */
+    .flag-explicit-unitless { font-size: 16px; line-height: 1.0; }
+    .flag-reordered-unitless { line-height: 1.0; font-size: 22px; }
+    .parent-percent { font-size: 16px; line-height: 150%; }
+    .child-percent { font-size: 22px; }
+    .parent-em { font-size: 16px; line-height: 1.5em; }
+    .child-em { font-size: 22px; }
+    .flag-tracking-order { letter-spacing: 0.06em; font-size: 22px; }
+
+    /* Should pass: unitless values inherit as multipliers. */
+    .pass-inherited { font-size: 22px; }
+    .pass-reordered { line-height: 1.5; font-size: 22px; }
+    .pass-em-font-size { line-height: 1.5; font-size: 1.375em; }
+    .pass-percent-font-size { font-size: 137.5%; line-height: 1.5; }
+    .pass-rem-font-size { line-height: 1.5; font-size: 1.375rem; }
+  </style>
+</head>
+<body>
+  <div class="columns">
+    <section class="column" data-col="flag">
+      <h2>Should flag</h2>
+      <div class="case">
+        <h3>Explicit unitless tight leading</h3>
+        <p class="flag-explicit-unitless">This paragraph uses a unitless line height of one, which leaves too little vertical space for a long passage.</p>
+      </div>
+      <div class="case">
+        <h3>Reordered unitless tight leading</h3>
+        <p class="flag-reordered-unitless">This paragraph keeps its tight unitless line height even when font size follows line height in the stylesheet.</p>
+      </div>
+      <div class="case parent-percent">
+        <h3>Percent line height inherits as a length</h3>
+        <p class="child-percent">This child inherits the parent’s computed percentage line height as a length, which is too small for its larger text.</p>
+      </div>
+      <div class="case parent-em">
+        <h3>Em line height inherits as a length</h3>
+        <p class="child-em">This child inherits the parent’s computed em line height as a length, which is too small for its larger text.</p>
+      </div>
+      <div class="case">
+        <h3>Letter spacing uses local font size</h3>
+        <p class="flag-tracking-order">This paragraph declares em letter spacing before its larger font size, so local font size must resolve the spacing.</p>
+      </div>
+    </section>
+    <section class="column" data-col="pass">
+      <h2>Should pass</h2>
+      <div class="case">
+        <h3>Inherited unitless line height</h3>
+        <p class="pass-inherited">This paragraph inherits a unitless multiplier and should compute its line height from its own larger font size.</p>
+      </div>
+      <div class="case">
+        <h3>Line height before font size</h3>
+        <p class="pass-reordered">This paragraph declares a comfortable unitless line height before its larger font size.</p>
+      </div>
+      <div class="case">
+        <h3>Em font size with unitless line height</h3>
+        <p class="pass-em-font-size">A relative em font size preserves comfortable unitless leading when declaration order changes.</p>
+      </div>
+      <div class="case">
+        <h3>Percentage font size with unitless line height</h3>
+        <p class="pass-percent-font-size">A relative percentage font size preserves comfortable unitless leading when declaration order changes.</p>
+      </div>
+      <div class="case">
+        <h3>Rem font size with unitless line height</h3>
+        <p class="pass-rem-font-size">A relative rem font size preserves comfortable unitless leading when declaration order changes.</p>
+      </div>
+    </section>
+  </div>
+  <script src="/js/detect-antipatterns-browser.js"></script>
+</body>
+</html>

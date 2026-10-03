@@ -16,7 +16,10 @@ mod page_scan;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let args: Vec<String> = std::env::args_os()
+        .skip(1)
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect();
     let mut io = Io::stdio();
     let code = run(&args, &mut io);
     let _ = io.stdout.flush();

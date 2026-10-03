@@ -40,11 +40,15 @@ pub fn is_dir(p: &str) -> bool {
     std::fs::metadata(p).map(|m| m.is_dir()).unwrap_or(false)
 }
 
-/// `fs.readFileSync(p, 'utf-8')` (None on any error). Invalid UTF-8 is
-/// decoded lossily, which is what Node's utf-8 decoder does with U+FFFD.
+/// `fs.readFileSync(p, 'utf-8')`, preserving I/O errors while decoding
+/// invalid UTF-8 the way Node's decoder does (with U+FFFD).
+pub fn read_text_with_error(p: &str) -> std::io::Result<String> {
+    std::fs::read(p).map(|bytes| decode_utf8(&bytes))
+}
+
+/// `fs.readFileSync(p, 'utf-8')` (None on any error).
 pub fn read_text(p: &str) -> Option<String> {
-    let bytes = std::fs::read(p).ok()?;
-    Some(decode_utf8(&bytes))
+    read_text_with_error(p).ok()
 }
 
 /// Node `Buffer.toString('utf-8')`: lossy decode, BOM kept (Node keeps it).

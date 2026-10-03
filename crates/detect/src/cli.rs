@@ -278,7 +278,7 @@ impl<'a> Ctx<'a> {
                 .html
                 .detect_html(file_path, options, &mut *self.io.stderr);
         }
-        let content = match std::fs::read_to_string(file_path) {
+        let content = match crate::util::read_text_with_error(file_path) {
             Ok(c) => c,
             Err(e) => {
                 // JS `fs.readFileSync` throws with Node's errno message.

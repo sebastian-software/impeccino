@@ -265,6 +265,9 @@ impl std::error::Error for SelectorError {}
 impl Selector {
     /// Parse a selector group; `Err` where css-select would throw.
     pub fn parse(text: &str) -> Result<Selector, SelectorError> {
+        if crate::cascade::csstree::nesting::exceeds_nesting_limit(text) {
+            return Err(SelectorError(text.to_string()));
+        }
         let mut input = cssparser::ParserInput::new(text);
         let mut p = CssParser::new(&mut input);
         SelectorList::parse(&SelParser, &mut p, ParseRelative::No)

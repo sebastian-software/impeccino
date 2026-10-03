@@ -311,9 +311,17 @@ pub fn normalize_static_css_value(
         }
     }
     if prop == "lineHeight" && resolved != "normal" {
-        let base = font_size_base2(current_style, parent_style);
-        if let Some(px) = resolve_length_px(&resolved, base) {
-            resolved = format!("{}px", js::number_to_string(px));
+        // Unitless line-height inherits its multiplier. Relative lengths such
+        // as em and percent compute against this element's font size here and
+        // then inherit as that computed length.
+        let is_unitless = resolved
+            .parse::<f64>()
+            .is_ok_and(|number| number.is_finite());
+        if !is_unitless {
+            let base = font_size_base2(current_style, parent_style);
+            if let Some(px) = resolve_length_px(&resolved, base) {
+                resolved = format!("{}px", js::number_to_string(px));
+            }
         }
     }
     resolved
