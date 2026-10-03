@@ -16,7 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ENGINE_MISSING_MESSAGE, findEngineBinary } from './lib/engine-bin.mjs';
-import { allCases, assertRecordableCases, caseRunsHere, diffResults, expectedForPlatform, GOLDEN_DIR, normalize, serializeOracleStdin } from './oracle/lib.mjs';
+import { allCases, assertRecordableCases, caseRunsHere, diffResults, expectedForPlatform, GOLDEN_DIR, normalize, normalizeProjectCacheDir, normalizeSnapshotFiles, serializeOracleStdin } from './oracle/lib.mjs';
 import { claudeEdit, hookPath } from './oracle/cases/hooks.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -37,6 +37,42 @@ literal: keep\this\text
   assert.equal(actual, 'root: <WS>/skill/scripts\njson: {"root":"<WS>/skill/scripts"}\n' +
     'json path with spaces: {"root":"<WS>/skill docs/scripts"}\n' +
     'mixed: <WS>/skill/scripts keep\\literal "quoted\\thing"\nliteral: keep\\this\\text\n');
+});
+
+it('keeps multi-project cache snapshots distinct and rejects normalized path collisions', () => {
+  const files = {
+    '.oracle-home/.cache/impeccino/projects/workspace-11111111/hook.cache.json': '{"sessions":{"workspace":{}}}',
+    '.oracle-home/.cache/impeccino/projects/apps-a-22222222/hook.cache.json': '{"sessions":{"app-a":{}}}',
+    '.oracle-home/.cache/impeccino/projects/apps-b-33333333/hook.cache.json': '{"sessions":{"app-b":{}}}',
+  };
+  const labels = new Map([
+    ['11111111', 'workspace'],
+    ['22222222', 'appA'],
+    ['33333333', 'appB'],
+  ]);
+
+  assert.deepEqual(Object.keys(normalizeSnapshotFiles(files, labels, 'multi-project')),
+    [
+      '.oracle-home/.cache/impeccino/projects/<PROJECT:workspace>/hook.cache.json',
+      '.oracle-home/.cache/impeccino/projects/<PROJECT:appA>/hook.cache.json',
+      '.oracle-home/.cache/impeccino/projects/<PROJECT:appB>/hook.cache.json',
+    ]);
+  assert.throws(() => normalizeSnapshotFiles(files), /normalized file snapshot collision in oracle case/);
+  assert.equal(
+    normalizeProjectCacheDir(String.raw`.oracle-home\AppData\Local\impeccino\projects\workspace-11111111\hook.cache.json`, labels),
+    String.raw`.oracle-home\AppData\Local\impeccino\projects\<PROJECT:workspace>\hook.cache.json`,
+  );
+  assert.deepEqual(expectedForPlatform({}, {
+    files: {
+      '.oracle-home/AppData/Local/impeccino/projects/<PROJECT:workspace>/hook.cache.json': '{"sessions":{}}',
+      '.oracle-home/AppData/Local/impeccino/projects/<PROJECT:appA>/hook.cache.json': '{"sessions":{"a":{}}}',
+    },
+  }, 'win32'), {
+    files: {
+      '.oracle-home/AppData/Local/impeccino/projects/<PROJECT:workspace>/hook.cache.json': '{"sessions":{}}',
+      '.oracle-home/AppData/Local/impeccino/projects/<PROJECT:appA>/hook.cache.json': '{"sessions":{"a":{}}}',
+    },
+  });
 });
 
 it('substitutes placeholders in object stdin before JSON serialization', () => {

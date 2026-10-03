@@ -779,7 +779,7 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
     {
         return skip(&audit, "live-preview");
     }
-    let platform = resolve_project_platform(rt, &cwd);
+    let platform = resolve_project_platform_for_target(rt, &cwd, &file_path);
     if is_native_platform(platform.as_deref()) {
         return allow(
             ext(
@@ -853,7 +853,7 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
         append_design_system_note_once(rt, &block, &scan, &mut cache, &session_id, &config);
     commit_footer_shown(rt, &mut cache, &session_id, &message);
     let (key, count) = bump_cursor_denial(&mut cache, &session_id, &file_path, &filtered);
-    persist_cache(rt, &cwd, &cache);
+    persist_project_cache(rt, &cwd, &session_cwd, &mut cache, &session_id);
     if count > EDIT_COUNT_THRESHOLD as f64 {
         let warning = format!(
             "{message}\n\nThis is the {}th repeated denial for the same file and finding signature, so Impeccino is allowing this write to avoid a loop. Reconsider the issue immediately after the tool runs.",

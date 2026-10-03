@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Barrier};
 
 use impeccino_common::{jsp, Io};
 use impeccino_core::findings::{finding, Finding};
@@ -89,6 +90,16 @@ fn rt_with(cwd: &str, env: HashMap<String, String>) -> Runtime<'static> {
     )
 }
 
+fn rt_with_command(cwd: &str, impeccino_command: String) -> Runtime<'static> {
+    Runtime::new(
+        cwd.to_string(),
+        HashMap::new(),
+        impeccino_command,
+        "/opt/bin/impeccino",
+        &HTML,
+    )
+}
+
 fn rt(cwd: &str) -> Runtime<'static> {
     rt_with(cwd, HashMap::new())
 }
@@ -117,6 +128,18 @@ fn edit_event(cwd: &str, file: &str, session: &str) -> String {
 
 fn stop_event(cwd: &str, session: &str) -> String {
     json!({ "session_id": session, "cwd": cwd, "hook_event_name": "Stop", "stop_hook_active": false }).to_string()
+}
+
+fn hook_message(stdout: &str) -> String {
+    let value: Value = serde_json::from_str(stdout).unwrap();
+    value
+        .pointer("/hookSpecificOutput/additionalContext")
+        .or_else(|| value.get("additionalContext"))
+        .or_else(|| value.get("additional_context"))
+        .or_else(|| value.get("reason"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }
 
 const GRADIENT_CSS: &str = ".title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }\n";
@@ -165,6 +188,7 @@ fn check_monorepo_design_hook(mode: &str) {
         // GitHub Copilot has no Stop pass, so its per-edit run reports the
         // full rule set, overused-font included.
         let r = rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "github")]));
+        let cache_cwd = resolve_cache_cwd(&r, Some(&file), &cwd);
         let out = match mode {
             "post" => hook::run_hook(&r, &edit_event(&cwd, &file, "s1")).stdout,
             "before" => {
@@ -175,18 +199,17 @@ fn check_monorepo_design_hook(mode: &str) {
                 }))).0
             }
             "stop" => {
-                let mut cache = read_cache(&cwd);
+                let mut cache = read_cache(&cache_cwd);
                 touch_file(&mut cache, "s1", &file);
-                persist_cache(&r, &cwd, &cache);
+                persist_project_cache(&r, &cache_cwd, &cwd, &mut cache, "s1");
                 hook::run_stop_hook(&r, &stop_event(&cwd, "s1")).stdout
             }
             _ => unreachable!(),
         };
         assert_eq!(out.contains("overused-font"), expected,
             "{mode}: root_design={root_design}, app={app}, font={font}: {out}");
-        let app_cache = get_cache_path(&jsp::join(&[&cwd, "apps", app]));
-        assert!(!std::path::Path::new(&app_cache).exists(),
-            "design resolution must not relocate hook state");
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&cache_cwd)));
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&cwd)));
     }
 }
 
@@ -198,6 +221,224 @@ fn monorepo_design_before_edit() { check_monorepo_design_hook("before"); }
 
 #[test]
 fn monorepo_design_stop() { check_monorepo_design_hook("stop"); }
+
+#[test]
+fn cache_root_prefers_nearest_nested_project() {
+    let t = Tmp::new();
+    let root = t.path();
+    let app = t.write("apps/store/package.json", "{}");
+    let file = t.write("apps/store/src/app.css", GRADIENT_CSS);
+    let app_root = jsp::dirname(&app);
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+
+    assert_eq!(
+        resolve_cache_cwd(&rt(&root), Some(&file), &root),
+        app_root,
+        "session state and platform policy should follow the nearest touched app project"
+    );
+}
+
+#[test]
+fn stop_finds_every_project_touched_by_its_session_cwd() {
+    let t = Tmp::new();
+    let root = t.path(); // umbrella directory, intentionally not a project
+    for (app, session) in [("a", "shared"), ("b", "shared"), ("c", "other")] {
+        t.write(&format!("apps/{app}/package.json"), "{}");
+        let file = t.write(&format!("apps/{app}/src/{app}.css"), GRADIENT_CSS);
+        let post = hook::run_hook(&rt(&root), &edit_event(&root, &file, session));
+        assert!(post.stdout.contains("[gradient-text]"), "{app}: {}", post.stdout);
+        std::fs::write(&file, format!("{GRADIENT_CSS}{SIDE_TAB_CSS}")).unwrap();
+    }
+
+    let shared = hook::run_stop_hook(&rt(&root), &stop_event(&root, "shared"));
+    assert_eq!(shared.audit["freshFiles"], json!(2), "{}", shared.stdout);
+    assert!(shared.stdout.contains("apps/a/src/a.css"), "{}", shared.stdout);
+    assert!(shared.stdout.contains("apps/b/src/b.css"), "{}", shared.stdout);
+    assert!(!shared.stdout.contains("apps/c/src/c.css"), "{}", shared.stdout);
+
+    let other = hook::run_stop_hook(&rt(&root), &stop_event(&root, "other"));
+    assert_eq!(other.audit["freshFiles"], json!(1), "{}", other.stdout);
+    assert!(other.stdout.contains("apps/c/src/c.css"), "{}", other.stdout);
+    assert!(!other.stdout.contains("apps/a/src/a.css"), "{}", other.stdout);
+
+    for app in ["a", "b", "c"] {
+        let app_root = jsp::join(&[&root, "apps", app]);
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&app_root)));
+    }
+}
+
+#[test]
+fn stop_index_finds_nested_project_when_session_cwd_is_a_child_project() {
+    let t = Tmp::new();
+    let repo = t.path();
+    t.write("package.json", "{}");
+    t.write("apps/editor/package.json", "{}");
+    let session_cwd = jsp::join(&[&repo, "apps", "editor"]);
+    t.write("apps/editor/packages/preview/package.json", "{}");
+    let file = t.write("apps/editor/packages/preview/src/preview.css", GRADIENT_CSS);
+
+    let post = hook::run_hook(&rt(&session_cwd), &edit_event(&session_cwd, &file, "nested"));
+    assert!(post.stdout.contains("[gradient-text]"), "{}", post.stdout);
+    std::fs::write(&file, format!("{GRADIENT_CSS}{SIDE_TAB_CSS}")).unwrap();
+    let stop = hook::run_stop_hook(&rt(&session_cwd), &stop_event(&session_cwd, "nested"));
+    assert_eq!(stop.audit["freshFiles"], json!(1), "{}", stop.stdout);
+    assert!(stop.stdout.contains("packages/preview/src/preview.css"), "{}", stop.stdout);
+
+    for root in [&session_cwd, &jsp::join(&[&session_cwd, "packages", "preview"])] {
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(root)));
+    }
+}
+
+#[test]
+fn stop_applies_native_platform_per_registered_project() {
+    let t = Tmp::new();
+    let root = t.path();
+    let native_root = jsp::join(&[&root, "apps", "native"]);
+    let web_root = jsp::join(&[&root, "apps", "web"]);
+    t.write("apps/native/package.json", "{}");
+    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    t.write("apps/web/package.json", "{}");
+    let native_file = t.write("apps/native/src/native.css", SIDE_TAB_CSS);
+    let web_file = t.write("apps/web/src/web.css", SIDE_TAB_CSS);
+    let r = rt(&root);
+    for (project, file) in [(&native_root, &native_file), (&web_root, &web_file)] {
+        let mut cache = read_cache(project);
+        touch_file(&mut cache, "mixed", file);
+        persist_project_cache(&r, project, &root, &mut cache, "mixed");
+    }
+
+    let stop = hook::run_stop_hook(&r, &stop_event(&root, "mixed"));
+    assert_eq!(stop.audit["scannedFiles"], json!(1), "{}", stop.stdout);
+    assert!(stop.stdout.contains("apps/web/src/web.css"), "{}", stop.stdout);
+    assert!(!stop.stdout.contains("apps/native/src/native.css"), "{}", stop.stdout);
+
+    for project in [&native_root, &web_root] {
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(project)));
+    }
+}
+
+#[test]
+fn stop_index_does_not_authorize_outside_or_sensitive_files() {
+    let t = Tmp::new();
+    let root = t.path();
+    let app_root = jsp::join(&[&root, "apps", "web"]);
+    t.write("apps/web/package.json", "{}");
+    let sensitive = t.write("apps/web/src/.env.css", SIDE_TAB_CSS);
+    let outside_dir = Tmp::new();
+    let outside = outside_dir.write("outside.css", SIDE_TAB_CSS);
+    let r = rt(&root);
+    let mut cache = read_cache(&app_root);
+    touch_file(&mut cache, "unsafe", &sensitive);
+    touch_file(&mut cache, "unsafe", &outside);
+    persist_project_cache(&r, &app_root, &root, &mut cache, "unsafe");
+
+    let stop = hook::run_stop_hook(&r, &stop_event(&root, "unsafe"));
+    assert_eq!(audit_str(&stop.audit, "skipped"), Some("no-touched-files"));
+    assert_eq!(stop.audit["scannedFiles"], json!(0));
+
+    let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&app_root)));
+}
+
+#[test]
+fn session_project_root_index_is_bounded_even_when_read_from_old_data() {
+    let roots: Vec<Value> = (0..100)
+        .map(|i| Value::String(format!("/project/{i}")))
+        .collect();
+    let cache: Cache = serde_json::from_value(json!({
+        "version": 1,
+        "sessions": { "s": { "projectRoots": roots } }
+    }))
+    .unwrap();
+    assert_eq!(registered_project_roots(&cache, "s").len(), 16);
+
+    let mut next = read_cache("/not/a/real/project");
+    for i in 0..100 {
+        register_project_root(&mut next, "s", &format!("/project/{i}"));
+    }
+    assert_eq!(registered_project_roots(&next, "s").len(), 16);
+    assert_eq!(registered_project_roots(&next, "s").first().unwrap(), "/project/84");
+}
+
+#[test]
+fn concurrent_project_registrations_keep_all_roots_in_the_session_index() {
+    const PROJECTS: usize = 12;
+    let t = Tmp::new();
+    let root = t.path();
+    let start = Arc::new(Barrier::new(PROJECTS + 1));
+    let mut workers = Vec::new();
+
+    for index in 0..PROJECTS {
+        let session_cwd = root.clone();
+        let project_root = jsp::join(&[&root, &format!("apps/app-{index}")]);
+        std::fs::create_dir_all(&project_root).unwrap();
+        let start = Arc::clone(&start);
+        workers.push(std::thread::spawn(move || {
+            let runtime = rt(&session_cwd);
+            let mut cache = read_cache(&project_root);
+            touch_file(
+                &mut cache,
+                "parallel-registration",
+                &jsp::join(&[&project_root, "src/app.css"]),
+            );
+            start.wait();
+            assert!(persist_project_cache(
+                &runtime,
+                &project_root,
+                &session_cwd,
+                &mut cache,
+                "parallel-registration",
+            ));
+        }));
+    }
+    start.wait();
+    for worker in workers {
+        worker.join().unwrap();
+    }
+
+    let roots = registered_project_roots(&read_cache(&root), "parallel-registration");
+    assert_eq!(roots.len(), PROJECTS, "concurrent registrations were lost: {roots:?}");
+    for index in 0..PROJECTS {
+        let expected = jsp::join(&[&root, &format!("apps/app-{index}")]);
+        assert!(roots.contains(&expected), "missing {expected} in {roots:?}");
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&expected)));
+    }
+}
+
+#[test]
+fn stale_same_cwd_cache_write_preserves_another_sessions_project_roots() {
+    let t = Tmp::new();
+    let root = t.path();
+    let app_root = jsp::join(&[&root, "apps/web"]);
+    let stale = read_cache(&root);
+    let mut child = read_cache(&app_root);
+    touch_file(
+        &mut child,
+        "child-session",
+        &jsp::join(&[&app_root, "src/web.css"]),
+    );
+    let runtime = rt(&root);
+    assert!(persist_project_cache(
+        &runtime,
+        &app_root,
+        &root,
+        &mut child,
+        "child-session",
+    ));
+
+    let mut stale = stale;
+    assert!(persist_project_cache(
+        &runtime,
+        &root,
+        &root,
+        &mut stale,
+        "unrelated-session",
+    ));
+    assert_eq!(
+        registered_project_roots(&read_cache(&root), "child-session"),
+        vec![app_root.clone()]
+    );
+    let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&app_root)));
+}
 
 #[test]
 fn monorepo_design_document_locations_and_sidecars() {
@@ -256,10 +497,14 @@ fn monorepo_design_batch_notes_follow_the_displayed_file() {
             std::fs::File::options().write(true).open(sidecar).unwrap()
                 .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000)).unwrap();
             let out = if mode == "stop" {
-                let mut cache = read_cache(&cwd);
-                touch_file(&mut cache, "s1", &a);
-                touch_file(&mut cache, "s1", &b);
-                persist_cache(&r, &cwd, &cache);
+                let a_root = resolve_cache_cwd(&r, Some(&a), &cwd);
+                let mut a_cache = read_cache(&a_root);
+                touch_file(&mut a_cache, "s1", &a);
+                persist_project_cache(&r, &a_root, &cwd, &mut a_cache, "s1");
+                let b_root = resolve_cache_cwd(&r, Some(&b), &cwd);
+                let mut b_cache = read_cache(&b_root);
+                touch_file(&mut b_cache, "s1", &b);
+                persist_project_cache(&r, &b_root, &cwd, &mut b_cache, "s1");
                 hook::run_stop_hook(&r, &stop_event(&cwd, "s1")).stdout
             } else {
                 let event = json!({"session_id":"s1", "cwd":cwd, "hook_event_name":"PostToolUse",
@@ -269,6 +514,11 @@ fn monorepo_design_batch_notes_follow_the_displayed_file() {
             };
             assert!(out.contains("apps/a/src/probe.css"), "{mode}: {out}");
             assert_eq!(out.contains("DESIGN.md is newer"), stale_app == "a", "{mode}: {out}");
+            for project in ["apps/a", "apps/b"] {
+                let project_root = jsp::join(&[&cwd, project]);
+                let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&project_root)));
+            }
+            let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&cwd)));
         }
     }
 }
@@ -1347,7 +1597,7 @@ fn run_hook_symlinked_cwd_and_umbrella_launch() {
     );
     let app_cache = get_cache_path(&format!("{root}/app"));
     assert!(std::path::Path::new(&app_cache).exists());
-    assert!(!t.has_cache());
+    assert_eq!(registered_project_roots(&read_cache(&root), "u1"), vec![format!("{root}/app")]);
     let _ = std::fs::remove_dir_all(jsp::dirname(&app_cache));
 }
 
@@ -1481,6 +1731,404 @@ fn hbe(r: &Runtime, stdin: &str) -> (String, i32) {
 
 fn cursor(cwd: &str, tool: &str, input: Value) -> String {
     json!({"hook_event_name": "preToolUse", "conversation_id": "cv1", "workspace_roots": [cwd], "tool_name": tool, "tool_input": input}).to_string()
+}
+
+#[test]
+fn before_edit_uses_the_touched_apps_platform_inside_a_workspace() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write("apps/native/package.json", "{}");
+    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    t.write("apps/web/package.json", "{}");
+    let r = rt(&root);
+    let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
+
+    let (native, code) = hbe(
+        &r,
+        &cursor(
+            &root,
+            "Write",
+            json!({"file_path": "apps/native/src/new.css", "content": slop}),
+        ),
+    );
+    assert_eq!(code, 0);
+    assert!(native.starts_with("{\"permission\":\"allow\""), "{native}");
+
+    let (web, code) = hbe(
+        &r,
+        &cursor(
+            &root,
+            "Write",
+            json!({"file_path": "apps/web/src/new.css", "content": slop}),
+        ),
+    );
+    assert_eq!(code, 0);
+    assert!(web.starts_with("{\"permission\":\"deny\""), "{web}");
+
+    for app in ["native", "web"] {
+        let app_root = jsp::join(&[&root, "apps", app]);
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&app_root)));
+    }
+}
+
+#[test]
+fn post_edit_applies_native_platform_per_project_in_one_patch() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write("apps/native/package.json", "{}");
+    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    t.write("apps/web/package.json", "{}");
+    let native = t.write("apps/native/src/native.css", GRADIENT_CSS);
+    let web = t.write("apps/web/src/web.css", GRADIENT_CSS);
+    let patch = format!("*** Begin Patch\n*** Update File: {native}\n*** Update File: {web}\n*** End Patch\n");
+    let event = json!({
+        "session_id": "mixed",
+        "cwd": root,
+        "hook_event_name": "PostToolUse",
+        "tool_name": "apply_patch",
+        "tool_input": {"command": patch}
+    })
+    .to_string();
+
+    let out = hook::run_hook(&rt(&root), &event);
+    assert!(out.stdout.contains("apps/web/src/web.css"), "{}", out.stdout);
+    assert!(!out.stdout.contains("apps/native/src/native.css"), "{}", out.stdout);
+    assert!(out.stdout.contains("[gradient-text]"), "{}", out.stdout);
+    assert_eq!(audit_str(&out.audit, "skipped"), None);
+    assert_eq!(audit_str(&out.audit, "cwd"), Some(jsp::join(&[&root, "apps", "web"]).as_str()));
+    assert_eq!(
+        registered_project_roots(&read_cache(&root), "mixed"),
+        vec![jsp::join(&[&root, "apps", "web"])]
+    );
+    let web_root = jsp::join(&[&root, "apps", "web"]);
+    let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&web_root)));
+}
+
+#[test]
+fn post_edit_resolves_native_platform_per_target_without_package_marker() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    let native = t.write("apps/native/src/native.css", GRADIENT_CSS);
+    let web = t.write("apps/web/src/web.css", GRADIENT_CSS);
+    let patch = format!("*** Begin Patch\n*** Update File: {native}\n*** Update File: {web}\n*** End Patch\n");
+    let event = json!({
+        "session_id": "mixed-target-platform",
+        "cwd": root,
+        "hook_event_name": "PostToolUse",
+        "tool_name": "apply_patch",
+        "tool_input": {"command": patch}
+    })
+    .to_string();
+
+    let out = hook::run_hook(&rt(&root), &event);
+    assert!(out.stdout.contains("apps/web/src/web.css"), "{}", out.stdout);
+    assert!(!out.stdout.contains("apps/native/src/native.css"), "{}", out.stdout);
+    assert_eq!(audit_str(&out.audit, "skipped"), None);
+}
+
+#[test]
+fn multi_project_post_edit_shares_target_expansion_budget() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    let mut primaries = Vec::new();
+    let mut styles = Vec::new();
+    for app in ["a", "b"] {
+        t.write(&format!("apps/{app}/package.json"), "{}");
+        for page in ["One", "Two"] {
+            let primary = t.write(
+                &format!("apps/{app}/src/{page}.jsx"),
+                &format!("import './{page}-theme.css';\nexport default 1;\n"),
+            );
+            primaries.push(primary.clone());
+            styles.push(t.write(
+                &format!("apps/{app}/src/{page}-theme.css"),
+                GRADIENT_CSS,
+            ));
+        }
+    }
+    let patch = format!(
+        "*** Begin Patch\n{}*** End Patch\n",
+        primaries
+            .iter()
+            .map(|file| format!("*** Update File: {file}\n"))
+            .collect::<String>()
+    );
+    let event = json!({
+        "session_id": "shared-target-budget",
+        "cwd": root,
+        "hook_event_name": "PostToolUse",
+        "tool_name": "apply_patch",
+        "tool_input": {"command": patch}
+    })
+    .to_string();
+
+    let out = hook::run_hook(&rt(&root), &event);
+    assert_eq!(out.audit["freshFiles"], json!(2), "{}", out.stdout);
+    assert!(out.stdout.contains("apps/a/src/One-theme.css"), "{}", out.stdout);
+    assert!(out.stdout.contains("apps/a/src/Two-theme.css"), "{}", out.stdout);
+    assert!(!out.stdout.contains("apps/b/src/One-theme.css"), "{}", out.stdout);
+    assert!(!out.stdout.contains("apps/b/src/Two-theme.css"), "{}", out.stdout);
+}
+
+#[test]
+fn multi_project_post_edit_shares_rendered_finding_budget() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write("apps/a/package.json", "{}");
+    t.write("apps/b/package.json", "{}");
+    let mut files = Vec::new();
+    for index in 0..5 {
+        files.push(t.write(&format!("apps/a/src/app-{index}.css"), GRADIENT_CSS));
+    }
+    files.push(t.write("apps/b/src/app.css", GRADIENT_CSS));
+    let patch = format!(
+        "*** Begin Patch\n{}*** End Patch\n",
+        files
+            .iter()
+            .map(|file| format!("*** Update File: {file}\n"))
+            .collect::<String>()
+    );
+    let event = json!({
+        "session_id": "shared-finding-budget",
+        "cwd": root,
+        "hook_event_name": "PostToolUse",
+        "tool_name": "apply_patch",
+        "tool_input": {"command": patch}
+    })
+    .to_string();
+
+    let out = hook::run_hook(&rt(&root), &event);
+    let message = hook_message(&out.stdout);
+    assert_eq!(out.audit["freshFindings"], json!(6), "{message}");
+    let visible_findings = message
+        .lines()
+        .filter(|line| line.starts_with("- L") || line.starts_with("- ["))
+        .count();
+    assert_eq!(visible_findings, 5, "{message}");
+    assert!(message.contains("- Real design problem:"), "{message}");
+    assert!(message.contains("More touched-project findings were omitted"), "{message}");
+    assert!(message.contains("Triage each finding"), "{message}");
+    assert!(!message.contains("apps/b/src/app.css"), "{message}");
+}
+
+#[test]
+fn multi_project_post_edit_caps_actual_payload_at_8000_utf16_chars() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    // A stale-sidecar note repeats the configured command path. This makes
+    // real child-rendered messages large enough to exercise the outer join
+    // budget without depending on platform-specific maximum path lengths.
+    let runtime = rt_with_command(&root, format!("/{}", "x".repeat(6_500)));
+    let mut files = Vec::new();
+    for index in 0..3 {
+        let app = format!("app-{index}");
+        t.write(&format!("apps/{app}/package.json"), "{}");
+        if index == 0 {
+            t.write("apps/app-0/DESIGN.md", "---\nname: Test\n---\n");
+            let sidecar = t.write("apps/app-0/DESIGN.json", "{}");
+            std::fs::File::options()
+                .write(true)
+                .open(sidecar)
+                .unwrap()
+                .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000))
+                .unwrap();
+        }
+        files.push(t.write(&format!("apps/{app}/src/app.css"), GRADIENT_CSS));
+    }
+    let patch = format!(
+        "*** Begin Patch\n{}*** End Patch\n",
+        files
+            .iter()
+            .map(|file| format!("*** Update File: {file}\n"))
+            .collect::<String>()
+    );
+    let event = json!({
+        "session_id": "post-char-budget",
+        "cwd": root,
+        "hook_event_name": "PostToolUse",
+        "tool_name": "apply_patch",
+        "tool_input": {"command": patch}
+    })
+    .to_string();
+
+    let out = hook::run_hook(&runtime, &event);
+    let message = hook_message(&out.stdout);
+    assert_eq!(out.audit["freshFindings"], json!(3), "{}", out.stdout);
+    assert!(message.contains("DESIGN.md is newer"), "{message}");
+    assert!(message.encode_utf16().count() <= 8_000, "{} chars", message.encode_utf16().count());
+    assert!(message.contains("apps/app-0/src/app.css"), "{message}");
+    assert!(!message.contains("apps/app-1/src/app.css"), "{message}");
+    assert!(message.contains("More touched-project findings were omitted"), "{message}");
+    assert!(message.contains("Triage each finding"), "{message}");
+    for index in 0..3 {
+        let app_root = jsp::join(&[&root, &format!("apps/app-{index}")]);
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&app_root)));
+    }
+}
+
+#[test]
+fn stop_resolves_native_platform_per_target_without_package_marker() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    let native = t.write("apps/native/src/native.css", GRADIENT_CSS);
+    let web = t.write("apps/web/src/web.css", GRADIENT_CSS);
+    let mut cache = read_cache(&root);
+    touch_file(&mut cache, "mixed-target-platform", &native);
+    touch_file(&mut cache, "mixed-target-platform", &web);
+    persist_cache(&rt(&root), &root, &cache);
+
+    let stop = hook::run_stop_hook(&rt(&root), &stop_event(&root, "mixed-target-platform"));
+    assert!(stop.stdout.contains("apps/web/src/web.css"), "{}", stop.stdout);
+    assert!(!stop.stdout.contains("apps/native/src/native.css"), "{}", stop.stdout);
+    assert_eq!(stop.audit["scannedFiles"], json!(1), "{}", stop.stdout);
+}
+
+#[test]
+fn stop_skips_touched_files_over_the_per_file_byte_limit() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", "{}");
+    let content = format!("{}{}", " ".repeat(131_073), SIDE_TAB_CSS);
+    let file = t.write("src/oversized.css", &content);
+    let mut cache = read_cache(&root);
+    touch_file(&mut cache, "oversized-stop", &file);
+    assert!(persist_cache(&rt(&root), &root, &cache));
+
+    let stop = hook::run_stop_hook(&rt(&root), &stop_event(&root, "oversized-stop"));
+    assert_eq!(stop.audit["scannedFiles"], json!(0), "{}", stop.stdout);
+    assert!(!stop.stdout.contains("[side-tab]"), "{}", stop.stdout);
+}
+
+#[test]
+fn stop_shares_rendered_finding_budget_across_project_roots() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    let runtime = rt(&root);
+    for index in 0..6 {
+        let app_root = jsp::join(&[&root, &format!("apps/app-{index}")]);
+        t.write(&format!("apps/app-{index}/package.json"), "{}");
+        let file = t.write(&format!("apps/app-{index}/src/app.css"), GRADIENT_CSS);
+        let mut cache = read_cache(&app_root);
+        touch_file(&mut cache, "stop-finding-budget", &file);
+        assert!(persist_project_cache(
+            &runtime,
+            &app_root,
+            &root,
+            &mut cache,
+            "stop-finding-budget",
+        ));
+    }
+
+    let stop = hook::run_stop_hook(&runtime, &stop_event(&root, "stop-finding-budget"));
+    let message = hook_message(&stop.stdout);
+    let visible_findings = message
+        .lines()
+        .filter(|line| line.starts_with("- L") || line.starts_with("- ["))
+        .count();
+    assert_eq!(stop.audit["freshFindings"], json!(6), "{message}");
+    assert_eq!(visible_findings, 5, "{message}");
+    assert!(message.contains("- Real design problem:"), "{message}");
+    for index in 0..6 {
+        let app_root = jsp::join(&[&root, &format!("apps/app-{index}")]);
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&app_root)));
+    }
+}
+
+#[test]
+fn stop_caps_actual_payload_at_8000_utf16_chars_across_project_roots() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    let runtime = rt_with_command(&root, format!("/{}", "x".repeat(5_700)));
+    for index in 0..3 {
+        let app_root = jsp::join(&[&root, &format!("apps/app-{index}")]);
+        t.write(&format!("apps/app-{index}/package.json"), "{}");
+        if index == 0 {
+            t.write("apps/app-0/DESIGN.md", "---\nname: Test\n---\n");
+            let sidecar = t.write("apps/app-0/DESIGN.json", "{}");
+            std::fs::File::options()
+                .write(true)
+                .open(sidecar)
+                .unwrap()
+                .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000))
+                .unwrap();
+        }
+        let file = t.write(&format!("apps/app-{index}/src/app.css"), SIDE_TAB_CSS);
+        if index == 0 {
+            assert!(design_system_options_for_file(
+                &runtime,
+                &read_config(&app_root),
+                &app_root,
+                &file,
+            )
+            .md_newer_than_json());
+        }
+        let mut cache = read_cache(&app_root);
+        touch_file(&mut cache, "stop-char-budget", &file);
+        assert!(persist_project_cache(
+            &runtime,
+            &app_root,
+            &root,
+            &mut cache,
+            "stop-char-budget",
+        ));
+    }
+
+    let stop = hook::run_stop_hook(&runtime, &stop_event(&root, "stop-char-budget"));
+    let message = hook_message(&stop.stdout);
+    assert_eq!(stop.audit["freshFindings"], json!(3), "{}", stop.stdout);
+    assert!(message.contains("DESIGN.md is newer"), "{message}");
+    assert!(message.encode_utf16().count() <= 8_000, "{} chars", message.encode_utf16().count());
+    assert!(message.contains("apps/app-0/src/app.css"), "{message}");
+    assert!(!message.contains("apps/app-2/src/app.css"), "{message}");
+    assert!(message.contains("More touched-project findings were omitted"), "{message}");
+    assert!(message.contains("Triage each finding"), "{message}");
+    for index in 0..3 {
+        let app_root = jsp::join(&[&root, &format!("apps/app-{index}")]);
+        let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&app_root)));
+    }
+}
+
+#[test]
+fn before_edit_resolves_native_platform_per_target_without_package_marker() {
+    let t = Tmp::new();
+    let root = t.path();
+    t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    let r = rt(&root);
+    let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
+
+    let (native, code) = hbe(
+        &r,
+        &cursor(
+            &root,
+            "Write",
+            json!({"file_path": "apps/native/src/new.css", "content": slop}),
+        ),
+    );
+    assert_eq!(code, 0);
+    assert!(native.starts_with("{\"permission\":\"allow\""), "{native}");
+
+    let (web, code) = hbe(
+        &r,
+        &cursor(
+            &root,
+            "Write",
+            json!({"file_path": "apps/web/src/new.css", "content": slop}),
+        ),
+    );
+    assert_eq!(code, 0);
+    assert!(web.starts_with("{\"permission\":\"deny\""), "{web}");
 }
 
 #[test]

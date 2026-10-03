@@ -56,6 +56,7 @@
     }
   ],
   "files": {
-    ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json": "{\"version\":1,\"sessions\":{\"s1\":{\"updatedAt\": <EPOCH>,\"files\":{\"<WS>/src/components/Card.module.css\":{\"editCount\":9,\"findings\":[\"gradient-text:2\"]}},\"footerShown\":true}}}"
+    ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json": "{\"version\":1,\"sessions\":{\"s1\":{\"updatedAt\": <EPOCH>,\"files\":{\"<WS>/src/components/Card.module.css\":{\"editCount\":9,\"findings\":[\"gradient-text:2\"]}},\"footerShown\":true}}}",
+    ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json.project-roots.lock": ""
   }
 }

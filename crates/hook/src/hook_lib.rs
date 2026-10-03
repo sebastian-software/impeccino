@@ -117,6 +117,7 @@ pub fn is_advisory_finding(f: &Finding) -> bool {
 }
 
 const CACHE_MAX_SESSIONS: usize = 8;
+const CACHE_MAX_PROJECT_ROOTS: usize = 16;
 pub const EDIT_COUNT_THRESHOLD: u64 = 6;
 pub const MAX_SCAN_TARGETS: usize = 6;
 pub const STOP_MAX_FILES: usize = 20;
@@ -291,7 +292,10 @@ fn looks_like_project_root(dir: &str) -> bool {
         .any(|m| exists(&jsp::join(&[dir, m])))
 }
 
-/// JS: resolveCacheCwd(primaryFile, sessionCwd)
+/// Resolve the project that owns the edited file. A workspace root may itself
+/// be a project while an app below it is a separate project with its own
+/// PRODUCT.md and hook state, so prefer the nearest marker on the path from
+/// the file up to that workspace root.
 pub fn resolve_cache_cwd(rt: &Runtime, primary_file: Option<&str>, session_cwd: &str) -> String {
     let base = rt.resolve(&[if session_cwd.is_empty() {
         &rt.proc_cwd
@@ -304,17 +308,22 @@ pub fn resolve_cache_cwd(rt: &Runtime, primary_file: Option<&str>, session_cwd: 
     if has_path_traversal(primary) {
         return base;
     }
-    if looks_like_project_root(&base) {
+    let base_is_project = looks_like_project_root(&base);
+    if base_is_project && !is_scan_target_inside_project(rt, primary, &base) {
         return base;
     }
     let mut dir = jsp::dirname(&rt.resolve(&[primary]));
     let home = rt.resolve(&[&rt.homedir()]);
+    let canonical_base = canonical_path(rt, &base);
     loop {
-        if dir == home {
-            return base;
-        }
         if looks_like_project_root(&dir) {
             return dir;
+        }
+        if base_is_project && canonical_path(rt, &dir) == canonical_base {
+            return base;
+        }
+        if dir == home {
+            return base;
         }
         let parent = jsp::dirname(&dir);
         if parent == dir {
@@ -330,6 +339,22 @@ pub fn resolve_cache_cwd(rt: &Runtime, primary_file: Option<&str>, session_cwd: 
 /// work.
 pub fn resolve_project_platform(rt: &Runtime, cwd: &str) -> Option<String> {
     let options = impeccino_context::target_args::TargetOptions::default();
+    let resolved = impeccino_context::context::resolve_context(cwd, &options, &rt.env);
+    let product = resolved.product_path.as_deref().and_then(safe_read);
+    impeccino_context::context::extract_platform(product.as_deref())
+}
+
+/// Resolve the platform for the project that owns one touched file. The
+/// target matters in workspaces where native and web apps share a hook-cache
+/// root and the native app is identified by PRODUCT.md rather than package.json.
+pub fn resolve_project_platform_for_target(
+    rt: &Runtime,
+    cwd: &str,
+    target_path: &str,
+) -> Option<String> {
+    let options = impeccino_context::target_args::TargetOptions {
+        target_path: Some(target_path.to_string()),
+    };
     let resolved = impeccino_context::context::resolve_context(cwd, &options, &rt.env);
     let product = resolved.product_path.as_deref().and_then(safe_read);
     impeccino_context::context::extract_platform(product.as_deref())
@@ -441,8 +466,8 @@ pub fn match_configured_extension<'a>(
 
 // ── cache ─────────────────────────────────────────────────────────────────
 
-/// The `.impeccino/hook.cache.json` document, kept as ordered JSON so
-/// insertion order (and any foreign keys) round-trip like the JS object.
+/// The user-cache `hook.cache.json` document for a normalized project root,
+/// kept as ordered JSON so insertion order and foreign keys round-trip.
 pub type Cache = Map<String, Value>;
 
 /// JS: readCache(cwd)
@@ -509,11 +534,240 @@ pub fn persist_cache(rt: &Runtime, cwd: &str, cache: &Cache) -> bool {
     if std::fs::create_dir_all(jsp::dirname(&target)).is_err() {
         return false;
     }
-    std::fs::write(
-        &target,
-        serde_json::to_string(&Value::Object(cache)).unwrap_or_default(),
-    )
-    .is_ok()
+    let bytes = serde_json::to_string(&Value::Object(cache)).unwrap_or_default();
+    impeccino_common::atomic_file::write(std::path::Path::new(&target), bytes.as_bytes()).is_ok()
+}
+
+/// Hold the per-cache project-root lock while a cache is read/modified/written.
+/// Atomic replacement prevents partial JSON, but without this advisory lock a
+/// stale session-cwd cache can still erase a root another hook just registered.
+struct ProjectRootsLock {
+    _file: std::fs::File,
+}
+
+impl ProjectRootsLock {
+    fn acquire(cache_path: &str) -> std::io::Result<Self> {
+        let mut lock_name = std::ffi::OsString::from(cache_path);
+        lock_name.push(".project-roots.lock");
+        let lock_path = std::path::PathBuf::from(lock_name);
+        if let Some(parent) = lock_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        match std::fs::symlink_metadata(&lock_path) {
+            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_file() => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "project-roots lock path is not a regular file",
+                ));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true).write(true).create(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let file = options.open(&lock_path)?;
+        let metadata = std::fs::symlink_metadata(&lock_path)?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "project-roots lock path is not a regular file",
+            ));
+        }
+        file.lock()?;
+        Ok(Self { _file: file })
+    }
+}
+
+/// Carry only the current project-root registry into a potentially stale
+/// cache snapshot. Session file state keeps its existing write semantics.
+fn preserve_current_project_roots(destination: &mut Cache, current: &Cache) {
+    let current_sessions = sessions(current).cloned().unwrap_or_default();
+    let destination_sessions = sessions_mut(destination);
+
+    for (session_id, session) in destination_sessions.iter_mut() {
+        let roots = current_sessions
+            .get(session_id)
+            .and_then(Value::as_object)
+            .and_then(|value| value.get("projectRoots"))
+            .and_then(Value::as_array);
+        match roots {
+            Some(roots) => {
+                if !session.is_object() {
+                    let mut repaired = Map::new();
+                    repaired.insert("updatedAt".into(), now_value());
+                    repaired.insert("files".into(), Value::Object(Map::new()));
+                    *session = Value::Object(repaired);
+                }
+                if let Some(session) = session.as_object_mut() {
+                    session.insert("projectRoots".into(), Value::Array(bounded_project_roots(roots)));
+                }
+            }
+            None => {
+                if let Some(session) = session.as_object_mut() {
+                    session.remove("projectRoots");
+                }
+            }
+        }
+    }
+
+    // A different session may have registered a child root after this cache
+    // snapshot was read. Preserve just its bounded index record; the child
+    // cache contains that session's touched files.
+    for (session_id, current_session) in &current_sessions {
+        let Some(roots) = current_session
+            .as_object()
+            .and_then(|value| value.get("projectRoots"))
+            .and_then(Value::as_array)
+        else {
+            continue;
+        };
+        let destination_session = destination_sessions
+            .entry(session_id.clone())
+            .or_insert_with(|| {
+                let mut value = Map::new();
+                value.insert(
+                    "updatedAt".into(),
+                    current_session
+                        .get("updatedAt")
+                        .cloned()
+                        .unwrap_or_else(now_value),
+                );
+                value.insert("files".into(), Value::Object(Map::new()));
+                Value::Object(value)
+            });
+        if !destination_session.is_object() {
+            let mut repaired = Map::new();
+            repaired.insert(
+                "updatedAt".into(),
+                current_session
+                    .get("updatedAt")
+                    .cloned()
+                    .unwrap_or_else(now_value),
+            );
+            repaired.insert("files".into(), Value::Object(Map::new()));
+            *destination_session = Value::Object(repaired);
+        }
+        if let Some(session) = destination_session.as_object_mut() {
+            session.insert("projectRoots".into(), Value::Array(bounded_project_roots(roots)));
+        }
+    }
+}
+
+fn bounded_project_roots(roots: &[Value]) -> Vec<Value> {
+    let mut bounded = Vec::new();
+    for root in roots.iter().filter_map(Value::as_str) {
+        if bounded.iter().any(|seen: &Value| seen.as_str() == Some(root)) {
+            continue;
+        }
+        bounded.push(Value::String(root.to_string()));
+        if bounded.len() == CACHE_MAX_PROJECT_ROOTS {
+            break;
+        }
+    }
+    bounded
+}
+
+fn persist_cache_preserving_project_roots(rt: &Runtime, cwd: &str, cache: &Cache) -> bool {
+    let target = get_cache_path(cwd);
+    let _lock = match ProjectRootsLock::acquire(&target) {
+        Ok(lock) => lock,
+        Err(_) => return false,
+    };
+    let current = read_cache(cwd);
+    let mut cache = cache.clone();
+    preserve_current_project_roots(&mut cache, &current);
+    persist_cache(rt, cwd, &cache)
+}
+
+fn persist_project_root_index(
+    rt: &Runtime,
+    session_cwd: &str,
+    session_id: &str,
+    project_root: &str,
+) -> bool {
+    let target = get_cache_path(session_cwd);
+    let _lock = match ProjectRootsLock::acquire(&target) {
+        Ok(lock) => lock,
+        Err(_) => return false,
+    };
+    let mut index = read_cache(session_cwd);
+    register_project_root(&mut index, session_id, project_root);
+    persist_cache(rt, session_cwd, &index)
+}
+
+/// Remember which per-project cache roots a hook session touched. The index
+/// lives at the normalized session cwd so Stop can find child projects
+/// without searching the entire user cache. `projectRoots` is session-local
+/// and bounded independently of the existing bounded session map.
+pub fn register_project_root(cache: &mut Cache, session_id: &str, project_root: &str) {
+    let session = ensure_session(cache, session_id);
+    let roots = session
+        .entry("projectRoots")
+        .or_insert_with(|| Value::Array(vec![]));
+    if !matches!(roots, Value::Array(_)) {
+        *roots = Value::Array(vec![]);
+    }
+    let roots = roots.as_array_mut().unwrap();
+    let root = project_root.to_string();
+    let already_registered = roots.iter().any(|value| value.as_str() == Some(&root));
+    if !already_registered {
+        roots.push(Value::String(root));
+        if roots.len() > CACHE_MAX_PROJECT_ROOTS {
+            let excess = roots.len() - CACHE_MAX_PROJECT_ROOTS;
+            roots.drain(..excess);
+        }
+    }
+    session.insert("updatedAt".into(), now_value());
+}
+
+/// Registered per-project caches for one session; malformed index values are
+/// ignored so a damaged cache keeps the hook fail-open.
+pub fn registered_project_roots(cache: &Cache, session_id: &str) -> Vec<String> {
+    sessions(cache)
+        .and_then(|all| all.get(session_id))
+        .and_then(Value::as_object)
+        .and_then(|session| session.get("projectRoots"))
+        .and_then(Value::as_array)
+        .map(|roots| {
+            let mut unique = Vec::new();
+            for root in roots.iter().filter_map(Value::as_str) {
+                if !unique.iter().any(|seen| seen == root) {
+                    unique.push(root.to_string());
+                    if unique.len() == CACHE_MAX_PROJECT_ROOTS {
+                        break;
+                    }
+                }
+            }
+            unique
+        })
+        .unwrap_or_default()
+}
+
+/// Persist a project's session state and register its project root at the
+/// session cwd. When both roots are the same, keep the index in the project
+/// cache itself to avoid a second file and preserve the project-scoped cache
+/// behavior for ordinary single-root sessions.
+pub fn persist_project_cache(
+    rt: &Runtime,
+    project_root: &str,
+    session_cwd: &str,
+    cache: &mut Cache,
+    session_id: &str,
+) -> bool {
+    let project_root = rt.resolve(&[project_root]);
+    let session_cwd = rt.resolve(&[session_cwd]);
+    if project_root == session_cwd {
+        return persist_cache_preserving_project_roots(rt, &project_root, cache);
+    }
+    let saved_project = persist_cache_preserving_project_roots(rt, &project_root, cache);
+    let saved_index = persist_project_root_index(rt, &session_cwd, session_id, &project_root);
+    saved_project && saved_index
 }
 
 /// JS: ensureSession(cache, sessionId)
@@ -1989,7 +2243,21 @@ pub fn normalize_scan_targets(
 
 /// JS: expandScanTargets(primaryTargets, projectCwd)
 pub fn expand_scan_targets(rt: &Runtime, primaries: &[String], project_cwd: &str) -> Vec<String> {
+    expand_scan_targets_with_limit(rt, primaries, project_cwd, MAX_SCAN_TARGETS)
+}
+
+/// Expand targets with the remaining allowance for one invocation. Recursive
+/// per-project hook passes share one event-wide cap instead of each getting a
+/// fresh `MAX_SCAN_TARGETS` budget.
+pub fn expand_scan_targets_with_limit(
+    rt: &Runtime,
+    primaries: &[String],
+    project_cwd: &str,
+    max_targets: usize,
+) -> Vec<String> {
+    let max_targets = max_targets.min(MAX_SCAN_TARGETS);
     let mut ordered = normalize_scan_targets(rt, primaries, project_cwd);
+    ordered.truncate(max_targets);
     if ordered.is_empty() {
         return vec![];
     }
@@ -2000,7 +2268,7 @@ pub fn expand_scan_targets(rt: &Runtime, primaries: &[String], project_cwd: &str
     };
     let normalized_primaries = ordered.clone();
     let add = |ordered: &mut Vec<String>, p: &str| {
-        if ordered.len() >= MAX_SCAN_TARGETS {
+        if ordered.len() >= max_targets {
             return;
         }
         let abs = if has_path_traversal(p) || jsp::is_absolute(p) {
@@ -2013,7 +2281,7 @@ pub fn expand_scan_targets(rt: &Runtime, primaries: &[String], project_cwd: &str
         }
     };
     for p in &normalized_primaries {
-        if ordered.len() >= MAX_SCAN_TARGETS {
+        if ordered.len() >= max_targets {
             break;
         }
         if !is_inside_project(rt, p, &base_cwd) {
@@ -2026,13 +2294,13 @@ pub fn expand_scan_targets(rt: &Runtime, primaries: &[String], project_cwd: &str
         let content = safe_read(p).unwrap_or_default();
         for imp in parse_static_style_imports(rt, &content, p, project_cwd) {
             add(&mut ordered, &imp);
-            if ordered.len() >= MAX_SCAN_TARGETS {
+            if ordered.len() >= max_targets {
                 break;
             }
         }
         for col in co_located_stylesheets(p) {
             add(&mut ordered, &col);
-            if ordered.len() >= MAX_SCAN_TARGETS {
+            if ordered.len() >= max_targets {
                 break;
             }
         }
@@ -2106,4 +2374,66 @@ pub fn js_slice(s: &str, start: usize, end: usize) -> String {
 /// the file once the accepted variant is permanent.
 pub fn has_live_preview_markers(content: &str) -> bool {
     content.contains("data-impeccino-variants=") || content.contains("impeccino-carbonize-start")
+}
+
+#[cfg(test)]
+mod project_roots_lock_tests {
+    use super::{preserve_current_project_roots, ProjectRootsLock, Cache};
+    use serde_json::{json, Value};
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    #[test]
+    fn project_root_index_lock_serializes_concurrent_writers() {
+        let dir = std::env::temp_dir().join(format!(
+            "impeccino-root-index-lock-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let cache_path = dir.join("hook.cache.json").to_string_lossy().into_owned();
+        let first = ProjectRootsLock::acquire(&cache_path).unwrap();
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let second_path = cache_path.clone();
+        let second = std::thread::spawn(move || {
+            ready_tx.send(()).unwrap();
+            let acquired = ProjectRootsLock::acquire(&second_path).is_ok();
+            done_tx.send(acquired).unwrap();
+        });
+
+        ready_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert!(
+            done_rx.recv_timeout(Duration::from_millis(50)).is_err(),
+            "a second writer entered while the index lock was held"
+        );
+        drop(first);
+        assert!(done_rx.recv_timeout(Duration::from_secs(1)).unwrap());
+        second.join().unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn stale_malformed_session_value_does_not_panic_or_drop_roots() {
+        let mut destination: Cache = serde_json::from_value(json!({
+            "version": 1,
+            "sessions": {"s": "malformed-old-value"}
+        }))
+        .unwrap();
+        let current: Cache = serde_json::from_value(json!({
+            "version": 1,
+            "sessions": {"s": {"projectRoots": ["/apps/web"]}}
+        }))
+        .unwrap();
+
+        preserve_current_project_roots(&mut destination, &current);
+        assert_eq!(
+            destination["sessions"]["s"]["projectRoots"],
+            Value::Array(vec![Value::String("/apps/web".into())])
+        );
+        assert!(destination["sessions"]["s"]["files"].is_object());
+    }
 }
