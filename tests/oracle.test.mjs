@@ -10,12 +10,14 @@
  */
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ENGINE_MISSING_MESSAGE, findEngineBinary } from './lib/engine-bin.mjs';
-import { allCases, assertRecordableCases, caseRunsHere, diffResults, expectedForPlatform, normalize, serializeOracleStdin } from './oracle/lib.mjs';
+import { allCases, assertRecordableCases, caseRunsHere, diffResults, expectedForPlatform, GOLDEN_DIR, normalize, serializeOracleStdin } from './oracle/lib.mjs';
+import { claudeEdit, hookPath } from './oracle/cases/hooks.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENGINE_BIN = findEngineBinary();
@@ -66,10 +68,31 @@ it('substitutes placeholders in object stdin before JSON serialization', () => {
   assert.equal(serializeOracleStdin('{not json', paths), '{not json');
 });
 
+it('builds Windows-native hook event paths while preserving content strings', () => {
+  const event = claudeEdit('src/new.css', {
+    tool_response: {
+      type: 'create',
+      filePath: hookPath('win32', '<WS>', 'src/new.css'),
+      content: String.raw`keep\literal and C:\assets\logo.svg`,
+    },
+  }, 'win32');
+  const decoded = JSON.parse(serializeOracleStdin(event, {
+    ws: String.raw`D:\a\hook-project`,
+    repo: String.raw`D:\a\impeccino`,
+  }));
+
+  assert.equal(decoded.tool_input.file_path, String.raw`D:\a\hook-project\src\new.css`);
+  assert.equal(decoded.tool_response.filePath, String.raw`D:\a\hook-project\src\new.css`);
+  assert.equal(decoded.tool_response.content, String.raw`keep\literal and C:\assets\logo.svg`);
+});
+
 it('normalizes only recognized Windows oracle path fields and hidden-path tokens', () => {
   const sample = [
-    String.raw`{"productPath":"apps\\a\\PRODUCT.md","path":".impeccino\\surfaces\\x.md","file":".impeccino\\critique\\<STAMP>__x.md","message":"keep\\literal"}`,
-    String.raw`human paths: .impeccino\config.json, .claude\settings.local.json, .cursor\hooks.json.bak.`,
+    String.raw`{"productPath":"apps\\a\\PRODUCT.md","designPath":"apps\\a\\DESIGN.md","surfaceBriefPath":".impeccino\\surfaces\\x.md","path":".impeccino\\surfaces\\x.md","file":".impeccino\\critique\\<STAMP>__x.md","message":"keep\\literal"}`,
+    String.raw`{"path":".impeccino\\hook.cache.json"}`,
+    String.raw`{"path":"..\\dashboard\\PRODUCT.md"}`,
+    String.raw`{"path":"docs\\notes\\keep.txt"}`,
+    String.raw`human paths: .impeccino\config.json, .impeccino\hook.cache.json, .claude\settings.local.json, .cursor\hooks.json.bak.`,
     String.raw`literal text: keep\literal and .impeccino\not-a-path\keep`,
     'code: `.impeccino\\config.json`',
     'quoted text: ".impeccino\\config.json"',
@@ -81,13 +104,58 @@ it('normalizes only recognized Windows oracle path fields and hidden-path tokens
   });
 
   assert.equal(actual, [
-    String.raw`{"productPath":"apps/a/PRODUCT.md","path":".impeccino/surfaces/x.md","file":".impeccino/critique/<STAMP>__x.md","message":"keep\\literal"}`,
-    'human paths: .impeccino/config.json, .claude/settings.local.json, .cursor/hooks.json.bak.',
+    String.raw`{"productPath":"apps/a/PRODUCT.md","designPath":"apps/a/DESIGN.md","surfaceBriefPath":".impeccino/surfaces/x.md","path":".impeccino/surfaces/x.md","file":".impeccino/critique/<STAMP>__x.md","message":"keep\\literal"}`,
+    String.raw`{"path":".impeccino/hook.cache.json"}`,
+    String.raw`{"path":"../dashboard/PRODUCT.md"}`,
+    String.raw`{"path":"docs\\notes\\keep.txt"}`,
+    'human paths: .impeccino/config.json, .impeccino/hook.cache.json, .claude/settings.local.json, .cursor/hooks.json.bak.',
     String.raw`literal text: keep\literal and .impeccino\not-a-path\keep`,
     'code: `.impeccino\\config.json`',
     'quoted text: ".impeccino\\config.json"',
     '',
   ].join('\n'));
+});
+
+it('normalizes only the known Windows persisted-surface doctor summary path', () => {
+  const sharedSummary = '1 persisted surface brief(s) name a primary target that no longer exists: .impeccino\\surfaces\\src-old-astro.md → src/old.astro.';
+  const unrelatedSummary = String.raw`keep\literal and .impeccino\not-a-surface\file.txt`;
+  const input = { summary: sharedSummary, unrelatedSummary };
+  const normalized = normalize(JSON.stringify(input, null, 2), { platform: 'win32' });
+
+  assert.deepEqual(JSON.parse(normalized), {
+    summary: '1 persisted surface brief(s) name a primary target that no longer exists: .impeccino/surfaces/src-old-astro.md → src/old.astro.',
+    unrelatedSummary,
+  });
+});
+
+it('masks only the quoted engine binary path inside JSON-escaped output strings', () => {
+  const binaryPath = String.raw`D:\a\runner/impeccino/target/release/impeccino.exe`;
+  const quotedCommandArg = binaryPath.replaceAll('\\', '\\\\');
+  const payload = JSON.stringify({
+    user_message: `Run "${quotedCommandArg}" hooks ignore-value <rule>`,
+    unrelated: `Run "${quotedCommandArg}" status unchanged`,
+    wrong_subcommand: `Run "${quotedCommandArg}" hooks-extra unchanged`,
+    other_command: String.raw`Run "D:\a\other\tool.exe" hooks unchanged`,
+  });
+  const actual = normalize(payload, { platform: 'win32', binaryPath });
+  const expected = JSON.stringify({
+    user_message: 'Run <HOOK_ADMIN_CMD> ignore-value <rule>',
+    unrelated: `Run "${quotedCommandArg}" status unchanged`,
+    wrong_subcommand: `Run "${quotedCommandArg}" hooks-extra unchanged`,
+    other_command: String.raw`Run "D:\a\other\tool.exe" hooks unchanged`,
+  });
+
+  assert.equal(actual, expected);
+
+  const slashBinaryPath = 'D:/a/runner/impeccino/target/release/impeccino.exe';
+  const slashCommand = JSON.stringify({
+    user_message: `Run "${slashBinaryPath}" hooks ignore-value <rule>`,
+    wrong_subcommand: `Run "${slashBinaryPath}" hooks-extra unchanged`,
+  });
+  assert.equal(normalize(slashCommand, { platform: 'win32', binaryPath: slashBinaryPath }), JSON.stringify({
+    user_message: 'Run <HOOK_ADMIN_CMD> ignore-value <rule>',
+    wrong_subcommand: 'Run "<IMPECCINO>" hooks-extra unchanged',
+  }));
 });
 
 it('normalizes only declared Windows surface-path output lines', () => {
@@ -144,15 +212,44 @@ it('quotes the Windows drive-colon target_path without changing the shared golde
   assert.ok(diffResults(expectedWindows, shared).length > 0);
 });
 
+it('preserves the Windows quoted value in the one hook-config example', async () => {
+  const cases = await allCases();
+  const item = cases.find((candidate) => candidate.id === 'hook-config-per-edit-all');
+  const shared = JSON.parse(readFileSync(`${GOLDEN_DIR}/${item.id}.json`, 'utf8'));
+  const expectedWindows = expectedForPlatform(item, shared, 'win32');
+  const windows = JSON.parse(expectedWindows.stdout);
+  const linux = expectedForPlatform(item, shared, 'linux');
+  const sharedContext = JSON.parse(shared.stdout).hookSpecificOutput.additionalContext;
+
+  assert.deepEqual(linux, shared);
+  assert.equal(expectedWindows.stdout.endsWith('\n'), shared.stdout.endsWith('\n'));
+  assert.equal(windows.hookSpecificOutput.additionalContext, sharedContext.replace(
+    "ignore-value bounce-easing 'cubic-bezier(0.68, -0.55, 0.265, 1.55)'",
+    'ignore-value bounce-easing "cubic-bezier(0.68, -0.55, 0.265, 1.55)"',
+  ));
+  assert.ok(diffResults(expectedWindows, shared).length > 0);
+  const duplicatedPayload = JSON.parse(shared.stdout);
+  duplicatedPayload.hookSpecificOutput.additionalContext += " ignore-value bounce-easing 'cubic-bezier(0.68, -0.55, 0.265, 1.55)'";
+  const duplicatedGolden = {
+    ...shared,
+    stdout: JSON.stringify(duplicatedPayload) + (shared.stdout.match(/(?:\r?\n)+$/)?.[0] || ''),
+  };
+  assert.throws(
+    () => expectedForPlatform(item, duplicatedGolden, 'win32'),
+    /Expected one bounce-easing quoted-value example.*found 2/,
+  );
+});
+
 it('prevents Windows runs from overwriting shared goldens with platform-specific guidance', () => {
   const guidance = { id: 'detect-framework-vite-text', windowsPowerShellGuidance: true };
   const driveQuote = { id: 'critique-write-monorepo-child', windowsDrivePathQuoteField: 'target_path' };
+  const quotedIgnore = { id: 'hook-config-per-edit-all', windowsQuotedIgnoreValue: { rule: 'bounce-easing', value: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)' } };
 
   assert.doesNotThrow(() => assertRecordableCases([guidance, driveQuote], 'darwin'));
   assert.doesNotThrow(() => assertRecordableCases([{ id: 'detect-help' }], 'win32'));
   assert.throws(
-    () => assertRecordableCases([guidance, driveQuote], 'win32'),
-    /Cannot record shared oracle goldens on Windows.*detect-framework-vite-text, critique-write-monorepo-child.*Record these cases on Linux or macOS/,
+    () => assertRecordableCases([guidance, driveQuote, quotedIgnore], 'win32'),
+    /Cannot record shared oracle goldens on Windows.*detect-framework-vite-text, critique-write-monorepo-child, hook-config-per-edit-all.*Record these cases on Linux or macOS/,
   );
 });
 
@@ -207,6 +304,7 @@ it('limits Windows path-output contracts to exact single-path cases and steps', 
     .map((step, index) => step.windowsPathOutput ? `${item.id}[${index}]` : null)
     .filter(Boolean)).sort();
   const driveQuoteCases = cases.filter((item) => item.windowsDrivePathQuoteField).map((item) => item.id).sort();
+  const quotedIgnoreCases = cases.filter((item) => item.windowsQuotedIgnoreValue).map((item) => item.id).sort();
   const listCase = cases.find((item) => item.id === 'surface-brief-write-read-list');
 
   assert.deepEqual(pathOutputCases, [
@@ -221,6 +319,7 @@ it('limits Windows path-output contracts to exact single-path cases and steps', 
   ]);
   assert.deepEqual(pathOutputSteps, ['surface-brief-write-read-list[0]', 'surface-brief-write-read-list[3]']);
   assert.deepEqual(driveQuoteCases, ['critique-write-monorepo-child']);
+  assert.deepEqual(quotedIgnoreCases, ['hook-config-per-edit-all']);
   assert.ok(listCase.files.includes('.impeccino/surfaces/**'));
   assert.equal(normalize('Root route brief.', { platform: 'win32' }), 'Root route brief.');
 });

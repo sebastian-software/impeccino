@@ -129,7 +129,7 @@ function normalizeTaggedPathSeparators(text) {
 }
 
 function normalizeKnownWindowsJsonPathFields(text) {
-  return text.replace(/("(?:productPath|path|file)"\s*:\s*)("(?:\\.|[^"\\])*")/g, (match, fieldText, encodedValue) => {
+  return text.replace(/("(?:productPath|designPath|surfaceBriefPath|path|file)"\s*:\s*)("(?:\\.|[^"\\])*")/g, (match, fieldText, encodedValue) => {
     const field = fieldText.match(/"([^"]+)"/)?.[1];
     let value;
     try { value = JSON.parse(encodedValue); } catch { return match; }
@@ -137,11 +137,28 @@ function normalizeKnownWindowsJsonPathFields(text) {
 
     const portable = value.replaceAll('\\', '/');
     const isRelative = !/^(?:[A-Za-z]:[\\/]|[\\/]{1,2}|[A-Za-z][A-Za-z0-9+.-]*:\/\/)/.test(value);
-    const isKnownHiddenPath = /(?:^|\/)\.impeccino\/(?:config(?:\.local)?\.json|design\.json|surfaces\/|critique\/|live\/)/.test(portable) ||
+    const isKnownHiddenPath = /(?:^|\/)\.impeccino\/(?:config(?:\.local)?\.json|design\.json|hook\.cache\.json|surfaces\/|critique\/|live\/)/.test(portable) ||
       /(?:^|\/)\.claude\/(?:settings\.local\.json|hooks\.json(?:\.bak)?)/.test(portable) ||
       /(?:^|\/)\.cursor\/hooks\.json(?:\.bak)?/.test(portable);
-    if (field === 'productPath' ? !isRelative : !isKnownHiddenPath) return match;
+    const isPrimaryDesignDocument = field === 'path' && isRelative && /(?:^|\/)(?:PRODUCT|DESIGN)\.md$/.test(portable);
+    if (field === 'productPath' || field === 'designPath' ? !isRelative : !isKnownHiddenPath && !isPrimaryDesignDocument) return match;
     return `${fieldText}${JSON.stringify(portable)}`;
+  });
+}
+
+function normalizeKnownWindowsDiagnosticSummaries(text) {
+  return text.replace(/("summary"\s*:\s*)("(?:\\.|[^"\\])*")/g, (match, fieldText, encodedValue) => {
+    let value;
+    try { value = JSON.parse(encodedValue); } catch { return match; }
+    const marker = value.match(/^\d+ persisted surface brief\(s\) name a primary target that no longer exists: /);
+    if (!marker) return match;
+    const remainder = value.slice(marker[0].length);
+    // Keep this normalization limited to the known doctor diagnostic and its
+    // generated .impeccino/surfaces/<slug>.md path.
+    const surfacePath = remainder.match(/^(\.impeccino(?:\\+|\/+)surfaces(?:\\+|\/+)[^\\/\s→]+\.md)(\s→\s[\s\S]*)$/);
+    if (!surfacePath) return match;
+    const normalized = `${marker[0]}${surfacePath[1].replaceAll('\\', '/')}${surfacePath[2]}`;
+    return `${fieldText}${JSON.stringify(normalized)}`;
   });
 }
 
@@ -180,7 +197,7 @@ function normalizeWindowsPathOutput(text, caseId) {
 
 function normalizeKnownWindowsHiddenPaths(text) {
   const contracts = {
-    '.impeccino': /^(?:config(?:\.local)?\.json|design\.json|surfaces|critique|live)$/,
+    '.impeccino': /^(?:config(?:\.local)?\.json|design\.json|hook\.cache\.json|surfaces|critique|live)$/,
     '.claude': /^(?:settings\.local\.json|hooks\.json(?:\.bak)?)$/,
     '.cursor': /^hooks\.json(?:\.bak)?$/,
   };
@@ -195,11 +212,30 @@ function normalizeKnownWindowsHiddenPaths(text) {
   });
 }
 
+function maskJsonEscapedHookAdminCommand(text, binaryPath) {
+  if (!binaryPath) return text;
+  const pathForms = new Set([
+    binaryPath,
+    binaryPath.replaceAll('\\', '/'),
+    binaryPath.replaceAll('/', '\\'),
+  ]);
+  const commandForms = new Set(pathForms);
+  for (const form of pathForms) commandForms.add(form.replaceAll('\\', '\\\\'));
+  let out = text;
+  for (const form of commandForms) {
+    const encodedCommand = JSON.stringify(`"${form}" hooks`).slice(1, -1);
+    const escapedCommand = encodedCommand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(`${escapedCommand}(?![A-Za-z0-9_-])`, 'g'), '<HOOK_ADMIN_CMD>');
+  }
+  return out;
+}
+
 export function normalize(text, {
   ws,
   home = os.homedir(),
   windowsPowerShellGuidance = false,
   platform = process.platform,
+  binaryPath = process.env.IMPECCINO_BIN,
   caseId,
   pathOutput = false,
 }) {
@@ -214,9 +250,13 @@ export function normalize(text, {
   out = out.replace(/"[^"]*\\impeccino(?:\.exe)?" hooks/g, '<HOOK_ADMIN_CMD>');
   // Audit entries record the rendered message length, which includes that command's path.
   out = out.replace(/"chars":\s*\d+/g, '"chars": <N>');
+  // The Windows engine quotes and JSON-escapes its hook-admin command path.
+  // Collapse only the exact binary path followed by the `hooks` verb, before
+  // the generic binary path mask can hide part of that command.
+  if (platform === 'win32') out = maskJsonEscapedHookAdminCommand(out, binaryPath);
   // The binary's own path: it may sit under $HOME or the repo.
-  if (process.env.IMPECCINO_BIN) {
-    const bin = process.env.IMPECCINO_BIN;
+  if (binaryPath) {
+    const bin = binaryPath;
     if (platform === 'win32' && windowsPowerShellGuidance) {
       const quotedCommand = `"${bin}" detect http://localhost:`;
       out = out.split(quotedCommand).join('<WINDOWS_QUOTED_IMPECCINO> detect http://localhost:');
@@ -244,6 +284,7 @@ export function normalize(text, {
   out = normalizeTaggedPathSeparators(out);
   if (platform === 'win32') {
     out = normalizeKnownWindowsJsonPathFields(out);
+    out = normalizeKnownWindowsDiagnosticSummaries(out);
     if (pathOutput) out = normalizeWindowsPathOutput(out, caseId);
     out = normalizeKnownWindowsHiddenPaths(out);
   }
@@ -443,12 +484,31 @@ export function expectedForPlatform(c, golden, platform = process.platform) {
       throw new Error(`Expected one ${field} path in ${c.id}'s shared golden; found ${totalReplacements}`);
     }
   }
+
+  if (c.windowsQuotedIgnoreValue) {
+    const { rule, value } = c.windowsQuotedIgnoreValue;
+    const sharedHint = `ignore-value ${rule} '${value}'`;
+    const windowsHint = `ignore-value ${rule} "${value}"`;
+    const lineEnding = expected.stdout.match(/(?:\r?\n)+$/)?.[0] || '';
+    const sharedOutput = expected.stdout.slice(0, expected.stdout.length - lineEnding.length);
+    let payload;
+    try { payload = JSON.parse(sharedOutput); } catch {
+      throw new Error(`Expected ${c.id}'s shared golden to contain JSON hook output`);
+    }
+    const context = payload?.hookSpecificOutput?.additionalContext;
+    const occurrences = typeof context === 'string' ? context.split(sharedHint).length - 1 : 0;
+    if (occurrences !== 1) {
+      throw new Error(`Expected one ${rule} quoted-value example in ${c.id}'s shared golden; found ${occurrences}`);
+    }
+    payload.hookSpecificOutput.additionalContext = context.replace(sharedHint, windowsHint);
+    expected.stdout = JSON.stringify(payload) + lineEnding;
+  }
   return expected;
 }
 
 export function assertRecordableCases(cases, platform = process.platform) {
   const windowsExpectationCases = platform === 'win32'
-    ? cases.filter((c) => c.windowsPowerShellGuidance || c.windowsDrivePathQuoteField).map((c) => c.id)
+    ? cases.filter((c) => c.windowsPowerShellGuidance || c.windowsDrivePathQuoteField || c.windowsQuotedIgnoreValue).map((c) => c.id)
     : [];
   if (windowsExpectationCases.length) {
     throw new Error(
@@ -487,6 +547,7 @@ export function runCase(c, { impl = 'js', bin = process.env.IMPECCINO_BIN } = {}
     const ctx = { ws };
     const N = (text, { pathOutput = false } = {}) => applyCaseNormalizers(normalize(text, {
       ...ctx,
+      binaryPath: bin,
       windowsPowerShellGuidance: c.windowsPowerShellGuidance,
       caseId: c.id,
       pathOutput,
