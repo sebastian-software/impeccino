@@ -295,10 +295,6 @@ pub fn homedir(env: &Env) -> String {
     std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
 }
 
-pub fn env_nonempty<'a>(env: &'a Env, key: &str) -> Option<&'a str> {
-    env.get(key).map(String::as_str).filter(|v| !v.is_empty())
-}
-
 /// hook-lib `truthy()`: /^(1|true|yes|on)$/i on the trimmed value.
 pub fn truthy_env(env: &Env, key: &str) -> bool {
     match env.get(key) {

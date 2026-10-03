@@ -7,9 +7,6 @@ publish.workspace = true
 
 [features]
 default = []
-# Use impeccino_core::registry::ANTIPATTERNS for doctor's known rule ids
-# instead of the embedded snapshot in src/rule_ids.rs.
-core-registry = []
 
 [dependencies]
 impeccino-common = { workspace = true }
@@ -19,6 +16,3 @@ serde_json = { workspace = true }
 regex = { workspace = true }
 once_cell = { workspace = true }
 sha2 = "0.10"
-flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
-tiny_http = "0.12"
-unicode-normalization = "0.1.25"

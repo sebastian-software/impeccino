@@ -2,14 +2,12 @@
 //! `checks.mjs`, plus their DOM-facing helpers. See browser/mod.rs for the
 //! full list this module owns.
 
-#![allow(unused_imports)]
-
 use super::background::{
     read_own_background_color, resolve_background_info, resolve_gradient_stops, BackgroundInfo,
 };
 use super::dom::{
     class_attr, class_attr_or_prop, closest_or_none, direct_text, has_direct_text_longer_than,
-    matches_or_false, pf0, safe_id, style_px, tag_lower, Dom, ElId, ElStyle, Rect,
+    matches_or_false, pf0, style_px, tag_lower, Dom, ElId, ElStyle, Rect,
 };
 use super::driver::{browser_colors_close, DesignSystemConfig};
 use super::BrowserFinding;

@@ -2,7 +2,7 @@
 //! computed style, the CSS-name to camelCase map, and the extra named colors.
 //!
 //! JS: css-cascade.mjs#STATIC_INHERITED_PROPS, #STATIC_DEFAULT_STYLE,
-//! #STATIC_PROP_MAP, #STATIC_NAMED_COLORS, #NAMED_COLORS, #BORDER_SHORTHAND_RE
+//! #STATIC_PROP_MAP, #STATIC_NAMED_COLORS, #BORDER_SHORTHAND_RE
 
 use impeccino_core::color::Rgba;
 use once_cell::sync::Lazy;
@@ -17,20 +17,6 @@ pub static BORDER_SHORTHAND_RE: Lazy<Regex> = Lazy::new(|| {
     ))
     .expect("BORDER_SHORTHAND_RE")
 });
-
-/// JS: css-cascade.mjs#NAMED_COLORS (the small table `normalizeColorForCheck`
-/// resolves; not the shared CSS_NAMED_COLORS).
-pub const NAMED_COLORS: &[(&str, [u32; 3])] = &[
-    ("white", [255, 255, 255]),
-    ("black", [0, 0, 0]),
-    ("gray", [128, 128, 128]),
-    ("grey", [128, 128, 128]),
-    ("silver", [192, 192, 192]),
-    ("red", [255, 0, 0]),
-    ("green", [0, 128, 0]),
-    ("blue", [0, 0, 255]),
-    ("yellow", [255, 255, 0]),
-];
 
 /// JS: css-cascade.mjs#STATIC_INHERITED_PROPS
 pub const STATIC_INHERITED_PROPS: &[&str] = &[
