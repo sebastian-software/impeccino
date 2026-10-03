@@ -107,6 +107,8 @@ fn install_test_skill(t: &Tmp, skill_rel: &str) {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(launcher, std::fs::Permissions::from_mode(0o755)).unwrap();
     }
+    #[cfg(not(unix))]
+    let _ = launcher;
     t.write(&format!("{skill_rel}/scripts/impeccino.cmd"), "@echo off\r\nexit /b 0\r\n");
 }
 
@@ -2029,7 +2031,11 @@ fn admin_on_backs_up_non_object_dedicated_manifest_before_replacing_it() {
     let (out, err, code) = admin_run(&r, &["on"]);
 
     assert_eq!(code, 0, "{err}");
-    assert!(out.contains("Backed up malformed manifest(s): .github/hooks/impeccino.json.bak"), "{out}");
+    assert!(
+        out.replace('\\', "/")
+            .contains("Backed up malformed manifest(s): .github/hooks/impeccino.json.bak"),
+        "{out}"
+    );
     assert_eq!(t.read(".github/hooks/impeccino.json.bak"), "[]");
     assert!(t.read(".github/hooks/impeccino.json").contains("impeccino"));
 }
@@ -2269,6 +2275,7 @@ fn admin_actions_from_a_nested_directory_use_the_repository_manifests() {
 #[cfg(windows)]
 #[test]
 fn admin_codex_command_windows_executes_from_nested_cwd_and_skips_missing_launcher() {
+    use std::os::windows::process::CommandExt;
     use std::process::Command;
 
     let t = Tmp::new();
@@ -2292,7 +2299,8 @@ fn admin_codex_command_windows_executes_from_nested_cwd_and_skips_missing_launch
         .unwrap();
     let marker = jsp::join(&[&t.path(), "codex-hook-ran"]);
     let status = Command::new("cmd.exe")
-        .args(["/d", "/s", "/c", command])
+        .args(["/d", "/s", "/c"])
+        .raw_arg(command)
         .current_dir(&nested_cwd)
         .env("HOOK_TEST_MARKER", &marker)
         .status()
@@ -2303,7 +2311,8 @@ fn admin_codex_command_windows_executes_from_nested_cwd_and_skips_missing_launch
     std::fs::remove_file(launcher).unwrap();
     std::fs::remove_file(&marker).unwrap();
     let status = Command::new("cmd.exe")
-        .args(["/d", "/s", "/c", command])
+        .args(["/d", "/s", "/c"])
+        .raw_arg(command)
         .current_dir(&nested_cwd)
         .env("HOOK_TEST_MARKER", &marker)
         .status()
