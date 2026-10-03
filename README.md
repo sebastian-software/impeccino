@@ -104,7 +104,7 @@ The skill includes explicit guidance on what to avoid:
 | Path | What it is |
 | --- | --- |
 | [`skill/`](skill/) | **The skill.** This is the single published skill folder. `SKILL.md` holds the setup flow, the design laws, and the command router; `reference/` has one playbook per command plus shared playbooks; `agents/` has the two shipped roles (finish reviewer and documenter) as Claude Code agent files; `scripts/` holds the launcher (`impeccino`, `impeccino.cmd`), the pinned engine version (`VERSION`), and command metadata. |
-| [`crates/`](crates/) | **The engine.** A Rust workspace that builds the `impeccino` binary behind every skill command: project context, the 61-rule detector for source files and rendered pages (`detect <url>` through agent-browser), the design hook, and `doctor`. It is one native binary with no WebAssembly build. Release binaries are published as `engine-v<version>` GitHub releases; the launcher fetches the one named in `skill/scripts/VERSION`. |
+| [`crates/`](crates/) | **The engine.** A Rust workspace that builds the `impeccino` binary behind every skill command: project context, the 61-rule detector for source files and rendered pages (through agent-browser), the design hook, and `doctor`. It is one native binary with no WebAssembly build. Release binaries are published as `engine-v<version>` GitHub releases; the launcher fetches the one named in `skill/scripts/VERSION`. |
 | [`tests/`](tests/) | Vitest suites, the oracle corpus that pins every engine verb's output (`tests/oracle/`), and opt-in LLM-backed behavior and workflow checks. |
 | [`scripts/`](scripts/) | Tooling: `check.js` (`pnpm run check`), the release script, engine fetch and release checks, and the test runner. There is no skill build. |
 | [`docs/`](docs/) | Developer documentation, the editorial style guide, harness notes, and the [Light ADRs](docs/adr/README.md). |
@@ -126,7 +126,7 @@ Impeccable compiles the skill into 19 harness-specific variants, commits those v
 | Engine pin | Root `ENGINE_VERSION`, copied by the build | `skill/scripts/VERSION` only | [0009](docs/adr/0009-engine-version-in-one-file.md) |
 | Engine binary | Fetched by the installer or the launcher | Still fetched by the launcher, for now | [0010](docs/adr/0010-launcher-fetches-the-engine.md) |
 | Browser | Live mode in the user's dev server, a local decision page, a component review page, URL scans over its own Chrome connection | No browser stack of its own: screenshots come from the agent's browser, decisions from the structured question tool | [0011](docs/adr/0011-no-own-browser-stack.md) |
-| Rendered-page rules | Run in the live overlay, the extension, or URL scans over Impeccable's own Chrome connection | `detect <url>` drives agent-browser: a read-only measurement in the page, the same rules evaluated natively, screenshot pixels for the rest | [0016](docs/adr/0016-rendered-pages-through-agent-browser.md) |
+| Rendered-page rules | Run in the live overlay, the extension, or URL scans over Impeccable's own Chrome connection | Rendered-page checks use agent-browser: a read-only measurement in the page, the same rules evaluated natively, screenshot pixels for the rest | [0016](docs/adr/0016-rendered-pages-through-agent-browser.md) |
 | Build path | Comp-first (image-generated mock, comp fidelity tooling) or code-first, chosen by `buildPath` | Code-led build only, carried by the direction contract | [0012](docs/adr/0012-no-image-comps.md) |
 | Rule engine targets | Native binary plus a WebAssembly build for the browser extension and the in-page overlay | One native binary; no WebAssembly build, no browser extension | [0013](docs/adr/0013-no-wasm-or-browser-extension.md) |
 | Releases | Changelog entry in the website repository, rendered into the release notes; Windows binaries signed with the upstream maintainer's certificate | Per-component tags (`skill-v`, `engine-v`) with notes GitHub generates from the commits; each engine asset carries a GitHub build attestation and its digest is pinned in the skill | [0014](docs/adr/0014-releases-are-tags.md) |
@@ -142,7 +142,7 @@ Unchanged: the design guidance itself, every command that does not need a browse
 
 `skill/` is the whole skill in one shared form, like an app bundle you drag into place. Impeccino has no installer of its own ([ADR 0003](docs/adr/0003-no-self-installer.md)); install it with Dalo or skills.sh.
 
-No separate engine installation is needed. The skill's launcher downloads and caches the pinned native engine on first use, verifies its pinned digest, and runs it for the agent. This first run needs network access. Rendered-page checks also need agent-browser; see [Quality checks through the skill](#quality-checks-through-the-skill). Runtime distribution and provenance are documented for contributors in [ENGINE.md](docs/ENGINE.md).
+No separate engine installation is needed. The skill's launcher downloads and caches the pinned native engine on first use, verifies its pinned digest, and runs it for the agent. If the pinned engine is not already available locally, the download needs network access and a writable cache directory. Rendered-page checks also need agent-browser; see [Quality checks through the skill](#quality-checks-through-the-skill). Runtime distribution and provenance are documented for contributors in [ENGINE.md](docs/ENGINE.md).
 
 ### Dalo (recommended)
 
@@ -238,7 +238,7 @@ The Stop pass suppresses confirmed pre-existing findings when a verified before-
 
 ## Quality checks through the skill
 
-Use `/impeccino audit <target>` to have the agent check source files and rendered pages. The skill and opt-in hooks use the internal engine's 61 deterministic detector rules. Rendered checks need [agent-browser](https://github.com/vercel-labs/agent-browser) installed (`npm install -g agent-browser && agent-browser install`); source checks do not.
+Use `/impeccino audit <target>` to have the agent review the target. For web projects, the audit checks source files and rendered pages; native iOS and Android audits use platform-specific guidance without browser scans. Web workflows and opt-in hooks use the internal engine's 61 deterministic detector rules. Rendered web checks need [agent-browser](https://github.com/vercel-labs/agent-browser) installed (`npm install -g agent-browser && agent-browser install`); source checks do not.
 
 The agent interprets findings alongside the design guidance and visual inspection. A clean detector run is evidence, not proof of visual or accessibility quality. Ask the agent to record justified waivers and inspect the experience across relevant viewports.
 

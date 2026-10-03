@@ -87,7 +87,8 @@ copy that calls one gets a clear answer
 `crates/core` re-exports the foundation modules under its own paths, so every
 consumer names one crate: `impeccino_core::js`, `impeccino_core::color`,
 `impeccino_core::checks::rules::check_colors`. The split between the two
-crates is about what a check is written against, not about who may see it.
+crates separates shared data and helpers from rule logic within the internal
+runtime.
 
 The detector ships 61 built-in rules, listed in
 `crates/foundation/src/registry.rs`; `pnpm run check` reads the count from
