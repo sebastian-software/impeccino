@@ -117,6 +117,26 @@ const gitFeature = (ws) => {
   git(ws, 'add', '.');
   git(ws, 'commit', '-qm', 'feature');
 };
+const gitNestedFeature = (ws) => {
+  write(ws, 'apps/web app/src/App.html', '<main>base</main>\n');
+  write(ws, 'apps/other/src/Other.html', '<main>other</main>\n');
+  gitInit(ws);
+  git(ws, 'checkout', '-qb', 'feature/nested');
+  write(ws, 'apps/web app/src/hero page.html', '<main>hero</main>\n');
+  write(ws, 'apps/other/src/Other.html', '<main>changed elsewhere</main>\n');
+  git(ws, 'add', '.');
+  git(ws, 'commit', '-qm', 'nested feature changes');
+};
+const gitNestedStatus = (ws) => {
+  write(ws, 'apps/web app/src/Old page.html', '<main>old</main>\n');
+  write(ws, 'apps/web app/src/deleted.html', '<main>deleted</main>\n');
+  write(ws, 'apps/other/src/Other.html', '<main>other</main>\n');
+  gitInit(ws);
+  git(ws, 'mv', 'apps/web app/src/Old page.html', 'apps/web app/src/Renamed page.html');
+  fs.rmSync(path.join(ws, 'apps/web app/src/deleted.html'));
+  write(ws, 'apps/web app/src/New page.html', '<main>new</main>\n');
+  write(ws, 'apps/other/src/Outside.html', '<main>outside</main>\n');
+};
 
 // Tiny valid rasters for embed-prompt.
 function pngChunk(type, data) {
@@ -531,6 +551,8 @@ const cases = [
   { id: 'signals-git-feature-branch', verb: 'context-signals', workspace: 'ctx-signals', setup: gitFeature, env: env() },
   { id: 'signals-git-dirty-non-ui', verb: 'context-signals', workspace: 'ctx-signals', setup: (ws) => { gitInit(ws); write(ws, 'src/util.ts', 'export const x = 2;\n'); write(ws, 'dist/bundle.css', 'a{}\n'); write(ws, 'README.md', 'x\n'); }, env: env() },
   { id: 'signals-git-dirty-renamed', verb: 'context-signals', workspace: 'ctx-signals', setup: (ws) => { gitInit(ws); git(ws, 'mv', 'src/App.tsx', 'src/Main.tsx'); }, env: env() },
+  { id: 'signals-git-feature-child-cwd', verb: 'context-signals', workspace: 'ctx-signals', setup: gitNestedFeature, cwd: 'apps/web app', env: env() },
+  { id: 'signals-git-status-child-cwd', verb: 'context-signals', workspace: 'ctx-signals', setup: gitNestedStatus, cwd: 'apps/web app', env: env() },
 
   // ======================================================================
   // concept-seed (local only: the roll assigns an index into the model's own list)

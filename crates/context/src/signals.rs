@@ -168,26 +168,54 @@ fn git_signals(cwd: &str) -> Value {
         _ => None,
     };
     let from_diff = if diff_base.is_some() {
-        run(&["diff", "--name-only", &format!("{}...HEAD", base_rev.as_deref().unwrap_or(""))])
+        git_run(&[
+            "diff",
+            "--relative",
+            "--name-only",
+            "-z",
+            &format!("{}...HEAD", base_rev.as_deref().unwrap_or("")),
+            "--",
+            ".",
+        ], cwd, false, None)
     } else {
         None
     };
-    let from_status = git_run(&["-c", "core.quotepath=false", "status", "--porcelain"], cwd, false, None);
+    let status_prefix = git_run(&["rev-parse", "--show-prefix"], cwd, false, None)
+        .map(|prefix| strip_show_prefix_line_ending(&prefix).to_string())
+        .unwrap_or_default();
+    let from_status = git_run(
+        &["status", "--porcelain=v1", "-z", "--", "."],
+        cwd,
+        false,
+        None,
+    );
     let mut changed: Vec<String> = Vec::new();
     if let Some(d) = from_diff.filter(|d| !d.is_empty()) {
-        changed = d.split('\n').filter(|s| !s.is_empty()).map(|s| s.to_string()).collect();
+        changed = d.split('\0').filter(|s| !s.is_empty()).map(|s| s.to_string()).collect();
     } else if let Some(s) = from_status.filter(|s| !s.is_empty()) {
-        for l in s.split('\n') {
-            let l = l.strip_suffix('\r').unwrap_or(l);
-            if l.is_empty() {
+        let entries: Vec<&str> = s.split('\0').collect();
+        let mut i = 0;
+        while i < entries.len() {
+            let record = entries[i];
+            i += 1;
+            if record.is_empty() {
                 continue;
             }
-            let p: String = l.chars().skip(3).collect();
-            let entry = match p.find(" -> ") {
-                Some(i) => p[i + 4..].to_string(),
-                None => p,
-            };
-            changed.push(entry);
+            let bytes = record.as_bytes();
+            if bytes.len() < 4 || bytes[2] != b' ' {
+                continue;
+            }
+            let status = &bytes[..2];
+            let path = String::from_utf8_lossy(&bytes[3..]);
+            if let Some(relative) = path.strip_prefix(&status_prefix) {
+                changed.push(relative.to_string());
+            }
+            // With porcelain -z, rename/copy records contain destination
+            // first and the original path in the next NUL-delimited field.
+            // Signals should describe the path that exists after the change.
+            if status.contains(&b'R') || status.contains(&b'C') {
+                i += 1;
+            }
         }
     }
     m.insert("isRepo".into(), Value::Bool(true));
@@ -196,6 +224,13 @@ fn git_signals(cwd: &str) -> Value {
     m.insert("changedFiles".into(), Value::Array(changed.iter().take(50).cloned().map(Value::String).collect()));
     m.insert("changedCount".into(), Value::from(changed.len()));
     Value::Object(m)
+}
+
+fn strip_show_prefix_line_ending(prefix: &str) -> &str {
+    prefix
+        .strip_suffix("\r\n")
+        .or_else(|| prefix.strip_suffix('\n'))
+        .unwrap_or(prefix)
 }
 
 const COMMON_DEV_PORTS: [u16; 7] = [4321, 3000, 5173, 5174, 8080, 8000, 4200];
@@ -306,4 +341,161 @@ pub fn run(_args: &[String], io: &mut Io) -> i32 {
     let v = gather_signals(&cwd, &env);
     io.out(&format!("{}\n", json_pretty(&v)));
     0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{git_signals, scan_targets, strip_show_prefix_line_ending};
+    use serde_json::Value;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static NEXT_TEMP: AtomicUsize = AtomicUsize::new(0);
+
+    struct TempDir(PathBuf);
+
+    impl TempDir {
+        fn new() -> Self {
+            let suffix = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "impeccino signals cwd {} {} {}",
+                std::process::id(),
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+                suffix
+            ));
+            std::fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn git(root: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .args(["-c", "user.name=Impeccino test", "-c", "user.email=test@example.invalid", "-c", "commit.gpgsign=false"])
+            .args(args)
+            .current_dir(root)
+            .output()
+            .expect("git must be installed for these tests");
+        assert!(output.status.success(), "git {:?} failed: {}", args, String::from_utf8_lossy(&output.stderr));
+    }
+
+    fn write(root: &Path, relative: &str, contents: &str) {
+        let path = root.join(relative);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, contents).unwrap();
+    }
+
+    fn changed_files(git: &Value) -> Vec<String> {
+        git["changedFiles"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect()
+    }
+
+    fn targets(scan: &Value) -> Vec<String> {
+        scan["targets"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect()
+    }
+
+    #[test]
+    fn show_prefix_strips_only_lf_or_crlf_protocol_ending() {
+        assert_eq!(strip_show_prefix_line_ending("apps/web/\n"), "apps/web/");
+        assert_eq!(strip_show_prefix_line_ending("apps/web/\r\n"), "apps/web/");
+        assert_eq!(strip_show_prefix_line_ending("apps/\r/\n"), "apps/\r/");
+        assert_eq!(strip_show_prefix_line_ending("apps/web\r"), "apps/web\r");
+        assert_eq!(strip_show_prefix_line_ending(""), "");
+    }
+
+    #[test]
+    fn feature_diff_from_nested_app_is_relative_scoped_and_space_safe() {
+        let root = TempDir::new();
+        write(root.path(), "apps/web app/src/Old page.html", "<main>old</main>\n");
+        write(root.path(), "apps/other/src/Other.html", "<main>other</main>\n");
+        git(root.path(), &["init", "--initial-branch=main", "-q"]);
+        git(root.path(), &["add", "."]);
+        git(root.path(), &["commit", "-qm", "initial"]);
+        git(root.path(), &["checkout", "-qb", "feature/ui"]);
+        write(root.path(), "apps/web app/src/Old page.html", "<main>updated</main>\n");
+        write(root.path(), "apps/web app/src/hero page.html", "<main>hero</main>\n");
+        write(root.path(), "apps/other/src/Other.html", "<main>changed elsewhere</main>\n");
+        git(root.path(), &["add", "."]);
+        git(root.path(), &["commit", "-qm", "feature changes"]);
+
+        let app = root.path().join("apps/web app").to_string_lossy().into_owned();
+        let git = git_signals(&app);
+        assert_eq!(git["base"], "main");
+        assert_eq!(
+            changed_files(&git),
+            vec!["src/Old page.html", "src/hero page.html"]
+        );
+        let scan = scan_targets(&app, &git);
+        assert_eq!(scan["via"], "git-changes");
+        assert_eq!(targets(&scan), vec!["src/Old page.html", "src/hero page.html"]);
+    }
+
+    #[test]
+    fn status_from_nested_app_parses_renames_and_spaces_and_skips_deleted_paths() {
+        let root = TempDir::new();
+        write(root.path(), "apps/web app/src/Old page.html", "<main>old</main>\n");
+        write(root.path(), "apps/web app/src/deleted.html", "<main>deleted</main>\n");
+        write(root.path(), "apps/other/src/Other.html", "<main>other</main>\n");
+        git(root.path(), &["init", "--initial-branch=main", "-q"]);
+        git(root.path(), &["add", "."]);
+        git(root.path(), &["commit", "-qm", "initial"]);
+        git(root.path(), &["mv", "apps/web app/src/Old page.html", "apps/web app/src/Renamed page.html"]);
+        std::fs::remove_file(root.path().join("apps/web app/src/deleted.html")).unwrap();
+        write(root.path(), "apps/web app/src/New page.html", "<main>new</main>\n");
+        write(root.path(), "apps/other/src/Outside.html", "<main>outside</main>\n");
+
+        let app = root.path().join("apps/web app").to_string_lossy().into_owned();
+        let git = git_signals(&app);
+        assert_eq!(git["base"], Value::Null);
+        assert_eq!(
+            changed_files(&git),
+            vec!["src/Renamed page.html", "src/deleted.html", "src/New page.html"]
+        );
+        let scan = scan_targets(&app, &git);
+        assert_eq!(scan["via"], "git-changes");
+        assert_eq!(targets(&scan), vec!["src/Renamed page.html", "src/New page.html"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn status_from_nested_app_keeps_newline_filename_as_one_path() {
+        let root = TempDir::new();
+        write(root.path(), "apps/web app/src/App.html", "<main>app</main>\n");
+        git(root.path(), &["init", "--initial-branch=main", "-q"]);
+        git(root.path(), &["add", "."]);
+        git(root.path(), &["commit", "-qm", "initial"]);
+        write(root.path(), "apps/web app/src/New\npage.html", "<main>new</main>\n");
+
+        let app = root.path().join("apps/web app").to_string_lossy().into_owned();
+        let git = git_signals(&app);
+        assert_eq!(changed_files(&git), vec!["src/New\npage.html"]);
+        let scan = scan_targets(&app, &git);
+        assert_eq!(scan["via"], "git-changes");
+        assert_eq!(targets(&scan), vec!["src/New\npage.html"]);
+    }
+
+    #[test]
+    fn untracked_source_directory_keeps_source_dir_fallback() {
+        let root = TempDir::new();
+        write(root.path(), "apps/web app/src/App.html", "<main>app</main>\n");
+        git(root.path(), &["init", "--initial-branch=main", "-q"]);
+        git(root.path(), &["add", "."]);
+        git(root.path(), &["commit", "-qm", "initial"]);
+        write(root.path(), "apps/web app/src/new-components/Button.html", "<button>new</button>\n");
+
+        let app = root.path().join("apps/web app").to_string_lossy().into_owned();
+        let git = git_signals(&app);
+        let scan = scan_targets(&app, &git);
+        assert_eq!(scan["via"], "source-dir");
+        assert_eq!(targets(&scan), vec!["src"]);
+    }
 }

@@ -1,7 +1,7 @@
 {
-  "stdout": "No harness directories with impeccino installed found.\n",
-  "stderr": "",
-  "exit": 0,
+  "stdout": "",
+  "stderr": "No project harness directories with Impeccino installed were found; install the skill in a project harness before pinning a command.\n",
+  "exit": 1,
   "signal": null,
   "files": {}
 }
