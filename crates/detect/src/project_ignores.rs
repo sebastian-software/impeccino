@@ -25,7 +25,9 @@ use crate::jsp;
 #[derive(Default)]
 struct DirRules {
     ignore: Option<Gitignore>,
+    exclude: Option<Gitignore>,
     generated: Option<Gitignore>,
+    vendored: Option<Gitignore>,
 }
 
 /// A memo of per-directory git rules for one scan or one hook run.
@@ -53,11 +55,61 @@ fn read_lines(path: &str) -> Vec<String> {
     }
 }
 
-/// `.gitattributes` lines that set or unset `linguist-generated` /
-/// `linguist-vendored`, rewritten as gitignore lines (unset becomes `!`), so
-/// one matcher answers "is this path marked generated or vendored".
-fn attribute_lines(path: &str) -> Vec<String> {
-    let mut out = Vec::new();
+/// The git directory for a repository root. Linked worktrees and submodules
+/// have a `.git` file that points at the actual git directory.
+fn git_dir(root: &str) -> Option<String> {
+    let dot_git = jsp::join(&[root, ".git"]);
+    let metadata = std::fs::metadata(&dot_git).ok()?;
+    if metadata.is_dir() {
+        return Some(dot_git);
+    }
+    if !metadata.is_file() {
+        return None;
+    }
+    let contents = std::fs::read_to_string(dot_git).ok()?;
+    let line = contents.lines().next()?.trim();
+    let (key, value) = line.split_once(':')?;
+    if !key.trim().eq_ignore_ascii_case("gitdir") {
+        return None;
+    }
+    let target = value.trim();
+    if target.is_empty() {
+        return None;
+    }
+    Some(if jsp::is_absolute(target) {
+        target.to_string()
+    } else {
+        jsp::resolve(root, &[target])
+    })
+}
+
+/// Linked-worktree git directories carry a `commondir` pointer; `info/exclude`
+/// is in the common directory, as returned by `git rev-parse --git-path`.
+fn common_git_dir(git_dir: &str) -> String {
+    let Some(contents) = std::fs::read_to_string(jsp::join(&[git_dir, "commondir"])).ok() else {
+        return git_dir.to_string();
+    };
+    let target = contents.trim();
+    if target.is_empty() {
+        git_dir.to_string()
+    } else if jsp::is_absolute(target) {
+        target.to_string()
+    } else {
+        jsp::resolve(git_dir, &[target])
+    }
+}
+
+fn info_exclude_path(root: &str) -> Option<String> {
+    let dir = common_git_dir(&git_dir(root)?);
+    Some(jsp::join(&[&dir, "info", "exclude"]))
+}
+
+/// Separate matchers preserve the independent Git attributes: unsetting one
+/// does not unset the other. Unset is represented by a whitelist entry so a
+/// more local attribute file can override an inherited value.
+fn attribute_lines(path: &str) -> (Vec<String>, Vec<String>) {
+    let mut generated = Vec::new();
+    let mut vendored = Vec::new();
     for line in read_lines(path) {
         let t = line.trim();
         if t.is_empty() || t.starts_with('#') {
@@ -70,7 +122,8 @@ fn attribute_lines(path: &str) -> Vec<String> {
             // patterns are rare enough to leave out.
             continue;
         }
-        let mut state: Option<bool> = None;
+        let mut generated_state: Option<bool> = None;
+        let mut vendored_state: Option<bool> = None;
         for attr in parts {
             let (name, set) = if let Some(n) = attr.strip_prefix('-') {
                 (n, false)
@@ -81,19 +134,21 @@ fn attribute_lines(path: &str) -> Vec<String> {
             } else {
                 (attr, true)
             };
-            if name == "linguist-generated" || name == "linguist-vendored" {
-                // Either attribute set marks the path; an explicit unset of
-                // one only clears what this line itself set.
-                state = Some(state.unwrap_or(false) || set);
+            if name == "linguist-generated" {
+                generated_state = Some(set);
+            } else if name == "linguist-vendored" {
+                vendored_state = Some(set);
             }
         }
-        match state {
-            Some(true) => out.push(pattern.to_string()),
-            Some(false) => out.push(format!("!{pattern}")),
-            None => {}
+        for (state, lines) in [(generated_state, &mut generated), (vendored_state, &mut vendored)] {
+            match state {
+                Some(true) => lines.push(pattern.to_string()),
+                Some(false) => lines.push(format!("!{pattern}")),
+                None => {}
+            }
         }
     }
-    out
+    (generated, vendored)
 }
 
 impl ProjectIgnores {
@@ -105,13 +160,18 @@ impl ProjectIgnores {
         if let Some(r) = self.dirs.borrow().get(dir) {
             return r.clone();
         }
-        let mut ignore_lines = read_lines(&jsp::join(&[dir, ".gitignore"]));
-        if is_root {
-            ignore_lines.extend(read_lines(&jsp::join(&[dir, ".git", "info", "exclude"])));
-        }
+        let ignore_lines = read_lines(&jsp::join(&[dir, ".gitignore"]));
+        let exclude_lines = if is_root {
+            info_exclude_path(dir).map(|p| read_lines(&p)).unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let (generated_lines, vendored_lines) = attribute_lines(&jsp::join(&[dir, ".gitattributes"]));
         let rules = Rc::new(DirRules {
             ignore: build(dir, &ignore_lines),
-            generated: build(dir, &attribute_lines(&jsp::join(&[dir, ".gitattributes"]))),
+            exclude: build(dir, &exclude_lines),
+            generated: build(dir, &generated_lines),
+            vendored: build(dir, &vendored_lines),
         });
         self.dirs.borrow_mut().insert(dir.to_string(), rules.clone());
         rules
@@ -170,7 +230,9 @@ impl ProjectIgnores {
             return false;
         }
         let mut ignored: Option<bool> = None;
+        let mut info_excluded: Option<bool> = None;
         let mut generated: Option<bool> = None;
+        let mut vendored: Option<bool> = None;
         for (dir, is_root) in &chain {
             let rules = self.rules(dir, *is_root);
             if ignored.is_none() {
@@ -184,18 +246,39 @@ impl ProjectIgnores {
             }
             if !is_dir && generated.is_none() {
                 if let Some(g) = &rules.generated {
-                    match g.matched_path_or_any_parents(path, false) {
+                    match g.matched(path, false) {
                         Match::Ignore(_) => generated = Some(true),
                         Match::Whitelist(_) => generated = Some(false),
                         Match::None => {}
                     }
                 }
             }
-            if ignored.is_some() && (is_dir || generated.is_some()) {
+            if !is_dir && vendored.is_none() {
+                if let Some(g) = &rules.vendored {
+                    match g.matched(path, false) {
+                        Match::Ignore(_) => vendored = Some(true),
+                        Match::Whitelist(_) => vendored = Some(false),
+                        Match::None => {}
+                    }
+                }
+            }
+            if *is_root {
+                if let Some(g) = &rules.exclude {
+                    match g.matched_path_or_any_parents(path, is_dir) {
+                        Match::Ignore(_) => info_excluded = Some(true),
+                        Match::Whitelist(_) => info_excluded = Some(false),
+                        Match::None => {}
+                    }
+                }
+            }
+            if ignored.is_some()
+                && (is_dir || (generated.is_some() && vendored.is_some()))
+                && (*is_root || info_excluded.is_none())
+            {
                 break;
             }
         }
-        ignored == Some(true) || generated == Some(true)
+        ignored.or(info_excluded) == Some(true) || generated == Some(true) || vendored == Some(true)
     }
 }
 
@@ -252,6 +335,47 @@ mod tests {
         assert!(!p.is_skipped(&t.path("src/vendor/own.css"), false));
         assert!(p.is_skipped(&t.path("src/api.css"), false));
         assert!(!p.is_skipped(&t.path("src/app.css"), false));
+    }
+
+    #[test]
+    fn gitattributes_unsetting_one_attribute_does_not_unset_the_other() {
+        let t = Tmp::new("independent-attributes");
+        std::fs::create_dir_all(t.path(".git/info")).unwrap();
+        t.write(
+            ".gitattributes",
+            "*.css linguist-generated\nsrc/** -linguist-vendored\n",
+        );
+        let p = ProjectIgnores::new();
+        assert!(p.is_skipped(&t.path("src/app.css"), false));
+    }
+
+    #[test]
+    fn gitattributes_directory_pattern_does_not_match_descendants() {
+        let t = Tmp::new("attribute-directory");
+        std::fs::create_dir_all(t.path(".git/info")).unwrap();
+        t.write(".gitattributes", "src/ linguist-generated\n");
+        let p = ProjectIgnores::new();
+        assert!(!p.is_skipped(&t.path("src/app.css"), false));
+    }
+
+    #[test]
+    fn gitignore_has_higher_precedence_than_info_exclude() {
+        let t = Tmp::new("exclude-precedence");
+        std::fs::create_dir_all(t.path(".git/info")).unwrap();
+        t.write(".gitignore", "*.css\n!keep.css\n");
+        t.write(".git/info/exclude", "keep.css\n");
+        let p = ProjectIgnores::new();
+        assert!(!p.is_skipped(&t.path("keep.css"), false));
+    }
+
+    #[test]
+    fn linked_worktree_uses_the_common_git_info_exclude() {
+        let t = Tmp::new("worktree-exclude");
+        t.write(".git", "gitdir: gitdir/worktrees/current\n");
+        t.write("gitdir/worktrees/current/commondir", "../..\n");
+        t.write("gitdir/info/exclude", "scratch.css\n");
+        let p = ProjectIgnores::new();
+        assert!(p.is_skipped(&t.path("scratch.css"), false));
     }
 
     #[test]

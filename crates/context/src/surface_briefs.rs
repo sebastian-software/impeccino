@@ -146,24 +146,15 @@ fn parse_marker(line: &str) -> Option<(String, Vec<String>)> {
     Some((target, related))
 }
 
-fn is_fence(line: &str) -> bool {
-    let t = line.trim_start();
-    t.starts_with("```") || t.starts_with("~~~")
-}
-
 /// Parse SURFACES.md text. Line endings are normalized to `\n`.
 pub fn parse_surfaces(text: &str) -> SurfacesDoc {
     let text = text.replace("\r\n", "\n");
     let lines: Vec<&str> = text.split('\n').collect();
+    let outside_fence = impeccino_core::inline_ignores::markdown_fenced_code_line_mask(&text);
     // (start line, marker line, target, related)
     let mut starts: Vec<(usize, usize, String, Vec<String>)> = Vec::new();
-    let mut in_fence = false;
     for (i, line) in lines.iter().enumerate() {
-        if is_fence(line) {
-            in_fence = !in_fence;
-            continue;
-        }
-        if in_fence {
+        if !outside_fence[i] {
             continue;
         }
         let Some((target, related)) = parse_marker(line) else { continue };
@@ -342,6 +333,15 @@ mod tests {
         assert_eq!(doc.sections[1].related, vec!["route:/c".to_string()]);
         assert_eq!(doc.sections[1].body, "C body.");
         assert_eq!(render_surfaces(&doc), text);
+    }
+
+    #[test]
+    fn markers_inside_shorter_fences_remain_body_text() {
+        let text = "## a.html\n<!-- impeccino:surface {\"target\":\"a.html\"} -->\n\n````md\n```html\n## fake.html\n<!-- impeccino:surface {\"target\":\"fake.html\"} -->\n```\n````\n";
+        let doc = parse_surfaces(text);
+        assert_eq!(doc.sections.len(), 1);
+        assert_eq!(doc.sections[0].target, "a.html");
+        assert!(doc.sections[0].body.contains("fake.html"));
     }
 
     #[test]
