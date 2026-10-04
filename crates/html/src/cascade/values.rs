@@ -2,11 +2,11 @@
 //!
 //! JS: css-cascade.mjs#splitCssList, #splitCssTokens, #cssPropToCamel,
 //! #staticColorToCss, #parseStaticColor, #extractStaticColor,
-//! #normalizeStaticCssValue, #normalizeColorForCheck, #unwrapCssAtLayer
+//! #normalizeStaticCssValue, #unwrapCssAtLayer
 
 use super::checks_shim::{resolve_length_px, resolve_var_refs, CustomProps};
 use super::defaults::{
-    static_default_style, static_named_color, static_prop_map, NAMED_COLORS, STATIC_NAMED_COLORS,
+    static_default_style, static_named_color, static_prop_map, STATIC_NAMED_COLORS,
 };
 use impeccino_core::color::{parse_any_color, Rgba, CSS_NAMED_COLORS};
 use impeccino_core::js;
@@ -325,38 +325,6 @@ pub fn normalize_static_css_value(
         }
     }
     resolved
-}
-
-// ─── normalizeColorForCheck ─────────────────────────────────────────────────
-
-static HEX6_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?i)^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$").expect("HEX6_RE"));
-static HEX3_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?i)^#([0-9a-f])([0-9a-f])([0-9a-f])$").expect("HEX3_RE"));
-
-/// JS: css-cascade.mjs#normalizeColorForCheck(value)
-/// isNeutralColor only understands rgba()/oklch()/lch()/lab()/hsl()/hwb().
-/// CSS variables typically hold hex or named colors, so normalize those to
-/// rgb() before handing the value off to the shared check. Anything we don't
-/// recognise is passed through unchanged (trimmed).
-pub fn normalize_color_for_check(value: &str) -> String {
-    if value.is_empty() {
-        return value.to_string();
-    }
-    let v = js::trim(value);
-    if let Some(m) = HEX6_RE.captures(v) {
-        let p = |i: usize| u32::from_str_radix(&m[i], 16).unwrap_or(0);
-        return format!("rgb({}, {}, {})", p(1), p(2), p(3));
-    }
-    if let Some(m) = HEX3_RE.captures(v) {
-        let p = |i: usize| u32::from_str_radix(&format!("{}{}", &m[i], &m[i]), 16).unwrap_or(0);
-        return format!("rgb({}, {}, {})", p(1), p(2), p(3));
-    }
-    let lower = js::to_lower_case(v);
-    if let Some((_, rgb)) = NAMED_COLORS.iter().find(|(n, _)| *n == lower) {
-        return format!("rgb({}, {}, {})", rgb[0], rgb[1], rgb[2]);
-    }
-    v.to_string()
 }
 
 // ─── unwrapCssAtLayer ───────────────────────────────────────────────────────

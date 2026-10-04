@@ -5,7 +5,6 @@
 //! `textDescendantsFlushSides`, `isVisuallyHidden`, `isNonRenderedText`,
 //! `checkPageQualityFromDoc`, `checkPageQualityDOM`.
 
-#![allow(unused_imports)]
 use super::dom::{
     closest_or_none, direct_text, has_direct_text_longer_than, matches_or_false, pf0, safe_id,
     style_px, tag_lower, Dom, ElId, Rect,

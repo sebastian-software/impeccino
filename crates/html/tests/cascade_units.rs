@@ -5,45 +5,9 @@ use impeccino_html::cascade::checks_shim::{resolve_length_px, resolve_var_refs, 
 use impeccino_html::cascade::rules::{
     apply_static_declaration, parse_static_style_attribute, DeclMeta, SpecifiedStore,
 };
-use impeccino_html::cascade::values::{normalize_color_for_check, unwrap_css_at_layer};
+use impeccino_html::cascade::values::unwrap_css_at_layer;
 use impeccino_html::{detect_html_source, DetectHtmlOptions};
 use std::path::Path;
-
-#[test]
-fn normalize_color_for_check_matches_node() {
-    let cases: &[(&str, &str)] = &[
-        ("#ffffff", "rgb(255, 255, 255)"),
-        ("#FfF", "rgb(255, 255, 255)"),
-        ("#abc", "rgb(170, 187, 204)"),
-        ("  #ABCDEF  ", "rgb(171, 205, 239)"),
-        ("white", "rgb(255, 255, 255)"),
-        ("Black", "rgb(0, 0, 0)"),
-        ("GRAY", "rgb(128, 128, 128)"),
-        ("grey", "rgb(128, 128, 128)"),
-        ("silver", "rgb(192, 192, 192)"),
-        ("red", "rgb(255, 0, 0)"),
-        ("green", "rgb(0, 128, 0)"),
-        ("blue", "rgb(0, 0, 255)"),
-        ("yellow", "rgb(255, 255, 0)"),
-        ("purple", "purple"),
-        ("rgb(1, 2, 3)", "rgb(1, 2, 3)"),
-        ("oklch(50% 0.1 20)", "oklch(50% 0.1 20)"),
-        ("#abcd", "#abcd"),
-        ("#12345", "#12345"),
-        ("", ""),
-        ("   ", ""),
-        ("var(--x)", "var(--x)"),
-        ("transparent", "transparent"),
-    ];
-    for (input, expected) in cases {
-        assert_eq!(
-            normalize_color_for_check(input),
-            *expected,
-            "input {:?}",
-            input
-        );
-    }
-}
 
 fn meta(important: bool, specificity: [u32; 3], order: i64, inline: bool) -> DeclMeta {
     DeclMeta {

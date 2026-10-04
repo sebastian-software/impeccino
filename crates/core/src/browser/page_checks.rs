@@ -5,7 +5,6 @@
 //! `isPaintedForOcclusion`, `checkTextOcclusionDOM`,
 //! `checkFirstViewportColumnOverflowDOM`.
 
-#![allow(unused_imports)]
 use super::dom::{
     ancestors_inclusive, class_attr, closest_or_none, direct_text, has_direct_text_longer_than, pf0,
     style_px, tag_lower, Dom, ElId, ElStyle, Rect,
@@ -14,7 +13,7 @@ use super::element_checks::{class_selector, effective_opacity_dom, is_rendered_f
 use super::{BrowserFinding, ElFinding};
 use crate::checks::measures::{
     cream_from_class_list, css_color_is_transparent, is_cream_color, is_opaque_decorated_box,
-    is_screen_reader_only_text_style, SrOnlyMetrics, StyleMap,
+    is_screen_reader_only_text_style, SrOnlyMetrics,
 };
 use crate::checks::rules::{
     check_flat_type_hierarchy_samples, is_card_like_from_props, type_hierarchy_role, RuleHit,
@@ -22,7 +21,7 @@ use crate::checks::rules::{
 };
 use crate::color::parse_any_color;
 use crate::constants::{is_brand_font_on_own_domain, CSS_GENERIC_FONTS, OVERUSED_FONTS, SAFE_TAGS};
-use crate::js::{self, math_max, math_min, math_round, number_to_string, parse_float, to_fixed};
+use crate::js::{self, math_max, math_min, math_round, number_to_string, parse_float};
 use crate::js_ext_a::num_truthy;
 use crate::js_ext_b::{slice_utf16_prefix, utf16_len};
 use once_cell::sync::Lazy;

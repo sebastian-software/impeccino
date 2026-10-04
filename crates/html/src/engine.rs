@@ -91,14 +91,28 @@ pub struct DetectHtmlOptions<'a> {
 }
 
 /// Errors of the static engine.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum HtmlEngineError {
-    #[error("cannot read {path}: {source}")]
     Read {
         path: String,
-        #[source]
         source: std::io::Error,
     },
+}
+
+impl std::fmt::Display for HtmlEngineError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Read { path, source } => write!(f, "cannot read {path}: {source}"),
+        }
+    }
+}
+
+impl std::error::Error for HtmlEngineError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Read { source, .. } => Some(source),
+        }
+    }
 }
 
 /// The per-element rules of `STATIC_ELEMENT_RULES`, in table order.

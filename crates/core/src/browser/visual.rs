@@ -4,20 +4,15 @@
 //! and calls into these through the `vc_*` wasm exports; every threshold,
 //! result string, and computation of that subsystem lives here.
 
-#![allow(unused_imports)]
-
-use super::dom::{
-    closest_or_none, direct_text, pf0, safe_id, style_px, tag_lower, Dom, ElId, Rect,
-};
+use super::dom::{closest_or_none, direct_text, pf0, tag_lower, Dom, ElId, Rect};
 use super::element_checks::parse_rgb_or_any;
-use crate::color::{contrast_ratio, parse_gradient_colors, parse_rgb, Rgba};
+use crate::color::{contrast_ratio, parse_gradient_colors, Rgba};
 use crate::constants::{SAFE_TAGS, WCAG_LARGE_BOLD_TEXT_PX, WCAG_LARGE_TEXT_PX};
 use crate::js::{self, math_max, math_min, math_round, number_to_string, parse_float, parse_int, to_fixed, WS};
 use crate::js_ext_a::{num_truthy, split_ws};
-use crate::js_ext_b::{slice_utf16_prefix, utf16_len};
+use crate::js_ext_b::slice_utf16_prefix;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
 /// The plans and rects this subsystem passes around are shared; re-exported
