@@ -85,11 +85,6 @@ pub fn safe_read_json(p: &str) -> Option<Value> {
     serde_json::from_str(&text).ok()
 }
 
-/// `JSON.stringify(v)`.
-pub fn json_compact(v: &Value) -> String {
-    serde_json::to_string(v).unwrap_or_default()
-}
-
 /// `JSON.stringify(v, null, 2)`.
 pub fn json_pretty(v: &Value) -> String {
     serde_json::to_string_pretty(v).unwrap_or_default()

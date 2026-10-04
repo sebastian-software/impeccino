@@ -278,6 +278,11 @@ const cases = [
     steps: [{}, {}],
   },
   {
+    id: 'context-staleness-cache-malformed', verb: 'context', workspace: 'ctx-legacy',
+    setup: (ws) => { legacySetup(ws); write(ws, '.oracle-cache/notice.json', '{"projects":'); },
+    env: env({ IMPECCINO_STALENESS_CACHE: `${WS}/.oracle-cache/notice.json` }), files: [...IMPECCINO_FILES, '.oracle-cache/**'],
+  },
+  {
     id: 'context-dir-override', verb: 'context', workspace: 'ctx-empty',
     setup: (ws) => { write(ws, 'elsewhere/PRODUCT.md', '# Elsewhere\n\n<!-- impeccino:product-schema 1 -->\n\n## Platform\n\nweb\n\n## Positioning\nFound through IMPECCINO_CONTEXT_DIR.\n'); write(ws, 'elsewhere/DESIGN.md', '# Design: Elsewhere\n\n## Colors\n- **Ink** (#111): Text.\n'); },
     env: env({ IMPECCINO_CONTEXT_DIR: `${WS}/elsewhere` }), files: IMPECCINO_FILES,

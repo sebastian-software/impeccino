@@ -300,11 +300,6 @@ pub fn unique_roots(a: &str, b: Option<&str>) -> Vec<String> {
     roots
 }
 
-/// `JSON.stringify(v)` for a single value (undefined -> "undefined" never occurs here since key present).
-pub fn js_json_stringify(v: &Value) -> String {
-    serde_json::to_string(v).unwrap_or_else(|_| "null".into())
-}
-
 /// JS: checkSurfaceBriefs
 pub fn check_surface_briefs(candidates: &[BriefSummary], project_root: &str) -> Vec<Finding> {
     if project_root.is_empty() {

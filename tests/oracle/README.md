@@ -34,8 +34,6 @@ limited to values that vary by machine or run:
 
 - `IMAGE_TOOLS: <IMAGE_TOOLS_PROBE>`: the context command reports which image
   converters are installed on the recording host.
-- `"devServer": <DEV_SERVER_PROBE>`: context-signals currently reports the
-  result of localhost port probes; listening ports are machine state.
 - `"<finding-id>": <EPOCH>`: the staleness cache stores epoch values by
   finding id.
 - `projects/<PROJECT>/`: hook state uses a per-project cache directory based

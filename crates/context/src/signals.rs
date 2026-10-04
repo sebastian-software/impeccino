@@ -233,31 +233,6 @@ fn strip_show_prefix_line_ending(prefix: &str) -> &str {
         .unwrap_or(prefix)
 }
 
-const COMMON_DEV_PORTS: [u16; 7] = [4321, 3000, 5173, 5174, 8080, 8000, 4200];
-
-fn dev_server_signals() -> Value {
-    let handles: Vec<_> = COMMON_DEV_PORTS
-        .iter()
-        .map(|&p| {
-            std::thread::spawn(move || {
-                let addr = std::net::SocketAddr::from(([127, 0, 0, 1], p));
-                std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(250)).is_ok()
-            })
-        })
-        .collect();
-    let mut open: Vec<u16> = Vec::new();
-    for (i, h) in handles.into_iter().enumerate() {
-        if h.join().unwrap_or(false) {
-            open.push(COMMON_DEV_PORTS[i]);
-        }
-    }
-    open.sort();
-    let mut m = Map::new();
-    m.insert("running".into(), Value::Bool(!open.is_empty()));
-    m.insert("ports".into(), Value::Array(open.into_iter().map(|p| Value::from(p)).collect()));
-    Value::Object(m)
-}
-
 const SCANNABLE_EXT: [&str; 11] = [".html", ".htm", ".css", ".scss", ".jsx", ".tsx", ".js", ".ts", ".vue", ".svelte", ".astro"];
 const SOURCE_DIRS: [&str; 5] = ["src", "app", "components", "pages", "public"];
 
@@ -325,12 +300,10 @@ pub fn gather_signals(cwd: &str, env: &Env) -> Value {
     setup.insert("designPath".into(), opt_string(&ctx.design_path));
     setup.insert("hasCode".into(), Value::Bool(has_code(cwd)));
     setup.insert("platform".into(), opt_string(&extract_platform(ctx.product.as_deref())));
-    let dev = dev_server_signals();
     let scan = scan_targets(cwd, &git);
     let mut m = Map::new();
     m.insert("setup".into(), Value::Object(setup));
     m.insert("git".into(), git);
-    m.insert("devServer".into(), dev);
     m.insert("scan".into(), scan);
     Value::Object(m)
 }
