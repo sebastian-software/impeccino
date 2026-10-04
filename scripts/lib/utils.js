@@ -1,49 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-// Per-project artifacts live inside `scripts/` of an installed skill but
-// belong to the consuming project, not the distributable skill. The build
-// excludes them from dist, and the harness-sync step preserves them across
-// the rm+recopy so local state isn't destroyed on every rebuild.
-// - config.json: the inject target list of the retired live mode
-//   (docs/adr/0011), still excluded so an old installed copy keeps it.
-export const PER_PROJECT_SCRIPT_ARTIFACTS = new Set(['config.json']);
-
-// Platform binaries under `scripts/bin/<os>-<arch>/` are fetched per machine
-// (scripts/fetch-engine.mjs) and never part of the source skill read: the
-// release build stages them into provider output separately, and the launcher
-// downloads them on first run when they are absent.
-export const SKILL_BINARY_DIR = 'bin';
-
-// Walk the harness-dir skill tree and return any per-project script
-// artifacts found, ready for restoration after a full sync rm+recopy.
-// Returns [{ relPath, content: Buffer }], where relPath is relative to
-// the passed-in rootDir (typically `<configDir>/skills`).
-export function stashPerProjectArtifacts(rootDir) {
-  if (!fs.existsSync(rootDir)) return [];
-  const out = [];
-  const walk = (dir) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, entry.name);
-      if (entry.isDirectory()) { walk(p); continue; }
-      // Only preserve files inside a skill's scripts/ directory.
-      if (path.basename(path.dirname(p)) !== 'scripts') continue;
-      if (PER_PROJECT_SCRIPT_ARTIFACTS.has(entry.name)) {
-        out.push({ relPath: path.relative(rootDir, p), content: fs.readFileSync(p) });
-      }
-    }
-  };
-  walk(rootDir);
-  return out;
-}
-
-export function restorePerProjectArtifacts(rootDir, stashed) {
-  for (const { relPath, content } of stashed) {
-    const target = path.join(rootDir, relPath);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, content);
-  }
-}
+// The launcher fetches platform binaries into `scripts/bin/<os>-<arch>/`;
+// they are a per-machine cache, not part of the source skill scripts.
+const SKILL_BINARY_DIR = 'bin';
 
 function readSkillScripts(scriptsDir) {
   const scripts = [];
@@ -60,11 +20,9 @@ function readSkillScripts(scriptsDir) {
         continue;
       }
       if (!entry.isFile()) continue;
-      if (PER_PROJECT_SCRIPT_ARTIFACTS.has(entry.name)) continue;
 
       const relPath = path.relative(scriptsDir, entryPath).split(path.sep).join('/');
-      // `mode` travels with the entry so the launcher keeps its executable
-      // bit in every provider copy (see writeScriptFile in the transformer).
+      // Capture executable bits so tests can verify the launcher stays executable.
       scripts.push({
         name: relPath,
         content: fs.readFileSync(entryPath, 'utf-8'),
@@ -239,9 +197,6 @@ export function readSourceFiles(rootDir) {
     }
   }
 
-  // PER_PROJECT_SCRIPT_ARTIFACTS (defined at module top) are excluded from
-  // the distributable skill so the build never bundles one project's state
-  // into another's.
   const scripts = [];
   const scriptsDir = path.join(skillDir, 'scripts');
   if (fs.existsSync(scriptsDir)) {
@@ -286,222 +241,4 @@ export function readSourceFiles(rootDir) {
   });
 
   return { skills };
-}
-
-/**
- * Ensure directory exists, create if needed
- */
-export function ensureDir(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-}
-
-/**
- * Clean directory (remove all contents)
- */
-export function cleanDir(dirPath) {
-  if (fs.existsSync(dirPath)) {
-    fs.rmSync(dirPath, { recursive: true, force: true });
-  }
-}
-
-/**
- * Write file with automatic directory creation
- */
-export function writeFile(filePath, content) {
-  const dir = path.dirname(filePath);
-  ensureDir(dir);
-  fs.writeFileSync(filePath, content, 'utf-8');
-}
-
-// Curated short-list for the homepage Antidote section. This intentionally
-// stays independent of SKILL.md extraction so the copy remains tight and
-// editorial.
-const CURATED_CATEGORIES = [
-  {
-    name: 'Typography',
-    do: [
-      'Pair a distinctive display face with a restrained body face; vary across projects.',
-      'Use a ≥1.25 scale ratio between hierarchy steps. Flat scales read as bland.',
-      'Cap body line length at 65–75ch. Wider is fatiguing.',
-    ],
-    dont: [
-      'Inter, Roboto, Plex, Fraunces, or any other reflex default. Look further.',
-      'Monospace as lazy shorthand for "technical."',
-      'Long passages in uppercase. Reserve all-caps for short labels.',
-    ],
-  },
-  {
-    name: 'Color & Contrast',
-    do: [
-      'Use OKLCH. Reduce chroma near lightness extremes.',
-      'Tint neutrals toward the brand hue. Chroma 0.005–0.01 is enough.',
-      'Pick a color strategy before picking colors (Restrained, Committed, Full, Drenched).',
-    ],
-    dont: [
-      'Pure #000 or #fff. Always tint.',
-      'Dark mode + purple-to-cyan gradients. The AI tell.',
-      'Gradient text via background-clip. Use weight or size for emphasis.',
-    ],
-  },
-  {
-    name: 'Layout & Space',
-    do: [
-      'Vary spacing for rhythm. Tight groupings, generous separations.',
-      'Use the simplest tool: Flexbox for 1D, Grid for 2D, plain flow often enough.',
-      'Let whitespace carry hierarchy before reaching for color or scale.',
-    ],
-    dont: [
-      'Wrap everything in cards. Nested cards are always wrong.',
-      'Identical card grids of icon + heading + text, repeated endlessly.',
-      'The hero-metric template: big number, small label, supporting stats, gradient accent.',
-    ],
-  },
-  {
-    name: 'Visual Details',
-    do: [
-      'Commit to an aesthetic direction and execute it with precision.',
-      'Use ornament only where it earns its place.',
-    ],
-    dont: [
-      'Side-stripe borders (border-left/-right > 1px). The dashboard tell.',
-      'Glassmorphism everywhere. Rare and purposeful or nothing.',
-      'Rounded rectangles with generic drop shadows. "Could be any AI output."',
-    ],
-  },
-  {
-    name: 'Motion',
-    do: [
-      'Use transform and opacity. Animate the composited properties only.',
-      'Ease out with exponential curves (quart / quint / expo).',
-      'Respect prefers-reduced-motion on every transition.',
-    ],
-    dont: [
-      'Animate layout (width, height, padding, margin).',
-      'Bounce or elastic easing. Feels dated and tacky.',
-      'Decorative motion for its own sake. Motion should signal state.',
-    ],
-  },
-  {
-    name: 'Interaction',
-    do: [
-      'Use optimistic UI: update immediately, sync later.',
-      'Design empty states that teach the interface, not just say "nothing here."',
-      'Progressive disclosure: start simple, reveal sophistication on demand.',
-    ],
-    dont: [
-      'Make every button primary. Hierarchy matters.',
-      'Default to a modal. Exhaust inline alternatives first.',
-      'Repeat information the user can already see.',
-    ],
-  },
-];
-
-export function readPatterns(_rootDir, _relativePath) {
-  return {
-    patterns: CURATED_CATEGORIES.map((c) => ({ name: c.name, items: c.do })),
-    antipatterns: CURATED_CATEGORIES.map((c) => ({ name: c.name, items: c.dont })),
-  };
-}
-
-/**
- * Decide whether a YAML scalar string value must be quoted to survive parsing.
- *
- * Plain (unquoted) YAML scalars cannot contain `: ` or ` #`, cannot start with
- * a YAML indicator character, cannot look like a boolean/null/number, and
- * cannot carry leading/trailing whitespace. parseFrontmatter strips surrounding
- * quotes on input, so we must re-detect the need to quote on output — otherwise
- * descriptions like "Handles: critique/review..." round-trip into invalid YAML.
- */
-function yamlNeedsQuoting(value) {
-  if (typeof value !== 'string') return false;
-  if (value === '') return true;
-  // Leading or trailing whitespace
-  if (/^\s|\s$/.test(value)) return true;
-  // Starts with a YAML flow/indicator character
-  if (/^[\[\]{},&*!|>'"%@`#]/.test(value)) return true;
-  // Starts with `?`, `:`, or `-` followed by space or end of string
-  if (/^[?:-](\s|$)/.test(value)) return true;
-  // Contains `: ` (ends plain scalar) or ` #` (starts comment), or ends with `:`
-  if (/: |\s#|:$/.test(value)) return true;
-  // Reserved keywords that YAML 1.1 parsers coerce to boolean/null
-  if (/^(true|false|null|yes|no|on|off|~)$/i.test(value)) return true;
-  // Looks like a number
-  if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(value)) return true;
-  return false;
-}
-
-function formatYamlScalar(value) {
-  if (typeof value !== 'string') return String(value);
-  if (yamlNeedsQuoting(value)) {
-    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  }
-  return value;
-}
-
-function appendYamlObject(lines, data, indent = 0) {
-  const space = ' '.repeat(indent);
-
-  for (const [key, value] of Object.entries(data)) {
-    if (Array.isArray(value)) {
-      lines.push(`${space}${key}:`);
-      for (const item of value) {
-        if (item && typeof item === 'object' && !Array.isArray(item)) {
-          lines.push(`${space}  -`);
-          appendYamlObject(lines, item, indent + 4);
-        } else {
-          lines.push(`${space}  - ${formatYamlScalar(item)}`);
-        }
-      }
-    } else if (value && typeof value === 'object') {
-      lines.push(`${space}${key}:`);
-      appendYamlObject(lines, value, indent + 2);
-    } else if (typeof value === 'boolean') {
-      lines.push(`${space}${key}: ${value}`);
-    } else {
-      lines.push(`${space}${key}: ${formatYamlScalar(value)}`);
-    }
-  }
-}
-
-/**
- * Generate YAML frontmatter string
- */
-export function generateYamlFrontmatter(data) {
-  const lines = ['---'];
-
-  for (const [key, value] of Object.entries(data)) {
-    if (Array.isArray(value)) {
-      lines.push(`${key}:`);
-      for (const item of value) {
-        if (typeof item === 'object') {
-          lines.push(`  - name: ${formatYamlScalar(item.name)}`);
-          if (item.description) lines.push(`    description: ${formatYamlScalar(item.description)}`);
-          if (item.required !== undefined) lines.push(`    required: ${item.required}`);
-        } else {
-          lines.push(`  - ${formatYamlScalar(item)}`);
-        }
-      }
-    } else if (value && typeof value === 'object') {
-      lines.push(`${key}:`);
-      appendYamlObject(lines, value, 2);
-    } else if (typeof value === 'boolean') {
-      lines.push(`${key}: ${value}`);
-    } else {
-      lines.push(`${key}: ${formatYamlScalar(value)}`);
-    }
-  }
-
-  lines.push('---');
-  return lines.join('\n');
-}
-
-/**
- * Generate a plain YAML document string.
- */
-export function generateYamlDocument(data) {
-  const lines = [];
-  appendYamlObject(lines, data);
-  return lines.join('\n');
 }

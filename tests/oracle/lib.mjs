@@ -1,23 +1,15 @@
 /**
- * Oracle harness: records the observable behavior of every impeccino verb
- * (stdout, stderr, exit code, files written) against a fixed corpus, and
- * replays the same corpus against an alternate implementation to diff.
- *
- * Two implementations are addressable:
- *   - js  (default): the Node scripts in skill/scripts and cli/bin
- *   - bin: an executable at $IMPECCINO_BIN invoked as `<bin> <verb> ...args`
+ * Oracle harness: records observable behavior for the engine binary (stdout,
+ * stderr, exit code, and selected files) against a fixed corpus, then replays
+ * it to detect changes.
  *
  * A case is { id, verb, args, cwd?, stdin?, env?, files?, workspace? }:
- *   - workspace: name of a dir under tests/oracle/workspaces to copy into a
- *     temp dir and use as cwd (so writes never touch the repo)
+ *   - workspace: a dir under tests/oracle/workspaces copied to a temp cwd
  *   - cwd: subpath inside the staged workspace (default '.')
  *   - files: globs (relative to staged workspace) to snapshot after the run
  *   - args may contain <WS> and <REPO> placeholders
  *   - steps: multi-step cases share one staged workspace; a step may carry
- *     its own setup(ws) (run right before that step) and may set
- *     `daemon: true` to spawn its verb detached (see runDaemonStep) so later
- *     steps run against a live process; the daemon is killed after the last
- *     step and its captured output lands in the golden as `daemon`.
+ *     its own setup(ws), run immediately before that step
  *
  * Normalization replaces the staged workspace path with <WS>, the repo root
  * with <REPO>, $HOME with <HOME>, and masks ISO timestamps. Windows path
@@ -27,30 +19,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-
 
 export const ORACLE_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(ORACLE_DIR, '..', '..');
 export const GOLDEN_DIR = path.join(ORACLE_DIR, 'golden');
 export const CASES_DIR = path.join(ORACLE_DIR, 'cases');
 export const WORKSPACES_DIR = path.join(ORACLE_DIR, 'workspaces');
-
-/** verb -> how the JS implementation is invoked */
-export const JS_VERBS = {
-  detect: ['node', path.join(REPO_ROOT, 'cli', 'bin', 'cli.js'), 'detect'],
-  'cli-help': ['node', path.join(REPO_ROOT, 'cli', 'bin', 'cli.js'), '--help'],
-  'cli-version': ['node', path.join(REPO_ROOT, 'cli', 'bin', 'cli.js'), '--version'],
-  ignores: ['node', path.join(REPO_ROOT, 'cli', 'bin', 'cli.js'), 'ignores'],
-};
-for (const script of [
-  'context', 'doctor', 'pin', 'surface-brief', 'palette',
-  'context-signals', 'concept-seed',
-  'hook', 'hook-before-edit', 'hook-admin',
-]) {
-  JS_VERBS[script] = ['node', path.join(REPO_ROOT, 'skill', 'scripts', `${script}.mjs`)];
-}
 
 /** verb -> argv for the binary implementation (verb name is the subcommand) */
 export function binArgv(bin, verb) {
@@ -288,9 +264,6 @@ export function normalize(text, {
     if (pathOutput) out = normalizeWindowsPathOutput(out, caseId);
     out = normalizeKnownWindowsHiddenPaths(out);
   }
-  // Self-referential command lines: the JS prints "node <scripts>/<verb>.mjs", the
-  // binary prints "<bin> <verb>". Both collapse to "<IMPECCINO> <verb>".
-  out = out.replace(/node ['"]?<REPO>\/skill\/scripts\/([a-z-]+)\.mjs['"]?/g, (m, v) => `<IMPECCINO> ${v === 'context-signals' ? 'signals' : v === 'hook-admin' ? 'hooks' : v}`);
   // context.mjs probes `which cwebp/sips/magick/ffmpeg`; the set found is a
   // property of the recording machine, not of the implementation.
   out = out.replace(/IMAGE_TOOLS: available image converters on this machine: [^.]*\. Use the first suitable one; never probe again this session\./g, 'IMAGE_TOOLS: <IMAGE_TOOLS_PROBE>');
@@ -311,12 +284,6 @@ export function normalize(text, {
   // The staleness notice cache (<user cache>/impeccino/staleness-check.json) keys epoch
   // stamps by finding id: { projects: { "<root>": { "<finding-id>": ms } } }.
   out = out.replace(/"([a-z][a-z0-9-]*)":\s*1[6-9]\d{11}(?=[,}\s])/g, '"$1": <EPOCH>');
-  // Live mode: server.json, the inject journal, and source locks record the
-  // writing process's pid; the helper server mints a UUID token. Both vary
-  // per run. Ports and lease stamps are per-case (see `normalize` on a case).
-  out = out.replace(/"pid":(\s*)\d+/g, '"pid":$1<PID>');
-  out = out.replace(/\(pid \d+\)/g, '(pid <PID>)');
-  out = out.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<UUID>');
   return out;
 }
 
@@ -358,8 +325,8 @@ function projectCacheLabels(c, ws) {
 
 /**
  * Case-scoped replacements: `c.normalize` is a list of [regexSource, flags,
- * replacement] applied after the global pass to stdout, stderr, files, and
- * daemon output of that case only. Keeps run-dependent values that only one
+ * replacement] applied after the global pass to stdout, stderr, and files
+ * of that case only. Keeps run-dependent values that only one
  * flow produces (a dynamically chosen server port, lease deadlines) from
  * widening the global normalizer and masking real diffs elsewhere.
  */
@@ -415,14 +382,8 @@ export function snapshotFiles(ws, globs) {
       const full = path.join(dir, ent.name);
       const rel = path.relative(ws, full).split(path.sep).join('/');
       if (ent.isDirectory()) {
-        if (ent.name === '.git') continue;
-        if (ent.name === 'node_modules') {
-          // Only the live-mode preview tree is ours; never walk installed or
-          // symlinked packages.
-          const preview = path.join(full, '.impeccino-live');
-          if (fs.existsSync(preview)) walk(preview);
-          continue;
-        }
+        // Never snapshot repository metadata or installed packages.
+        if (ent.name === '.git' || ent.name === 'node_modules') continue;
         walk(full);
       } else if (regs.some(r => r.test(rel))) {
         const buf = fs.readFileSync(full);
@@ -440,10 +401,6 @@ function isProbablyText(buf) {
   return true;
 }
 
-/**
- * Run one case with the given implementation ('js' | 'bin').
- * Returns { stdout, stderr, exit, signal, files } normalized.
- */
 /**
  * A case may declare `platforms: ['darwin', 'win32']` when its behavior is a
  * property of the host (case-insensitive file systems, for example) rather
@@ -592,7 +549,7 @@ export function assertRecordableCases(cases, platform = process.platform) {
   }
 }
 
-export function runCase(c, { impl = 'js', bin = process.env.IMPECCINO_BIN } = {}) {
+export function runCase(c, { bin = process.env.IMPECCINO_BIN } = {}) {
   const ws = stageWorkspace(c.workspace);
   try {
     const isolatedHome = path.join(ws, '.oracle-home');
@@ -600,63 +557,42 @@ export function runCase(c, { impl = 'js', bin = process.env.IMPECCINO_BIN } = {}
     if (typeof c.setup === 'function') c.setup(ws);
     const steps = c.steps || [c];
     const results = [];
-    const daemons = [];
-    try {
-      for (const step of steps) {
-        const merged = { ...c, ...step, verb: step.verb || c.verb };
-        // A step-level setup stages state between verbs (e.g. the agent's
-        // variant files between wrap and accept).
-        if (c.steps && typeof step.setup === 'function') step.setup(ws);
-        if (step.daemon) {
-          daemons.push(runDaemonStep(merged, { impl, bin, ws, isolatedHome }));
-          results.push({ stdout: '', stderr: '', status: null, signal: null, daemon: true });
-          continue;
-        }
-        results.push(runStep(merged, { impl, bin, ws, isolatedHome }));
-      }
-    } finally {
-      for (const d of daemons) stopDaemon(d);
+    for (const step of steps) {
+      const merged = { ...c, ...step, verb: step.verb || c.verb };
+      // A step-level setup stages state between verbs (e.g. variant files
+      // between wrap and accept).
+      if (c.steps && typeof step.setup === 'function') step.setup(ws);
+      results.push(runStep(merged, { bin, ws, isolatedHome }));
     }
     const files = snapshotFiles(ws, c.files);
     const ctx = { ws };
-    const N = (text, { pathOutput = false } = {}) => applyCaseNormalizers(normalize(text, {
+    const N = (value, { pathOutput = false } = {}) => applyCaseNormalizers(normalize(value, {
       ...ctx,
       binaryPath: bin,
       windowsPowerShellGuidance: c.windowsPowerShellGuidance,
       caseId: c.id,
       pathOutput,
     }), c.normalize);
-    const norm = (r, step) => ({
-      stdout: N(r.stdout ?? '', { pathOutput: step?.windowsPathOutput || (!c.steps && c.windowsPathOutput) }),
-      stderr: N(r.stderr ?? ''),
-      exit: r.status,
-      signal: r.signal || null,
-      ...(r.daemon ? { daemon: true } : {}),
+    const norm = (result, step) => ({
+      stdout: N(result.stdout ?? '', { pathOutput: step?.windowsPathOutput || (!c.steps && c.windowsPathOutput) }),
+      stderr: N(result.stderr ?? ''),
+      exit: result.status,
+      signal: result.signal || null,
     });
     const labels = projectCacheLabels(c, ws);
     const normalizedFiles = normalizeSnapshotFiles(files, labels, c.id);
     const filesNorm = Object.fromEntries(Object.entries(normalizedFiles).map(([k, v]) => [k, N(v)]));
-    const daemonOut = daemons.length
-      ? { daemon: daemons.map((d) => ({ stdout: N(d.stdout()), stderr: N(d.stderr()) })) }
-      : {};
-    if (c.steps) return { steps: results.map((result, index) => norm(result, c.steps[index])), files: filesNorm, ...daemonOut };
-    return { ...norm(results[0]), files: filesNorm, ...daemonOut };
+    if (c.steps) return { steps: results.map((result, index) => norm(result, c.steps[index])), files: filesNorm };
+    return { ...norm(results[0]), files: filesNorm };
   } finally {
     fs.rmSync(ws, { recursive: true, force: true });
   }
 }
 
-function buildInvocation(c, { impl, bin, ws, isolatedHome }) {
+function buildInvocation(c, { bin, ws, isolatedHome }) {
+  if (!bin) throw new Error('IMPECCINO_BIN not set');
   const cwd = path.join(ws, c.cwd || '.');
-  let argv;
-  if (impl === 'js') {
-    const base = JS_VERBS[c.verb];
-    if (!base) throw new Error(`no JS invocation for verb ${c.verb}`);
-    argv = [...base];
-  } else {
-    if (!bin) throw new Error('IMPECCINO_BIN not set');
-    argv = binArgv(bin, c.verb);
-  }
+  const argv = binArgv(bin, c.verb);
   const sub = (v) => String(v).replaceAll('<WS>', ws).replaceAll('<REPO>', REPO_ROOT);
   argv.push(...(c.args || []).map(sub));
   const env = {
@@ -672,67 +608,13 @@ function buildInvocation(c, { impl, bin, ws, isolatedHome }) {
     // machine must not leak in.
     ...(c.isolateHome === false ? {} : { HOME: isolatedHome, USERPROFILE: isolatedHome, XDG_CACHE_HOME: null, LOCALAPPDATA: null }),
     // What the launcher exports for the binary (see launcher/impeccino in the engine repo).
-    ...(impl === 'bin' ? { IMPECCINO_SKILL_DIR: path.join(REPO_ROOT, 'skill'), IMPECCINO_SELF: bin } : {}),
+    IMPECCINO_SKILL_DIR: path.join(REPO_ROOT, 'skill'),
+    IMPECCINO_SELF: bin,
     ...Object.fromEntries(Object.entries(c.env || {}).map(([k, v]) => [k, v == null ? v : sub(v)])),
   };
   for (const [k, v] of Object.entries(env)) if (v == null) delete env[k];
   const stdin = serializeOracleStdin(c.stdin, { ws, repo: REPO_ROOT });
   return { argv, cwd, env, stdin };
-}
-
-/**
- * Spawn a step's verb detached and wait until `readyFile` (relative to the
- * staged workspace) exists. stdout/stderr go to files under
- * <ws>/.oracle-daemon/ and are read back at teardown so the golden records
- * what the daemon printed over its whole life.
- */
-function runDaemonStep(c, opts) {
-  const { argv, cwd, env } = buildInvocation(c, opts);
-  const outDir = path.join(opts.ws, '.oracle-daemon');
-  fs.mkdirSync(outDir, { recursive: true });
-  const n = fs.readdirSync(outDir).length;
-  const outPath = path.join(outDir, `${n}.stdout`);
-  const errPath = path.join(outDir, `${n}.stderr`);
-  const outFd = fs.openSync(outPath, 'w');
-  const errFd = fs.openSync(errPath, 'w');
-  const child = (spawn(argv[0], argv.slice(1), {
-    cwd, env, stdio: ['ignore', outFd, errFd], detached: true, windowsHide: true,
-  }));
-  fs.closeSync(outFd);
-  fs.closeSync(errFd);
-  const readyFile = path.join(opts.ws, c.readyFile);
-  const deadline = Date.now() + (c.readyTimeoutMs || 10_000);
-  while (!fs.existsSync(readyFile)) {
-    if (child.exitCode !== null || Date.now() > deadline) break;
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
-  }
-  if (!fs.existsSync(readyFile)) {
-    throw new Error(`daemon ${c.verb} for case ${c.id} did not create ${c.readyFile}\n${safeRead(errPath)}`);
-  }
-  return {
-    child,
-    stdout: () => safeRead(outPath),
-    stderr: () => safeRead(errPath),
-  };
-}
-
-function stopDaemon(d) {
-  const { child } = d;
-  if (child.exitCode !== null || child.signalCode) return;
-  try { child.kill('SIGTERM'); } catch { /* already gone */ }
-  const deadline = Date.now() + 3000;
-  while (child.exitCode === null && !child.signalCode && Date.now() < deadline) {
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
-    // A detached child never reports exit to a synchronous loop; probe the pid.
-    try { process.kill(child.pid, 0); } catch { break; }
-  }
-  try { process.kill(child.pid, 0); child.kill('SIGKILL'); } catch { /* exited */ }
-  // Give the OS a beat to release the port and flush the output files.
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
-}
-
-function safeRead(p) {
-  try { return fs.readFileSync(p, 'utf8'); } catch { return ''; }
 }
 
 function runStep(c, opts) {
@@ -768,13 +650,6 @@ export function diffResults(golden, actual) {
       for (const d of diffResults({ ...g[i], files: {} }, { ...a[i], files: {} })) diffs.push(`step ${i + 1} ${d}`);
     }
     for (const d of diffResults({ files: golden.files, exit: 0, signal: null, stdout: '', stderr: '' }, { files: actual.files, exit: 0, signal: null, stdout: '', stderr: '' })) diffs.push(d);
-    const gd = golden.daemon || [], ad = actual.daemon || [];
-    if (gd.length !== ad.length) diffs.push(`daemons: expected ${gd.length}, got ${ad.length}`);
-    for (let i = 0; i < Math.min(gd.length, ad.length); i++) {
-      for (const k of ['stdout', 'stderr']) {
-        if (gd[i][k] !== ad[i][k]) diffs.push(`daemon ${i + 1} ${k} differs:\n${firstDiff(gd[i][k], ad[i][k])}`);
-      }
-    }
     return diffs;
   }
   for (const k of ['exit', 'signal']) {

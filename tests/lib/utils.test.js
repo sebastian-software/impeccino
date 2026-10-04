@@ -5,15 +5,19 @@ import {
   parseFrontmatter,
   readFilesRecursive,
   readSourceFiles,
-  ensureDir,
-  cleanDir,
-  writeFile,
-  generateYamlFrontmatter,
-  readPatterns,
 } from '../../scripts/lib/utils.js';
 
 // Temporary test directory
 const TEST_DIR = path.join(process.cwd(), 'test-tmp');
+
+function mkdirp(dirPath) {
+  fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function writeFixture(filePath, content) {
+  mkdirp(path.dirname(filePath));
+  fs.writeFileSync(filePath, content, 'utf-8');
+}
 
 describe('parseFrontmatter', () => {
   test('should parse basic frontmatter with simple key-value pairs', () => {
@@ -125,206 +129,9 @@ Body.`;
   });
 });
 
-describe('generateYamlFrontmatter', () => {
-  test('should generate basic frontmatter', () => {
-    const data = {
-      name: 'test-skill',
-      description: 'A test'
-    };
-
-    const result = generateYamlFrontmatter(data);
-    expect(result).toContain('---');
-    expect(result).toContain('name: test-skill');
-    expect(result).toContain('description: A test');
-  });
-
-  test('should generate frontmatter with argument-hint', () => {
-    const data = {
-      name: 'test',
-      description: 'Test skill',
-      'argument-hint': '<output> [TARGET=<value>]'
-    };
-
-    const result = generateYamlFrontmatter(data);
-    expect(result).toContain('argument-hint: <output> [TARGET=<value>]');
-  });
-
-  test('should generate frontmatter with boolean', () => {
-    const data = {
-      name: 'test',
-      description: 'Test',
-      'user-invocable': true
-    };
-
-    const result = generateYamlFrontmatter(data);
-    expect(result).toContain('user-invocable: true');
-  });
-
-  test('should generate nested metadata', () => {
-    const result = generateYamlFrontmatter({
-      name: 'test',
-      metadata: { version: '1.2.3' },
-    });
-
-    expect(result).toContain('metadata:\n  version: 1.2.3');
-  });
-
-  test('should roundtrip: generate and parse back', () => {
-    const original = {
-      name: 'roundtrip-test',
-      description: 'Testing roundtrip',
-      'argument-hint': '<arg1>'
-    };
-
-    const yaml = generateYamlFrontmatter(original);
-    const content = `${yaml}\n\nBody content`;
-    const parsed = parseFrontmatter(content);
-
-    expect(parsed.frontmatter.name).toBe(original.name);
-    expect(parsed.frontmatter.description).toBe(original.description);
-    expect(parsed.frontmatter['argument-hint']).toBe('<arg1>');
-  });
-
-  test('should quote strings containing colon-space (breaks plain scalars)', () => {
-    const data = {
-      name: 'impeccino',
-      description: 'Design fluency. Also handles: critique, audit. Commands: craft, polish.'
-    };
-
-    const result = generateYamlFrontmatter(data);
-    // Must be wrapped in quotes so YAML parsers don't mis-read the inner `: ` as a mapping
-    expect(result).toContain('description: "Design fluency. Also handles: critique, audit. Commands: craft, polish."');
-
-    // Roundtrip through our parser should recover the original string intact
-    const parsed = parseFrontmatter(`${result}\n\nbody`);
-    expect(parsed.frontmatter.description).toBe(data.description);
-  });
-
-  test('should quote strings starting with YAML flow indicators', () => {
-    const data = {
-      name: 'test',
-      'argument-hint': '[command] [target]'
-    };
-
-    const result = generateYamlFrontmatter(data);
-    expect(result).toContain('argument-hint: "[command] [target]"');
-  });
-
-  test('should not quote plain strings without special chars', () => {
-    const data = {
-      name: 'simple',
-      description: 'A plain description with no colons or hashes'
-    };
-
-    const result = generateYamlFrontmatter(data);
-    expect(result).toContain('description: A plain description with no colons or hashes');
-    expect(result).not.toContain('"A plain');
-  });
-});
-
-describe('ensureDir', () => {
-  afterEach(() => {
-    if (fs.existsSync(TEST_DIR)) {
-      fs.rmSync(TEST_DIR, { recursive: true, force: true });
-    }
-  });
-
-  test('should create directory if it does not exist', () => {
-    const testPath = path.join(TEST_DIR, 'new-dir');
-    ensureDir(testPath);
-
-    expect(fs.existsSync(testPath)).toBe(true);
-    expect(fs.statSync(testPath).isDirectory()).toBe(true);
-  });
-
-  test('should create nested directories', () => {
-    const testPath = path.join(TEST_DIR, 'level1', 'level2', 'level3');
-    ensureDir(testPath);
-
-    expect(fs.existsSync(testPath)).toBe(true);
-  });
-
-  test('should not throw if directory already exists', () => {
-    const testPath = path.join(TEST_DIR, 'existing');
-    fs.mkdirSync(testPath, { recursive: true });
-
-    expect(() => ensureDir(testPath)).not.toThrow();
-  });
-});
-
-describe('cleanDir', () => {
-  beforeEach(() => {
-    ensureDir(TEST_DIR);
-  });
-
-  afterEach(() => {
-    if (fs.existsSync(TEST_DIR)) {
-      fs.rmSync(TEST_DIR, { recursive: true, force: true });
-    }
-  });
-
-  test('should remove directory and all contents', () => {
-    const filePath = path.join(TEST_DIR, 'test.txt');
-    fs.writeFileSync(filePath, 'content');
-
-    expect(fs.existsSync(filePath)).toBe(true);
-
-    cleanDir(TEST_DIR);
-    expect(fs.existsSync(TEST_DIR)).toBe(false);
-  });
-
-  test('should not throw if directory does not exist', () => {
-    const nonExistent = path.join(TEST_DIR, 'does-not-exist');
-    expect(() => cleanDir(nonExistent)).not.toThrow();
-  });
-
-  test('should remove nested directories', () => {
-    const nestedPath = path.join(TEST_DIR, 'level1', 'level2');
-    ensureDir(nestedPath);
-    fs.writeFileSync(path.join(nestedPath, 'file.txt'), 'content');
-
-    cleanDir(TEST_DIR);
-    expect(fs.existsSync(TEST_DIR)).toBe(false);
-  });
-});
-
-describe('writeFile', () => {
-  afterEach(() => {
-    if (fs.existsSync(TEST_DIR)) {
-      fs.rmSync(TEST_DIR, { recursive: true, force: true });
-    }
-  });
-
-  test('should write file with content', () => {
-    const filePath = path.join(TEST_DIR, 'test.txt');
-    const content = 'Hello, world!';
-
-    writeFile(filePath, content);
-
-    expect(fs.existsSync(filePath)).toBe(true);
-    expect(fs.readFileSync(filePath, 'utf-8')).toBe(content);
-  });
-
-  test('should create parent directories automatically', () => {
-    const filePath = path.join(TEST_DIR, 'nested', 'deep', 'file.txt');
-    writeFile(filePath, 'content');
-
-    expect(fs.existsSync(filePath)).toBe(true);
-    expect(fs.readFileSync(filePath, 'utf-8')).toBe('content');
-  });
-
-  test('should overwrite existing file', () => {
-    const filePath = path.join(TEST_DIR, 'file.txt');
-    writeFile(filePath, 'first');
-    writeFile(filePath, 'second');
-
-    expect(fs.readFileSync(filePath, 'utf-8')).toBe('second');
-  });
-});
-
 describe('readFilesRecursive', () => {
   beforeEach(() => {
-    ensureDir(TEST_DIR);
+    mkdirp(TEST_DIR);
   });
 
   afterEach(() => {
@@ -334,9 +141,9 @@ describe('readFilesRecursive', () => {
   });
 
   test('should find all markdown files in directory', () => {
-    writeFile(path.join(TEST_DIR, 'file1.md'), 'content1');
-    writeFile(path.join(TEST_DIR, 'file2.md'), 'content2');
-    writeFile(path.join(TEST_DIR, 'file3.txt'), 'not markdown');
+    writeFixture(path.join(TEST_DIR, 'file1.md'), 'content1');
+    writeFixture(path.join(TEST_DIR, 'file2.md'), 'content2');
+    writeFixture(path.join(TEST_DIR, 'file3.txt'), 'not markdown');
 
     const files = readFilesRecursive(TEST_DIR);
     expect(files).toHaveLength(2);
@@ -345,9 +152,9 @@ describe('readFilesRecursive', () => {
   });
 
   test('should find markdown files in nested directories', () => {
-    writeFile(path.join(TEST_DIR, 'root.md'), 'root');
-    writeFile(path.join(TEST_DIR, 'sub', 'nested.md'), 'nested');
-    writeFile(path.join(TEST_DIR, 'sub', 'deep', 'deeper.md'), 'deeper');
+    writeFixture(path.join(TEST_DIR, 'root.md'), 'root');
+    writeFixture(path.join(TEST_DIR, 'sub', 'nested.md'), 'nested');
+    writeFixture(path.join(TEST_DIR, 'sub', 'deep', 'deeper.md'), 'deeper');
 
     const files = readFilesRecursive(TEST_DIR);
     expect(files).toHaveLength(3);
@@ -362,8 +169,8 @@ describe('readFilesRecursive', () => {
   });
 
   test('should return empty array for directory with no markdown files', () => {
-    writeFile(path.join(TEST_DIR, 'file.txt'), 'text');
-    writeFile(path.join(TEST_DIR, 'file.js'), 'code');
+    writeFixture(path.join(TEST_DIR, 'file.txt'), 'text');
+    writeFixture(path.join(TEST_DIR, 'file.js'), 'code');
 
     const files = readFilesRecursive(TEST_DIR);
     expect(files).toEqual([]);
@@ -374,7 +181,7 @@ describe('readSourceFiles', () => {
   const testRootDir = TEST_DIR;
 
   beforeEach(() => {
-    ensureDir(testRootDir);
+    mkdirp(testRootDir);
   });
 
   afterEach(() => {
@@ -393,7 +200,7 @@ license: MIT
 Skill instructions here.`;
 
     const skillDir = path.join(testRootDir, 'skill');
-    ensureDir(skillDir);
+    mkdirp(skillDir);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const { skills } = readSourceFiles(testRootDir);
@@ -415,7 +222,7 @@ user-invocable: true
 Audit the code.`;
 
     const skillDir = path.join(testRootDir, 'skill');
-    ensureDir(skillDir);
+    mkdirp(skillDir);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const { skills } = readSourceFiles(testRootDir);
@@ -434,7 +241,7 @@ user-invocable: 'true'
 Audit the code.`;
 
     const skillDir = path.join(testRootDir, 'skill');
-    ensureDir(skillDir);
+    mkdirp(skillDir);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const { skills } = readSourceFiles(testRootDir);
@@ -452,11 +259,11 @@ description: Impeccino design skill
 Impeccino design instructions.`;
 
     const skillDir = path.join(testRootDir, 'skill');
-    ensureDir(skillDir);
+    mkdirp(skillDir);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const refDir = path.join(skillDir, 'reference');
-    ensureDir(refDir);
+    mkdirp(refDir);
     fs.writeFileSync(path.join(refDir, 'typography.md'), 'Typography reference content.');
     fs.writeFileSync(path.join(refDir, 'color.md'), 'Color reference content.');
 
@@ -471,7 +278,7 @@ Impeccino design instructions.`;
 
   test('should fall back to "impeccino" when frontmatter has no name', () => {
     const skillDir = path.join(testRootDir, 'skill');
-    ensureDir(skillDir);
+    mkdirp(skillDir);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), 'Just body, no frontmatter.');
 
     const { skills } = readSourceFiles(testRootDir);
@@ -482,11 +289,11 @@ Impeccino design instructions.`;
 
   test('should ignore non-md files in skill/reference', () => {
     const skillDir = path.join(testRootDir, 'skill');
-    ensureDir(skillDir);
+    mkdirp(skillDir);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: test-skill\n---\nBody');
 
     const refDir = path.join(skillDir, 'reference');
-    ensureDir(refDir);
+    mkdirp(refDir);
     fs.writeFileSync(path.join(refDir, 'readme.txt'), 'Not a markdown file');
     fs.writeFileSync(path.join(refDir, 'typography.md'), 'Valid reference');
 
@@ -499,14 +306,13 @@ Impeccino design instructions.`;
 
   test('should read nested skill script files with portable relative names', () => {
     const skillDir = path.join(testRootDir, 'skill');
-    ensureDir(skillDir);
+    mkdirp(skillDir);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '---\nname: test-skill\n---\nBody');
 
     const scriptsDir = path.join(skillDir, 'scripts');
-    ensureDir(path.join(scriptsDir, 'live'));
+    mkdirp(path.join(scriptsDir, 'live'));
     fs.writeFileSync(path.join(scriptsDir, 'context.mjs'), 'export const context = true;\n');
     fs.writeFileSync(path.join(scriptsDir, 'live/session-store.mjs'), 'export const nested = true;\n');
-    fs.writeFileSync(path.join(scriptsDir, 'config.json'), '{"local":true}\n');
 
     const { skills } = readSourceFiles(testRootDir);
     const scripts = skills[0].scripts;
@@ -534,7 +340,7 @@ metadata:
 Body content.`;
 
     const skillDir = path.join(testRootDir, 'skill');
-    ensureDir(skillDir);
+    mkdirp(skillDir);
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillContent);
 
     const { skills } = readSourceFiles(testRootDir);
@@ -544,54 +350,5 @@ Body content.`;
     expect(skills[0].license).toBe('Apache-2.0');
     expect(skills[0].compatibility).toBe('claude-code');
     expect(skills[0].metadata).toEqual({ version: '4.4.0' });
-  });
-});
-
-describe('readPatterns', () => {
-  const testRootDir = TEST_DIR;
-
-  beforeEach(() => {
-    ensureDir(testRootDir);
-  });
-
-  afterEach(() => {
-    if (fs.existsSync(testRootDir)) {
-      fs.rmSync(testRootDir, { recursive: true, force: true });
-    }
-  });
-
-  test('returns the curated DO/DON\'T pattern categories', () => {
-    // v3.0: readPatterns no longer parses SKILL.md. It returns a hand-curated
-    // catalog (CURATED_CATEGORIES) that powers the homepage Antidote teaser.
-    const { patterns, antipatterns } = readPatterns(testRootDir);
-
-    expect(patterns).toHaveLength(6);
-    expect(antipatterns).toHaveLength(6);
-
-    expect(patterns[0].name).toBe('Typography');
-    expect(patterns[0].items.length).toBeGreaterThan(0);
-    expect(antipatterns[0].name).toBe('Typography');
-    expect(antipatterns[0].items.length).toBeGreaterThan(0);
-  });
-
-  test('returns categories in the curated order', () => {
-    const { patterns } = readPatterns(testRootDir);
-    expect(patterns.map((p) => p.name)).toEqual([
-      'Typography',
-      'Color & Contrast',
-      'Layout & Space',
-      'Visual Details',
-      'Motion',
-      'Interaction',
-    ]);
-  });
-
-  test('ignores its arguments (curated, not extracted from any SKILL.md)', () => {
-    const fromBogusRoot = readPatterns('/nonexistent/path/xyz');
-    const fromRealRoot = readPatterns(testRootDir);
-    expect(fromBogusRoot.patterns.map((p) => p.name)).toEqual(
-      fromRealRoot.patterns.map((p) => p.name)
-    );
-    expect(fromBogusRoot.patterns).toHaveLength(6);
   });
 });
