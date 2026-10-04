@@ -295,9 +295,6 @@ export function normalize(text, {
   // property of the recording machine, not of the implementation.
   out = out.replace(/IMAGE_TOOLS: available image converters on this machine: [^.]*\. Use the first suitable one; never probe again this session\./g, 'IMAGE_TOOLS: <IMAGE_TOOLS_PROBE>');
   out = out.replace(/IMAGE_TOOLS: no image converter found \(cwebp, sips, magick, ffmpeg\)\. Ship PNG output unconverted rather than probing per image\./g, 'IMAGE_TOOLS: <IMAGE_TOOLS_PROBE>');
-  // context-signals probes localhost dev-server ports (4321, 3000, 5173, ...);
-  // whatever is listening on the recording machine is not part of the contract.
-  out = out.replace(/"devServer": \{\s*"running": (?:true|false),\s*"ports": \[[^\]]*\]\s*\}/g, '"devServer": <DEV_SERVER_PROBE>');
   // A target given as an absolute path outside the workspace makes the verb
   // print the surface path relative to the root, which climbs as many levels
   // as the staged tmpdir is deep (7 on macOS, 2 on Linux). The climb is a
