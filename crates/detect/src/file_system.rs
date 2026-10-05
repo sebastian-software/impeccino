@@ -10,52 +10,13 @@ use regex::Regex;
 
 use crate::jsp;
 use crate::util::{re, read_text, read_text_with_error, ANY, D, WS};
+pub use impeccino_common::scan_scope::{
+    has_scannable_extension, is_generated_path, is_html_path, HIDDEN_SOURCE_DIRS, HTML_EXTENSIONS,
+    SCANNABLE_EXTENSIONS, SKIP_DIRS,
+};
 
 type HttpHeaders = Vec<(String, String)>;
 type HttpResponse = (u16, HttpHeaders, String);
-
-/// JS `SKIP_DIRS`.
-pub const SKIP_DIRS: &[&str] = &["node_modules", "dist", "build", "__pycache__"];
-/// JS `HIDDEN_SOURCE_DIRS`.
-pub const HIDDEN_SOURCE_DIRS: &[&str] = &[".vitepress", ".vuepress", ".storybook"];
-/// JS `SCANNABLE_EXTENSIONS` (insertion order matters for `resolveImport`).
-pub const SCANNABLE_EXTENSIONS: &[&str] = &[
-    ".html",
-    ".htm",
-    ".css",
-    ".scss",
-    ".sass",
-    ".less",
-    ".jsx",
-    ".tsx",
-    ".js",
-    ".ts",
-    ".vue",
-    ".svelte",
-    ".astro",
-    ".blade.php",
-];
-/// JS `HTML_EXTENSIONS`.
-pub const HTML_EXTENSIONS: &[&str] = &[".html", ".htm"];
-
-/// JS: file-system.mjs#hasScannableExtension
-pub fn has_scannable_extension(filename: &str) -> bool {
-    let lower = impeccino_core::js::to_lower_case(filename);
-    if SCANNABLE_EXTENSIONS.contains(&jsp::extname(&lower).as_str()) {
-        return true;
-    }
-    for ext in SCANNABLE_EXTENSIONS {
-        if ext[1..].contains('.') && lower.ends_with(ext) {
-            return true;
-        }
-    }
-    false
-}
-
-/// `HTML_EXTENSIONS.has(path.extname(filePath).toLowerCase())`.
-pub fn is_html_path(file_path: &str) -> bool {
-    HTML_EXTENSIONS.contains(&impeccino_core::js::to_lower_case(&jsp::extname(file_path)).as_str())
-}
 
 /// JS: file-system.mjs#walkDir(dir, onReadError). An unreadable directory is
 /// reported and skipped rather than silently yielding nothing (#711).
@@ -95,13 +56,13 @@ pub fn walk_dir_skipping(
     // which on macOS/Linux is sorted by name for the common filesystems.
     entries.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
     for (name, is_dir) in entries {
-        if SKIP_DIRS.contains(&name.as_str()) {
-            continue;
-        }
         if is_dir && name.starts_with('.') && !HIDDEN_SOURCE_DIRS.contains(&name.as_str()) {
             continue;
         }
         let full = jsp::join(&[dir, &name]);
+        if is_generated_path(&full) {
+            continue;
+        }
         if is_dir {
             if !skip(&full, true) {
                 files.extend(walk_dir_skipping(&full, on_read_error, skip));
@@ -730,6 +691,39 @@ mod tests {
         assert!(has_scannable_extension("A.HTML"));
         assert!(!has_scannable_extension("a.php"));
         assert!(is_html_path("/x/y.HTM"));
+    }
+
+    #[test]
+    fn directory_walk_skips_generated_paths_the_hook_also_skips() {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock after Unix epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "impeccino-scan-scope-{}-{suffix}",
+            std::process::id()
+        ));
+        for dir in ["out", "coverage", "generated"] {
+            let generated = root.join(dir);
+            std::fs::create_dir_all(&generated).unwrap();
+            std::fs::write(generated.join("bundle.css"), ".bundle { color: red; }").unwrap();
+        }
+        std::fs::create_dir_all(&root).unwrap();
+        for file in ["component.min.css", "types.d.ts", "tokens.generated.css"] {
+            std::fs::write(root.join(file), "/* generated */").unwrap();
+        }
+        std::fs::write(root.join("view.twig"), "<main>{{ title }}</main>").unwrap();
+        std::fs::write(root.join("source.css"), ".source { color: red; }").unwrap();
+
+        let files = walk_dir_reporting(&root.to_string_lossy(), &mut |_, _| {});
+        let expected = root.join("source.css").to_string_lossy().into_owned();
+        let template = root.join("view.twig").to_string_lossy().into_owned();
+        assert_eq!(files, vec![expected, template]);
+        assert!(files
+            .iter()
+            .all(|file| is_html_path(file) == file.ends_with(".twig")));
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

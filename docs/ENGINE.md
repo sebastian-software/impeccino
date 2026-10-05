@@ -58,13 +58,14 @@ skill/scripts/VERSION   which engine release the launcher downloads
 crates/
   cli          the `impeccino` binary: verb router, exit codes, the
                "was removed" answer for retired verbs
-  common       Io handle (stdout/stderr/stdin/env/cwd), path + process helpers
+  common       Io handle, project/workspace paths, scan extensions and
+               generated-path scope, path + process helpers
   context      context, doctor, staleness, signals, concept-seed, pin,
                palette, surface-brief (SURFACES.md)
   hook         the design hook (hook, hook-before-edit, hooks / hook-admin)
-  detect       `impeccino detect`: file walk (with the project's git
-               ignore rules), DESIGN.md decisions, output, the text/regex
-               engine
+  detect       `impeccino detect`: file walk (with the shared scan scope and
+               the project's Git ignore rules), DESIGN.md decisions, output,
+               the text/regex engine
   html         the static HTML engine: parser, cascade, static document model,
                rule adapters
   foundation   JS-semantics helpers, color, findings, the rule registry,

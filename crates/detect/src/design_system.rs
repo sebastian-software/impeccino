@@ -21,13 +21,13 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
 
+pub use impeccino_common::project_files::{CONTEXT_FALLBACK_DIRS as FALLBACK_DIRS, DESIGN_NAMES};
+use impeccino_common::project_paths::{
+    has_git_boundary, is_monorepo_root, workspace_owns_path, PROJECT_MARKER_FILES,
+};
+
 use crate::jsp;
 use crate::util::{exists, js_string, re, read_json, read_text, ANY, WS};
-
-const DESIGN_NAMES: &[&str] = &["DESIGN.md", "Design.md", "design.md"];
-
-const FALLBACK_DIRS: &[&str] = &[".agents/context", "docs"];
-const PROJECT_ROOT_MARKERS: &[&str] = &[".git", "package.json"];
 const SHADOW_ALPHA_TOLERANCE: f64 = 0.02;
 const FONT_SIZE_TOLERANCE_PX: f64 = 0.5;
 
@@ -147,7 +147,6 @@ re!(
     format!("{WS}*{}{WS}*$", ci("!important"))
 );
 re!(IMPORTANT_TAIL_CS_RE, format!("{WS}*!important{WS}*$"));
-re!(EDGE_QUOTE_RE, r#"^["']|["']$"#);
 re!(VAR_RE, format!("{}\\(", ci("var")));
 
 fn first_existing(dir: &str, names: &[&str]) -> Option<String> {
@@ -169,7 +168,7 @@ pub struct DesignMdPath {
 
 /// JS: design-system.mjs#resolveDesignMdPath
 pub fn resolve_design_md_path(cwd: &str) -> Option<DesignMdPath> {
-    if let Some(root) = first_existing(cwd, DESIGN_NAMES) {
+    if let Some(root) = first_existing(cwd, &DESIGN_NAMES) {
         return Some(DesignMdPath {
             path: root,
             context_dir: cwd.to_string(),
@@ -177,7 +176,7 @@ pub fn resolve_design_md_path(cwd: &str) -> Option<DesignMdPath> {
     }
     for rel in FALLBACK_DIRS {
         let dir = jsp::resolve(cwd, &[rel]);
-        if let Some(found) = first_existing(&dir, DESIGN_NAMES) {
+        if let Some(found) = first_existing(&dir, &DESIGN_NAMES) {
             return Some(DesignMdPath {
                 path: found,
                 context_dir: dir,
@@ -1023,251 +1022,6 @@ pub struct DesignRoot {
     pub has_design: bool,
 }
 
-/// JS: design-system.mjs#readWorkspacePatterns — the package manager's
-/// workspace globs (package.json `workspaces`, lerna.json, pnpm-workspace.yaml).
-fn read_workspace_patterns(dir: &str) -> Vec<String> {
-    let mut pkg: Vec<String> = Vec::new();
-    let workspaces =
-        read_json(&jsp::join(&[dir, "package.json"])).and_then(|v| v.get("workspaces").cloned());
-    match &workspaces {
-        Some(Value::Array(ws)) => pkg.extend(ws.iter().map(js_string)),
-        Some(other) => {
-            if let Some(Value::Array(ws)) = other.get("packages") {
-                pkg.extend(ws.iter().map(js_string));
-            }
-        }
-        None => {}
-    }
-    if let Some(Value::Array(ws)) =
-        read_json(&jsp::join(&[dir, "lerna.json"])).and_then(|v| v.get("packages").cloned())
-    {
-        pkg.extend(ws.iter().map(js_string));
-    }
-    if let Some(text) = read_text(&jsp::join(&[dir, "pnpm-workspace.yaml"])) {
-        let mut in_packages = false;
-        for line in text.split("\r\n").flat_map(|l| l.split('\n')) {
-            let stripped = strip_inline_yaml_comment(line);
-            let trimmed = js::trim(&stripped);
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                continue;
-            }
-            if let Some(caps) = PNPM_FLOW_RE.captures(trimmed) {
-                for entry in caps.get(1).map(|m| m.as_str()).unwrap_or("").split(',') {
-                    let e = EDGE_QUOTE_RE.replace_all(js::trim(entry), "").into_owned();
-                    if !e.is_empty() {
-                        pkg.push(e);
-                    }
-                }
-                break;
-            }
-            if PNPM_PACKAGES_RE.is_match(trimmed) {
-                in_packages = true;
-                continue;
-            }
-            if !in_packages {
-                continue;
-            }
-            if let Some(caps) = PNPM_ITEM_RE.captures(trimmed) {
-                pkg.push(
-                    EDGE_QUOTE_RE
-                        .replace_all(js::trim(caps.get(1).map(|m| m.as_str()).unwrap_or("")), "")
-                        .into_owned(),
-                );
-            } else if PNPM_KEY_RE.is_match(trimmed) {
-                break;
-            }
-        }
-    }
-    pkg
-}
-
-const MONOREPO_MARKER_FILES: &[&str] =
-    &["pnpm-workspace.yaml", "turbo.json", "nx.json", "lerna.json"];
-const MONOREPO_FALLBACK_PROJECT_DIRS: &[&str] = &["apps", "packages"];
-
-re!(PNPM_FLOW_RE, format!("^packages:{WS}*\\[(.*)\\]{WS}*$"));
-re!(PNPM_PACKAGES_RE, format!("^packages:{WS}*$"));
-re!(PNPM_ITEM_RE, format!("^-{WS}*(.+)$"));
-re!(PNPM_KEY_RE, format!("^[A-Za-z0-9_-]+:{WS}*"));
-
-/// JS: design-system.mjs#isMonorepoRoot
-fn is_monorepo_root(dir: &str) -> bool {
-    if read_workspace_patterns(dir)
-        .iter()
-        .any(|p| !js::trim(p).starts_with('!'))
-    {
-        return true;
-    }
-    if !MONOREPO_MARKER_FILES
-        .iter()
-        .any(|f| exists(&jsp::join(&[dir, f])))
-    {
-        return false;
-    }
-    MONOREPO_FALLBACK_PROJECT_DIRS.iter().any(|name| {
-        std::fs::read_dir(jsp::join(&[dir, name]))
-            .map(|entries| {
-                entries
-                    .flatten()
-                    .any(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
-            })
-            .unwrap_or(false)
-    })
-}
-
-/// JS: design-system.mjs#monorepoOwnsPath > normalizeWorkspacePattern
-fn normalize_workspace_pattern(pattern: &str) -> String {
-    let mut s = EDGE_QUOTE_RE
-        .replace_all(js::trim(pattern), "")
-        .into_owned();
-    if let Some(rest) = s.strip_prefix("./") {
-        s = rest.to_string();
-    }
-    while s.ends_with('/') {
-        s.pop();
-    }
-    s
-}
-
-/// JS: design-system.mjs#monorepoOwnsPath > segmentMatches
-fn segment_matches(pattern_segment: &str, rel_segment: &str) -> bool {
-    if pattern_segment == "*" {
-        return true;
-    }
-    if !pattern_segment.contains('*') {
-        return pattern_segment == rel_segment;
-    }
-    let escaped = regex::escape(pattern_segment).replace("\\*", "[^/]*");
-    Regex::new(&format!("^{}$", escaped))
-        .map(|re| re.is_match(rel_segment))
-        .unwrap_or(false)
-}
-
-/// JS: design-system.mjs#monorepoOwnsPath > matchGlobSegments
-fn match_glob_segments(pattern_segments: &[&str], rel_segments: &[&str]) -> bool {
-    fn rec(pattern_segments: &[&str], rel_segments: &[&str], pi: usize, ri: usize) -> bool {
-        if pi == pattern_segments.len() {
-            return ri == rel_segments.len();
-        }
-        if pattern_segments[pi] == "**" {
-            if pi == pattern_segments.len() - 1 {
-                return true;
-            }
-            for k in ri..=rel_segments.len() {
-                if rec(pattern_segments, rel_segments, pi + 1, k) {
-                    return true;
-                }
-            }
-            return false;
-        }
-        if ri >= rel_segments.len() {
-            return false;
-        }
-        if !segment_matches(pattern_segments[pi], rel_segments[ri]) {
-            return false;
-        }
-        rec(pattern_segments, rel_segments, pi + 1, ri + 1)
-    }
-    rec(pattern_segments, rel_segments, 0, 0)
-}
-
-/// JS: design-system.mjs#monorepoOwnsPath
-fn monorepo_owns_path(root: &str, boundary_dir: &str) -> bool {
-    let rel = jsp::relative("/", root, boundary_dir);
-    if rel.is_empty() || rel.starts_with("..") || jsp::is_absolute(&rel) {
-        return false;
-    }
-    let rel_segments: Vec<&str> = rel.split(jsp::SEP_CHAR).filter(|s| !s.is_empty()).collect();
-
-    // Negations like !packages/excluded must also cover nested dirs under
-    // that path.
-    let matches_negation = |pattern: &str| -> bool {
-        let normalized = normalize_workspace_pattern(pattern);
-        let pattern_segments: Vec<&str> = normalized.split('/').filter(|s| !s.is_empty()).collect();
-        if pattern_segments.is_empty() {
-            return false;
-        }
-        if pattern_segments.contains(&"**") {
-            return match_glob_segments(&pattern_segments, &rel_segments);
-        }
-        if rel_segments.len() < pattern_segments.len() {
-            return false;
-        }
-        pattern_segments
-            .iter()
-            .zip(rel_segments.iter())
-            .all(|(p, r)| segment_matches(p, r))
-    };
-
-    // Positive globs identify workspace packages at exact depth (`*` is a
-    // direct child). A nested package.json under that package is still owned:
-    // the ancestor directory of glob length must itself be a package.
-    let positive_owns = |pattern: &str| -> bool {
-        let normalized = normalize_workspace_pattern(pattern);
-        let pattern_segments: Vec<&str> = normalized.split('/').filter(|s| !s.is_empty()).collect();
-        if pattern_segments.is_empty() {
-            return false;
-        }
-        if pattern_segments.contains(&"**") {
-            return match_glob_segments(&pattern_segments, &rel_segments);
-        }
-        if rel_segments.len() < pattern_segments.len() {
-            return false;
-        }
-        if !pattern_segments
-            .iter()
-            .zip(rel_segments.iter())
-            .all(|(p, r)| segment_matches(p, r))
-        {
-            return false;
-        }
-        if rel_segments.len() == pattern_segments.len() {
-            return true;
-        }
-        let mut parts: Vec<&str> = vec![root];
-        parts.extend(&rel_segments[..pattern_segments.len()]);
-        let ancestor_dir = jsp::join(&parts);
-        exists(&jsp::join(&[&ancestor_dir, "package.json"]))
-    };
-
-    let group_owns = |raw_patterns: &[String]| -> Option<bool> {
-        let patterns: Vec<String> = raw_patterns
-            .iter()
-            .map(|p| normalize_workspace_pattern(p))
-            .filter(|p| !p.is_empty())
-            .collect();
-        if patterns.is_empty() {
-            return None;
-        }
-        let excluded = patterns
-            .iter()
-            .any(|pattern| pattern.starts_with('!') && matches_negation(&pattern[1..]));
-        let included = patterns
-            .iter()
-            .filter(|pattern| !pattern.starts_with('!'))
-            .any(|pattern| positive_owns(pattern));
-        if !excluded && !included {
-            return None;
-        }
-        if excluded {
-            return Some(false);
-        }
-        Some(true)
-    };
-
-    let pkg = read_workspace_patterns(root);
-    if let Some(from_pkg) = group_owns(&pkg) {
-        return from_pkg;
-    }
-    if pkg
-        .iter()
-        .any(|pattern| !normalize_workspace_pattern(pattern).starts_with('!'))
-    {
-        return false;
-    }
-    rel_segments.len() >= 2 && MONOREPO_FALLBACK_PROJECT_DIRS.contains(&rel_segments[0])
-}
-
 /// JS: design-system.mjs#homeDirForms — both forms of the home directory. The
 /// walk compares path strings, and a symlinked home (e.g. /home -> /var/home)
 /// never string-matches the physical paths a cwd-resolved target produces,
@@ -1318,16 +1072,16 @@ pub fn find_design_root(start_dir: &str, cwd: &str, home: &str) -> Option<Design
             // separate repository and stops the walk with nothing inherited.
             // The home directory is never an owning root.
             if !home_dirs.contains(&dir) && is_monorepo_root(&dir) {
-                if monorepo_owns_path(&dir, &b.dir) {
+                if workspace_owns_path(&dir, &b.dir) {
                     let has_design = resolve_design_md_path(&dir).is_some();
                     return Some(DesignRoot { dir, has_design });
                 }
                 return boundary;
             }
-            if exists(&jsp::join(&[&dir, ".git"])) {
+            if has_git_boundary(&dir) {
                 return boundary;
             }
-        } else if PROJECT_ROOT_MARKERS
+        } else if PROJECT_MARKER_FILES
             .iter()
             .any(|marker| exists(&jsp::join(&[&dir, marker])))
         {
@@ -1337,7 +1091,7 @@ pub fn find_design_root(start_dir: &str, cwd: &str, home: &str) -> Option<Design
             });
             // A boundary that is itself a monorepo root, or a separate
             // repository with its own .git, inherits nothing from above.
-            if is_monorepo_root(&dir) || exists(&jsp::join(&[&dir, ".git"])) {
+            if is_monorepo_root(&dir) || has_git_boundary(&dir) {
                 return boundary;
             }
         }

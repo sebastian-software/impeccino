@@ -15,6 +15,11 @@ pub const DESIGN_SIDECAR_FILE: &str = "DESIGN.json";
 /// The retired project-state directory. Nothing reads it; boot and doctor
 /// report a leftover one so the user can move its files by hand.
 pub const LEGACY_STATE_DIR: &str = ".impeccino";
+/// Product/design documents recognized at a project or workspace root.
+pub const PRODUCT_NAMES: [&str; 3] = ["PRODUCT.md", "Product.md", "product.md"];
+pub const DESIGN_NAMES: [&str; 3] = ["DESIGN.md", "Design.md", "design.md"];
+/// Fallback directories searched for project context documents.
+pub const CONTEXT_FALLBACK_DIRS: [&str; 2] = [".agents/context", "docs"];
 
 /// The per-user cache directory, `<cache>/impeccino`:
 ///

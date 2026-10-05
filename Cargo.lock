@@ -325,6 +325,9 @@ name = "impeccino-common"
 version = "0.2.0"
 dependencies = [
  "libc",
+ "once_cell",
+ "regex",
+ "serde_json",
  "windows-sys",
 ]
 
