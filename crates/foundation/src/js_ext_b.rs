@@ -1,9 +1,40 @@
 //! JS-semantics helpers needed by the group-B checks port that `js.rs` does
 //! not carry (kept separate so parallel work does not collide).
 
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+static WHITESPACE_RUN_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(&format!("{}+", crate::js::WS)).expect("WHITESPACE_RUN_RE"));
+
 /// JS `String.prototype.length`: UTF-16 code units, not chars or bytes.
 pub fn utf16_len(s: &str) -> usize {
     s.chars().map(|c| c.len_utf16()).sum()
+}
+
+/// JS `s.replace(/\s+/g, ' ')`.
+pub fn collapse_whitespace(s: &str) -> String {
+    WHITESPACE_RUN_RE.replace_all(s, " ").into_owned()
+}
+
+/// JS `cleanInlineText(el)`: direct text nodes joined with a space,
+/// whitespace collapsed, and trimmed.
+pub fn clean_inline_text<I, S>(parts: I) -> String
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let joined = parts
+        .into_iter()
+        .map(|part| part.as_ref().to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+    crate::js::trim(&collapse_whitespace(&joined)).to_string()
+}
+
+/// JS `(el.textContent || '').replace(/\s+/g, ' ').trim()`.
+pub fn collapsed_text_content(text: &str) -> String {
+    crate::js::trim(&collapse_whitespace(text)).to_string()
 }
 
 /// JS `str.slice(0, end)` in UTF-16 code units. A cut through a surrogate
@@ -45,5 +76,11 @@ mod tests {
         assert_eq!(slice_utf16_prefix("a😀b", 2), "a\u{FFFD}");
         assert_eq!(slice_utf16_prefix("abc", 60), "abc");
         assert_eq!(slice_utf16_prefix("abcd", 2), "ab");
+    }
+
+    #[test]
+    fn direct_text_cleaning_joins_nodes_before_collapsing_whitespace() {
+        assert_eq!(clean_inline_text(["  Fea ", " \t tures  "]), "Fea tures");
+        assert_eq!(collapsed_text_content(" A \n  B "), "A B");
     }
 }

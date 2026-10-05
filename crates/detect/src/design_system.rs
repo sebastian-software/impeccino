@@ -13,10 +13,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use impeccino_core::checks::measures::resolve_length_px;
-use impeccino_core::color::{parse_any_color, Rgba};
+use impeccino_core::color::Rgba;
 use impeccino_core::constants::GENERIC_FONTS;
 use impeccino_core::findings::{finding, Finding};
-use impeccino_core::js::{self, ci, math_round, number_to_string, parse_float, parse_int};
+use impeccino_core::js::{self, ci, math_round, number_to_string, parse_int};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -28,9 +28,7 @@ const DESIGN_NAMES: &[&str] = &["DESIGN.md", "Design.md", "design.md"];
 
 const FALLBACK_DIRS: &[&str] = &[".agents/context", "docs"];
 const PROJECT_ROOT_MARKERS: &[&str] = &[".git", "package.json"];
-const COLOR_CHANNEL_TOLERANCE: f64 = 6.0;
 const SHADOW_ALPHA_TOLERANCE: f64 = 0.02;
-const RADIUS_TOLERANCE_PX: f64 = 0.5;
 const FONT_SIZE_TOLERANCE_PX: f64 = 0.5;
 
 /// JS `STATIC_DESIGN_SKIP_TAGS`.
@@ -150,7 +148,6 @@ re!(
 );
 re!(IMPORTANT_TAIL_CS_RE, format!("{WS}*!important{WS}*$"));
 re!(EDGE_QUOTE_RE, r#"^["']|["']$"#);
-re!(WS_RUN_RE, format!("{WS}+"));
 re!(VAR_RE, format!("{}\\(", ci("var")));
 
 fn first_existing(dir: &str, names: &[&str]) -> Option<String> {
@@ -562,22 +559,12 @@ fn parse_scalar(raw: &str) -> Value {
 
 /// JS `normalizeFontName`.
 pub fn normalize_font_name(value: &str) -> String {
-    let t = js::trim(value);
-    let t = IMPORTANT_TAIL_RE.replace(t, "");
-    let t = js::trim(&t);
-    let t = EDGE_QUOTE_RE.replace_all(t, "");
-    let t = t.replace('+', " ");
-    let t = WS_RUN_RE.replace_all(&t, " ");
-    js::to_lower_case(&t)
+    impeccino_core::design_system::normalize_font_name(value)
 }
 
 /// JS `splitFontStack`.
 pub fn split_font_stack(stack: &str) -> Vec<String> {
-    let t = IMPORTANT_TAIL_RE.replace(stack, "");
-    t.split(',')
-        .map(normalize_font_name)
-        .filter(|f| !f.is_empty())
-        .collect()
+    impeccino_core::design_system::split_font_stack(stack)
 }
 
 fn is_generic_font(font: &str) -> bool {
@@ -595,15 +582,12 @@ pub fn primary_font(stack: &str) -> String {
     if stack.is_empty() || VAR_RE.is_match(stack) || !is_literal_font_stack(stack) {
         return String::new();
     }
-    split_font_stack(stack)
-        .into_iter()
-        .find(|f| !is_generic_font(f))
-        .unwrap_or_default()
+    impeccino_core::design_system::computed_primary_font(stack)
 }
 
 /// JS: design-system.mjs#cssColorLabel
 pub fn css_color_label(raw: &str) -> String {
-    WS_RUN_RE.replace_all(js::trim(raw), " ").into_owned()
+    impeccino_core::design_system::css_color_label(raw)
 }
 
 /// JS `colorKey`.
@@ -617,68 +601,12 @@ pub fn color_key(color: &Rgba) -> String {
 }
 
 fn colors_close(a: &Rgba, b: &Rgba) -> bool {
-    js::math_max3((a.r - b.r).abs(), (a.g - b.g).abs(), (a.b - b.b).abs())
-        <= COLOR_CHANNEL_TOLERANCE
+    impeccino_core::design_system::colors_close(a, b)
 }
-
-fn hsl_to_rgb(hh: f64, ss: f64, ll: f64, alpha: f64) -> Rgba {
-    let h = (((hh % 360.0) + 360.0) % 360.0) / 360.0;
-    let s = js::math_max(0.0, js::math_min(1.0, ss));
-    let l = js::math_max(0.0, js::math_min(1.0, ll));
-    let hue2rgb = |p: f64, q: f64, mut t: f64| {
-        if t < 0.0 {
-            t += 1.0;
-        }
-        if t > 1.0 {
-            t -= 1.0;
-        }
-        if t < 1.0 / 6.0 {
-            return p + (q - p) * 6.0 * t;
-        }
-        if t < 1.0 / 2.0 {
-            return q;
-        }
-        if t < 2.0 / 3.0 {
-            return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
-        }
-        p
-    };
-    let q = if l < 0.5 {
-        l * (1.0 + s)
-    } else {
-        l + s - l * s
-    };
-    let p = 2.0 * l - q;
-    Rgba::new(
-        math_round(hue2rgb(p, q, h + 1.0 / 3.0) * 255.0),
-        math_round(hue2rgb(p, q, h) * 255.0),
-        math_round(hue2rgb(p, q, h - 1.0 / 3.0) * 255.0),
-        alpha,
-    )
-}
-
-re!(
-    HSL_FALLBACK_RE,
-    format!(
-        "{hsl}[aA]?\\({WS}*([-0-9.]+)(?:{deg})?{WS}*,?{WS}*([0-9.]+)%{WS}*,?{WS}*([0-9.]+)%(?:{WS}*[,/]{WS}*([0-9.]+))?{WS}*\\)",
-        hsl = ci("hsl"),
-        deg = ci("deg")
-    )
-);
 
 /// JS: design-system.mjs#parseDesignColor
 pub fn parse_design_color(value: &str) -> Option<Rgba> {
-    let text = js::trim(value);
-    if let Some(parsed) = parse_any_color(Some(text)) {
-        return Some(parsed);
-    }
-    let m = HSL_FALLBACK_RE.captures(text)?;
-    Some(hsl_to_rgb(
-        parse_float(&m[1]),
-        parse_float(&m[2]) / 100.0,
-        parse_float(&m[3]) / 100.0,
-        m.get(4).map(|a| parse_float(a.as_str())).unwrap_or(1.0),
-    ))
+    impeccino_core::design_system::parse_design_color(value)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1473,27 +1401,11 @@ pub fn is_allowed_color_raw(raw: &str, ds: Option<&DesignSystem>) -> bool {
     let Some(ds) = ds.filter(|d| d.has_colors) else {
         return true;
     };
-    let text = js::to_lower_case(js::trim(raw));
-    if text.is_empty()
-        || text == "transparent"
-        || text == "currentcolor"
-        || text == "inherit"
-        || text == "initial"
-    {
-        return true;
-    }
-    if text.contains("var(") {
-        return true;
-    }
-    let Some(parsed) = parse_design_color(&text) else {
-        return true;
-    };
-    if parsed.alpha_or_one() <= 0.05 {
-        return true;
-    }
-    ds.allowed_color_keys
-        .iter()
-        .any(|(_, entry)| colors_close(&parsed, &entry.color))
+    impeccino_core::design_system::is_allowed_color_raw(
+        raw,
+        true,
+        ds.allowed_color_keys.iter().map(|(_, entry)| &entry.color),
+    )
 }
 
 /// JS: design-system.mjs#isAllowedShadowColorRaw
@@ -1515,25 +1427,12 @@ pub fn is_allowed_radius_raw(raw: &str, ds: Option<&DesignSystem>) -> bool {
     let Some(ds) = ds.filter(|d| d.has_radii) else {
         return true;
     };
-    let text = js::to_lower_case(js::trim(raw));
-    if text.is_empty() || text == "0" || text == "none" || text == "initial" || text == "inherit" {
-        return true;
-    }
-    if text.contains("var(") || text.contains('%') {
-        return true;
-    }
-    let Some(px) = resolve_length_px(Some(&text), 16.0) else {
-        return true;
-    };
-    if !px.is_finite() || px <= RADIUS_TOLERANCE_PX {
-        return true;
-    }
-    if ds.has_pill_radius && px >= 99.0 {
-        return true;
-    }
-    ds.allowed_radii
-        .iter()
-        .any(|entry| (entry.px - px).abs() <= RADIUS_TOLERANCE_PX)
+    impeccino_core::design_system::is_allowed_radius_raw(
+        raw,
+        true,
+        ds.allowed_radii.iter().map(|entry| entry.px),
+        ds.has_pill_radius,
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -1779,19 +1678,9 @@ fn check_font_stack(
     )]
 }
 
-re!(SLASH_WS_RE, format!("{WS}*/{WS}*"));
-
 /// JS: design-system.mjs#extractRadiusTokens
 pub fn extract_radius_tokens(value: &str) -> Vec<String> {
-    let replaced = SLASH_WS_RE.replace_all(value, " ");
-    WS_RUN_RE
-        .split(&replaced)
-        // JS-PARITY: extractRadiusTokens strips a trailing `)+` (regex /\)+$/)
-        // after trim so a var() fallback's closing paren (`8px)`) is not parsed
-        // as unitless 8rem. (upstream 1bcdf80f / #687)
-        .map(|t| js::trim(t).trim_end_matches(')').to_string())
-        .filter(|t| !t.is_empty())
-        .collect()
+    impeccino_core::design_system::radius_tokens(value)
 }
 
 fn check_radius_value(
@@ -1978,14 +1867,7 @@ pub fn check_source_design_system(
 
 /// JS: design-system.mjs#isTransparentCss
 pub fn is_transparent_css(value: &str) -> bool {
-    let text = js::to_lower_case(js::trim(value));
-    if text.is_empty() || text == "transparent" {
-        return true;
-    }
-    match parse_design_color(&text) {
-        Some(p) => p.alpha_or_one() <= 0.05,
-        None => false,
-    }
+    impeccino_core::design_system::is_transparent_css(value)
 }
 
 fn finding_ignore_or_value(item: &Finding) -> String {

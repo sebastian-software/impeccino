@@ -26,21 +26,15 @@ use regex::Regex;
 
 static WS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!("{}+", js::WS)).expect("WS_RE"));
 
-/// JS `s.replace(/\s+/g, ' ')`.
-fn collapse_ws(s: &str) -> String {
-    WS_RE.replace_all(s, " ").into_owned()
-}
-
 /// JS: checks.mjs#cleanInlineText(el): direct text nodes joined with a
 /// space, whitespace collapsed, trimmed.
 pub fn clean_inline_text(dom: &dyn Dom, el: ElId) -> String {
-    let joined = dom.direct_text_nodes(el).join(" ");
-    js::trim(&collapse_ws(&joined)).to_string()
+    crate::js_ext_b::clean_inline_text(dom.direct_text_nodes(el))
 }
 
 /// `(el.textContent || '').replace(/\s+/g, ' ').trim()`
 fn collapsed_text_content(dom: &dyn Dom, el: ElId) -> String {
-    js::trim(&collapse_ws(&dom.text_content(el))).to_string()
+    crate::js_ext_b::collapsed_text_content(&dom.text_content(el))
 }
 
 /// JS: checks.mjs#isKickerCardContext(heading, kicker)

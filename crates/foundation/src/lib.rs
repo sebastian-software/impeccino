@@ -14,6 +14,7 @@ pub mod browser;
 pub mod color;
 pub mod constants;
 pub mod css;
+pub mod design_system;
 pub mod fdlibm_trig;
 pub mod findings;
 pub mod fonts;

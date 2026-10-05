@@ -120,20 +120,20 @@ pub fn is_status_context_element(el: &StaticElement<'_>) -> bool {
 /// JS: checks.mjs#cleanInlineText(el): direct text nodes joined with a
 /// space, whitespace collapsed, trimmed.
 pub fn clean_inline_text(el: &StaticElement<'_>) -> String {
-    let parts: Vec<String> = el
+    let parts: Vec<&str> = el
         .child_nodes()
         .iter()
         .filter_map(|c| match c {
-            crate::dom::ChildNode::Text(t) => Some(t.to_string()),
+            crate::dom::ChildNode::Text(t) => Some(*t),
             _ => None,
         })
         .collect();
-    js::trim(&collapse_ws(&parts.join(" "))).to_string()
+    impeccino_core::js_ext_b::clean_inline_text(parts)
 }
 
 /// `(el.textContent || '').replace(/\s+/g, ' ').trim()`
 fn collapsed_text_content(el: &StaticElement<'_>) -> String {
-    js::trim(&collapse_ws(&el.text_content())).to_string()
+    impeccino_core::js_ext_b::collapsed_text_content(&el.text_content())
 }
 
 /// JS: checks.mjs#isKickerCardContext(heading, kicker)
