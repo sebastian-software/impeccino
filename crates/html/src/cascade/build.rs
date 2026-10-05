@@ -16,7 +16,6 @@ use super::{
     SpecifiedStore, StyleValues, STATIC_DEFAULT_STYLE,
 };
 use crate::dom::StaticDocument;
-use crate::profile::{self, Meta, ProfileSink};
 use ego_tree::NodeId;
 use impeccino_core::checks::css_scan::{collect_css_custom_props, css_length_to_px};
 use impeccino_core::checks::measures;
@@ -85,7 +84,7 @@ fn resolve_linked_css_path(file_dir: &str, href: &str) -> String {
     jsp::join(&[file_dir, &rel])
 }
 
-/// JS: css-cascade.mjs#collectStaticCssText(root, fileDir, profile, filePath, modules)
+/// JS: css-cascade.mjs#collectStaticCssText(root, fileDir, modules)
 /// The text of every `<style>` element plus every local `<link rel=stylesheet>`
 /// resolved relative to `file_dir` (query/hash stripped), joined with `\n`.
 /// `warn` receives the JS `process.stderr.write` notice for an unreadable
@@ -93,8 +92,6 @@ fn resolve_linked_css_path(file_dir: &str, href: &str) -> String {
 pub fn collect_static_css_text(
     doc: &StaticDocument,
     file_dir: &Path,
-    profile: Option<&dyn ProfileSink>,
-    file_path: &str,
     warn: Option<&dyn Fn(&str)>,
 ) -> String {
     let mut style_texts: Vec<String> = Vec::new();
@@ -111,11 +108,7 @@ pub fn collect_static_css_text(
             continue;
         }
         let css_path = resolve_linked_css_path(&file_dir_str, href);
-        let read = profile::step(
-            profile,
-            Meta::new("preprocess", "inline-linked-stylesheet", file_path).with_detail(href),
-            || std::fs::read(&css_path),
-        );
+        let read = std::fs::read(&css_path);
         match read {
             Ok(bytes) => style_texts.push(String::from_utf8_lossy(&bytes).into_owned()),
             Err(_) => {
@@ -268,27 +261,18 @@ fn mark_pseudo_rule(
     }
 }
 
-/// JS: css-cascade.mjs#buildStaticStyleMap(root, staticDoc, cssText, modules, profile, filePath)
+/// JS: css-cascade.mjs#buildStaticStyleMap(root, staticDoc, cssText, modules)
 pub fn build_static_style_map(
     doc: &mut StaticDocument,
     css_text: &str,
-    profile: Option<&dyn ProfileSink>,
-    file_path: &str,
 ) {
     let mut specified: SpecifiedStore<NodeId> = SpecifiedStore::new();
     let mut hover_specified: SpecifiedStore<NodeId> = SpecifiedStore::new();
     let mut placeholder_specified: SpecifiedStore<NodeId> = SpecifiedStore::new();
     let root_custom_props = collect_css_custom_props(css_text);
-    let rules = profile::step(
-        profile,
-        Meta::new("parse-css", "css-rules", file_path),
-        || collect_static_css_rules(css_text),
-    );
+    let rules = collect_static_css_rules(css_text);
 
-    profile::step(
-        profile,
-        Meta::new("selector-match", "css-selectors", file_path),
-        || {
+    {
             for rule in &rules {
                 let placeholder_host = if rule.is_hover {
                     None
@@ -319,11 +303,6 @@ pub fn build_static_style_map(
                         .map(|e| e.id())
                         .collect(),
                     Err(_) => {
-                        profile::record(
-                            profile,
-                            Meta::new("selector-match", "unsupported-selector", file_path)
-                                .with_detail(match_selector),
-                        );
                         continue;
                     }
                 };
@@ -374,16 +353,9 @@ pub fn build_static_style_map(
                 }
                 inline_order += 1000;
             }
-        },
-    );
+    }
 
-    profile::step(
-        profile,
-        Meta::new("cascade", "compute-styles", file_path),
-        || {
-            compute_styles(doc, &specified, &hover_specified, &placeholder_specified);
-        },
-    );
+    compute_styles(doc, &specified, &hover_specified, &placeholder_specified);
 }
 
 /// The `computeNode` walk over every `tag`-typed element, root children

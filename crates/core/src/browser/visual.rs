@@ -1,10 +1,8 @@
-//! Visual-contrast decisions from `cli/engine/browser/injected/index.mjs`
-//! (see browser/mod.rs). The async pixel sampling (Image loading, canvas
-//! draws, scrollIntoView, paint waits) stays in `browser-bundle/35-visual.js`
-//! and calls into these through the `vc_*` wasm exports; every threshold,
-//! result string, and computation of that subsystem lives here.
+//! Visual-contrast decisions for rendered pages measured through
+//! agent-browser. Page operations stay in the CLI scan; thresholds, result
+//! strings, and shared computations live here.
 
-use super::dom::{closest_or_none, direct_text, pf0, tag_lower, Dom, ElId, Rect};
+use super::dom::{direct_text, pf0, tag_lower, Dom, ElId, Rect};
 use super::element_checks::parse_rgb_or_any;
 use crate::color::{contrast_ratio, parse_gradient_colors, Rgba};
 use crate::constants::{SAFE_TAGS, WCAG_LARGE_BOLD_TEXT_PX, WCAG_LARGE_TEXT_PX};
@@ -40,10 +38,6 @@ re!(
     TAINT_RE,
     format!("{}|{}|{}", js::ci("taint"), js::ci("cross-origin"), js::ci("security"))
 );
-
-pub const OVERLAY_SELECTOR: &str =
-    ".impeccino-overlay, .impeccino-label, .impeccino-banner, .impeccino-tooltip";
-pub const LIVE_SELECTOR: &str = "[id^=\"impeccino-live-\"]";
 
 /// JS `s.replace(/\s+/g, ' ')`.
 fn collapse_ws(s: &str) -> String {
@@ -213,12 +207,6 @@ pub fn collect_visual_contrast_candidates(dom: &dyn Dom, options: &Value) -> Vec
     for el in dom.query_all(None, "*").unwrap_or_default() {
         if (candidates.len() as f64) >= max_candidates {
             break;
-        }
-        if closest_or_none(dom, el, OVERLAY_SELECTOR).is_some() {
-            continue;
-        }
-        if closest_or_none(dom, el, LIVE_SELECTOR).is_some() {
-            continue;
         }
         if Some(el) == body || Some(el) == root {
             continue;
@@ -645,8 +633,8 @@ pub fn raster_no_context_sample() -> Value {
 // ─── the background stack walk (sampleVisualBackgroundAtPoint) ─────────────
 
 /// JS: index.mjs#sampleVisualBackgroundAtPoint — the depth cap and the node
-/// list (`elementsFromPoint` stack from the element down, overlay chrome
-/// skipped). `Err` carries the early-unresolved sample.
+/// list (`elementsFromPoint` stack from the element down). `Err` carries the
+/// early-unresolved sample.
 pub fn stack_nodes(dom: &dyn Dom, el: ElId, x: f64, y: f64, depth: f64) -> Result<Vec<StackNode>, Value> {
     if depth > 8.0 {
         return Err(json!({ "status": "unresolved", "reason": "background stack too deep" }));
@@ -663,7 +651,6 @@ pub fn stack_nodes(dom: &dyn Dom, el: ElId, x: f64, y: f64, depth: f64) -> Resul
     };
     Ok(nodes
         .into_iter()
-        .filter(|&n| closest_or_none(dom, n, OVERLAY_SELECTOR).is_none())
         .map(|n| {
             let tag = tag_lower(dom, n);
             let kind = if tag == "img" {

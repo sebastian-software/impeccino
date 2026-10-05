@@ -10,7 +10,6 @@ pub mod cascade;
 pub mod dom;
 pub mod engine;
 pub mod page;
-pub mod profile;
 pub mod quality;
 pub mod select;
 pub mod static_engine;
@@ -19,4 +18,4 @@ pub use engine::{
     detect_html, detect_html_source, DesignSystemHook, DetectHtmlOptions, HtmlEngineError,
     StaticRulePack, TextContentAnalyzers,
 };
-pub use static_engine::{DetectDesignSystemHook, DetectorProfileSink, StaticHtmlEngine};
+pub use static_engine::{DetectDesignSystemHook, StaticHtmlEngine};

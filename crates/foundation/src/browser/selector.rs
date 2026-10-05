@@ -16,7 +16,7 @@
 //! - `::-webkit-*` pseudo-elements parse (Chrome accepts unknown vendor ones);
 //! - user-action and form-state pseudo-classes (`:hover`, `:checked`,
 //!   `:disabled`, ...) match through the state list the snapshot recorded for
-//!   the element (`captureStates` in `browser-bundle/15-snapshot.js`);
+//!   the element (`captureStates` in `crates/cli/assets/page-snapshot.js`);
 //!   `:link` / `:any-link` come from tag + `href`; `:visited` never matches
 //!   (Chrome hides it from scripts too);
 //! - type and attribute-name matching is ASCII-case-insensitive for HTML
@@ -158,7 +158,7 @@ impl ToCss for PseudoClass {
 
 /// Pseudo-classes whose truth the snapshot records per element
 /// (`el.matches(':<name>')` at capture time). Keep in sync with
-/// `STATE_PSEUDOS` in `browser-bundle/15-snapshot.js`.
+/// `STATE_PSEUDOS` in `crates/cli/assets/page-snapshot.js`.
 pub const STATE_PSEUDOS: &[&str] = &[
     "hover",
     "active",

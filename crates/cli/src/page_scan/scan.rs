@@ -6,11 +6,11 @@
 //! the former URL engine's scan (`crates/browser`, docs/adr/0011) with the
 //! Chrome DevTools connection replaced by agent-browser (docs/adr/0016).
 
-use impeccino_core::browser::driver::{collect_browser_findings, serialize_findings};
+use impeccino_core::browser::driver::{collect_browser_findings, generate_selector};
 use impeccino_core::browser::page_checks::measure_hidden_text_dom;
 use impeccino_core::browser::snapshot::{Facts, SnapshotDom};
 use impeccino_core::browser::visual::{self, CssPlan, Prepared, StackNode};
-use impeccino_core::browser::{BrowserConfig, Dom, ElId};
+use impeccino_core::browser::{BrowserConfig, Dom, ElId, FindingGroup};
 use impeccino_core::checks::measures::{check_content_hidden_at_rest, ContentHiddenInput};
 use impeccino_core::color::Rgba;
 use serde_json::{json, Value};
@@ -46,15 +46,14 @@ impl RawResult {
 pub fn scan(io: &mut dyn PageIo, config: &BrowserConfig) -> Result<Vec<RawResult>, String> {
     let dom = capture(io)?;
     let collected = resolve_needs(&dom, io, |d| collect_browser_findings(d, config))?;
-    let groups = serialize_findings(&dom, &collected.groups).as_array().cloned().unwrap_or_default();
     let mut results = Vec::new();
-    for group in &groups {
-        for f in group.get("findings").and_then(Value::as_array).into_iter().flatten() {
+    for group in &collected.groups {
+        for f in &group.findings {
             results.push(RawResult {
-                id: str_of(f.get("type")),
-                snippet: str_of(f.get("detail")),
-                ignore_value: str_of(f.get("ignoreValue")),
-                severity: str_of(f.get("severity")),
+                id: f.type_.clone(),
+                snippet: f.detail.clone(),
+                ignore_value: f.ignore_value.clone().unwrap_or_default(),
+                severity: f.severity.clone().unwrap_or_default(),
             });
         }
     }
@@ -77,8 +76,8 @@ pub fn scan(io: &mut dyn PageIo, config: &BrowserConfig) -> Result<Vec<RawResult
     }
 
     let analyses = analyze_visual_contrast(io, &base)?;
-    results.extend(visual_findings(&analyses, &groups));
-    results.extend(screenshot_fallback(io, &analyses, &groups)?);
+    results.extend(visual_findings(&analyses, &collected.groups, &dom));
+    results.extend(screenshot_fallback(io, &analyses, &collected.groups, &dom)?);
     Ok(results)
 }
 
@@ -324,9 +323,8 @@ fn analyze_candidate(io: &mut dyn PageIo, dom: &SnapshotDom, candidate: &Value) 
 /// scrolled into view, re-measured, and analyzed again, then the scroll is
 /// restored.
 fn analyze_visual_contrast(io: &mut dyn PageIo, base: &SnapshotDom) -> Result<Vec<Value>, String> {
-    // Image-backed text first (the live overlay's pass), then every other
-    // candidate (the URL engine's pass), so gradient-heavy pages cannot crowd
-    // image backgrounds out of the cap.
+    // Image-backed text first, then every other candidate, so gradient-heavy
+    // pages cannot crowd image backgrounds out of the cap.
     let image_only = json!({ "maxCandidates": MAX_VISUAL_CANDIDATES, "imageOnly": true });
     let general = json!({ "maxCandidates": MAX_VISUAL_CANDIDATES });
     let mut candidates = resolve_needs(base, io, |d| visual::collect_visual_contrast_candidates(d, &image_only))?;
@@ -361,28 +359,27 @@ fn analyze_visual_contrast(io: &mut dyn PageIo, base: &SnapshotDom) -> Result<Ve
 }
 
 /// Selectors the browser rules already reported as low contrast.
-fn reported_low_contrast(groups: &[Value]) -> Vec<&str> {
+fn reported_low_contrast(dom: &dyn Dom, groups: &[FindingGroup]) -> Vec<String> {
     groups
         .iter()
-        .filter(|g| {
-            g.get("findings")
-                .and_then(Value::as_array)
-                .is_some_and(|fs| fs.iter().any(|f| f.get("type").and_then(Value::as_str) == Some("low-contrast")))
-        })
-        .filter_map(|g| g.get("selector").and_then(Value::as_str))
+        .filter(|g| g.findings.iter().any(|f| f.type_ == "low-contrast"))
+        .map(|g| if g.el == 0 { "body".to_string() } else { generate_selector(dom, g.el) })
         .filter(|s| !s.is_empty())
         .collect()
 }
 
 /// Low-contrast findings the analyses decided, minus elements the browser
 /// rules already reported.
-fn visual_findings(analyses: &[Value], groups: &[Value]) -> Vec<RawResult> {
-    let reported = reported_low_contrast(groups);
+fn visual_findings(analyses: &[Value], groups: &[FindingGroup], dom: &dyn Dom) -> Vec<RawResult> {
+    let reported = reported_low_contrast(dom, groups);
     analyses
         .iter()
         .filter(|r| {
             r.get("finding").is_some_and(|f| !f.is_null())
-                && !r.get("selector").and_then(Value::as_str).is_some_and(|s| reported.contains(&s))
+                && !r
+                    .get("selector")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| reported.iter().any(|existing| existing == s))
         })
         .filter_map(|r| r.get("finding"))
         .map(|f| RawResult::plain(str_of(f.get("id")), str_of(f.get("snippet"))))
@@ -397,12 +394,21 @@ fn visual_findings(analyses: &[Value], groups: &[Value]) -> Vec<RawResult> {
 /// was under them. Ported from the former URL engine
 /// (`screenshot-contrast.mjs`), with the clip taken from the live element
 /// after scrolling it into view.
-fn screenshot_fallback(io: &mut dyn PageIo, analyses: &[Value], groups: &[Value]) -> Result<Vec<RawResult>, String> {
-    let reported = reported_low_contrast(groups);
+fn screenshot_fallback(
+    io: &mut dyn PageIo,
+    analyses: &[Value],
+    groups: &[FindingGroup],
+    dom: &dyn Dom,
+) -> Result<Vec<RawResult>, String> {
+    let reported = reported_low_contrast(dom, groups);
     let open: Vec<&Value> = analyses
         .iter()
         .filter(|a| !matches!(a.get("status").and_then(Value::as_str), Some("fail") | Some("pass")))
-        .filter(|a| a.get("selector").and_then(Value::as_str).is_some_and(|s| !s.is_empty() && !reported.contains(&s)))
+        .filter(|a| {
+            a.get("selector").and_then(Value::as_str).is_some_and(|s| {
+                !s.is_empty() && !reported.iter().any(|existing| existing == s)
+            })
+        })
         .collect();
     if open.is_empty() {
         return Ok(Vec::new());

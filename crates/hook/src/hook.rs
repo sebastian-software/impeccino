@@ -153,15 +153,6 @@ fn run_hook_inner(
     audit.insert("ts".into(), Value::String(iso_now()));
     audit.insert("event".into(), Value::String("PostToolUse".into()));
 
-    if depth_is_set(rt.env("IMPECCINO_HOOK_DEPTH")) || depth_is_set(rt.env("CLAUDE_HOOK_DEPTH")) {
-        return result(
-            &audit,
-            vec![
-                ("reentrant", Value::Bool(true)),
-                ("durationMs", Value::from(0)),
-            ],
-        );
-    }
     if truthy(rt.env("IMPECCINO_HOOK_DISABLED")) {
         return result(
             &audit,
@@ -367,7 +358,6 @@ fn run_hook_inner(
     let quiet_mode = truthy(rt.env("IMPECCINO_HOOK_QUIET"));
     let mut detector_threw_any = false;
     let mut last_skip = "no-scannable-file";
-    let mut live_preview_edit: Option<String> = None;
     let mut suppressed_hit = false;
     let mut cache_dirty = false;
     let mut deferred_total: usize = 0;
@@ -428,20 +418,6 @@ fn run_hook_inner(
             }
         }
 
-        // A live variant session owns a file carrying preview markers: stand
-        // down before the per-session edit cap can turn the variants wrap
-        // into a suppression notice.
-        if primary_files.contains(file_path) {
-            if let Ok(bytes) = std::fs::read(file_path) {
-                if crate::hook_lib::has_live_preview_markers(&String::from_utf8_lossy(&bytes)) {
-                    if live_preview_edit.is_none() {
-                        live_preview_edit = Some(file_path.clone());
-                    }
-                    last_skip = "live-preview";
-                    continue;
-                }
-            }
-        }
         let use_html_engine = match configured {
             Some(c) => c.engine == "html",
             None => ext == ".html" || ext == ".htm",
@@ -479,18 +455,6 @@ fn run_hook_inner(
                 };
             }
         };
-        if crate::hook_lib::has_live_preview_markers(&content) {
-            // A live variant session owns this file. When it is the edited
-            // (primary) file, the whole event stands down, co-scanned
-            // stylesheets included: a clean ack or a finding about the
-            // companion file is the same mid-session noise the stand-down
-            // exists to prevent.
-            if primary_files.contains(file_path) && live_preview_edit.is_none() {
-                live_preview_edit = Some(file_path.clone());
-            }
-            last_skip = "live-preview";
-            continue;
-        }
         let scan = scans.entry(file_path.clone()).or_insert_with(|| {
             design_system_options_for_file(rt, &config, &project_cwd, file_path)
         });
@@ -569,18 +533,6 @@ fn run_hook_inner(
             }
         }
     }
-    if let Some(file) = live_preview_edit {
-        audit.insert("file".into(), Value::String(file));
-        return result(
-            &audit,
-            vec![
-                ("emitted", Value::Bool(false)),
-                ("skipped", Value::from("live-preview")),
-                ("durationMs", ms_since(started)),
-            ],
-        );
-    }
-
     if !fresh_groups.is_empty() {
         let scan = &scans[&fresh_groups[0].file_path];
         let short = footer_mode_short(&mut cache, &session_id);
@@ -791,15 +743,6 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
     audit.insert("ts".into(), Value::String(iso_now()));
     audit.insert("event".into(), Value::String("Stop".into()));
 
-    if depth_is_set(rt.env("IMPECCINO_HOOK_DEPTH")) || depth_is_set(rt.env("CLAUDE_HOOK_DEPTH")) {
-        return result(
-            &audit,
-            vec![
-                ("reentrant", Value::Bool(true)),
-                ("durationMs", Value::from(0)),
-            ],
-        );
-    }
     if truthy(rt.env("IMPECCINO_HOOK_DISABLED")) {
         return result(
             &audit,
@@ -977,9 +920,6 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
                 Ok(b) => String::from_utf8_lossy(&b).into_owned(),
                 Err(_) => continue,
             };
-            if crate::hook_lib::has_live_preview_markers(&content) {
-                continue;
-            }
             let use_html_engine = match configured {
                 Some(c) => c.engine == "html",
                 None => ext == ".html" || ext == ".htm",
@@ -1229,16 +1169,6 @@ fn is_stop_event(stdin: &str) -> bool {
 
 /// `impeccino hook` (hook.mjs main). Returns the exit code (always 0).
 pub fn run(rt: &Runtime, stdin: &str, io: &mut impeccino_common::Io) -> i32 {
-    if let Ok(Value::Object(event)) = serde_json::from_str::<Value>(stdin) {
-        // Events only the retired build phase subscribed to (docs/adr/0012);
-        // manifests from older installs may still deliver them.
-        if matches!(event.get("hook_event_name").and_then(Value::as_str), Some("BeforeTool" | "AfterAgent" | "SessionStart")) {
-            return 0;
-        }
-    }
-    // JS: process.env.IMPECCINO_HOOK_DEPTH = process.env.IMPECCINO_HOOK_DEPTH || '1'
-    // is exported for child processes; this binary spawns none, so the
-    // pre-mutation snapshot in `rt.env` is the only value that matters.
     let result = if is_stop_event(stdin) {
         run_stop_hook(rt, stdin)
     } else {

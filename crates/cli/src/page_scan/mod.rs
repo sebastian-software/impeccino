@@ -25,7 +25,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use impeccino_core::browser::BrowserConfig;
+use impeccino_core::browser::{BrowserConfig, DesignSystemConfig};
+use impeccino_core::browser::driver::normalize_browser_font_name;
 use impeccino_core::findings::{derive_advisory_flag, try_finding, Finding};
 use impeccino_detect::design_system::DesignSystem;
 use impeccino_detect::engines::{EngineError, ScanOptions, SharedBrowser, UrlEngine};
@@ -612,35 +613,39 @@ fn to_findings(raw: Vec<scan::RawResult>, url: &str) -> Vec<Finding> {
 
 fn browser_config(ds: Option<&DesignSystem>) -> BrowserConfig {
     let design_system = ds.filter(|d| d.present).map(|ds| {
-        let colors: Vec<Value> = ds
+        let mut allowed_fonts = Vec::new();
+        for font in &ds.allowed_fonts {
+            let font = normalize_browser_font_name(font);
+            if !font.is_empty() && !allowed_fonts.contains(&font) {
+                allowed_fonts.push(font);
+            }
+        }
+        let allowed_colors: Vec<impeccino_core::color::Rgba> = ds
             .allowed_color_keys
             .iter()
             .map(|(_, entry)| &entry.color)
             .filter(|c| c.r.is_finite() && c.g.is_finite() && c.b.is_finite())
-            .map(|c| json!({ "r": c.r, "g": c.g, "b": c.b }))
+            .map(|c| impeccino_core::color::Rgba { r: c.r, g: c.g, b: c.b, a: None })
             .collect();
-        let radii: Vec<Value> = ds.allowed_radii.iter().map(|r| r.px).filter(|px| px.is_finite()).map(|px| json!(px)).collect();
-        json!({
-            "present": true,
-            "hasFonts": ds.has_fonts,
-            "allowedFonts": ds.allowed_fonts,
-            "hasColors": ds.has_colors,
-            "allowedColors": colors,
-            "hasRadii": ds.has_radii,
-            "allowedRadii": radii,
-            "hasPillRadius": ds.has_pill_radius,
-            "declaredSelectors": ds.declared_selectors,
-        })
+        let allowed_radii = ds.allowed_radii.iter().map(|r| r.px).filter(|px| px.is_finite()).collect::<Vec<_>>();
+        let declared_selectors = ds
+            .declared_selectors
+            .iter()
+            .map(|selector| impeccino_core::js::trim(selector).to_string())
+            .filter(|selector| !selector.is_empty())
+            .collect();
+        DesignSystemConfig {
+            declared_selectors,
+            has_fonts: ds.has_fonts && !allowed_fonts.is_empty(),
+            allowed_fonts,
+            has_colors: ds.has_colors && !allowed_colors.is_empty(),
+            allowed_colors,
+            has_radii: ds.has_radii && !allowed_radii.is_empty(),
+            allowed_radii,
+            has_pill_radius: ds.has_pill_radius,
+        }
     });
-    BrowserConfig {
-        extension_mode: false,
-        disabled_rules: Vec::new(),
-        disabled_values: Vec::new(),
-        skip_scan: false,
-        design_system,
-        line_length_max: None,
-        rule_pack: None,
-    }
+    BrowserConfig { design_system }
 }
 
 fn scratch_dir() -> PathBuf {

@@ -36,7 +36,6 @@ Source: `crates/hook/src`, `crates/context/src/context_cli.rs`, and `crates/cli/
 | `IMPECCINO_HOOK_HARNESS` | Forces event interpretation for a named harness. | Inferred from the event, then `claude`. |
 | `IMPECCINO_HOOK_DISABLED` | Truthy value (`1`, `true`, `yes`, or `on`, case-insensitive) disables installed hook scans. | Unset or false: the hook runs where its manifest entries are installed. |
 | `IMPECCINO_HOOK_QUIET` | Truthy value suppresses clean and pending per-edit hook acknowledgments. | Unset or false: show the normal acknowledgment. |
-| `IMPECCINO_HOOK_DEPTH`, `CLAUDE_HOOK_DEPTH` | Nested-invocation guards. Truthy values and nonzero ASCII digit strings stop the hook from running recursively. | Unset, blank, or zero: process the event normally. |
 | `IMPECCINO_HOOK_LOG` | Writes one NDJSON record per invocation; `~/` expands from `HOME` or `USERPROFILE`. | Unset: no audit log. |
 | `IMPECCINO_AGENT_BROWSER` | Selects the executable for rendered-page scans and availability checks. | Search `PATH` for `agent-browser`. |
 | `PATH`, `PATHEXT` | Search locations and Windows executable extensions used to find `agent-browser`. | Operating-system values. |
