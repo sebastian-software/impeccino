@@ -5,6 +5,6 @@
   "signal": null,
   "files": {
     ".codex/skills/i-impeccino/SKILL.md": "---\nname: i-impeccino\n---\n",
-    ".codex/skills/shape/SKILL.md": "---\nname: shape\ndescription: \"Plan UX and UI before code. Runs a required multi-round discovery interview, uses visual probes when available, and produces a user-confirmed design brief for implementation.\"\nmetadata:\n  argument-hint: \"[feature to shape]\"\n---\n\n<!-- impeccino-pinned-skill -->\n\nThis is a pinned shortcut for `$impeccino shape`.\n\nInvoke $impeccino shape, passing along any arguments provided here, and follow its instructions.\n"
+    ".codex/skills/shape/SKILL.md": "---\nname: shape\ndescription: \"Plan UX and UI before implementation. Runs one focused discovery round by default, adds a second only for material gaps, and produces a user-confirmed design brief without writing code.\"\nmetadata:\n  argument-hint: \"[feature to shape]\"\n---\n\n<!-- impeccino-pinned-skill -->\n\nThis is a pinned shortcut for `$impeccino shape`.\n\nInvoke $impeccino shape, passing along any arguments provided here, and follow its instructions.\n"
   }
 }
