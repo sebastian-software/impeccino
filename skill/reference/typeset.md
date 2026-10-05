@@ -20,7 +20,7 @@ When a sub-agent tool is available and permitted, run these independently; other
    - **Authority and fit:** Which faces, weights, and roles are established? Do they fit the product and selected world, or are they unexamined defaults? Is every family necessary?
    - **Hierarchy:** Can heading, body, label, metadata, and data roles be distinguished at a glance? Are adjacent sizes or weights too close to carry different jobs?
    - **Scale and consistency:** Is there a deliberate role scale, or a collection of arbitrary values? Do repeated roles stay identical across screens and states?
-   - **Reading:** Does body copy stay within a comfortable 45–75 character measure? Are line height, paragraph rhythm, contrast, and tracking tuned to the actual face, width, language, and surface?
+   - **Reading:** Does body copy stay within a comfortable 45–75ch measure when the content and container allow it? Are line height, paragraph rhythm, contrast, and tracking tuned to the actual face, width, language, and surface?
    - **Stress:** What happens with long headings, localization expansion, zoom, narrow containers, missing weights, and font fallback?
    - **Delivery:** Are only used assets loaded? Do fallback metrics, loading strategy, and variable-font settings avoid invisible text and disruptive reflow?
 2. **Mechanical scan (web only):** run:
@@ -46,7 +46,7 @@ Use the fewest roles and families that make the hierarchy unmistakable. Combine 
 ## Apply
 
 - Keep body copy comfortably readable and zoomable. Use 1rem / 16px as the ordinary web body floor unless a dense role, platform convention, or user setting justifies otherwise.
-- Keep prose in the 45–75ch range. Tune line height inversely with measure: wider lines generally need more leading.
+- Aim for 45–75ch of prose, adjusting for the content, typeface, language, and container. Tune line height with the measure: wider lines generally need more leading.
 - Compensate light text on dark surfaces on all three perceptual axes: slightly more line height, a touch more tracking, and one step more weight when the face needs it.
 - Tune line height to the face, width, language, and contrast, not a universal ratio.
 - Keep repeated roles consistent across screens and states.

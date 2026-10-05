@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skill = (description = 'Design guidance') => `---\nname: impeccino\ndescription: ${description}\n---\n\n| \`audit\` | Review |\n`;
 
-function checkFixture({ readme = '# Project\n', mainSkill = skill(), reference = '' } = {}) {
+function checkFixture({ readme = '# Project\n', mainSkill = skill(), reference = '', commandMetadata = '{}' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccino-repository-check-'));
   const write = (relative, content) => {
     const target = path.join(root, relative);
@@ -23,6 +23,7 @@ function checkFixture({ readme = '# Project\n', mainSkill = skill(), reference =
     write('README.md', readme);
     write('skill/SKILL.md', mainSkill);
     write('skill/reference/nested/guide.md', reference);
+    write('skill/scripts/command-metadata.json', commandMetadata);
     write('crates/foundation/src/registry.rs', 'pub static ANTIPATTERNS = &[\n  id: "sample",\n];\n');
     return spawnSync(process.execPath, [path.join(root, 'scripts/check.js')], {
       cwd: root,
@@ -51,6 +52,14 @@ describe('repository check entrypoint', () => {
     expect(result.stderr).toMatch(/guide\.md:1: em dash/);
     expect(result.stderr).toMatch(/guide\.md:2: em dash/);
     expect(result.stderr).toMatch(/guide\.md:3: ` -- ` em-dash substitute/);
+  });
+
+  test('checks command metadata JSON with the skill prose rules', () => {
+    const result = checkFixture({
+      commandMetadata: JSON.stringify({ overdrive: { description: 'Shaders — spring physics.' } }),
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/command-metadata[.]json:1: em dash/);
   });
 
   test('continues enforcing counts and frontmatter limits', () => {

@@ -104,7 +104,7 @@ For each issue, document:
 - **Impact**: How it affects users
 - **Guideline**: The HIG / Material rule it violates (if applicable)
 - **Recommendation**: How to fix it
-- **Suggested command**: Which command to use (prefer: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset)
+- **Suggested command**: Which command to use (prefer: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino extract, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset)
 
 ### Patterns & Systemic Issues
 
@@ -123,7 +123,7 @@ List recommended commands in priority order (P0 first, then P1, then P2):
 1. **[P?] `/command-name`**: Brief description (specific context from audit findings)
 2. **[P?] `/command-name`**: Brief description (specific context)
 
-**Rules**: Only recommend commands from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset. Map findings to the most appropriate command. End with `/impeccino polish` as the final step if any fixes were recommended.
+**Rules**: Only recommend commands from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino extract, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset. Map findings to the most appropriate command. End with `/impeccino polish` as the final step if any fixes were recommended.
 
 After presenting the summary, tell the user:
 

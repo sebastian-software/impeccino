@@ -21,18 +21,17 @@ it('requires provider execution only when the CI caller opts into that gate', ()
 
 it('documentation artifacts require tokens and the v2 sidecar independently of wrapper coverage', () => {
   const design = '---\ncolors:\n  ink: "#222"\ntypography:\n  body:\n    fontFamily: system-ui\n---\n## Overview\nA reading surface.\n';
-  const sidecar = JSON.stringify({ schemaVersion: 2, extensions: { colorMeta: {} }, narrative: { northStar: 'Manual' } });
+  const sidecar = JSON.stringify({ schemaVersion: 2, extensions: { colorMeta: { primary: { canonical: '#222', tonalRamp: ['#222'] } } } });
   assert.doesNotThrow(() => assertDocumentationArtifacts(design, sidecar));
   assert.throws(() => assertDocumentationArtifacts('## Colors\nInk: #222\n', sidecar), /frontmatter/);
   assert.throws(() => assertDocumentationArtifacts(design.replace('colors:', 'palette:'), sidecar), /color tokens/);
   assert.throws(() => assertDocumentationArtifacts(design.replace('typography:', 'type:'), sidecar), /typography tokens/);
   assert.throws(() => assertDocumentationArtifacts(design, ''), SyntaxError);
   assert.throws(() => assertDocumentationArtifacts(design, sidecar.replace('"schemaVersion":2', '"schemaVersion":1')), /v2 sidecar/);
-  for (const key of ['extensions', 'narrative']) {
-    for (const value of [undefined, {}, []]) {
-      assert.throws(() => assertDocumentationArtifacts(design, JSON.stringify({ ...JSON.parse(sidecar), [key]: value })), /metadata/);
-    }
+  for (const value of [undefined, []]) {
+    assert.throws(() => assertDocumentationArtifacts(design, JSON.stringify({ schemaVersion: 2, extensions: value })), /extensions object/);
   }
+  assert.doesNotThrow(() => assertDocumentationArtifacts(design, JSON.stringify({ schemaVersion: 2, extensions: {} })));
 });
 
 it('advice outcomes do not depend on opening every reference, but keep consent and prerequisite gates', () => {
@@ -141,7 +140,7 @@ it('stages the universal references independently of the source skill', async ()
     assert.equal(fs.lstatSync(base).isSymbolicLink(), false);
     const { tools } = makeTools(workspace);
     const critique = await tools.read.execute({ path: '.claude/skills/impeccino/reference/critique.md' });
-    assert.match(critique, /structured question tool when it has one/);
+    assert.match(critique, /structured question tool when available/);
     assert.doesNotMatch(critique, /\{\{ask_instruction\}\}|\{\{scripts_path\}\}|<codex>/);
     for (const role of ['finish-reviewer', 'documenter']) {
       const agent = await tools.read.execute({ path: `.claude/skills/impeccino/agents/impeccino-${role}.md` });
@@ -161,7 +160,7 @@ it('can index skill references when a partial fixture has no agents directory', 
     fs.rmSync(path.join(workspace, '.claude/skills/impeccino/agents'), { recursive: true });
     const { tools, trace } = makeTools(workspace);
     const output = await tools.bash.execute({ command: 'cat .claude/skills/impeccino/reference/critique.md' });
-    assert.match(output, /structured question tool when it has one/);
+    assert.match(output, /structured question tool when available/);
     assert.equal(fileLoaded(trace, 'reference/critique.md'), true);
   } finally {
     cleanupWorkspace(workspace);

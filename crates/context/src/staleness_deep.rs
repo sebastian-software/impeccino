@@ -162,7 +162,7 @@ pub fn check_design_coverage(design: Option<&str>, design_path: Option<&str>) ->
         design_path.map(|s| s.to_string()),
         "mention",
         format!(
-            "{} has no {} section. Agents generating new screens get no normative guidance for those, and the live design panel renders generic approximations in their place.",
+            "{} has no {} section. Agents generating new screens must infer those rules from the implementation.",
             design_path.filter(|p| !p.is_empty()).unwrap_or("DESIGN.md"),
             missing.join(", ")
         ),
@@ -467,7 +467,7 @@ pub fn load_known_rule_ids() -> Option<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
-    use super::check_hook_installation;
+    use super::{check_design_coverage, check_hook_installation};
 
     static TMP_SEQ: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
@@ -501,6 +501,18 @@ mod tests {
         let p = std::path::Path::new(root).join(rel);
         std::fs::create_dir_all(p.parent().unwrap()).unwrap();
         std::fs::write(p, body).unwrap();
+    }
+
+    #[test]
+    fn design_coverage_describes_missing_guidance_without_a_live_panel() {
+        let findings =
+            check_design_coverage(Some("## Colors\nPrimary: #222.\n"), Some("DESIGN.md"));
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].id, "design-md-coverage");
+        assert!(findings[0]
+            .summary
+            .contains("must infer those rules from the implementation"));
+        assert!(!findings[0].summary.contains("live design panel"));
     }
 
     #[test]

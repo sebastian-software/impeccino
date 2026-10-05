@@ -122,7 +122,7 @@ describe('cross-reference contracts', () => {
     expect(reviewer).toMatch(/keep a default the brief or world explicitly earns/i);
     expect(reviewer).toMatch(/explicitly calls a ban/i);
     expect(documenter).toMatch(/preserve one when the approved brief or world deliberately chooses it/i);
-    expect(documenter).toMatch(/explicitly labels a ban/i);
+    expect(documenter).toMatch(/explicitly marks that specific choice as a non-waivable ban/i);
   });
 
   test('standalone document seed and post-build documentation have separate timing', () => {
@@ -183,5 +183,105 @@ describe('cross-reference contracts', () => {
       expect(read(file)).toMatch(/Mechanical scan \(web only\)/i);
       expect(read(file)).toMatch(/On web targets, rerun the scan; on native targets, recheck the device captures/i);
     }
+  });
+});
+
+
+describe('skill text contracts cleaned up in issue 33', () => {
+  const skillDir = path.join(process.cwd(), 'skill');
+  const read = (name) => fs.readFileSync(path.join(skillDir, name), 'utf-8');
+
+  test('argument hint preserves the command table category groups', () => {
+    const parsed = utils.parseFrontmatter(read('SKILL.md'));
+    const body = parsed.body;
+    const categories = new Set(['Build', 'Evaluate', 'Refine', 'Enhance', 'Fix']);
+    const tableGroups = [];
+    for (const line of body.split(/\r?\n/)) {
+      const columns = line.split('|').map((column) => column.trim());
+      if (!categories.has(columns[2])) continue;
+      const command = columns[1].replaceAll(String.fromCharCode(96), '').trim().split(/\s+/)[0];
+      const previous = tableGroups.at(-1);
+      if (!previous || previous.category !== columns[2]) {
+        tableGroups.push({ category: columns[2], commands: [command] });
+      } else {
+        previous.commands.push(command);
+      }
+    }
+    const hint = parsed.frontmatter['argument-hint'];
+    const hintedGroups = hint.slice(1, hint.indexOf(']')).split(' · ').map((group) => group.split('|'));
+    expect(hintedGroups).toEqual(tableGroups.map((group) => group.commands));
+
+    const metadata = JSON.parse(fs.readFileSync(path.join(skillDir, 'scripts/command-metadata.json'), 'utf-8'));
+    expect(metadata.init.description).toMatch(/does not create DESIGN[.]md/i);
+    expect(metadata.init.description).not.toMatch(/offers DESIGN[.]md/i);
+    expect(metadata.shape.description).toMatch(/one focused discovery round/i);
+    expect(metadata.shape.description).not.toMatch(/multi-round|visual probes/i);
+    expect(metadata.craft.description).toMatch(/deprecated compatibility alias/i);
+  });
+
+  test('skill source carries no unused rule markers or named host question APIs', () => {
+    for (const file of utils.readFilesRecursive(skillDir)) {
+      const text = fs.readFileSync(file, 'utf-8');
+      expect(text).not.toContain('<!-- rule:');
+      expect(text).not.toMatch(/AskUserQuestion|request_user_input/);
+    }
+  });
+
+  test('document sidecar instructions contain only detector-consumed metadata', () => {
+    const document = read('reference/document.md');
+    const sidecar = document.split('### Step 4b: Write the DESIGN.json sidecar (detector metadata only)')[1]
+      .split('### Step 5: Confirm and refine')[0];
+    for (const field of ['extensions.colorMeta.<token>.canonical', 'extensions.colorMeta.<token>.tonalRamp',
+      'extensions.roundedMeta.<token>', 'extensions.shadows[].value']) {
+      expect(sidecar).toContain(field);
+    }
+    expect(sidecar).not.toMatch(/shadow DOM|5-10 components|narrative mapping/i);
+    expect(document).not.toMatch(/button, input, and nav primitives/i);
+    expect(sidecar).toMatch(/do not generate component snippets, narrative, motion, breakpoints/i);
+  });
+
+  test('brief-earned floor defaults and non-waivable bans stay distinct for review and documentation', () => {
+    const floor = read('reference/craft-floor.md');
+    const reviewer = read('agents/impeccino-finish-reviewer.md');
+    const documenter = read('agents/impeccino-documenter.md');
+
+    expect(floor).toMatch(/defaults, not bans: the brief's own words can earn any/i);
+    expect(floor).toMatch(/This one is a ban, not a default: no brief earns it back/i);
+    expect(reviewer).toMatch(/keep a default the brief or world explicitly earns/i);
+    expect(documenter).toMatch(/only when the craft floor explicitly marks that specific choice as a non-waivable ban/i);
+    expect(documenter).toMatch(/preserve one when the approved brief or world deliberately chooses it/i);
+    expect(documenter).toMatch(/specifically labeled ban such as a kicker or eyebrow/i);
+  });
+
+  test('hooks distinguish installed manifests from manually configured Grok', () => {
+    const hooks = read('reference/hooks.md');
+    expect(hooks).toMatch(/hooks on.{0,2} installs manifests for Claude Code.*Codex.*Cursor.*GitHub Copilot/i);
+    expect(hooks).toMatch(/Grok Build can run the hook from a manually configured/i);
+    expect(hooks).toMatch(/hooks on.*hooks off.*hooks reset.*hooks status.*do not write, manage, or report that manual manifest/i);
+  });
+
+  test('audit command menus include extract and follow their section order', () => {
+    for (const file of ['reference/audit.md', 'reference/audit.native.md', 'reference/critique.md']) {
+      expect(read(file)).toContain('/impeccino extract');
+    }
+    const audit = read('reference/audit.md');
+    expect(audit.indexOf('### 3. Theming')).toBeLessThan(audit.indexOf('### 4. Responsive Design'));
+    expect(audit.indexOf('| 3 | Theming |')).toBeLessThan(audit.indexOf('| 4 | Responsive Design |'));
+  });
+
+  test('body measure and detector guidance stay context-sensitive and distinct', () => {
+    const floor = read('reference/craft-floor.md');
+    const operate = read('reference/operate.md');
+    const typeset = read('reference/typeset.md');
+    expect(floor).toContain('body measure 45–75ch');
+    expect(operate).toContain('45–75ch');
+    expect(typeset).toContain('45–75ch');
+    expect([floor, operate, typeset].join('\n')).not.toContain('65–75ch');
+
+    const newWork = read('reference/new-work.md');
+    const polish = read('reference/polish.md');
+    expect(newWork).toMatch(/do not rerun a detector to discover new fixes.*earlier local-source scan.*rendered-page scan at each inspected web width/i);
+    expect(polish).toMatch(/one manual source-file scan.*do not duplicate that source scan/i);
+    expect(polish).toContain('Rendered-page URL scans remain separate');
   });
 });

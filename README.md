@@ -50,7 +50,7 @@ All commands are accessed through `/impeccino`:
 
 | Command | What it does |
 |---------|--------------|
-| `/impeccino craft` | Full shape-then-build flow with visual iteration |
+| `/impeccino craft` | Deprecated compatibility alias for an ordinary new-work request |
 | `/impeccino init` | One-time setup: gather durable product context, write PRODUCT.md, recommend next steps |
 | `/impeccino document` | Generate root DESIGN.md from existing project code |
 | `/impeccino extract` | Pull reusable components and tokens into the design system |

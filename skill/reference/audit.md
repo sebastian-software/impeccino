@@ -71,8 +71,8 @@ Run the bundled detector and verify each finding in context. Look for repeated i
 |---|-----------|-------|-------------|
 | 1 | Accessibility | ? | [most critical a11y issue or "--"] |
 | 2 | Performance | ? | |
-| 3 | Responsive Design | ? | |
-| 4 | Theming | ? | |
+| 3 | Theming | ? | |
+| 4 | Responsive Design | ? | |
 | 5 | Implementation Integrity | ? | |
 | **Total** | | **??/20** | **[Rating band]** |
 
@@ -102,7 +102,7 @@ For each issue, document:
 - **Impact**: How it affects users
 - **WCAG/Standard**: Which standard it violates (if applicable)
 - **Recommendation**: How to fix it
-- **Suggested command**: Which command to use (prefer: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset)
+- **Suggested command**: Which command to use (prefer: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino extract, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset)
 
 ### Patterns & Systemic Issues
 
@@ -121,7 +121,7 @@ List recommended commands in priority order (P0 first, then P1, then P2):
 1. **[P?] `/command-name`**: Brief description (specific context from audit findings)
 2. **[P?] `/command-name`**: Brief description (specific context)
 
-**Rules**: Only recommend commands from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset. Map findings to the most appropriate command. End with `/impeccino polish` as the final step if any fixes were recommended.
+**Rules**: Only recommend commands from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino extract, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset. Map findings to the most appropriate command. End with `/impeccino polish` as the final step if any fixes were recommended.
 
 After presenting the summary, tell the user:
 

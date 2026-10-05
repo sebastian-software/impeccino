@@ -68,7 +68,7 @@ Omit irrelevant sections rather than filling them with invented rules. Put respo
 - An existing `DESIGN.md` is stale (the design has drifted).
 - Before a large redesign, to capture the current state as a reference.
 
-If a `DESIGN.md` already exists, **do not silently overwrite it**. Show the user the existing file first. STOP and ask the user to clarify, through the host's structured question tool when it has one (for example AskUserQuestion or request_user_input), otherwise directly in chat. The choice is refresh, overwrite, or merge.
+If a `DESIGN.md` already exists, **do not silently overwrite it**. Show the user the existing file first. STOP and ask the user to clarify, through the host's structured question tool when available, otherwise directly in chat. The choice is refresh, overwrite, or merge.
 
 ## Two paths
 
@@ -179,7 +179,7 @@ colors:
 - **Display** ([weight], [size/clamp], [line-height]): [Purpose; where it appears.]
 - **Headline** ([weight], [size], [line-height]): [Purpose.]
 - **Title** ([weight], [size], [line-height]): [Purpose.]
-- **Body** ([weight], [size], [line-height]): [Purpose. Include max line length like 65–75ch if relevant.]
+- **Body** ([weight], [size], [line-height]): [Purpose. Include a context-appropriate measure such as 45–75ch when relevant.]
 - **Label** ([weight], [size], [letter-spacing], [case if uppercase]): [Purpose.]
 
 ### Named Rules (optional)
@@ -250,101 +250,40 @@ Concrete visual guardrails grounded in the incumbent implementation or the user'
 - **Don't** [...]
 ```
 
-### Step 4b: Write the DESIGN.json sidecar (extensions only)
+### Step 4b: Write the DESIGN.json sidecar (detector metadata only)
 
-The frontmatter owns token primitives (colors, typography, rounded, spacing, components). The sidecar `DESIGN.json`, in the same directory as DESIGN.md, carries **what Stitch's schema can't hold**: tonal ramps per color, shadow/elevation tokens, motion tokens, breakpoints, full component HTML/CSS snippets (self-contained, so they render in isolation), and narrative (north star, rules, do's/don'ts). It extends the frontmatter, it doesn't duplicate it.
+The engine reads `schemaVersion` and these sidecar fields to extend DESIGN.md's detector data: `extensions.colorMeta.<token>.canonical`, `extensions.colorMeta.<token>.tonalRamp`, `extensions.roundedMeta.<token>` (a string/number or its `canonical`, `value`, `values`, `aliases`, and `role` metadata), and `extensions.shadows[].value`. Do not generate component snippets, narrative, motion, breakpoints, display names, or other fields the engine does not read.
 
-Regenerate the sidecar whenever you regenerate root `DESIGN.md`. If the user only asks to refresh the sidecar (for example after doctor reports it stale), preserve `DESIGN.md` and write only `DESIGN.json`.
+Regenerate the sidecar whenever you regenerate root DESIGN.md. If the user asks to refresh only the sidecar (for example after doctor reports it stale), preserve DESIGN.md and write only DESIGN.json.
 
 #### Schema
 
 ```json
 {
   "schemaVersion": 2,
-  "generatedAt": "ISO-8601 string",
-  "title": "Design System: [Project Title]",
   "extensions": {
     "colorMeta": {
-      "primary":        { "role": "primary",  "displayName": "Editorial Magenta", "canonical": "oklch(60% 0.25 350)", "tonalRamp": ["...", "...", "..."] },
-      "cool-paper": { "role": "neutral",  "displayName": "Cool Paper",    "canonical": "oklch(96% 0.005 230)", "tonalRamp": ["...", "...", "..."] }
+      "primary": {
+        "canonical": "oklch(60% 0.25 350)",
+        "tonalRamp": ["...", "...", "..."]
+      }
     },
-    "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Hero headlines only." }
+    "roundedMeta": {
+      "pill": { "canonical": "999px", "role": "pill" }
     },
     "shadows": [
-      { "name": "ambient-low", "value": "0 4px 24px rgba(0,0,0,0.12)", "purpose": "Diffuse hover glow under accent elements." }
-    ],
-    "motion": [
-      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default easing for state transitions." }
-    ],
-    "breakpoints": [
-      { "name": "sm", "value": "640px" }
+      { "value": "0 4px 24px rgba(0,0,0,0.12)" }
     ]
-  },
-  "components": [
-    {
-      "name": "Primary Button",
-      "kind": "button | input | nav | chip | card | custom",
-      "refersTo": "button-primary",
-      "description": "One-line what and when.",
-      "html": "<button class=\"ds-btn-primary\">SAVE CHANGES</button>",
-      "css": ".ds-btn-primary { background: #191c1d; color: #fff; padding: 16px 48px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500; border: none; border-radius: 0; transition: background 0.2s, transform 0.2s; } .ds-btn-primary:hover { background: oklch(60% 0.25 350); transform: translateY(-2px); }"
-    }
-  ],
-  "narrative": {
-    "northStar": "The Editorial Sanctuary",
-    "overview": "2-3 paragraphs of the philosophy, pulled from DESIGN.md Overview section.",
-    "keyCharacteristics": ["...", "..."],
-    "rules": [{ "name": "The One Voice Rule", "body": "...", "section": "colors|typography|elevation" }],
-    "dos":   ["Do use ..."],
-    "donts": ["Don't use ..."]
   }
 }
 ```
 
-**What changed from schemaVersion 1.** The old sidecar carried token primitive arrays (`tokens.colors[]`, `tokens.typography[]`, etc.). Those values now live in the frontmatter. The sidecar only carries metadata that can't live in the frontmatter (tonal ramps, canonical OKLCH when the hex is an approximation, display names, role hints), keyed by the frontmatter token name (`colorMeta.<token-name>`, `typographyMeta.<token-name>`). Components still carry full HTML/CSS because Stitch's 8-prop set can't hold them.
-
-#### Component translation rules
-
-The `html` and `css` fields must be **self-contained, drop-in snippets** that render correctly in isolation, such as inside a shadow DOM: no post-processing, no framework runtime.
-
-1. **Tailwind expansion.** If the source uses Tailwind (className="bg-primary text-white rounded-lg px-6 py-3"), expand every utility to literal CSS properties in the `css` string. Do **not** reference Tailwind classes; do **not** assume a Tailwind CSS bundle is loaded. Each component is self-contained.
-2. **Token resolution.** If the project exposes tokens as CSS custom properties on `:root` (e.g. `--color-primary`, `--radius-md`), reference them via `var(--color-primary)`; they inherit through a shadow DOM and stay bound to the project's tokens. If tokens live only in JS theme objects (styled-components, CSS-in-JS), resolve to literal values at generation time.
-3. **Icons.** Inline as SVG. Do not reference Lucide/Heroicons packages, icon fonts, or `<img src="...">`. A typical icon is 16-24px; copy the SVG path data directly.
-4. **States.** Include `:hover`, `:focus-visible`, and (if meaningful) `:active` rules inline. A static default-only snapshot drops half the component's behavior; hover and focus rules carry it.
-5. **Reset bloat.** Extract only the component's *distinctive* CSS (background, color, padding, border-radius, typography, transition). Skip universal resets (`box-sizing: border-box`, `line-height: inherit`, `-webkit-font-smoothing`). A rendering canvas supplies its own neutral reset; don't re-ship resets.
-6. **Scoped class names.** Prefix every class with `ds-` (e.g. `ds-btn-primary`, `ds-input-search`) so component CSS doesn't collide with other components' CSS in the same shadow DOM.
-
-#### What to include
-
-Aim for a tight set of **5-10 components** that best represent the visual system:
-
-- **Canonical primitives (always include if the project has them):** button (each variant as a separate component entry), input/text field, navigation, chip/tag, card.
-- **Signature components (include if distinctive):** the recurring custom patterns that actually define the implemented system.
-- **Skip the rest.** Utility components, form building blocks, wrapper layouts: not worth documenting unless visually distinctive.
-
-If the project has **no component library yet** (bare landing page, new project), synthesize canonical primitives from the tokens using best-practice defaults consistent with the DESIGN.md's rules. Every `DESIGN.json` has *something* to render, even on day zero.
-
-#### Tonal ramps
-
-For each color token, generate an 8-step `tonalRamp` array: dark to light, same hue and chroma, stepped lightness from ~15% to ~95%. If the project already defines a tonal scale (Material `surface-container-low` family, Tailwind-style `blue-50..blue-900`), use those values. Otherwise synthesize in OKLCH.
-
-#### Narrative mapping
-
-Pull directly from the DESIGN.md you just wrote:
-
-- `narrative.northStar` → the `**Creative North Star: "..."**` line from Overview
-- `narrative.overview` → the philosophy paragraphs from Overview
-- `narrative.keyCharacteristics` → the bulleted `**Key Characteristics:**` list
-- `narrative.rules` → every `**The [Name] Rule.** [body]` across all sections, tagged with `section`
-- `narrative.dos` / `narrative.donts` → the bullet lists from Do's and Don'ts verbatim
-
-Do not reword. These are secondary context; the same voice that's in the Markdown carries through.
+Always write an `extensions` object, using an empty object when the project has no corresponding metadata. Keep canonical color values and tonal ramps faithful to the project's actual palette. The frontmatter remains the source of truth for its token primitives; use sidecar color metadata only when it preserves useful source values or tonal steps, rounded metadata only for the engine-consumed form details, and shadow values only for actual shadows.
 
 ### Step 5: Confirm and refine
 
 1. Show the user the full DESIGN.md you wrote. Briefly highlight the non-obvious creative choices (descriptive color names, atmosphere language, named rules).
-2. Mention that `DESIGN.json` was also written alongside; it carries this project's actual button, input, and nav primitives for later agents instead of generic approximations.
+2. Mention that `DESIGN.json` was also written alongside; it carries only detector-consumed color, rounded, and shadow metadata when available.
 3. Offer to refine any section: "Want me to revise a section, add component patterns I missed, or adjust the atmosphere language?"
 
 Your own write is the freshest source; subsequent commands in this session don't need a reload.

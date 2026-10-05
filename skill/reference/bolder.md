@@ -6,7 +6,7 @@ An open direction round owns the word first: "bolder" said while a direction dec
 
 ## Scope is sovereign
 
-"Everything else stays" is a literal instruction. Touch only the named target. Do not restyle its neighbors, do not migrate the page to a new idea, do not add colors, fonts, radii, shadows, or system primitives the surface does not already own. If the existing system genuinely cannot express the direction, do not expand it on your own. STOP and ask the user to clarify, through the host's structured question tool when it has one (for example AskUserQuestion or request_user_input), otherwise directly in chat. Name the exact addition and the job it would do.
+"Everything else stays" is a literal instruction. Touch only the named target. Do not restyle its neighbors, do not migrate the page to a new idea, do not add colors, fonts, radii, shadows, or system primitives the surface does not already own. If the existing system genuinely cannot express the direction, do not expand it on your own. STOP and ask the user to clarify, through the host's structured question tool when available, otherwise directly in chat. Name the exact addition and the job it would do.
 
 ## Why it reads flat
 

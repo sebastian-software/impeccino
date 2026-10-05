@@ -4,7 +4,7 @@
     "argumentHint": "[feature description]"
   },
   "init": {
-    "description": "Sets up a project for impeccino. Runs a multi-round discovery interview when context is missing and writes PRODUCT.md (strategic: users, brand, principles); offers DESIGN.md (visual: colors, typography, components) when code exists; then recommends the best commands to run next. Every other command reads these files before doing work. Use once per project.",
+    "description": "Capture or update durable product context in PRODUCT.md, interview only for material gaps, then recommend the next command from the project's state. Init does not create DESIGN.md. Use when project context is absent or stale.",
     "argumentHint": ""
   },
   "document": {
@@ -68,7 +68,7 @@
     "argumentHint": "[target]"
   },
   "overdrive": {
-    "description": "Pushes interfaces past conventional limits with technically ambitious implementations — shaders, spring physics, scroll-driven reveals, 60fps animations. Use when the user wants to wow, impress, go all-out, or make something that feels extraordinary.",
+    "description": "Pushes interfaces past conventional limits with technically ambitious implementations: shaders, spring physics, scroll-driven reveals, 60fps animations. Use when the user wants to wow, impress, go all-out, or make something that feels extraordinary.",
     "argumentHint": "[target]"
   },
   "polish": {
@@ -80,7 +80,7 @@
     "argumentHint": "[target]"
   },
   "shape": {
-    "description": "Plan UX and UI before code. Runs a required multi-round discovery interview, uses visual probes when available, and produces a user-confirmed design brief for implementation.",
+    "description": "Plan UX and UI before implementation. Runs one focused discovery round by default, adds a second only for material gaps, and produces a user-confirmed design brief without writing code.",
     "argumentHint": "[feature to shape]"
   },
   "typeset": {
