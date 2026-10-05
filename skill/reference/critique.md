@@ -8,8 +8,8 @@ Resolve one stable target, run two independent assessments, synthesize a design 
 - Assessment A and B MUST run as two isolated sub-agents whenever a sub-agent/Task tool is exposed. Running them inline in this context is "possible" but is NOT permitted; it is a degraded run. Inline is allowed ONLY when no sub-agent tool exists (or the user declined, on harnesses that ask).
 - If you degrade for any reason, the report's first line MUST be a banner: `⚠️ DEGRADED: single-context (<reason>)`. A silent degraded critique is a failed critique.
 - Assessment A must finish before detector findings enter the parent synthesis context. Detector output is deterministic, but it still anchors judgment.
-- A skipped detector is a failed critique run unless `impeccino detect` is missing, crashes after a real attempt, or the target has no source files in the workspace.
-- Viewable targets require screenshots through the host's own browser tool when one is available.
+- On web targets, run the source scan when local markup exists and the rendered scan when the target is a URL; report each unavailable pass with the observed reason. Missing source files do not excuse a rendered scan for an available URL. If detect is missing or crashes after a real attempt, report that failure and continue. On native targets, skip the web-only detector passes by design; that is not a failed run.
+- Viewable web targets require screenshots through the host's browser tool when one is available. Native targets require simulator or emulator captures through the relevant platform reference.
 - Any local server started only for critique screenshots must run in the background, have a recorded stop method, and be stopped before final reporting unless the user asks to keep it.
 - The question is the LAST thing in the response. Write the entire report out first, then ask; nothing follows the question. Prose emitted after a structured question is withheld until the user answers it, so a report written after the question reads as if the critique never ran.
 - A run that ends with neither the targeted questions nor a literal `Questions skipped: <reason>` line is an incomplete run. The report is not the finish; the close is.
@@ -58,7 +58,7 @@ Return: design-specificity verdict, heuristic scores, cognitive load, emotional 
 
 ### Assessment B: Detector + Screenshot Evidence
 
-Run the bundled detector on source files and capture screenshots with the host's own browser tool. Assessment B is mandatory and must remain isolated from Assessment A until both are complete.
+On web targets, run the bundled detector on source files and capture screenshots with the host's own browser tool. Read PRODUCT.md's Platform first: for ios, android, or adaptive, skip both web detector passes and use native device captures and the ios.md or android.md platform guidance (both on adaptive) for Assessment B. That skip is expected, not a failed assessment. Assessment B remains mandatory and isolated from Assessment A until both are complete.
 
 CLI scan:
 ```bash
@@ -66,26 +66,26 @@ CLI scan:
 ```
 
 - Pass the markup source files or directories that render the target; do not pass CSS-only files.
-- This source pass scans local files and directories, not URLs. For a URL target, scan the local markup that renders it when it is in the workspace; when no source is available, report the source scan unavailable. The rendered-page detector remains a separate required pass on the URL (step 3).
+- This source pass scans local files and directories, not URLs. For a URL target, scan the local markup that renders it when it is in the workspace; when no source is available, report the source scan unavailable. The rendered-page detector remains a separate required web pass on the URL (step 3).
 - For very large trees (500+ scannable files), narrow scope or ask.
 - Exit code 0 = clean; 2 = findings.
 - If the launcher is missing or fails to load, report deterministic scan unavailable and continue with screenshot and manual review.
 
-Screenshots are required for a viewable target when a browser is available: agent-browser (`agent-browser screenshot`), or the host's own browser tool (Claude in Chrome, Playwright MCP, Codex Browser, or the equivalent). Use a localhost dev or static URL for local files; avoid `file://` unless the available browser explicitly supports it.
+Screenshots are required for a viewable target when the host can capture it: use the browser tool for web pages and the simulator or emulator method in `ios.md` or `android.md` for native apps.
 
-1. Open the page in agent-browser or a fresh tab of the host's browser tool; hand-roll a Playwright or Puppeteer script only when neither is available.
-2. Settle entrance motion, scroll to the top, and capture desktop and mobile widths. For multi-view targets, capture 3-5 representative pages.
-3. Run the rendered-page detector on the same URL (SKILL.md, Rendered-page detector) at desktop width and add its findings to the CLI findings.
+1. For web, open the page in agent-browser or a fresh tab of the host's browser tool; hand-roll a Playwright or Puppeteer script only when neither is available. For native, capture in the simulator or emulator described by the platform reference.
+2. Settle entrance motion and scroll to the top. On web, capture desktop and mobile widths; for multi-view targets, capture 3-5 representative pages. On native, capture one image for every shipped device class per OS.
+3. On web targets, run the rendered-page detector on the same URL (SKILL.md, Rendered-page detector) at desktop width and add its findings to the CLI findings.
 4. Note what the captures show that the source alone cannot: rendered contrast, overflow, clipping, broken layout, missing assets. Tie each to a file location when you can.
 5. Stop any local server started for the captures.
 
-Codex Browser note: Use the Browser skill for the captures. Do not spend a Browser attempt on `file://`.
+Codex Browser note: For web captures, use the Browser skill. Do not spend a Browser attempt on `file://`.
 
-Return: CLI and rendered-page findings JSON/counts, screenshot paths with the rendered issues each shows, false positives, and skipped or failed steps with concrete reasons.
+Return the web CLI and rendered-page findings with counts, screenshot paths, false positives, and skipped or failed steps with concrete reasons. On native targets, record the expected detector skip and the device captures used for Assessment B.
 
-After Assessment B returns usable CLI findings, reuse them. Do not rerun `impeccino detect` in the parent unless Assessment B failed, was truncated, or omitted count, rule names, or file locations.
+When web Assessment B returns usable CLI findings, reuse them. Do not rerun `impeccino detect` in the parent unless Assessment B failed, was truncated, or omitted count, rule names, or file locations.
 
-Codex failure accounting: final Run Notes must include the resolved target, the recorded decisions read, assessment independence, CLI detector, browser screenshots, local-server cleanup, and any fallback signal used. Do not run repo status checks, late API spelunking, or unrelated verification after the report is assembled.
+Codex failure accounting: final Run Notes must include the resolved target, the recorded decisions read, assessment independence, CLI detector status (including the expected native skip), browser screenshots or native captures, local-server cleanup, and any fallback signal used. Do not run repo status checks, late API spelunking, or unrelated verification after the report is assembled.
 
 ### Generate Combined Critique Report
 
@@ -134,9 +134,9 @@ Be honest with scores. A 4 means genuinely excellent. Most real interfaces score
 
 **LLM assessment**: Your unanchored evaluation of design specificity. Cover overall coherence, structural sameness, category-interchangeable choices, and missed opportunities for product character.
 
-**Deterministic scan**: Summarize what the automated detector found, with counts and file locations. Note any additional issues the detector caught that you missed, and flag any false positives.
+**Deterministic scan**: On web targets, summarize detector findings with counts and file locations, including issues it caught that you missed and any false positives. On native targets, state that the web-only detector was skipped by design.
 
-**Rendered evidence**: Summarize what Assessment B's screenshots showed that the source scan could not, with the capture each finding comes from. If no browser tool was available, say so and name the fallback signal used.
+**Rendered evidence**: Summarize what Assessment B's captures showed, with the file or device capture for each finding. On native targets, use the device captures and platform guidance as the assessment evidence. If no web browser tool was available, say so and name the fallback signal used; for native targets, report the device captures or why none were available.
 
 #### Overall Impression
 A brief gut reaction: what works, what doesn't, and the single biggest opportunity.
@@ -156,7 +156,7 @@ For each issue, tag with **P0-P3 severity** (see [Issue Severity below](#issue-s
 #### Persona Red Flags
 > *Consult the [Personas reference](#persona-based-design-testing) below.*
 
-Auto-select 2-3 personas most relevant to this interface type (use the selection table in the reference). If the project instruction file (`AGENTS.md`, `CLAUDE.md`, or the host's equivalent) contains a `## Design Context` section from `impeccino init`, also generate 1-2 project-specific personas from the audience/brand info.
+Auto-select 2-3 personas most relevant to this interface type (use the selection table in the reference). When the resolved `PRODUCT.md`'s `## Users` section contains specific audience details, also derive 1-2 project-specific personas from those confirmed users and their workflows. Use the other confirmed `PRODUCT.md` sections only to ground their context and constraints.
 
 For each selected persona, walk through the primary user action and list specific red flags found:
 
@@ -176,7 +176,7 @@ Provocative questions that might unlock better solutions:
 - "What would a confident version of this look like?"
 
 #### Run Notes (Codex only)
-Keep this compact. Include status for the resolved target, the recorded decisions read, assessment independence, CLI detector, browser screenshots, and local server cleanup. For failed or skipped steps, give the concrete observed reason and the fallback signal used.
+Keep this compact. Include status for the resolved target, the recorded decisions read, assessment independence, CLI and rendered-page detector status (or the expected native skip), screenshots or native captures, and local-server cleanup. For failed or skipped steps, give the concrete observed reason and the fallback signal used.
 
 **Remember**:
 - Be direct. Vague feedback wastes everyone's time.
@@ -762,20 +762,21 @@ Choose personas based on the interface type:
 
 #### Project-Specific Personas
 
-If the project instruction file (`AGENTS.md`, `CLAUDE.md`, or the host's equivalent) contains a `## Design Context` section (generated by `impeccino init`), derive 1–2 additional personas from the audience and brand information:
+If the resolved `PRODUCT.md` has concrete information under `## Users` beyond a generic job label, derive 1–2 additional personas from those confirmed details:
 
-1. Read the target audience description
+1. Read the audience, situation, and job from `PRODUCT.md`'s `## Users` section
 2. Identify the primary user archetype not covered by the 5 predefined personas
-3. Create a persona following this template:
+3. Ground behaviors in confirmed workflows and constraints from `PRODUCT.md`
+4. Create a persona following this template:
 
 ```
 ##### [Role]: "[Name]"
 
-**Profile**: [2-3 key characteristics derived from Design Context]
+**Profile**: [2-3 key characteristics grounded in `PRODUCT.md`'s confirmed user details]
 
-**Behaviors**: [3-4 specific behaviors based on the described audience]
+**Behaviors**: [3-4 specific behaviors supported by the product's users and workflows]
 
 **Red Flags**: [3-4 things that would alienate this specific user type]
 ```
 
-Only generate project-specific personas when real Design Context data is available. Don't invent audience details; use the 5 predefined personas when no context exists.
+Only generate project-specific personas when `PRODUCT.md` contains concrete audience details. Don't invent audience details; use the 5 predefined personas when it does not.
