@@ -14,8 +14,8 @@ pub mod browser;
 pub mod checks;
 
 pub use impeccino_foundation::{
-    color, constants, fdlibm_trig, findings, fonts, inline_ignores, js, js_ext_a, js_ext_b, page,
-    registry, rule_pack,
+    color, constants, design_system, fdlibm_trig, findings, fonts, inline_ignores, js, js_ext_a,
+    js_ext_b, page, registry, rule_pack,
 };
 
 #[cfg(any(test, feature = "vectors"))]

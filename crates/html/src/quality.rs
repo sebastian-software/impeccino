@@ -32,7 +32,7 @@ static CLIP_INSET_RE: Lazy<Regex> = Lazy::new(|| {
 
 /// JS `s.replace(/\s+/g, ' ')`.
 pub fn collapse_ws(s: &str) -> String {
-    WS_RE.replace_all(s, " ").into_owned()
+    impeccino_core::js_ext_b::collapse_whitespace(s)
 }
 
 /// JS `parseFloat(x) || 0`.

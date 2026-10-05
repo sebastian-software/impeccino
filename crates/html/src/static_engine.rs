@@ -15,16 +15,12 @@ use std::path::Path;
 
 use impeccino_core::findings::Finding;
 use impeccino_core::js;
-use impeccino_core::js_ext_b::slice_utf16_prefix;
 use impeccino_detect::design_system::{
-    check_source_design_system, css_color_label, extract_radius_tokens, is_allowed_color_raw,
-    is_allowed_font, is_allowed_radius_raw, is_transparent_css, make_design_finding,
-    merge_design_system_findings, primary_font, DesignSystem, STATIC_DESIGN_SKIP_TAGS,
+    check_source_design_system, make_design_finding, merge_design_system_findings, DesignSystem,
+    STATIC_DESIGN_SKIP_TAGS,
 };
 use impeccino_detect::detect_text::run_text_content_analyzers;
 use impeccino_detect::engines::{EngineError, HtmlEngine, ScanOptions};
-use once_cell::sync::Lazy;
-use regex::Regex;
 
 use crate::background::sv;
 use crate::dom::{StaticDocument, StaticElement};
@@ -107,25 +103,6 @@ impl DesignSystemHook for DetectDesignSystemHook<'_> {
     }
 }
 
-static WS_RUN_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!("{}+", js::WS)).unwrap());
-
-/// JS: design-system.mjs#hasDirectText
-fn has_direct_text(el: &StaticElement<'_>) -> bool {
-    el.has_direct_text_longer_than(0)
-}
-
-/// JS: design-system.mjs#sampleText
-fn sample_text(el: &StaticElement<'_>) -> String {
-    let raw = el.text_content();
-    let collapsed = WS_RUN_RE.replace_all(&raw, " ");
-    let text = js::trim(&collapsed);
-    if text.is_empty() {
-        String::new()
-    } else {
-        format!(" \"{}\"", slice_utf16_prefix(text, 40))
-    }
-}
-
 /// JS: design-system.mjs#shouldSkipStaticDesignElement
 fn should_skip_static_design_element(el: &StaticElement<'_>) -> bool {
     let tag = el.tag_lower();
@@ -162,105 +139,260 @@ pub fn collect_static_design_system_findings(
     if !ds.present {
         return vec![];
     }
+    let allowed_colors: Vec<_> = ds
+        .allowed_color_keys
+        .iter()
+        .map(|(_, entry)| entry.color)
+        .collect();
+    let allowed_radii_px: Vec<_> = ds.allowed_radii.iter().map(|entry| entry.px).collect();
+    let tokens = impeccino_core::design_system::DesignSystemTokens {
+        has_fonts: ds.has_fonts,
+        allowed_fonts: &ds.allowed_fonts,
+        has_colors: ds.has_colors,
+        allowed_colors: &allowed_colors,
+        has_radii: ds.has_radii,
+        allowed_radii_px: &allowed_radii_px,
+        has_pill_radius: ds.has_pill_radius,
+    };
+    let mut seen = impeccino_core::design_system::DesignSystemSeen::default();
     let mut findings = Vec::new();
-    let mut seen_fonts: Vec<String> = Vec::new();
-    let mut seen_colors: Vec<String> = Vec::new();
-    let mut seen_radii: Vec<String> = Vec::new();
 
     for el in doc.query_selector_all("*") {
         if should_skip_static_design_element(&el) {
             continue;
         }
-        let tag = el.tag_lower();
         let style = el.style();
-
-        if ds.has_fonts && has_direct_text(&el) {
-            let font = primary_font(sv(style, "fontFamily"));
-            if !font.is_empty() && !seen_fonts.contains(&font) && !is_allowed_font(&font, Some(ds))
-            {
-                seen_fonts.push(font.clone());
-                findings.push(make_design_finding(
-                    "design-system-font",
-                    file_path,
-                    &format!(
-                        "{tag}{} uses {font}; not declared in DESIGN.md typography",
-                        sample_text(&el)
-                    ),
-                    0.0,
-                    &font,
-                ));
-            }
-        }
-
-        if ds.has_colors {
-            let mut color_checks: Vec<(String, &str)> = Vec::new();
-            if has_direct_text(&el) {
-                color_checks.push(("text color".to_string(), sv(style, "color")));
-            }
-            if !is_transparent_css(sv(style, "backgroundColor")) {
-                color_checks.push(("background".to_string(), sv(style, "backgroundColor")));
-            }
-            for side in ["Top", "Right", "Bottom", "Left"] {
-                if pf0(sv(style, &format!("border{side}Width"))) > 0.0 {
-                    color_checks.push((
-                        format!("border-{}", side.to_ascii_lowercase()),
-                        sv(style, &format!("border{side}Color")),
-                    ));
-                }
-            }
-            if pf0(sv(style, "outlineWidth")) > 0.0 {
-                color_checks.push(("outline".to_string(), sv(style, "outlineColor")));
-            }
-
-            for (kind, raw) in color_checks {
-                let label = css_color_label(raw);
-                if is_allowed_color_raw(&label, Some(ds)) {
-                    continue;
-                }
-                let key = format!("{kind}:{label}");
-                if seen_colors.contains(&key) {
-                    continue;
-                }
-                seen_colors.push(key);
-                findings.push(make_design_finding(
-                    "design-system-color",
-                    file_path,
-                    &format!(
-                        "{kind} {label} on {tag}{} is outside DESIGN.md colors",
-                        sample_text(&el)
-                    ),
-                    0.0,
-                    &label,
-                ));
-            }
-        }
-
-        if ds.has_radii {
-            let raw_radius = js::trim(sv(style, "borderRadius"));
-            if raw_radius.is_empty() {
-                continue;
-            }
-            for token in extract_radius_tokens(raw_radius) {
-                if is_allowed_radius_raw(&token, Some(ds)) {
-                    continue;
-                }
-                if seen_radii.contains(&token) {
-                    continue;
-                }
-                seen_radii.push(token.clone());
-                findings.push(make_design_finding(
-                    "design-system-radius",
-                    file_path,
-                    &format!(
-                        "border-radius {token} on {tag}{} is outside the DESIGN.md rounded scale",
-                        sample_text(&el)
-                    ),
-                    0.0,
-                    &token,
-                ));
-            }
+        let computed = impeccino_core::design_system::ComputedElementStyle {
+            tag: el.tag_lower(),
+            sample_text: impeccino_core::design_system::sample_text(&el.text_content(), 40),
+            has_direct_text: el.has_direct_text_longer_than(0),
+            font_family: sv(style, "fontFamily").to_string(),
+            color: sv(style, "color").to_string(),
+            background_color: sv(style, "backgroundColor").to_string(),
+            border_widths: ["Top", "Right", "Bottom", "Left"]
+                .map(|side| pf0(sv(style, &format!("border{side}Width")))),
+            border_colors: ["Top", "Right", "Bottom", "Left"]
+                .map(|side| sv(style, &format!("border{side}Color")).to_string()),
+            outline_width: pf0(sv(style, "outlineWidth")),
+            outline_color: sv(style, "outlineColor").to_string(),
+            border_radius: sv(style, "borderRadius").to_string(),
+        };
+        for finding in
+            impeccino_core::design_system::check_computed_element(&computed, &tokens, &mut seen)
+        {
+            findings.push(make_design_finding(
+                &finding.type_,
+                file_path,
+                &finding.detail,
+                0.0,
+                &finding.ignore_value,
+            ));
         }
     }
 
     findings
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use impeccino_core::browser::driver::{check_element_design_system_dom, DesignSeen};
+    use impeccino_core::browser::fake_dom::FakeDom;
+    use impeccino_core::browser::DesignSystemConfig;
+
+    #[test]
+    fn computed_design_system_findings_match_across_static_and_rendered_dom() {
+        let html = "<p style=\"font-family: 'A + B', sans-serif; color: rgb(200, 10, 10); border-radius: 3px 8px / 2px\">Example</p>";
+        let mut doc = StaticDocument::parse(html);
+        crate::cascade::build_static_style_map(&mut doc, "");
+
+        let design = DesignSystem {
+            present: true,
+            has_fonts: true,
+            allowed_fonts: vec!["inter".to_string()],
+            has_colors: true,
+            allowed_color_keys: vec![(
+                "10,20,30".to_string(),
+                impeccino_detect::design_system::AllowedColor {
+                    color: impeccino_core::color::Rgba::new(10.0, 20.0, 30.0, 1.0),
+                    labels: vec!["ink".to_string()],
+                },
+            )],
+            has_radii: true,
+            allowed_radii: vec![impeccino_detect::design_system::AllowedRadius {
+                name: "medium".to_string(),
+                value: "8px".to_string(),
+                px: 8.0,
+            }],
+            ..DesignSystem::default()
+        };
+        let static_findings = collect_static_design_system_findings(&doc, "page.html", &design);
+        let static_rules: Vec<_> = static_findings
+            .iter()
+            .filter_map(|finding| {
+                Some((
+                    finding.antipattern.as_str(),
+                    finding.snippet.as_str(),
+                    finding.extras.get("ignoreValue")?.as_str()?,
+                ))
+            })
+            .collect();
+
+        let mut dom = FakeDom::new();
+        let (_html, body) = dom.with_page();
+        let p = dom.add(Some(body), "p");
+        dom.add_text(p, "Example");
+        dom.set_styles(
+            p,
+            &[
+                ("fontFamily", "'A + B', sans-serif"),
+                ("color", "rgb(200, 10, 10)"),
+                ("borderRadius", "3px 8px / 2px"),
+            ],
+        );
+        dom.el_mut(p).check_visibility = Some(true);
+        let rendered_design = DesignSystemConfig {
+            has_fonts: true,
+            allowed_fonts: vec!["inter".to_string()],
+            has_colors: true,
+            allowed_colors: vec![impeccino_core::color::Rgba::new(10.0, 20.0, 30.0, 1.0)],
+            has_radii: true,
+            allowed_radii: vec![8.0],
+            ..DesignSystemConfig::default()
+        };
+        let rendered_findings = check_element_design_system_dom(
+            &dom,
+            p,
+            Some(&rendered_design),
+            &mut DesignSeen::default(),
+        );
+        let rendered_rules: Vec<_> = rendered_findings
+            .iter()
+            .filter_map(|finding| {
+                Some((
+                    finding.type_.as_str(),
+                    finding.detail.as_str(),
+                    finding.ignore_value.as_deref()?,
+                ))
+            })
+            .collect();
+
+        assert_eq!(static_rules, rendered_rules);
+        assert_eq!(
+            static_rules,
+            vec![
+                (
+                    "design-system-font",
+                    "p \"Example\" uses a b; not declared in DESIGN.md typography",
+                    "a b",
+                ),
+                (
+                    "design-system-color",
+                    "text color rgb(200, 10, 10) on p \"Example\" is outside DESIGN.md colors",
+                    "rgb(200, 10, 10)",
+                ),
+                (
+                    "design-system-radius",
+                    "border-radius 3px on p \"Example\" is outside the DESIGN.md rounded scale",
+                    "3px",
+                ),
+                (
+                    "design-system-radius",
+                    "border-radius 2px on p \"Example\" is outside the DESIGN.md rounded scale",
+                    "2px",
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn kicker_candidate_text_matches_across_static_and_rendered_dom() {
+        let html = "<section><p style=\"font-size:12px; letter-spacing:1.2px; text-transform:uppercase; font-variant:normal; font-variant-caps:normal\"> Fea <span>ignored</span> tures </p><h2 style=\"font-size:32px\">Build better pages</h2></section>";
+        let mut doc = StaticDocument::parse(html);
+        crate::cascade::build_static_style_map(&mut doc, "");
+        let static_candidates = crate::adapters::collect_kicker_candidates(&doc);
+
+        let mut dom = FakeDom::new();
+        let (_html, body) = dom.with_page();
+        let section = dom.add(Some(body), "section");
+        let kicker = dom.add(Some(section), "p");
+        dom.add_text(kicker, " Fea ");
+        let span = dom.add(Some(kicker), "span");
+        dom.add_text(span, "ignored");
+        dom.add_text(kicker, " tures ");
+        dom.set_styles(
+            kicker,
+            &[
+                ("fontSize", "12px"),
+                ("letterSpacing", "1.2px"),
+                ("textTransform", "uppercase"),
+                ("fontVariant", "normal"),
+                ("fontVariantCaps", "normal"),
+            ],
+        );
+        let heading = dom.add(Some(section), "h2");
+        dom.add_text(heading, "Build better pages");
+        dom.set_style(heading, "fontSize", "32px");
+        let rendered_candidates =
+            impeccino_core::browser::text_collectors::collect_kicker_candidates(&dom);
+
+        assert_eq!(static_candidates, rendered_candidates);
+        assert_eq!(static_candidates.len(), 1);
+        assert_eq!(static_candidates[0].kicker_text, "Fea tures");
+    }
+
+    #[test]
+    fn numbered_section_label_findings_match_across_static_and_rendered_dom() {
+        let html = "<section><span style=\"font-size:11px; letter-spacing:1px; font-weight:700; font-family:monospace; text-transform:none; color:rgb(0, 0, 0)\">01</span><h2 style=\"font-size:28px\">Section number 1</h2></section><section><span style=\"font-size:11px; letter-spacing:1px; font-weight:700; font-family:monospace; text-transform:none; color:rgb(0, 0, 0)\">02</span><h2 style=\"font-size:28px\">Section number 2</h2></section>";
+        let mut doc = StaticDocument::parse(html);
+        crate::cascade::build_static_style_map(&mut doc, "");
+        let static_findings = crate::adapters::check_numbered_section_labels_from_doc(&doc);
+
+        let mut dom = FakeDom::new();
+        let (_html, body) = dom.with_page();
+        for (index, label_text) in ["01", "02"].iter().enumerate() {
+            let section = dom.add(Some(body), "section");
+            let label = dom.add(Some(section), "span");
+            dom.add_text(label, label_text);
+            dom.set_styles(
+                label,
+                &[
+                    ("fontSize", "11px"),
+                    ("letterSpacing", "1px"),
+                    ("fontWeight", "700"),
+                    ("fontFamily", "monospace"),
+                    ("textTransform", "none"),
+                    ("color", "rgb(0, 0, 0)"),
+                ],
+            );
+            let heading = dom.add(Some(section), "h2");
+            dom.add_text(heading, &format!("Section number {}", index + 1));
+            dom.set_style(heading, "fontSize", "28px");
+        }
+        let rendered_findings =
+            impeccino_core::browser::text_collectors::check_numbered_section_labels_dom(&dom);
+        let rendered_rules: Vec<_> = rendered_findings
+            .iter()
+            .map(|finding| (finding.id.as_str(), finding.snippet.as_str()))
+            .collect();
+        let static_rules: Vec<_> = static_findings
+            .iter()
+            .map(|finding| (finding.id.as_str(), finding.snippet.as_str()))
+            .collect();
+
+        assert_eq!(static_rules, rendered_rules);
+        assert_eq!(
+            static_rules,
+            vec![
+                (
+                    "numbered-section-labels",
+                    "tiny numbered label \"01\" beside h2 \"Section number 1\" (2 on page)"
+                ),
+                (
+                    "numbered-section-labels",
+                    "tiny numbered label \"02\" beside h2 \"Section number 2\" (2 on page)"
+                ),
+            ]
+        );
+    }
 }

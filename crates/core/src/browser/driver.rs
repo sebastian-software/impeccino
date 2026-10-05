@@ -58,136 +58,51 @@ pub fn add_browser_findings(
 
 // ─── Design system (index.mjs) ──────────────────────────────────────────────
 
-/// The `seen` sets `collectBrowserFindings` threads through the element loop
-/// (JS `designSeen = { fonts: new Set(), colors: new Set(), radii: new Set() }`).
-#[derive(Debug, Default)]
-pub struct DesignSeen {
-    pub fonts: Vec<String>,
-    pub colors: Vec<String>,
-    pub radii: Vec<String>,
-}
-
-const DESIGN_COLOR_TOLERANCE: f64 = 6.0;
-const DESIGN_RADIUS_TOLERANCE_PX: f64 = 0.5;
+pub use crate::design_system::DesignSystemSeen as DesignSeen;
 const DESIGN_SKIP_TAGS: &[&str] = &[
     "head", "title", "meta", "link", "style", "script", "noscript", "template", "source",
 ];
 
-static WS_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
-    regex::Regex::new(&format!("{}+", crate::js::WS)).expect("WS_RE")
-});
-static VAR_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
-    regex::Regex::new(&format!("{}\\(", crate::js::ci("var"))).expect("VAR_RE")
-});
-static SLASH_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
-    regex::Regex::new(&format!("{ws}*/{ws}*", ws = crate::js::WS)).expect("SLASH_RE")
-});
-
 /// JS: index.mjs#normalizeBrowserFontName(value)
 pub fn normalize_browser_font_name(value: &str) -> String {
-    let t = crate::js::trim(value);
-    // `.replace(/^["']|["']$/g, '')`: one leading and one trailing quote.
-    let t = t.strip_prefix(['"', '\'']).unwrap_or(t);
-    let t = t.strip_suffix(['"', '\'']).unwrap_or(t);
-    let t = t.replace('+', " ");
-    let t = WS_RE.replace_all(&t, " ");
-    crate::js::to_lower_case(&t)
+    crate::design_system::normalize_font_name(value)
 }
 
 /// JS: index.mjs#browserPrimaryFont(stack)
 pub fn browser_primary_font(stack: &str) -> String {
-    if stack.is_empty() || VAR_RE.is_match(stack) {
-        return String::new();
-    }
-    stack
-        .split(',')
-        .map(normalize_browser_font_name)
-        .find(|font| !font.is_empty() && !crate::constants::GENERIC_FONTS.contains(&font.as_str()))
-        .unwrap_or_default()
+    crate::design_system::computed_primary_font(stack)
 }
 
 /// JS: index.mjs#browserColorsClose(a, b)
 pub fn browser_colors_close(a: &crate::color::Rgba, b: &crate::color::Rgba) -> bool {
-    crate::js::math_max3((a.r - b.r).abs(), (a.g - b.g).abs(), (a.b - b.b).abs())
-        <= DESIGN_COLOR_TOLERANCE
+    crate::design_system::colors_close(a, b)
 }
 
 /// JS: index.mjs#isBrowserDesignColorAllowed(raw, designSystem)
 pub fn is_browser_design_color_allowed(raw: &str, ds: Option<&DesignSystemConfig>) -> bool {
     let Some(ds) = ds else { return true };
-    if !ds.has_colors {
-        return true;
-    }
-    let text = crate::js::to_lower_case(crate::js::trim(raw));
-    if text.is_empty()
-        || text == "transparent"
-        || text == "currentcolor"
-        || text == "inherit"
-        || text == "initial"
-    {
-        return true;
-    }
-    if text.contains("var(") {
-        return true;
-    }
-    let Some(parsed) = crate::color::parse_any_color(Some(&text)) else {
-        return true;
-    };
-    if parsed.alpha_or_one() <= 0.05 {
-        return true;
-    }
-    ds.allowed_colors
-        .iter()
-        .any(|c| browser_colors_close(&parsed, c))
+    crate::design_system::is_allowed_color_raw(raw, ds.has_colors, &ds.allowed_colors)
 }
 
 /// JS: index.mjs#isBrowserTransparentCss(value)
 pub fn is_browser_transparent_css(value: &str) -> bool {
-    let text = crate::js::to_lower_case(crate::js::trim(value));
-    if text.is_empty() || text == "transparent" {
-        return true;
-    }
-    match crate::color::parse_any_color(Some(&text)) {
-        Some(c) => c.alpha_or_one() <= 0.05,
-        None => false,
-    }
+    crate::design_system::is_transparent_css(value)
 }
 
 /// JS: index.mjs#isBrowserDesignRadiusAllowed(raw, designSystem)
 pub fn is_browser_design_radius_allowed(raw: &str, ds: Option<&DesignSystemConfig>) -> bool {
     let Some(ds) = ds else { return true };
-    if !ds.has_radii {
-        return true;
-    }
-    let text = crate::js::to_lower_case(crate::js::trim(raw));
-    if text.is_empty() || text == "0" || text == "none" || text == "initial" || text == "inherit" {
-        return true;
-    }
-    if text.contains("var(") || text.contains('%') {
-        return true;
-    }
-    let Some(px) = crate::checks::measures::resolve_length_px(Some(&text), 16.0) else {
-        return true;
-    };
-    if !px.is_finite() || px <= DESIGN_RADIUS_TOLERANCE_PX {
-        return true;
-    }
-    if ds.has_pill_radius && px >= 99.0 {
-        return true;
-    }
-    ds.allowed_radii
-        .iter()
-        .any(|allowed| (allowed - px).abs() <= DESIGN_RADIUS_TOLERANCE_PX)
+    crate::design_system::is_allowed_radius_raw(
+        raw,
+        ds.has_radii,
+        ds.allowed_radii.iter().copied(),
+        ds.has_pill_radius,
+    )
 }
 
 /// JS: index.mjs#browserRadiusTokens(value)
 pub fn browser_radius_tokens(value: &str) -> Vec<String> {
-    let v = SLASH_RE.replace_all(value, " ");
-    WS_RE
-        .split(&v)
-        .map(|t| crate::js::trim(t).to_string())
-        .filter(|t| !t.is_empty())
-        .collect()
+    crate::design_system::radius_tokens(value)
 }
 
 /// JS: index.mjs#browserHasDirectText(el)
@@ -199,14 +114,7 @@ pub fn browser_has_direct_text(dom: &dyn Dom, el: ElId) -> bool {
 
 /// JS: index.mjs#browserSampleText(el)
 pub fn browser_sample_text(dom: &dyn Dom, el: ElId) -> String {
-    let raw = dom.text_content(el);
-    let text = WS_RE.replace_all(&raw, " ");
-    let text = crate::js::trim(&text);
-    if text.is_empty() {
-        String::new()
-    } else {
-        format!(" \"{}\"", crate::js_ext_b::slice_utf16_prefix(text, 40))
-    }
+    crate::design_system::sample_text(&dom.text_content(el), 40)
 }
 
 /// JS: index.mjs#shouldSkipDesignElement(el)
@@ -226,108 +134,48 @@ pub fn check_element_design_system_dom(
     if should_skip_design_element(dom, el) {
         return Vec::new();
     }
-    let mut findings = Vec::new();
     let tag = {
-        let t = tag_lower(dom, el);
-        if t.is_empty() {
+        let tag = tag_lower(dom, el);
+        if tag.is_empty() {
             "unknown".to_string()
         } else {
-            t
+            tag
         }
     };
-    let ignore = |type_: &str, detail: String, value: String| BrowserFinding {
-        type_: type_.to_string(),
-        detail,
-        severity: None,
-        ignore_value: Some(value),
+    let style = crate::design_system::ComputedElementStyle {
+        tag,
+        sample_text: browser_sample_text(dom, el),
+        has_direct_text: browser_has_direct_text(dom, el),
+        font_family: dom.style(el, "fontFamily"),
+        color: dom.style(el, "color"),
+        background_color: dom.style(el, "backgroundColor"),
+        border_widths: ["Top", "Right", "Bottom", "Left"]
+            .map(|side| super::dom::style_px(dom, el, &format!("border{side}Width"))),
+        border_colors: ["Top", "Right", "Bottom", "Left"]
+            .map(|side| dom.style(el, &format!("border{side}Color"))),
+        outline_width: super::dom::style_px(dom, el, "outlineWidth"),
+        outline_color: dom.style(el, "outlineColor"),
+        border_radius: dom.style(el, "borderRadius"),
     };
-
-    if ds.has_fonts && browser_has_direct_text(dom, el) {
-        let font = browser_primary_font(&dom.style(el, "fontFamily"));
-        if !font.is_empty() && !ds.allowed_fonts.contains(&font) && !seen.fonts.contains(&font) {
-            seen.fonts.push(font.clone());
-            findings.push(ignore(
-                "design-system-font",
-                format!(
-                    "{}{} uses {}; not declared in DESIGN.md typography",
-                    tag,
-                    browser_sample_text(dom, el),
-                    font
-                ),
-                font,
-            ));
-        }
-    }
-
-    if ds.has_colors {
-        let mut color_checks: Vec<(String, String)> = Vec::new();
-        if browser_has_direct_text(dom, el) {
-            color_checks.push(("text color".to_string(), dom.style(el, "color")));
-        }
-        let bg = dom.style(el, "backgroundColor");
-        if !is_browser_transparent_css(&bg) {
-            color_checks.push(("background".to_string(), bg));
-        }
-        for side in ["Top", "Right", "Bottom", "Left"] {
-            if super::dom::style_px(dom, el, &format!("border{side}Width")) > 0.0 {
-                color_checks.push((
-                    format!("border-{}", crate::js::to_lower_case(side)),
-                    dom.style(el, &format!("border{side}Color")),
-                ));
-            }
-        }
-        if super::dom::style_px(dom, el, "outlineWidth") > 0.0 {
-            color_checks.push(("outline".to_string(), dom.style(el, "outlineColor")));
-        }
-        for (kind, raw) in color_checks {
-            let label = WS_RE.replace_all(crate::js::trim(&raw), " ").into_owned();
-            if is_browser_design_color_allowed(&label, Some(ds)) {
-                continue;
-            }
-            let key = format!("{kind}:{label}");
-            if seen.colors.contains(&key) {
-                continue;
-            }
-            seen.colors.push(key);
-            findings.push(ignore(
-                "design-system-color",
-                format!(
-                    "{} {} on {}{} is outside DESIGN.md colors",
-                    kind,
-                    label,
-                    tag,
-                    browser_sample_text(dom, el)
-                ),
-                label,
-            ));
-        }
-    }
-
-    if ds.has_radii {
-        for token in browser_radius_tokens(&dom.style(el, "borderRadius")) {
-            if is_browser_design_radius_allowed(&token, Some(ds)) {
-                continue;
-            }
-            if seen.radii.contains(&token) {
-                continue;
-            }
-            seen.radii.push(token.clone());
-            findings.push(ignore(
-                "design-system-radius",
-                format!(
-                    "border-radius {} on {}{} is outside the DESIGN.md rounded scale",
-                    token,
-                    tag,
-                    browser_sample_text(dom, el)
-                ),
-                token,
-            ));
-        }
-    }
-
-    findings
+    let tokens = crate::design_system::DesignSystemTokens {
+        has_fonts: ds.has_fonts,
+        allowed_fonts: &ds.allowed_fonts,
+        has_colors: ds.has_colors,
+        allowed_colors: &ds.allowed_colors,
+        has_radii: ds.has_radii,
+        allowed_radii_px: &ds.allowed_radii,
+        has_pill_radius: ds.has_pill_radius,
+    };
+    crate::design_system::check_computed_element(&style, &tokens, seen)
+        .into_iter()
+        .map(|finding| BrowserFinding {
+            type_: finding.type_,
+            detail: finding.detail,
+            severity: None,
+            ignore_value: Some(finding.ignore_value),
+        })
+        .collect()
 }
-
 /// JS `decodeURIComponent(s)`: `None` where it throws (malformed escape,
 /// invalid UTF-8).
 pub fn decode_uri_component(s: &str) -> Option<String> {
