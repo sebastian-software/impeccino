@@ -21,7 +21,7 @@ Skipping this step risks building something embarrassing that needs to be thrown
 
 ### Iterate with Browser Automation
 
-Technically ambitious effects almost never work on the first try. You MUST actively use browser automation tools to preview your work, visually verify the result, and iterate. Do not assume the effect looks right, check it. Expect multiple rounds of refinement. The gap between "technically works" and "looks extraordinary" is closed through visual iteration, not code alone.
+Technically ambitious effects need rendered verification. Use browser automation to preview the work, then follow SKILL.md's bounded finish cycle: inspect once after the full build, fix findings in one batch, and confirm with at most one more round. Hand any remaining questions to the finish reviewer. Keep each round batched so one capture set checks the whole effect.
 
 ---
 
