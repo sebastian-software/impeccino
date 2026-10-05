@@ -566,7 +566,7 @@ fn finding_signature(findings: &[Finding]) -> String {
             } else {
                 f.antipattern.as_str()
             };
-            let line = if f.line > 0.0 || f.line < 0.0 {
+            let line = if f.line.abs() > 0.0 {
                 js::number_to_string(f.line)
             } else {
                 "0".to_string()

@@ -107,7 +107,10 @@ fn command_hook_with_args(command: &str, args: &[String], timeout: i64, status: 
     obj(vec![
         ("type", Value::from("command")),
         ("command", Value::from(command)),
-        ("args", Value::Array(args.iter().cloned().map(Value::from).collect())),
+        (
+            "args",
+            Value::Array(args.iter().cloned().map(Value::from).collect()),
+        ),
         ("timeout", Value::from(timeout)),
         ("statusMessage", Value::from(status)),
     ])
@@ -124,7 +127,12 @@ fn claude_manifest(cmd: &str, _windows: Option<&str>, args: Option<&[String]>) -
     let stop_entry = match args {
         Some(args) => obj(vec![(
             "hooks",
-            Value::Array(vec![claude_hook(cmd, Some(args), STOP_TIMEOUT_SECONDS, STOP_STATUS_MESSAGE)]),
+            Value::Array(vec![claude_hook(
+                cmd,
+                Some(args),
+                STOP_TIMEOUT_SECONDS,
+                STOP_STATUS_MESSAGE,
+            )]),
         )]),
         None => stop_manifest_entry(cmd),
     };
@@ -162,11 +170,19 @@ fn agents_manifest(cmd: &str, windows: Option<&str>, _args: Option<&[String]>) -
                     ("matcher", Value::from("Edit|Write|apply_patch")),
                     (
                         "hooks",
-                        Value::Array(vec![command_hook_with_windows(cmd, win, TIMEOUT_SECONDS, STATUS_MESSAGE)]),
+                        Value::Array(vec![command_hook_with_windows(
+                            cmd,
+                            win,
+                            TIMEOUT_SECONDS,
+                            STATUS_MESSAGE,
+                        )]),
                     ),
                 ])]),
             ),
-            ("Stop", Value::Array(vec![stop_manifest_entry_with_windows(cmd, win)])),
+            (
+                "Stop",
+                Value::Array(vec![stop_manifest_entry_with_windows(cmd, win)]),
+            ),
         ]),
     )])
 }
@@ -256,10 +272,12 @@ struct SelectedTarget {
 }
 
 fn powershell_launcher_args(launcher: &Path) -> Vec<String> {
-    let path = launcher.to_string_lossy().replace('\\', "/").replace('\'', "''");
-    let script = format!(
-        "if (Test-Path -LiteralPath '{path}' -PathType Leaf) {{ & '{path}' hook }}"
-    );
+    let path = launcher
+        .to_string_lossy()
+        .replace('\\', "/")
+        .replace('\'', "''");
+    let script =
+        format!("if (Test-Path -LiteralPath '{path}' -PathType Leaf) {{ & '{path}' hook }}");
     vec!["-NoProfile".into(), "-Command".into(), script]
 }
 
@@ -296,16 +314,29 @@ fn global_claude_target(rt: &Runtime, cwd: &str) -> Option<SelectedTarget> {
     if installed_canonical != global_canonical || !launcher_files_present(&installed_skill) {
         return None;
     }
-    let launcher_name = if cfg!(windows) { "impeccino.cmd" } else { "impeccino" };
+    let launcher_name = if cfg!(windows) {
+        "impeccino.cmd"
+    } else {
+        "impeccino"
+    };
     // `canonicalize` is only for identity comparison. On Windows it returns
     // extended-length `\\?\` paths that PowerShell and Git Bash may not accept
     // from a command line, so invoke the normalized installed-skill path.
-    let launcher = Path::new(&installed_skill).join("scripts").join(launcher_name);
+    let launcher = Path::new(&installed_skill)
+        .join("scripts")
+        .join(launcher_name);
     let (command, command_args) = if cfg!(windows) {
-        ("powershell.exe".to_string(), Some(powershell_launcher_args(&launcher)))
+        (
+            "powershell.exe".to_string(),
+            Some(powershell_launcher_args(&launcher)),
+        )
     } else {
-        let executable = impeccino_common::quote_executable_path(&launcher.to_string_lossy(), false);
-        (format!("if [ -x {executable} ]; then {executable} hook; fi"), None)
+        let executable =
+            impeccino_common::quote_executable_path(&launcher.to_string_lossy(), false);
+        (
+            format!("if [ -x {executable} ]; then {executable} hook; fi"),
+            None,
+        )
     };
     Some(SelectedTarget {
         target: &HOOK_MANIFEST_TARGETS[0],
@@ -450,7 +481,9 @@ fn project_manifest_root(rt: &Runtime) -> String {
             break;
         }
         let parent = jsp::dirname(&dir);
-        if parent == dir || !impeccino_context::context::is_path_inside_or_equal(&parent, &manifest_boundary) {
+        if parent == dir
+            || !impeccino_context::context::is_path_inside_or_equal(&parent, &manifest_boundary)
+        {
             break;
         }
         dir = parent;
@@ -506,7 +539,13 @@ fn status_report(rt: &Runtime, cwd: &str, manifest_root: &str) -> String {
     let decisions = DesignDecisions::load_for_dir(cwd);
     let design = match &decisions.source {
         Some(path) => {
-            let list = |v: &[String]| if v.is_empty() { "none".to_string() } else { v.join(", ") };
+            let list = |v: &[String]| {
+                if v.is_empty() {
+                    "none".to_string()
+                } else {
+                    v.join(", ")
+                }
+            };
             format!(
                 "{} (waived rules: {}; declared fonts: {})",
                 rel_or(rt, cwd, path),
@@ -524,9 +563,16 @@ fn status_report(rt: &Runtime, cwd: &str, manifest_root: &str) -> String {
             if installed.is_empty() && uncertain.is_empty() {
                 format!("no (run {} hooks on to install)", rt.impeccino_command)
             } else if installed.is_empty() {
-                format!("unknown (could not safely inspect: {})", uncertain.join(", "))
+                format!(
+                    "unknown (could not safely inspect: {})",
+                    uncertain.join(", ")
+                )
             } else if !uncertain.is_empty() {
-                format!("{} (could not safely inspect: {})", installed.join(", "), uncertain.join(", "))
+                format!(
+                    "{} (could not safely inspect: {})",
+                    installed.join(", "),
+                    uncertain.join(", ")
+                )
             } else {
                 installed.join(", ")
             }
@@ -535,7 +581,11 @@ fn status_report(rt: &Runtime, cwd: &str, manifest_root: &str) -> String {
         format!("  DESIGN.md:    {design}"),
         format!(
             "  cache file:   {}",
-            if exists(&cache_path) { cache_path } else { format!("{cache_path} (not present)") }
+            if exists(&cache_path) {
+                cache_path
+            } else {
+                format!("{cache_path} (not present)")
+            }
         ),
     ]
     .join("\n")
@@ -556,9 +606,15 @@ fn install(rt: &Runtime, cwd: &str, manifest_root: &str) -> Result<String, Strin
     let repaired = repair_hook_manifests(rt, cwd, manifest_root)?;
     let mut parts = Vec::new();
     if !repaired.written.is_empty() {
-        parts.push(format!("Installed or repaired hook manifests for: {}.", repaired.written.join(", ")));
+        parts.push(format!(
+            "Installed or repaired hook manifests for: {}.",
+            repaired.written.join(", ")
+        ));
     } else if !repaired.already.is_empty() {
-        parts.push(format!("Hook manifests already installed for: {}.", repaired.already.join(", ")));
+        parts.push(format!(
+            "Hook manifests already installed for: {}.",
+            repaired.already.join(", ")
+        ));
     }
     if !repaired.skipped.is_empty() {
         let partial = if repaired.written.is_empty() && repaired.already.is_empty() {
@@ -581,9 +637,16 @@ fn install(rt: &Runtime, cwd: &str, manifest_root: &str) -> Result<String, Strin
             rt.impeccino_command
         ));
     }
-        if !repaired.backups.is_empty() {
-        let names: Vec<String> = repaired.backups.iter().map(|b| rel_or(rt, cwd, b)).collect();
-        parts.push(format!("Backed up malformed manifest(s): {}.", names.join(", ")));
+    if !repaired.backups.is_empty() {
+        let names: Vec<String> = repaired
+            .backups
+            .iter()
+            .map(|b| rel_or(rt, cwd, b))
+            .collect();
+        parts.push(format!(
+            "Backed up malformed manifest(s): {}.",
+            names.join(", ")
+        ));
     }
     Ok(parts.join(" "))
 }
@@ -766,7 +829,8 @@ fn merge_hook_manifests(existing: &Value, fresh: &Value) -> Value {
 /// A manifest parsed with comments tolerated; the flag says a rewrite would
 /// drop those comments.
 fn read_manifest(path: &str) -> Option<(Value, bool)> {
-    let (parsed, had_comments) = impeccino_context::hook_markers::parse_manifest_jsonc(&safe_read(path)?)?;
+    let (parsed, had_comments) =
+        impeccino_context::hook_markers::parse_manifest_jsonc(&safe_read(path)?)?;
     parsed.as_object()?;
     Some((parsed, had_comments))
 }
@@ -896,7 +960,7 @@ fn strip_impeccino_hook_entry(entry: &Value) -> Option<Value> {
     let stripped: Vec<Value> = hooks
         .iter()
         .filter_map(strip_impeccino_hook_entry)
-        .filter(|v| truthy_json(v))
+        .filter(truthy_json)
         .collect();
     if stripped.is_empty() && hooks.iter().any(value_has_impeccino_hook_marker) {
         return None;
@@ -917,7 +981,7 @@ fn strip_impeccino_hook_entries(entries: Option<&Value>) -> Vec<Value> {
         Some(Value::Array(a)) => a
             .iter()
             .filter_map(strip_impeccino_hook_entry)
-            .filter(|v| truthy_json(v))
+            .filter(truthy_json)
             .collect(),
         _ => vec![],
     }
@@ -985,10 +1049,9 @@ fn prune_impeccino_hook_from_manifest(path: &str) -> Result<bool, String> {
 fn reset(rt: &Runtime, cwd: &str, manifest_root: &str) -> Result<String, String> {
     let (pruned, shared_left) = uninstall(rt, manifest_root)?;
     let mut removed: Vec<String> = Vec::new();
-    for file_path in [get_cache_path(cwd)] {
-        if remove_state_file_with(&file_path, |path| std::fs::remove_file(path))? {
-            removed.push(file_path);
-        }
+    let file_path = get_cache_path(cwd);
+    if remove_state_file_with(&file_path, |path| std::fs::remove_file(path))? {
+        removed.push(file_path);
     }
     // The per-project cache dir is ours alone; drop it once it is empty.
     let _ = std::fs::remove_dir(jsp::dirname(&get_cache_path(cwd)));
@@ -997,11 +1060,18 @@ fn reset(rt: &Runtime, cwd: &str, manifest_root: &str) -> Result<String, String>
         parts.push(format!("Removed hook entries from: {}.", pruned.join(", ")));
     }
     if !removed.is_empty() {
-        parts.push(format!("Cleared the hook's session cache ({}).", removed.join(", ")));
+        parts.push(format!(
+            "Cleared the hook's session cache ({}).",
+            removed.join(", ")
+        ));
     }
     parts.extend(shared_note(&shared_left));
     let _ = rt;
-    Ok(if parts.is_empty() { "No hook entries or cache to remove.".to_string() } else { parts.join(" ") })
+    Ok(if parts.is_empty() {
+        "No hook entries or cache to remove.".to_string()
+    } else {
+        parts.join(" ")
+    })
 }
 
 /// `impeccino hooks [action] [args...]` (hook-admin.mjs main). Returns the exit code.

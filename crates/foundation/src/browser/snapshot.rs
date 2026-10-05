@@ -48,6 +48,18 @@ pub const NS_SVG: &str = "http://www.w3.org/2000/svg";
 
 pub const NS_MATHML: &str = "http://www.w3.org/1998/Math/MathML";
 
+/// `[property, value]` declarations within one CSS keyframe rule.
+pub type KeyframeDeclarations = Vec<(String, String)>;
+/// The ordered keyframe rules belonging to one animation name.
+pub type KeyframeSteps = Vec<KeyframeDeclarations>;
+/// Animation names and their ordered keyframe rules as captured from CSS.
+pub type SnapshotKeyframes = Vec<(String, KeyframeSteps)>;
+
+type HitKey = (u64, u64);
+type HitResult = (Option<ElId>, Vec<ElId>);
+type HitCache = RefCell<HashMap<HitKey, HitResult>>;
+type ClosestCache = RefCell<HashMap<(ElId, String), Result<Option<ElId>, SelectorError>>>;
+
 /// The computed-style properties the browser rules read (`getComputedStyle`
 /// spellings as the rules pass them). The capture reads exactly this list
 /// per element; the order is the column order of `SnapNode::style`. Keep in
@@ -356,7 +368,7 @@ pub struct Snapshot {
     pub html: String,
     /// `[name, frames]` in stylesheet order (first rule per name wins).
     #[serde(default)]
-    pub keyframes: Vec<(String, Vec<Vec<(String, String)>>)>,
+    pub keyframes: SnapshotKeyframes,
     /// `__snapLinkedStylesheetText()`: the readable linked-stylesheet corpus
     /// (#709). Absent in captures older than that change.
     #[serde(rename = "linkedCss", default)]
@@ -537,11 +549,11 @@ fn rect4(v: &[f64; 4]) -> Rect {
 /// hit tests, and the record of what the run could not answer.
 pub struct SnapshotDom {
     pub snap: Snapshot,
-    hits: RefCell<HashMap<(u64, u64), (Option<ElId>, Vec<ElId>)>>,
+    hits: HitCache,
     misses: RefCell<Vec<[f64; 2]>>,
     missed_keys: RefCell<HashSet<(u64, u64)>>,
     selectors: RefCell<HashMap<String, Option<Selector>>>,
-    closest_cache: RefCell<HashMap<(ElId, String), Result<Option<ElId>, SelectorError>>>,
+    closest_cache: ClosestCache,
     text_cache: RefCell<HashMap<ElId, String>>,
     unknown_props: RefCell<Vec<String>>,
 }
@@ -869,7 +881,7 @@ impl Dom for SnapshotDom {
                     None => {
                         let mut u = self.unknown_props.borrow_mut();
                         let key = format!("{pseudo}{prop}");
-                        if !u.iter().any(|p| *p == key) {
+                        if !u.contains(&key) {
                             u.push(key);
                         }
                         Some(String::new())
@@ -959,11 +971,10 @@ pub fn css_escape(s: &str) -> String {
         let code = c as u32;
         if code == 0 {
             out.push('\u{FFFD}');
-        } else if (0x1..=0x1F).contains(&code) || code == 0x7F {
-            out.push_str(&format!("\\{:x} ", code));
-        } else if i == 0 && c.is_ascii_digit() {
-            out.push_str(&format!("\\{:x} ", code));
-        } else if i == 1 && c.is_ascii_digit() && chars[0] == '-' {
+        } else if (0x1..=0x1F).contains(&code)
+            || code == 0x7F
+            || (c.is_ascii_digit() && (i == 0 || (i == 1 && chars[0] == '-')))
+        {
             out.push_str(&format!("\\{:x} ", code));
         } else if i == 0 && c == '-' && chars.len() == 1 {
             out.push('\\');
@@ -1077,7 +1088,7 @@ mod tests {
         assert!(!d.matches(4, "div:hover").unwrap());
         assert!(d.matches(6, "svg").unwrap());
         assert!(
-            d.matches(6, "SVG").unwrap() == false,
+            !d.matches(6, "SVG").unwrap(),
             "svg type selectors are case-sensitive"
         );
         assert!(d.matches(4, "DIV").unwrap());
@@ -1087,7 +1098,7 @@ mod tests {
         assert!(d.matches(3, "body:has(> div)").unwrap());
         assert!(d.matches(2, ":empty").unwrap());
         assert!(!d.matches(4, ":empty").unwrap());
-        assert!(d.matches(4, "div::before").unwrap() == false);
+        assert!(!d.matches(4, "div::before").unwrap());
         assert!(d.matches(4, "div:foo").is_err());
         assert!(d.query_all(None, ".x)").is_err());
         assert_eq!(

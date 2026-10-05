@@ -11,16 +11,16 @@
 use super::checks_shim::CustomProps;
 use super::{
     apply_static_declaration, collect_static_css_rules, compare_static_priority,
-    is_static_inherited_prop, normalize_static_css_value,
-    parse_static_style_attribute, static_default_style, CssRule, DeclMeta, SpecifiedDecl,
-    SpecifiedStore, StyleValues, STATIC_DEFAULT_STYLE,
+    is_static_inherited_prop, normalize_static_css_value, parse_static_style_attribute,
+    static_default_style, CssRule, DeclMeta, SpecifiedDecl, SpecifiedStore, StyleValues,
+    STATIC_DEFAULT_STYLE,
 };
 use crate::dom::StaticDocument;
 use ego_tree::NodeId;
+use impeccino_common::jsp;
 use impeccino_core::checks::css_scan::{collect_css_custom_props, css_length_to_px};
 use impeccino_core::checks::measures;
 use impeccino_core::color::parse_any_color;
-use impeccino_common::jsp;
 use impeccino_core::js;
 use indexmap::IndexMap;
 use once_cell::sync::Lazy;
@@ -50,7 +50,7 @@ fn resolve_linked_css_path(file_dir: &str, href: &str) -> String {
         .split(['/', '\\'])
         .filter(|p| !p.is_empty() && *p != ".")
         .collect();
-    if segments.iter().any(|p| *p == "..") {
+    if segments.contains(&"..") {
         let joined = segments
             .iter()
             .filter(|p| **p != "..")
@@ -262,10 +262,7 @@ fn mark_pseudo_rule(
 }
 
 /// JS: css-cascade.mjs#buildStaticStyleMap(root, staticDoc, cssText, modules)
-pub fn build_static_style_map(
-    doc: &mut StaticDocument,
-    css_text: &str,
-) {
+pub fn build_static_style_map(doc: &mut StaticDocument, css_text: &str) {
     let mut specified: SpecifiedStore<NodeId> = SpecifiedStore::new();
     let mut hover_specified: SpecifiedStore<NodeId> = SpecifiedStore::new();
     let mut placeholder_specified: SpecifiedStore<NodeId> = SpecifiedStore::new();
@@ -273,86 +270,84 @@ pub fn build_static_style_map(
     let rules = collect_static_css_rules(css_text);
 
     {
-            for rule in &rules {
-                let placeholder_host = if rule.is_hover {
-                    None
-                } else {
-                    placeholder_host_selector(&rule.selector)
-                };
-                if !rule.is_hover && placeholder_host.is_none() {
-                    if let Some(pm) = PSEUDO_RULE_RE.captures(&rule.selector) {
-                        let base = pm.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
-                        mark_pseudo_rule(doc, rule, &base, &root_custom_props);
-                        continue;
-                    }
-                }
-                let match_selector: Option<&str> = if rule.is_hover {
-                    rule.match_selector.as_deref()
-                } else if let Some(ref host) = placeholder_host {
-                    Some(host.as_str())
-                } else {
-                    Some(rule.selector.as_str())
-                };
-                let Some(match_selector) = match_selector else {
+        for rule in &rules {
+            let placeholder_host = if rule.is_hover {
+                None
+            } else {
+                placeholder_host_selector(&rule.selector)
+            };
+            if !rule.is_hover && placeholder_host.is_none() {
+                if let Some(pm) = PSEUDO_RULE_RE.captures(&rule.selector) {
+                    let base = pm.get(1).map(|m| m.as_str()).unwrap_or("").to_string();
+                    mark_pseudo_rule(doc, rule, &base, &root_custom_props);
                     continue;
-                };
-                let matched: Vec<NodeId> = match doc.compile(match_selector) {
-                    Ok(_) => doc
-                        .query_selector_all(match_selector)
-                        .iter()
-                        .map(|e| e.id())
-                        .collect(),
-                    Err(_) => {
-                        continue;
-                    }
-                };
-                let store = if rule.is_hover {
-                    &mut hover_specified
-                } else if placeholder_host.is_some() {
-                    &mut placeholder_specified
-                } else {
-                    &mut specified
-                };
-                for node in matched {
-                    for decl in &rule.declarations {
-                        if placeholder_host.is_some()
-                            && js::to_lower_case(&decl.prop) != "color"
-                        {
-                            continue;
-                        }
-                        let meta = DeclMeta {
-                            important: decl.important,
-                            specificity: rule.specificity,
-                            order: rule.order,
-                            inline: false,
-                        };
-                        apply_static_declaration(store, node, &decl.prop, &decl.value, &meta);
-                    }
                 }
             }
-
-            let mut inline_order: i64 = rules.len() as i64 + 1;
-            let inline_nodes: Vec<(NodeId, String)> = doc
-                .all_elements()
-                .iter()
-                .filter_map(|el| {
-                    el.get_attribute("style")
-                        .filter(|s| !s.is_empty())
-                        .map(|s| (el.id(), s.to_string()))
-                })
-                .collect();
-            for (node, style_text) in inline_nodes {
-                for decl in parse_static_style_attribute(&style_text, inline_order) {
+            let match_selector: Option<&str> = if rule.is_hover {
+                rule.match_selector.as_deref()
+            } else if let Some(ref host) = placeholder_host {
+                Some(host.as_str())
+            } else {
+                Some(rule.selector.as_str())
+            };
+            let Some(match_selector) = match_selector else {
+                continue;
+            };
+            let matched: Vec<NodeId> = match doc.compile(match_selector) {
+                Ok(_) => doc
+                    .query_selector_all(match_selector)
+                    .iter()
+                    .map(|e| e.id())
+                    .collect(),
+                Err(_) => {
+                    continue;
+                }
+            };
+            let store = if rule.is_hover {
+                &mut hover_specified
+            } else if placeholder_host.is_some() {
+                &mut placeholder_specified
+            } else {
+                &mut specified
+            };
+            for node in matched {
+                for decl in &rule.declarations {
+                    if placeholder_host.is_some() && js::to_lower_case(&decl.prop) != "color" {
+                        continue;
+                    }
                     let meta = DeclMeta {
                         important: decl.important,
-                        specificity: [1, 0, 0],
-                        order: decl.order,
-                        inline: true,
+                        specificity: rule.specificity,
+                        order: rule.order,
+                        inline: false,
                     };
-                    apply_static_declaration(&mut specified, node, &decl.prop, &decl.value, &meta);
+                    apply_static_declaration(store, node, &decl.prop, &decl.value, &meta);
                 }
-                inline_order += 1000;
             }
+        }
+
+        let mut inline_order: i64 = rules.len() as i64 + 1;
+        let inline_nodes: Vec<(NodeId, String)> = doc
+            .all_elements()
+            .iter()
+            .filter_map(|el| {
+                el.get_attribute("style")
+                    .filter(|s| !s.is_empty())
+                    .map(|s| (el.id(), s.to_string()))
+            })
+            .collect();
+        for (node, style_text) in inline_nodes {
+            for decl in parse_static_style_attribute(&style_text, inline_order) {
+                let meta = DeclMeta {
+                    important: decl.important,
+                    specificity: [1, 0, 0],
+                    order: decl.order,
+                    inline: true,
+                };
+                apply_static_declaration(&mut specified, node, &decl.prop, &decl.value, &meta);
+            }
+            inline_order += 1000;
+        }
     }
 
     compute_styles(doc, &specified, &hover_specified, &placeholder_specified);
@@ -414,7 +409,12 @@ fn compute_styles(
         }
         // Minimal user-agent emphasis styles. Author declarations below
         // still win, including explicit normal/inherit resets.
-        if doc.element(node).is_some_and(|el| matches!(el.tag_lower().as_str(), "em" | "i" | "cite" | "dfn" | "var" | "address")) {
+        if doc.element(node).is_some_and(|el| {
+            matches!(
+                el.tag_lower().as_str(),
+                "em" | "i" | "cite" | "dfn" | "var" | "address"
+            )
+        }) {
             values.insert("fontStyle".to_string(), "italic".to_string());
         }
         // Font size supplies the basis for local em letter spacing and line

@@ -197,7 +197,7 @@ impl StaticDocument {
         let node = self.html.tree.get(id)?;
         node.value()
             .is_element()
-            .then(|| StaticElement { doc: self, node })
+            .then_some(StaticElement { doc: self, node })
     }
 
     fn wrap<'a>(&'a self, node: NodeRef<'a, Node>) -> StaticElement<'a> {

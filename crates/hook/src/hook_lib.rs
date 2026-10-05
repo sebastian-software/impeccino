@@ -11,12 +11,16 @@ use std::rc::Rc;
 
 use impeccino_core::findings::Finding;
 use impeccino_core::js;
-use impeccino_detect::config::{extract_finding_ignore_value, normalize_ignore_rule, normalize_ignore_value};
+use impeccino_detect::config::{
+    extract_finding_ignore_value, normalize_ignore_rule, normalize_ignore_value,
+};
 use impeccino_detect::design_decisions::DesignDecisions;
-use impeccino_detect::project_ignores::ProjectIgnores;
-use impeccino_detect::design_system::{load_design_system_for_cwd, resolve_design_md_path, DesignSystem};
+use impeccino_detect::design_system::{
+    load_design_system_for_cwd, resolve_design_md_path, DesignSystem,
+};
 use impeccino_detect::detect_text::{detect_text, TextOptions};
 use impeccino_detect::engines::{HtmlEngine, ScanOptions};
+use impeccino_detect::project_ignores::ProjectIgnores;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -156,7 +160,13 @@ fn hook_state_dir(cwd: &str) -> String {
     let resolved = jsp::resolve(&proc_cwd, &[cwd]);
     let slug: String = resolved
         .chars()
-        .map(|c| if matches!(c, ':' | '\\' | '/' | '.') { '-' } else { c })
+        .map(|c| {
+            if matches!(c, ':' | '\\' | '/' | '.') {
+                '-'
+            } else {
+                c
+            }
+        })
         .collect();
     let digest = {
         use sha2::Digest;
@@ -164,7 +174,10 @@ fn hook_state_dir(cwd: &str) -> String {
         h.update(resolved.as_bytes());
         format!("{:x}", h.finalize())[..8].to_string()
     };
-    jsp::join(&[&jsp::resolve(&proc_cwd, &[&root]), &format!("{}-{}", slug, digest)])
+    jsp::join(&[
+        &jsp::resolve(&proc_cwd, &[&root]),
+        &format!("{}-{}", slug, digest),
+    ])
 }
 
 /// `<user cache>/impeccino/projects`, read from the process environment like
@@ -398,12 +411,22 @@ pub const DEFAULT_MAX_CHARS: f64 = 8000.0;
 
 /// Server-side template extensions the hook scans with the static HTML
 /// engine by default.
-pub const TEMPLATE_EXTENSIONS: &[&str] = &[".blade.php", ".twig", ".html.erb", ".erb", ".hbs", ".handlebars"];
+pub const TEMPLATE_EXTENSIONS: &[&str] = &[
+    ".blade.php",
+    ".twig",
+    ".html.erb",
+    ".erb",
+    ".hbs",
+    ".handlebars",
+];
 
 fn default_template_extensions() -> Vec<ExtensionEntry> {
     TEMPLATE_EXTENSIONS
         .iter()
-        .map(|ext| ExtensionEntry { ext: ext.to_string(), engine: "html".to_string() })
+        .map(|ext| ExtensionEntry {
+            ext: ext.to_string(),
+            engine: "html".to_string(),
+        })
         .collect()
 }
 
@@ -587,7 +610,10 @@ fn preserve_current_project_roots(destination: &mut Cache, current: &Cache) {
                     *session = Value::Object(repaired);
                 }
                 if let Some(session) = session.as_object_mut() {
-                    session.insert("projectRoots".into(), Value::Array(bounded_project_roots(roots)));
+                    session.insert(
+                        "projectRoots".into(),
+                        Value::Array(bounded_project_roots(roots)),
+                    );
                 }
             }
             None => {
@@ -636,7 +662,10 @@ fn preserve_current_project_roots(destination: &mut Cache, current: &Cache) {
             *destination_session = Value::Object(repaired);
         }
         if let Some(session) = destination_session.as_object_mut() {
-            session.insert("projectRoots".into(), Value::Array(bounded_project_roots(roots)));
+            session.insert(
+                "projectRoots".into(),
+                Value::Array(bounded_project_roots(roots)),
+            );
         }
     }
 }
@@ -644,7 +673,10 @@ fn preserve_current_project_roots(destination: &mut Cache, current: &Cache) {
 fn bounded_project_roots(roots: &[Value]) -> Vec<Value> {
     let mut bounded = Vec::new();
     for root in roots.iter().filter_map(Value::as_str) {
-        if bounded.iter().any(|seen: &Value| seen.as_str() == Some(root)) {
+        if bounded
+            .iter()
+            .any(|seen: &Value| seen.as_str() == Some(root))
+        {
             continue;
         }
         bounded.push(Value::String(root.to_string()));
@@ -857,7 +889,11 @@ pub fn filter_findings(findings: Vec<Finding>, config: &HookConfig) -> Vec<Findi
 
 /// `filter_findings`, then the decisions the file's DESIGN.md records
 /// (project-wide waivers and declared fonts).
-pub fn filter_findings_for(findings: Vec<Finding>, config: &HookConfig, scan: &HookScanOptions) -> Vec<Finding> {
+pub fn filter_findings_for(
+    findings: Vec<Finding>,
+    config: &HookConfig,
+    scan: &HookScanOptions,
+) -> Vec<Finding> {
     scan.decisions.apply(filter_findings(findings, config))
 }
 
@@ -1512,7 +1548,10 @@ impl HookScanOptions {
 /// JS: designSystemOptions(config, detector, projectCwd)
 pub fn design_system_options(config: &HookConfig, project_cwd: &str) -> HookScanOptions {
     if !config.design_system_enabled {
-        return HookScanOptions { decisions: Rc::new(DesignDecisions::load_for_dir(project_cwd)), ..HookScanOptions::default() };
+        return HookScanOptions {
+            decisions: Rc::new(DesignDecisions::load_for_dir(project_cwd)),
+            ..HookScanOptions::default()
+        };
     }
     HookScanOptions {
         design_system: load_design_system_for_cwd(project_cwd).map(Rc::new),
@@ -1542,7 +1581,10 @@ pub fn design_system_options_for_file(
         &project.repo_root
     };
     let decisions = Rc::new(DesignDecisions::load_for_dir(root));
-    HookScanOptions { decisions, ..design_system_options(config, root) }
+    HookScanOptions {
+        decisions,
+        ..design_system_options(config, root)
+    }
 }
 
 /// The detector the hook drives: the regex engine from `impeccino-detect`
@@ -1845,10 +1887,10 @@ fn looks_like_apply_patch(raw: Option<&Value>) -> bool {
     if !APPLY_PATCH_MARKER_RE.is_match(s) {
         return false;
     }
-    match serde_json::from_str::<Value>(s) {
-        Ok(Value::Object(_)) | Ok(Value::Array(_)) => false,
-        _ => true,
-    }
+    !matches!(
+        serde_json::from_str::<Value>(s),
+        Ok(Value::Object(_)) | Ok(Value::Array(_))
+    )
 }
 
 /// JS: applyPatchText(rawArgs)
@@ -1938,7 +1980,12 @@ fn normalize_grok_event(
         .get("cwd")
         .filter(|v| truthy_value(Some(v)))
         .cloned()
-        .or_else(|| event.get("workspaceRoot").filter(|v| truthy_value(Some(v))).cloned())
+        .or_else(|| {
+            event
+                .get("workspaceRoot")
+                .filter(|v| truthy_value(Some(v)))
+                .cloned()
+        })
         .or_else(|| {
             rt.env("CURSOR_PROJECT_DIR")
                 .filter(|v| !v.is_empty())
@@ -1972,7 +2019,10 @@ fn normalize_grok_event(
     out.insert("tool_name".into(), tool_name);
     out.insert("tool_input".into(), Value::Object(tool_input));
     if event.contains_key("stopHookActive") && !event.contains_key("stop_hook_active") {
-        out.insert("stop_hook_active".into(), event.get("stopHookActive").cloned().unwrap_or(Value::Null));
+        out.insert(
+            "stop_hook_active".into(),
+            event.get("stopHookActive").cloned().unwrap_or(Value::Null),
+        );
     }
     out
 }
@@ -2065,8 +2115,7 @@ re!(
 
 /// JS: hasPathTraversal(filePath)
 pub fn has_path_traversal(p: &str) -> bool {
-    p.split(|character| matches!(character, '/' | '\\'))
-        .any(|segment| segment == "..")
+    p.split(['/', '\\']).any(|segment| segment == "..")
 }
 
 /// JS: isInsideProject(filePath, projectCwd)
@@ -2288,7 +2337,11 @@ pub fn expand_scan_targets_with_limit(
 /// JS: writeAuditLog(env, entry, cwd)
 pub fn write_audit_log(rt: &Runtime, entry: &Map<String, Value>, cwd: &str) -> bool {
     let base_cwd = str_field(entry, "cwd").unwrap_or(cwd).to_string();
-    let Some(target) = rt.env("IMPECCINO_HOOK_LOG").filter(|v| !v.is_empty()).map(str::to_string) else {
+    let Some(target) = rt
+        .env("IMPECCINO_HOOK_LOG")
+        .filter(|v| !v.is_empty())
+        .map(str::to_string)
+    else {
         return false;
     };
     let expanded = if let Some(rest) = target.strip_prefix("~/") {
@@ -2333,7 +2386,7 @@ pub fn normalize_ignore_value_str(v: &str) -> String {
 
 #[cfg(test)]
 mod project_roots_lock_tests {
-    use super::{preserve_current_project_roots, ProjectRootsLock, Cache};
+    use super::{preserve_current_project_roots, Cache, ProjectRootsLock};
     use serde_json::{json, Value};
     use std::sync::mpsc;
     use std::time::Duration;

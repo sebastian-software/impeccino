@@ -38,11 +38,8 @@ pub const STATIC_DESIGN_SKIP_TAGS: &[&str] = &[
     "head", "title", "meta", "link", "style", "script", "noscript", "template", "source",
 ];
 
-re!(DESIGN_BACKTICKED, "`([^`\n]{1,80})`".to_string());
-re!(
-    DESIGN_CLASS_SELECTOR,
-    "^\\.[A-Za-z_][A-Za-z0-9_-]*$".to_string()
-);
+re!(DESIGN_BACKTICKED, "`([^`\n]{1,80})`");
+re!(DESIGN_CLASS_SELECTOR, "^\\.[A-Za-z_][A-Za-z0-9_-]*$");
 // A design document's prose, cut where one statement stops and the next
 // starts: punctuation, a line break, and the phrases that turn a sentence
 // around. `instead of` / `rather than` open a clause about what the document
@@ -51,29 +48,29 @@ re!(
 // the `.eyebrow` class" declare `.eyebrow`.
 re!(
     DESIGN_CLAUSE_SPLIT,
-    r"(?i)[.!?;:,()\[\]\n]|\u{2014}|\u{2013}|\binstead of\b|\brather than\b|\bas opposed to\b|\boutside\b|\bexcept\b|\bother than\b|\bunless\b|\bbesides\b|\bapart from\b|\bbeyond\b".to_string()
+    r"(?i)[.!?;:,()\[\]\n]|\u{2014}|\u{2013}|\binstead of\b|\brather than\b|\bas opposed to\b|\boutside\b|\bexcept\b|\bother than\b|\bunless\b|\bbesides\b|\bapart from\b|\bbeyond\b"
 );
 re!(
     DESIGN_NEGATING_BOUNDARY,
-    r"(?i)^(?:instead of|rather than|as opposed to)$".to_string()
+    r"(?i)^(?:instead of|rather than|as opposed to)$"
 );
 // A directive: it condemns what comes after it, and nothing before it.
 // "Use `.kicker` and never `.tagline`" sanctions the first and forbids the
 // second, and a rule that read the whole clause would lose both.
 re!(
     DESIGN_DIRECTIVE_NEGATIVE,
-    r"(?i)\b(?:no|not|never|nor|none|avoid\w*|don'?t|do not|doesn'?t|does not|drop|remove\w*|stop|skip)\b".to_string()
+    r"(?i)\b(?:no|not|never|nor|none|avoid\w*|don'?t|do not|doesn'?t|does not|drop|remove\w*|stop|skip)\b"
 );
 // A state: it describes whatever its clause is about, wherever in the clause
 // the name sits. "`.card-old` is deprecated" names the class first.
 re!(
     DESIGN_STATE_NEGATIVE,
-    r"(?i)\b(?:deprecat\w*|obsolete|legacy|forbidden|banned|disallow\w*|discourag\w*|retired|unsupported|wrong|bad|anti-?pattern\w*|no longer|not allowed|not permitted|not supported|not used)\b".to_string()
+    r"(?i)\b(?:deprecat\w*|obsolete|legacy|forbidden|banned|disallow\w*|discourag\w*|retired|unsupported|wrong|bad|anti-?pattern\w*|no longer|not allowed|not permitted|not supported|not used)\b"
 );
 // Headings that introduce a section of counter-examples.
 re!(
     DESIGN_NEGATIVE_HEADING,
-    r"(?i)\b(?:don'?ts?|do not|avoid|never|not to|anti-?patterns?|deprecat\w*|forbidden|banned|legacy|obsolete|retired|unsupported|removed|discourag\w*|disallow\w*|mistakes?|wrong|bad)\b".to_string()
+    r"(?i)\b(?:don'?ts?|do not|avoid|never|not to|anti-?patterns?|deprecat\w*|forbidden|banned|legacy|obsolete|retired|unsupported|removed|discourag\w*|disallow\w*|mistakes?|wrong|bad)\b"
 );
 // A heading that names both sides — "Do and Don't", "Dos and Don'ts",
 // "Do / Do not" — introduces a section of both, so the subsections under it
@@ -85,7 +82,10 @@ re!(DESIGN_BOTH_SIDES_HEADING, {
     // One joiner or several: "Do's, and Don'ts" and "Do and/or Don't" pair
     // the two sides with a comma plus a conjunction and with a conjunction
     // plus a slash.
-    let joiner = format!(r"(?:{WS}*(?:and|or|&|/|\||\+|,|vs\.?|versus)){{1,4}}{WS}*", WS = WS);
+    let joiner = format!(
+        r"(?:{WS}*(?:and|or|&|/|\||\+|,|vs\.?|versus)){{1,4}}{WS}*",
+        WS = WS
+    );
     let affirmative = r"\bdo'?s?\b";
     let negative = r"\b(?:do ?n[o']?ts?|do not)\b";
     format!("(?i)(?:{affirmative}{joiner}{negative}|{negative}{joiner}{affirmative})")
@@ -141,7 +141,7 @@ re!(
 );
 re!(
     TAILWIND_FONT_SIZE_RE,
-    format!("(?-u:\\b)text-\\[(-?[0-9.]+(?:px|rem))\\]")
+    "(?-u:\\b)text-\\[(-?[0-9.]+(?:px|rem))\\]"
 );
 re!(GOOGLE_FAMILY_PARAM_RE, "[?&]family=([^&]+)");
 re!(
@@ -193,7 +193,10 @@ pub fn resolve_design_md_path(cwd: &str) -> Option<DesignMdPath> {
 /// The DESIGN.md sidecar: `DESIGN.json` in the directory that holds
 /// DESIGN.md (docs/adr/0020). `context_dir` is that directory.
 pub fn resolve_design_sidecar_path(_cwd: &str, context_dir: &str) -> Option<String> {
-    let candidate = jsp::join(&[context_dir, impeccino_common::project_files::DESIGN_SIDECAR_FILE]);
+    let candidate = jsp::join(&[
+        context_dir,
+        impeccino_common::project_files::DESIGN_SIDECAR_FILE,
+    ]);
     if exists(&candidate) {
         Some(candidate)
     } else {
@@ -1096,7 +1099,8 @@ pub struct DesignRoot {
 /// workspace globs (package.json `workspaces`, lerna.json, pnpm-workspace.yaml).
 fn read_workspace_patterns(dir: &str) -> Vec<String> {
     let mut pkg: Vec<String> = Vec::new();
-    let workspaces = read_json(&jsp::join(&[dir, "package.json"])).and_then(|v| v.get("workspaces").cloned());
+    let workspaces =
+        read_json(&jsp::join(&[dir, "package.json"])).and_then(|v| v.get("workspaces").cloned());
     match &workspaces {
         Some(Value::Array(ws)) => pkg.extend(ws.iter().map(js_string)),
         Some(other) => {
@@ -1106,7 +1110,9 @@ fn read_workspace_patterns(dir: &str) -> Vec<String> {
         }
         None => {}
     }
-    if let Some(Value::Array(ws)) = read_json(&jsp::join(&[dir, "lerna.json"])).and_then(|v| v.get("packages").cloned()) {
+    if let Some(Value::Array(ws)) =
+        read_json(&jsp::join(&[dir, "lerna.json"])).and_then(|v| v.get("packages").cloned())
+    {
         pkg.extend(ws.iter().map(js_string));
     }
     if let Some(text) = read_text(&jsp::join(&[dir, "pnpm-workspace.yaml"])) {
@@ -1134,7 +1140,11 @@ fn read_workspace_patterns(dir: &str) -> Vec<String> {
                 continue;
             }
             if let Some(caps) = PNPM_ITEM_RE.captures(trimmed) {
-                pkg.push(EDGE_QUOTE_RE.replace_all(js::trim(caps.get(1).map(|m| m.as_str()).unwrap_or("")), "").into_owned());
+                pkg.push(
+                    EDGE_QUOTE_RE
+                        .replace_all(js::trim(caps.get(1).map(|m| m.as_str()).unwrap_or("")), "")
+                        .into_owned(),
+                );
             } else if PNPM_KEY_RE.is_match(trimmed) {
                 break;
             }
@@ -1143,7 +1153,8 @@ fn read_workspace_patterns(dir: &str) -> Vec<String> {
     pkg
 }
 
-const MONOREPO_MARKER_FILES: &[&str] = &["pnpm-workspace.yaml", "turbo.json", "nx.json", "lerna.json"];
+const MONOREPO_MARKER_FILES: &[&str] =
+    &["pnpm-workspace.yaml", "turbo.json", "nx.json", "lerna.json"];
 const MONOREPO_FALLBACK_PROJECT_DIRS: &[&str] = &["apps", "packages"];
 
 re!(PNPM_FLOW_RE, format!("^packages:{WS}*\\[(.*)\\]{WS}*$"));
@@ -1153,10 +1164,16 @@ re!(PNPM_KEY_RE, format!("^[A-Za-z0-9_-]+:{WS}*"));
 
 /// JS: design-system.mjs#isMonorepoRoot
 fn is_monorepo_root(dir: &str) -> bool {
-    if read_workspace_patterns(dir).iter().any(|p| !js::trim(p).starts_with('!')) {
+    if read_workspace_patterns(dir)
+        .iter()
+        .any(|p| !js::trim(p).starts_with('!'))
+    {
         return true;
     }
-    if !MONOREPO_MARKER_FILES.iter().any(|f| exists(&jsp::join(&[dir, f]))) {
+    if !MONOREPO_MARKER_FILES
+        .iter()
+        .any(|f| exists(&jsp::join(&[dir, f])))
+    {
         return false;
     }
     MONOREPO_FALLBACK_PROJECT_DIRS.iter().any(|name| {
@@ -1172,7 +1189,9 @@ fn is_monorepo_root(dir: &str) -> bool {
 
 /// JS: design-system.mjs#monorepoOwnsPath > normalizeWorkspacePattern
 fn normalize_workspace_pattern(pattern: &str) -> String {
-    let mut s = EDGE_QUOTE_RE.replace_all(js::trim(pattern), "").into_owned();
+    let mut s = EDGE_QUOTE_RE
+        .replace_all(js::trim(pattern), "")
+        .into_owned();
     if let Some(rest) = s.strip_prefix("./") {
         s = rest.to_string();
     }
@@ -1191,7 +1210,9 @@ fn segment_matches(pattern_segment: &str, rel_segment: &str) -> bool {
         return pattern_segment == rel_segment;
     }
     let escaped = regex::escape(pattern_segment).replace("\\*", "[^/]*");
-    Regex::new(&format!("^{}$", escaped)).map(|re| re.is_match(rel_segment)).unwrap_or(false)
+    Regex::new(&format!("^{}$", escaped))
+        .map(|re| re.is_match(rel_segment))
+        .unwrap_or(false)
 }
 
 /// JS: design-system.mjs#monorepoOwnsPath > matchGlobSegments
@@ -1265,7 +1286,11 @@ fn monorepo_owns_path(root: &str, boundary_dir: &str) -> bool {
         if rel_segments.len() < pattern_segments.len() {
             return false;
         }
-        if !pattern_segments.iter().zip(rel_segments.iter()).all(|(p, r)| segment_matches(p, r)) {
+        if !pattern_segments
+            .iter()
+            .zip(rel_segments.iter())
+            .all(|(p, r)| segment_matches(p, r))
+        {
             return false;
         }
         if rel_segments.len() == pattern_segments.len() {
@@ -1306,7 +1331,10 @@ fn monorepo_owns_path(root: &str, boundary_dir: &str) -> bool {
     if let Some(from_pkg) = group_owns(&pkg) {
         return from_pkg;
     }
-    if pkg.iter().any(|pattern| !normalize_workspace_pattern(pattern).starts_with('!')) {
+    if pkg
+        .iter()
+        .any(|pattern| !normalize_workspace_pattern(pattern).starts_with('!'))
+    {
         return false;
     }
     rel_segments.len() >= 2 && MONOREPO_FALLBACK_PROJECT_DIRS.contains(&rel_segments[0])
@@ -1322,7 +1350,10 @@ fn home_dir_forms(cwd: &str, home: &str) -> Vec<String> {
     let mut forms = vec![home_dir.clone()];
     if let Ok(real) = std::fs::canonicalize(&home_dir) {
         let real = real.to_string_lossy().into_owned();
-        let real = real.strip_prefix("\\\\?\\").map(|s| s.to_string()).unwrap_or(real);
+        let real = real
+            .strip_prefix("\\\\?\\")
+            .map(|s| s.to_string())
+            .unwrap_or(real);
         if !forms.contains(&real) {
             forms.push(real);
         }
@@ -1346,7 +1377,10 @@ pub fn find_design_root(start_dir: &str, cwd: &str, home: &str) -> Option<Design
     let mut boundary: Option<DesignRoot> = None;
     loop {
         if boundary.is_none() && resolve_design_md_path(&dir).is_some() {
-            return Some(DesignRoot { dir, has_design: true });
+            return Some(DesignRoot {
+                dir,
+                has_design: true,
+            });
         }
         if let Some(b) = &boundary {
             // Past the boundary the walk only looks for the monorepo root
@@ -1365,8 +1399,14 @@ pub fn find_design_root(start_dir: &str, cwd: &str, home: &str) -> Option<Design
             if exists(&jsp::join(&[&dir, ".git"])) {
                 return boundary;
             }
-        } else if PROJECT_ROOT_MARKERS.iter().any(|marker| exists(&jsp::join(&[&dir, marker]))) {
-            boundary = Some(DesignRoot { dir: dir.clone(), has_design: false });
+        } else if PROJECT_ROOT_MARKERS
+            .iter()
+            .any(|marker| exists(&jsp::join(&[&dir, marker])))
+        {
+            boundary = Some(DesignRoot {
+                dir: dir.clone(),
+                has_design: false,
+            });
             // A boundary that is itself a monorepo root, or a separate
             // repository with its own .git, inherits nothing from above.
             if is_monorepo_root(&dir) || exists(&jsp::join(&[&dir, ".git"])) {
@@ -2133,7 +2173,11 @@ mod tests {
         // Compound separators pair the two sides just as well.
         for heading in ["Do's, and Don'ts", "Do and/or Don't", "Don'ts / Dos"] {
             let md = format!("## {heading}\n\n### Do\n\n- Use `.kicker`.\n");
-            assert_eq!(declared_component_selectors(&md), vec![".kicker"], "{heading}");
+            assert_eq!(
+                declared_component_selectors(&md),
+                vec![".kicker"],
+                "{heading}"
+            );
         }
 
         // A heading that only puts a `do` beside a `don't` is not a section
@@ -2149,7 +2193,13 @@ mod tests {
         let md = "- No Title Case, no ALL CAPS outside the `.eyebrow` class.\n                  - **Button.** Four kinds and no more: `.btn-primary` (one per\n                  surface), `.btn-secondary`, `.btn-ghost`, `.btn-danger`.\n";
         assert_eq!(
             declared_component_selectors(md),
-            vec![".eyebrow", ".btn-primary", ".btn-secondary", ".btn-ghost", ".btn-danger"]
+            vec![
+                ".eyebrow",
+                ".btn-primary",
+                ".btn-secondary",
+                ".btn-ghost",
+                ".btn-danger"
+            ]
         );
     }
 
@@ -2217,14 +2267,20 @@ mod tests {
     fn monorepo_npm_workspaces_and_yarn_object_form() {
         let d = TempDir::new("npm");
         d.write("DESIGN.md", DESIGN_MD);
-        d.write("package.json", "{\"name\":\"mono\",\"workspaces\":[\"packages/*\"]}");
+        d.write(
+            "package.json",
+            "{\"name\":\"mono\",\"workspaces\":[\"packages/*\"]}",
+        );
         d.write("packages/ui/package.json", "{\"name\":\"ui\"}");
         let found = root_of(&d, "packages/ui", &far_home()).unwrap();
         assert_eq!((found.dir, found.has_design), (d.path(), true));
 
         let y = TempDir::new("yarnobj");
         y.write("DESIGN.md", DESIGN_MD);
-        y.write("package.json", "{\"name\":\"mono\",\"workspaces\":{\"packages\":[\"packages/*\"]}}");
+        y.write(
+            "package.json",
+            "{\"name\":\"mono\",\"workspaces\":{\"packages\":[\"packages/*\"]}}",
+        );
         y.write("packages/ui/package.json", "{\"name\":\"ui\"}");
         let found = root_of(&y, "packages/ui", &far_home()).unwrap();
         assert_eq!((found.dir, found.has_design), (y.path(), true));
@@ -2239,7 +2295,12 @@ mod tests {
             d.write(marker, "{}");
             d.write("apps/web/package.json", "{\"name\":\"web\"}");
             let found = root_of(&d, "apps/web", &far_home()).unwrap();
-            assert_eq!((found.dir, found.has_design), (d.path(), true), "{}", marker);
+            assert_eq!(
+                (found.dir, found.has_design),
+                (d.path(), true),
+                "{}",
+                marker
+            );
         }
     }
 
@@ -2258,7 +2319,10 @@ mod tests {
         // 91f2c7b4: an inline YAML comment must not defeat glob recognition.
         let d = TempDir::new("flow");
         d.write("DESIGN.md", DESIGN_MD);
-        d.write("pnpm-workspace.yaml", "packages: [\"services/*\"] # deploy targets\n");
+        d.write(
+            "pnpm-workspace.yaml",
+            "packages: [\"services/*\"] # deploy targets\n",
+        );
         d.write("services/api/package.json", "{\"name\":\"api\"}");
         let found = root_of(&d, "services/api", &far_home()).unwrap();
         assert_eq!((found.dir, found.has_design), (d.path(), true));
@@ -2288,7 +2352,10 @@ mod tests {
         let inc = root_of(&d, "packages/included", &far_home()).unwrap();
         assert_eq!((inc.dir, inc.has_design), (d.path(), true));
         let exc = root_of(&d, "packages/excluded", &far_home()).unwrap();
-        assert_eq!((exc.dir.clone(), exc.has_design), (d.join("packages/excluded"), false));
+        assert_eq!(
+            (exc.dir.clone(), exc.has_design),
+            (d.join("packages/excluded"), false)
+        );
     }
 
     #[test]
@@ -2301,7 +2368,10 @@ mod tests {
         let web = root_of(&d, "apps/web", &far_home()).unwrap();
         assert!(web.has_design);
         let vendor = root_of(&d, "vendor/tool", &far_home()).unwrap();
-        assert_eq!((vendor.dir.clone(), vendor.has_design), (d.join("vendor/tool"), false));
+        assert_eq!(
+            (vendor.dir.clone(), vendor.has_design),
+            (d.join("vendor/tool"), false)
+        );
     }
 
     #[test]
@@ -2312,7 +2382,10 @@ mod tests {
         d.mkdir("vendor/other/.git");
         d.write("vendor/other/package.json", "{\"name\":\"other\"}");
         let found = root_of(&d, "vendor/other", &far_home()).unwrap();
-        assert_eq!((found.dir.clone(), found.has_design), (d.join("vendor/other"), false));
+        assert_eq!(
+            (found.dir.clone(), found.has_design),
+            (d.join("vendor/other"), false)
+        );
     }
 
     #[test]
@@ -2323,7 +2396,10 @@ mod tests {
         d.mkdir(".git");
         d.write("packages/nested/package.json", "{\"name\":\"nested\"}");
         let found = root_of(&d, "packages/nested", &far_home()).unwrap();
-        assert_eq!((found.dir.clone(), found.has_design), (d.join("packages/nested"), false));
+        assert_eq!(
+            (found.dir.clone(), found.has_design),
+            (d.join("packages/nested"), false)
+        );
     }
 
     #[test]
@@ -2353,7 +2429,10 @@ mod tests {
         );
         d.write("packages/ui/package.json", "{\"name\":\"ui\"}");
         d.write("components/button/package.json", "{\"name\":\"button\"}");
-        d.write("packages/ui/test/fixture/package.json", "{\"name\":\"fixture\"}");
+        d.write(
+            "packages/ui/test/fixture/package.json",
+            "{\"name\":\"fixture\"}",
+        );
         let ui = root_of(&d, "packages/ui", &far_home()).unwrap();
         assert_eq!((ui.dir, ui.has_design), (d.path(), true));
         let button = root_of(&d, "components/button", &far_home()).unwrap();
@@ -2379,7 +2458,10 @@ mod tests {
         let nested = root_of(&d, "web/examples", &far_home()).unwrap();
         assert_eq!((nested.dir, nested.has_design), (d.path(), true));
         let vendor = root_of(&d, "vendor/tool", &far_home()).unwrap();
-        assert_eq!((vendor.dir.clone(), vendor.has_design), (d.join("vendor/tool"), false));
+        assert_eq!(
+            (vendor.dir.clone(), vendor.has_design),
+            (d.join("vendor/tool"), false)
+        );
     }
 
     #[test]
@@ -2391,7 +2473,10 @@ mod tests {
         home.write("pnpm-workspace.yaml", "packages:\n  - 'apps/*'\n");
         home.write("project/package.json", "{\"name\":\"p\"}");
         let found = find_design_root(&home.join("project"), "/", &home.path()).unwrap();
-        assert_eq!((found.dir.clone(), found.has_design), (home.join("project"), false));
+        assert_eq!(
+            (found.dir.clone(), found.has_design),
+            (home.join("project"), false)
+        );
     }
 
     #[cfg(unix)]
@@ -2401,14 +2486,18 @@ mod tests {
         real.write("DESIGN.md", DESIGN_MD);
         real.write("pnpm-workspace.yaml", "packages:\n  - 'apps/*'\n");
         real.write("project/package.json", "{\"name\":\"p\"}");
-        let link = std::env::temp_dir().join(format!("impeccino-ds-linkhome-{}", std::process::id()));
+        let link =
+            std::env::temp_dir().join(format!("impeccino-ds-linkhome-{}", std::process::id()));
         let _ = std::fs::remove_file(&link);
         std::os::unix::fs::symlink(&real.0, &link).unwrap();
         // HOME is the symlink; the target is the physical path, so a
         // logical-only comparison would walk straight past home and inherit.
         let found = find_design_root(&real.join("project"), "/", &link.to_string_lossy()).unwrap();
         let _ = std::fs::remove_file(&link);
-        assert_eq!((found.dir.clone(), found.has_design), (real.join("project"), false));
+        assert_eq!(
+            (found.dir.clone(), found.has_design),
+            (real.join("project"), false)
+        );
     }
 
     #[test]
@@ -2448,7 +2537,9 @@ mod tests {
             .map(|item| {
                 (
                     item.antipattern.clone(),
-                    item.extras.get("ignoreValue").and_then(|v| v.as_str().map(String::from)),
+                    item.extras
+                        .get("ignoreValue")
+                        .and_then(|v| v.as_str().map(String::from)),
                 )
             })
             .collect();
@@ -2465,5 +2556,3 @@ mod tests {
         assert_eq!(js_string(&parse_scalar("007")), "7");
     }
 }
-
-
