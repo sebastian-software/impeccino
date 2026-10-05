@@ -3,36 +3,26 @@
 //! `checkPageLayout`, `collectRepeatedContainerTextFindings`,
 //! `checkRepeatedContainerTextFromDoc`, `checkCreamPalette`).
 
-use crate::adapters::{class_selector, StyleRef};
+use crate::adapters::{clean_inline_text, StyleRef};
 use crate::background::{read_own_background_color, resolve_border_radius_px, sv};
 use crate::dom::{StaticDocument, StaticElement};
 use crate::quality::{has_nonblank_direct_text, pf0};
-use impeccino_core::checks::measures::{
-    cream_from_class_list, css_color_is_transparent, is_cream_color,
-};
+use impeccino_core::checks::measures::css_color_is_transparent;
 use impeccino_core::checks::rules::{
-    check_flat_type_hierarchy_samples, is_card_like_from_props, type_hierarchy_role, RuleHit,
-    TypeSample, TYPE_HIERARCHY_SELECTOR,
+    check_cream_palette_facts, check_flat_type_hierarchy_samples, check_overused_font_usage,
+    is_card_like_from_props, primary_font_face, type_hierarchy_role, RuleHit, TypeSample,
+    TYPE_HIERARCHY_SELECTOR,
 };
 use impeccino_core::checks::text_rules::{
-    is_repeated_text_container, REPEATED_TEXT_CONTAINER_TAGS, REPEATED_TEXT_SKIP_SELECTOR,
+    check_repeated_container_text_nodes, is_repeated_text_container, RepeatedTextNode,
+    REPEATED_TEXT_CONTAINER_TAGS, REPEATED_TEXT_SKIP_SELECTOR,
 };
-use impeccino_core::constants::{CSS_GENERIC_FONTS, OVERUSED_FONTS, SAFE_TAGS};
-use impeccino_core::js::{self, number_to_string, parse_float};
-use impeccino_core::js_ext_b::{slice_utf16_prefix, utf16_len};
+use impeccino_core::constants::SAFE_TAGS;
+use impeccino_core::js::{self, parse_float};
+use impeccino_core::js_ext_b::utf16_len;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::collections::HashSet;
-
-static WS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!("{}+", js::WS)).expect("WS_RE"));
-
-/// `f.trim().replace(/^['"]|['"]$/g, '').toLowerCase()`
-fn font_token(f: &str) -> String {
-    let t = js::trim(f);
-    let t = t.strip_prefix(['\'', '"']).unwrap_or(t);
-    let t = t.strip_suffix(['\'', '"']).unwrap_or(t);
-    js::to_lower_case(t)
-}
+use std::collections::HashMap;
 
 /// JS: detect-html.mjs#checkStaticPageTypography(document, window)
 pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
@@ -49,10 +39,7 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
         // JS-PARITY: detect-html.mjs#checkStaticPageTypography uses
         // primaryFontFace(ff) whose default skip is CSS_GENERIC_FONTS, so a
         // system stack keeps its system face as primary (fix #678).
-        let primary = ff
-            .split(',')
-            .map(font_token)
-            .find(|f| !f.is_empty() && !CSS_GENERIC_FONTS.contains(&f.as_str()));
+        let primary = primary_font_face(ff);
         let Some(primary) = primary else {
             continue;
         };
@@ -65,28 +52,8 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
         total_text_elements += 1;
     }
 
-    if total_text_elements >= 20 {
-        // Keep source order on ties, as Array.prototype.sort does in the
-        // browser path, then report only a unique leader. A static file scan
-        // has no page hostname, so it cannot apply the browser-only own-domain
-        // brand exemption.
-        let mut ranked: Vec<&(String, usize)> = font_usage.iter().collect();
-        ranked.sort_by_key(|entry| std::cmp::Reverse(entry.1));
-        if let Some((font, count)) = ranked.first().map(|(font, count)| (font, *count)) {
-            let tied = ranked.get(1).map(|entry| entry.1) == Some(count);
-            if !tied && OVERUSED_FONTS.contains(&font.as_str()) {
-                findings.push(RuleHit::new(
-                    "overused-font",
-                    format!(
-                        "Primary font: {} ({}% of text)",
-                        font,
-                        number_to_string(js::math_round(
-                            count as f64 / total_text_elements as f64 * 100.0
-                        ))
-                    ),
-                ));
-            }
-        }
+    if let Some(finding) = check_overused_font_usage(&font_usage, total_text_elements, None) {
+        findings.push(finding);
     }
     findings.extend(check_flat_type_hierarchy_from_doc(doc));
     findings
@@ -261,138 +228,63 @@ pub fn check_page_layout(doc: &StaticDocument) -> Vec<RuleHit> {
 
 // ─── Repeated container text ────────────────────────────────────────────────
 
-static ICON_CLASS_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(&format!(
-        r"(?i)icon|material-symbols|(?:^|{ws})fa[srlbd]?(?:{ws}|-|$)",
-        ws = js::WS
-    ))
-    .expect("ICON_CLASS_RE")
-});
-static ALPHA_RE: Lazy<Regex> = Lazy::new(|| Regex::new("[a-zA-Z]").expect("ALPHA_RE"));
-
 fn is_visible(el: &StaticElement<'_>) -> bool {
-    sv(el.style(), "display") != "none"
+    let mut current = Some(*el);
+    while let Some(node) = current {
+        let style = node.style();
+        let visibility = js::to_lower_case(sv(style, "visibility"));
+        if node.get_attribute("aria-hidden") == Some("true")
+            || sv(style, "display") == "none"
+            || visibility == "hidden"
+            || visibility == "collapse"
+            || pf0(sv(style, "opacity")) <= 0.01
+            || js::to_lower_case(sv(style, "contentVisibility")) == "hidden"
+        {
+            return false;
+        }
+        current = node.parent_element();
+    }
+    true
 }
 
 /// JS: checks.mjs#collectRepeatedContainerTextFindings(doc, getStyle, opts)
 /// with `isVisible = display !== 'none'` (`checkRepeatedContainerTextFromDoc`).
 pub fn check_repeated_container_text_from_doc(doc: &StaticDocument) -> Vec<RuleHit> {
-    let mut findings = Vec::new();
-    let mut containers: Vec<StaticElement<'_>> = Vec::new();
-    let mut container_set: HashSet<ego_tree::NodeId> = HashSet::new();
-    for el in doc.query_selector_all("*") {
-        if !REPEATED_TEXT_CONTAINER_TAGS.contains(&el.tag_lower().as_str()) {
-            continue;
-        }
-        if el.closest(REPEATED_TEXT_SKIP_SELECTOR).is_some() {
-            continue;
-        }
-        if !is_repeated_text_container(Some(&StyleRef(el.style()))) {
-            continue;
-        }
-        containers.push(el);
-        container_set.insert(el.id());
-    }
-
-    for container in &containers {
-        if !is_visible(container) {
-            continue;
-        }
-        let descendants = container.query_selector_all("*");
-        if descendants.len() > 250 {
-            continue;
-        }
-        // text -> signatures, in first-seen order.
-        let mut groups: Vec<(String, Vec<String>)> = Vec::new();
-        for d in &descendants {
-            let mut anc = d.parent_element();
-            let mut owned_by_inner = false;
-            while let Some(a) = anc {
-                if a == *container {
-                    break;
-                }
-                if container_set.contains(&a.id()) {
-                    owned_by_inner = true;
-                    break;
-                }
-                anc = a.parent_element();
+    let elements = doc.query_selector_all("*");
+    let indexes: HashMap<ego_tree::NodeId, usize> = elements
+        .iter()
+        .enumerate()
+        .map(|(index, el)| (el.id(), index))
+        .collect();
+    let nodes: Vec<RepeatedTextNode> = elements
+        .iter()
+        .map(|el| {
+            let tag = el.tag_lower();
+            let is_skipped = el.closest(REPEATED_TEXT_SKIP_SELECTOR).is_some();
+            RepeatedTextNode {
+                parent: el
+                    .parent_element()
+                    .and_then(|parent| indexes.get(&parent.id()).copied()),
+                is_container: !is_skipped
+                    && REPEATED_TEXT_CONTAINER_TAGS.contains(&tag.as_str())
+                    && is_repeated_text_container(Some(&StyleRef(el.style()))),
+                tag,
+                class_name: el.get_attribute("class").unwrap_or("").to_string(),
+                direct_text: clean_inline_text(el),
+                is_skipped,
+                is_visible: is_visible(el),
             }
-            if owned_by_inner {
-                continue;
-            }
-            if d.closest(REPEATED_TEXT_SKIP_SELECTOR).is_some() {
-                continue;
-            }
-            if ICON_CLASS_RE.is_match(d.get_attribute("class").unwrap_or("")) {
-                continue;
-            }
-            if !is_visible(d) {
-                continue;
-            }
-            let direct = crate::adapters::clean_inline_text(d);
-            let len = utf16_len(&direct);
-            if !(4..=48).contains(&len) {
-                continue;
-            }
-            if !ALPHA_RE.is_match(&direct) {
-                continue;
-            }
-            let mut sig: Vec<String> = Vec::new();
-            let mut cur = Some(*d);
-            while let Some(c) = cur {
-                if c == *container {
-                    break;
-                }
-                let raw_cls = js::trim(c.get_attribute("class").unwrap_or(""));
-                let mut cls: Vec<&str> = if raw_cls.is_empty() {
-                    Vec::new()
-                } else {
-                    WS_RE.split(raw_cls).filter(|s| !s.is_empty()).collect()
-                };
-                cls.sort_by(|a, b| a.encode_utf16().cmp(b.encode_utf16()));
-                let cls = cls.join(".");
-                sig.push(if cls.is_empty() {
-                    c.tag_lower()
-                } else {
-                    format!("{}.{}", c.tag_lower(), cls)
-                });
-                cur = c.parent_element();
-            }
-            let joined = sig.join(">");
-            match groups.iter_mut().find(|(t, _)| *t == direct) {
-                Some((_, sigs)) => sigs.push(joined),
-                None => groups.push((direct, vec![joined])),
-            }
-        }
-        for (text, sigs) in &groups {
-            if sigs.len() < 3 {
-                continue;
-            }
-            let distinct: HashSet<&String> = sigs.iter().collect();
-            if distinct.len() < 3 {
-                continue;
-            }
-            findings.push(RuleHit::new(
-                "repeated-container-text",
-                format!(
-                    "\"{}\" rendered {}× in distinct spots inside {}",
-                    slice_utf16_prefix(text, 40),
-                    sigs.len(),
-                    class_selector(container)
-                ),
-            ));
-        }
-    }
-    findings
+        })
+        .collect();
+    check_repeated_container_text_nodes(&nodes)
 }
 
 // ─── Cream palette ──────────────────────────────────────────────────────────
 
 /// JS: checks.mjs#checkCreamPalette(doc, win)
 pub fn check_cream_palette(doc: &StaticDocument) -> Vec<RuleHit> {
-    let mut findings = Vec::new();
     let Some(body) = doc.body() else {
-        return findings;
+        return Vec::new();
     };
     let html = doc.document_element();
     let mut bg = read_own_background_color(&body, body.style());
@@ -401,30 +293,14 @@ pub fn check_cream_palette(doc: &StaticDocument) -> Vec<RuleHit> {
             bg = read_own_background_color(h, h.style());
         }
     }
-    if is_cream_color(bg.as_ref()) {
-        let c = bg.unwrap();
-        findings.push(RuleHit::new(
-            "cream-palette",
-            format!(
-                "cream/beige page background rgb({}, {}, {})",
-                number_to_string(c.r),
-                number_to_string(c.g),
-                number_to_string(c.b)
-            ),
-        ));
-        return findings;
-    }
-    for el in [Some(body), html] {
-        let cls = el.and_then(|e| e.get_attribute("class")).unwrap_or("");
-        if let Some(tok) = cream_from_class_list(Some(cls)) {
-            findings.push(RuleHit::new(
-                "cream-palette",
-                format!("cream/beige page background (Tailwind {})", tok),
-            ));
-            break;
-        }
-    }
-    findings
+    check_cream_palette_facts(
+        bg.as_ref(),
+        [
+            body.get_attribute("class"),
+            html.as_ref()
+                .and_then(|element| element.get_attribute("class")),
+        ],
+    )
 }
 
 #[cfg(test)]
@@ -548,7 +424,8 @@ mod tests {
             ));
             let first = doc.query_selector("p").unwrap();
             assert!(
-                font_token(sv(first.style(), "fontFamily")).starts_with(expected_primary),
+                primary_font_face(sv(first.style(), "fontFamily"))
+                    .is_some_and(|font| font.starts_with(expected_primary)),
                 "{declaration}: {}",
                 sv(first.style(), "fontFamily")
             );

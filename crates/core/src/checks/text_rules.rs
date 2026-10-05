@@ -4,6 +4,7 @@
 //! `html` crate and the browser bundle) share.
 
 use crate::checks::measures::{Finding, StyleMap};
+use crate::checks::rules::RuleHit;
 use crate::color;
 
 use crate::js::{self, ci, parse_float, parse_int, string_to_number, WS};
@@ -20,6 +21,30 @@ macro_rules! re {
     ($name:ident, $pat:expr) => {
         static $name: Lazy<Regex> = Lazy::new(|| Regex::new(&$pat).expect(stringify!($name)));
     };
+}
+
+/// Selector for elements that give nearby borders selected-tab context.
+pub const TAB_CONTEXT_SELECTOR: &str =
+    "[aria-selected=\"true\"], [aria-current]:not([aria-current=\"false\"])";
+
+/// Selector for elements that give nearby borders live-status context.
+pub const STATUS_CONTEXT_SELECTOR: &str = "[role=\"status\"], [role=\"alert\"], [role=\"alertdialog\"], [role=\"log\"], [aria-live=\"polite\"], [aria-live=\"assertive\"]";
+
+static ACTIVE_TAB_CLASS_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(&format!(
+        "(?:^|[{ws}_-])(?:{active}|{current}|{selected})(?:$|[{ws}_-])",
+        ws = js::WS_CHARS,
+        active = ci("active"),
+        current = ci("current"),
+        selected = ci("selected")
+    ))
+    .expect("ACTIVE_TAB_CLASS_RE")
+});
+
+/// JS `/(?:^|[\\s_-])(?:active|current|selected)(?:$|[\\s_-])/i`.
+/// Explicit ASCII folding preserves JavaScript's `/i` behavior.
+pub fn has_active_tab_class_token(class_name: &str) -> bool {
+    ACTIVE_TAB_CLASS_RE.is_match(class_name)
 }
 
 /// JS `\d` is ASCII only.
@@ -352,6 +377,167 @@ pub fn is_repeated_text_container(style: Option<&dyn StyleMap>) -> bool {
     is_card_like_from_props(has_shadow, has_border, has_radius, has_bg)
 }
 
+static REPEATED_ICON_CLASS_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(&format!(
+        "{icon}|{symbols}|(?:^|{ws}){fa}[srlbdSRLBD]?(?:{ws}|-|$)",
+        icon = ci("icon"),
+        symbols = ci("material-symbols"),
+        fa = ci("fa"),
+        ws = WS
+    ))
+    .expect("REPEATED_ICON_CLASS_RE")
+});
+static REPEATED_ALPHA_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new("[a-zA-Z]").expect("REPEATED_ALPHA_RE"));
+static REPEATED_WS_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(&format!("{}+", WS)).expect("REPEATED_WS_RE"));
+
+/// Geometry-free facts collected from either DOM adapter for repeated-text
+/// attribution. The adapters decide style, visibility, and selector matches;
+/// this function owns the identical tree walk and signature grouping.
+#[derive(Debug, Clone)]
+pub struct RepeatedTextNode {
+    pub parent: Option<usize>,
+    pub tag: String,
+    pub class_name: String,
+    pub direct_text: String,
+    pub is_container: bool,
+    pub is_skipped: bool,
+    pub is_visible: bool,
+}
+
+/// JS: checks.mjs#collectRepeatedContainerTextFindings, over normalized
+/// layout-independent DOM facts.
+pub fn check_repeated_container_text_nodes(nodes: &[RepeatedTextNode]) -> Vec<RuleHit> {
+    let containers: Vec<usize> = nodes
+        .iter()
+        .enumerate()
+        .filter_map(|(index, node)| (node.is_container && !node.is_skipped).then_some(index))
+        .collect();
+    let mut findings = Vec::new();
+
+    for &container in &containers {
+        if !nodes[container].is_visible {
+            continue;
+        }
+        let descendants: Vec<usize> = (0..nodes.len())
+            .filter(|&candidate| is_descendant_of(nodes, candidate, container))
+            .collect();
+        if descendants.len() > 250 {
+            continue;
+        }
+
+        let mut groups: Vec<(String, Vec<String>)> = Vec::new();
+        for &descendant in &descendants {
+            let node = &nodes[descendant];
+            let mut ancestor = node.parent;
+            let mut owned_by_inner = false;
+            while let Some(index) = ancestor {
+                if index == container {
+                    break;
+                }
+                if containers.contains(&index) {
+                    owned_by_inner = true;
+                    break;
+                }
+                ancestor = nodes[index].parent;
+            }
+            if owned_by_inner || node.is_skipped || !node.is_visible {
+                continue;
+            }
+            if REPEATED_ICON_CLASS_RE.is_match(&node.class_name) {
+                continue;
+            }
+            let text_len = utf16_len(&node.direct_text);
+            if !(4..=48).contains(&text_len) || !REPEATED_ALPHA_RE.is_match(&node.direct_text) {
+                continue;
+            }
+
+            let mut signature_parts = Vec::new();
+            let mut current = Some(descendant);
+            while let Some(index) = current {
+                if index == container {
+                    break;
+                }
+                let current_node = &nodes[index];
+                let raw_class = js::trim(&current_node.class_name);
+                let mut classes: Vec<&str> = if raw_class.is_empty() {
+                    Vec::new()
+                } else {
+                    REPEATED_WS_RE
+                        .split(raw_class)
+                        .filter(|class_name| !class_name.is_empty())
+                        .collect()
+                };
+                classes.sort_by(|left, right| left.encode_utf16().cmp(right.encode_utf16()));
+                let class_suffix = classes.join(".");
+                signature_parts.push(if class_suffix.is_empty() {
+                    current_node.tag.clone()
+                } else {
+                    format!("{}.{}", current_node.tag, class_suffix)
+                });
+                current = current_node.parent;
+            }
+            let signature = signature_parts.join(">");
+            match groups
+                .iter_mut()
+                .find(|(text, _)| text == &node.direct_text)
+            {
+                Some((_, signatures)) => signatures.push(signature),
+                None => groups.push((node.direct_text.clone(), vec![signature])),
+            }
+        }
+
+        for (text, signatures) in groups {
+            if signatures.len() < 3 {
+                continue;
+            }
+            let mut distinct: Vec<&String> = Vec::new();
+            for signature in &signatures {
+                if !distinct.contains(&signature) {
+                    distinct.push(signature);
+                }
+            }
+            if distinct.len() < 3 {
+                continue;
+            }
+            findings.push(RuleHit::new(
+                "repeated-container-text",
+                format!(
+                    "\"{}\" rendered {}× in distinct spots inside {}",
+                    crate::js_ext_b::slice_utf16_prefix(&text, 40),
+                    signatures.len(),
+                    repeated_container_selector(&nodes[container])
+                ),
+            ));
+        }
+    }
+    findings
+}
+
+fn is_descendant_of(nodes: &[RepeatedTextNode], node: usize, ancestor: usize) -> bool {
+    let mut parent = nodes[node].parent;
+    while let Some(index) = parent {
+        if index == ancestor {
+            return true;
+        }
+        parent = nodes[index].parent;
+    }
+    false
+}
+
+fn repeated_container_selector(node: &RepeatedTextNode) -> String {
+    let classes: Vec<&str> = REPEATED_WS_RE
+        .split(js::trim(&node.class_name))
+        .filter(|class_name| !class_name.is_empty())
+        .collect();
+    if classes.is_empty() {
+        node.tag.clone()
+    } else {
+        format!("{}.{}", node.tag, classes.join("."))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -453,5 +639,15 @@ mod tests {
         assert!(CURSOR_GLYPH_RE.is_match("▌"));
         assert!(CURSOR_GLYPH_RE.is_match("_"));
         assert!(!CURSOR_GLYPH_RE.is_match("__"));
+    }
+
+    #[test]
+    fn active_tab_class_tokens_use_ascii_case_folding_and_word_boundaries() {
+        for class_name in ["active", "is-current", "menu_selected", "ACTIVE"] {
+            assert!(has_active_tab_class_token(class_name), "{class_name}");
+        }
+        for class_name in ["inactive", "selectedish", "ſelected", ""] {
+            assert!(!has_active_tab_class_token(class_name), "{class_name}");
+        }
     }
 }

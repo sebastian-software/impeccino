@@ -11,25 +11,21 @@ use crate::dom::{ChildNode, StaticElement};
 use impeccino_core::checks::measures::{
     colors_nearly_match, css_color_is_transparent, resolve_length_px,
 };
+use impeccino_core::checks::quality::{
+    check_buried_raster, check_skipped_headings, check_text_quality,
+    is_non_rendered_text_from_style, is_visually_hidden_from_style, TextQualityInput,
+    EXEMPT_CONTEXT, FURNITURE_CONTEXT, INTERACTIVE_CONTEXT, SMALLPRINT_CONTEXT,
+    TINY_TEXT_UI_CONTEXT,
+};
 use impeccino_core::checks::rules::RuleHit;
-use impeccino_core::checks::text_rules::{NON_RENDERED_TAGS, SR_ONLY_SELECTOR};
-use impeccino_core::js::{self, number_to_string, parse_float, to_fixed};
+use impeccino_core::checks::text_rules::SR_ONLY_SELECTOR;
+use impeccino_core::js::{self, parse_float};
 use impeccino_core::js_ext_a::num_truthy;
-use impeccino_core::js_ext_b::{slice_utf16_prefix, utf16_len};
+use impeccino_core::js_ext_b::utf16_len;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
 static WS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!("{}+", js::WS)).expect("WS_RE"));
-// JS `/url\(/i` in checkQuality's buried-raster branch.
-static RASTER_URL_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(&format!(r"{}\(", impeccino_core::js::ci("url"))).expect("RASTER_URL_RE")
-});
-static CLIP_RECT_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(&format!(r"rect\({}*0", js::WS)).expect("CLIP_RECT_RE"));
-static CLIP_INSET_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(&format!(r"inset\({}*(?:50%|99|100%)", js::WS)).expect("CLIP_INSET_RE")
-});
-
 /// JS `s.replace(/\s+/g, ' ')`.
 pub fn collapse_ws(s: &str) -> String {
     impeccino_core::js_ext_b::collapse_whitespace(s)
@@ -96,37 +92,28 @@ pub fn has_visible_background_boundary(style: &StyleValues, el: &StaticElement<'
 
 /// JS: checks.mjs#isVisuallyHidden(el, style)
 pub fn is_visually_hidden(el: &StaticElement<'_>, style: &StyleValues) -> bool {
-    // StaticElement has no `matches`; `closest` covers the element itself.
-    if el.closest(SR_ONLY_SELECTOR).is_some() {
-        return true;
-    }
-    let pos = sv(style, "position");
-    if pos == "absolute" || pos == "fixed" {
-        let clip = sv(style, "clip");
-        let clip_path = {
-            let a = sv(style, "clipPath");
-            if !a.is_empty() {
-                a
+    let clip_path = {
+        let value = sv(style, "clipPath");
+        if !value.is_empty() {
+            value
+        } else {
+            let webkit = sv(style, "webkitClipPath");
+            if !webkit.is_empty() {
+                webkit
             } else {
-                let b = sv(style, "webkitClipPath");
-                if !b.is_empty() {
-                    b
-                } else {
-                    sv(style, "clip-path")
-                }
+                sv(style, "clip-path")
             }
-        };
-        if CLIP_RECT_RE.is_match(clip) || CLIP_INSET_RE.is_match(clip_path) {
-            return true;
         }
-        let w = parse_float(sv(style, "width"));
-        let h = parse_float(sv(style, "height"));
-        let overflow = sv(style, "overflow");
-        if (w == 1.0 || h == 1.0) && (overflow == "hidden" || overflow == "clip") {
-            return true;
-        }
-    }
-    false
+    };
+    is_visually_hidden_from_style(
+        el.closest(SR_ONLY_SELECTOR).is_some(),
+        sv(style, "position"),
+        sv(style, "clip"),
+        clip_path,
+        sv(style, "width"),
+        sv(style, "height"),
+        sv(style, "overflow"),
+    )
 }
 
 /// JS: checks.mjs#isNonRenderedText(el, tag, style)
@@ -135,26 +122,13 @@ pub fn is_non_rendered_text(
     tag: &str,
     style: Option<&StyleValues>,
 ) -> bool {
-    let t = js::to_lower_case(tag);
-    if NON_RENDERED_TAGS.contains(&t.as_str()) {
-        return true;
-    }
-    if el.closest("head").is_some() {
-        return true;
-    }
-    if let Some(style) = style {
-        if sv_opt(style, "display") == Some("none") {
-            return true;
-        }
-        let vis = sv_opt(style, "visibility");
-        if vis == Some("hidden") || vis == Some("collapse") {
-            return true;
-        }
-    }
-    false
+    let in_head = el.closest("head").is_some();
+    let display = style.map(|value| sv(value, "display")).unwrap_or("");
+    let visibility = style.map(|value| sv(value, "visibility")).unwrap_or("");
+    is_non_rendered_text_from_style(tag, in_head, display, visibility)
 }
 
-/// Inputs of `checkQuality` as the static adapter builds them.
+/// Inputs of checkQuality as the static adapter builds them.
 pub struct QualityInput<'a, 'b> {
     pub el: &'b StaticElement<'a>,
     pub tag: &'b str,
@@ -172,12 +146,6 @@ const FLUSH_SKIP_TAGS: &[&str] = &[
     "THEAD", "TR", "TD", "TH",
 ];
 
-const TINY_TEXT_UI_CONTEXT: &str = "button, a, label, summary, pre, [role=\"button\"], [role=\"link\"], [role=\"tab\"], [role=\"menuitem\"], [role=\"option\"], nav, footer, [aria-hidden=\"true\"], [class*=\"badge\" i], [class*=\"caption\" i], [class*=\"chip\" i], [class*=\"code\" i], [class*=\"console\" i], [class*=\"diff\" i], [class*=\"label\" i], [class*=\"meta\" i], [class*=\"mock\" i], [class*=\"pill\" i], [class*=\"preview\" i], [class*=\"tag\" i], [class*=\"terminal\" i], [class*=\"writes\" i]";
-const EXEMPT_CONTEXT: &str = "pre, code, kbd, samp, var, svg, [aria-hidden=\"true\"], [class*=\"terminal\" i], [class*=\"console\" i], [class*=\"code\" i], [class*=\"mock\" i], [class*=\"editor\" i], [class*=\"syntax\" i], [class*=\"diff\" i]";
-const INTERACTIVE: &str = "a[href], button, summary, label, select, textarea, [role=\"button\"], [role=\"link\"], [role=\"tab\"], [role=\"menuitem\"], [role=\"menuitemcheckbox\"], [role=\"menuitemradio\"], [role=\"option\"], [role=\"checkbox\"], [role=\"radio\"], [role=\"switch\"], [role=\"treeitem\"], [tabindex]";
-const FURNITURE: &str = "nav, [role=\"navigation\"], td, th, [role=\"gridcell\"], [role=\"cell\"], caption, figcaption, dt, dd, footer, [class*=\"meta\" i], [class*=\"label\" i], [class*=\"badge\" i], [class*=\"chip\" i], [class*=\"pill\" i], [class*=\"tag\" i], [class*=\"kicker\" i], [class*=\"eyebrow\" i], [class*=\"breadcrumb\" i], [class*=\"timestamp\" i], [class*=\"category\" i], [class*=\"caption\" i], [class*=\"nav\" i]";
-const SMALLPRINT: &str = "small, footer, [class*=\"legal\" i], [class*=\"copyright\" i], [class*=\"fineprint\" i], [class*=\"fine-print\" i], [class*=\"smallprint\" i], [class*=\"small-print\" i], [class*=\"disclaimer\" i], [class*=\"disclosure\" i], [class*=\"footnote\" i]";
-
 fn side_len(style: &StyleValues, key: &str, font_size: f64) -> f64 {
     resolve_length_px(sv_opt(style, key), font_size).unwrap_or(0.0)
 }
@@ -191,40 +159,17 @@ pub fn check_quality(q: &QualityInput<'_, '_>) -> Vec<RuleHit> {
     let text_len = q.text_len;
     let mut findings: Vec<RuleHit> = Vec::new();
 
-    // A raster (<img>, or an element with a background url) at near-zero
-    // opacity never reaches the screen: the produced material ships as a
-    // compliance token. The CSS-text scan catches the stylesheet form; this
-    // catches computed opacity on the element itself (both engines).
-    {
-        let op = parse_float(sv(style, "opacity"));
-        if (0.0..0.15).contains(&op) {
-            let bg = sv(style, "backgroundImage");
-            if tag == "img" || RASTER_URL_RE.is_match(bg) {
-                let label = if tag == "img" {
-                    el.get_attribute("alt").unwrap_or("").to_string()
-                } else {
-                    slice_utf16_prefix(js::trim(&el.text_content()), 40)
-                };
-                findings.push(RuleHit::new(
-                    "buried-raster",
-                    format!(
-                        "{} at opacity {}{}",
-                        if tag == "img" {
-                            "<img>"
-                        } else {
-                            "raster background"
-                        },
-                        number_to_string(op),
-                        if label.is_empty() {
-                            String::new()
-                        } else {
-                            format!(" \"{label}\"")
-                        }
-                    ),
-                ));
-            }
-        }
-    }
+    let opacity = parse_float(sv(style, "opacity"));
+    let background_image = sv(style, "backgroundImage");
+    let alt = el.get_attribute("alt").unwrap_or("");
+    let text_content = el.text_content();
+    findings.extend(check_buried_raster(
+        tag,
+        opacity,
+        background_image,
+        alt,
+        &text_content,
+    ));
 
     // --- Line length / cramped padding (rect-gated): never fire statically.
 
@@ -359,158 +304,29 @@ pub fn check_quality(q: &QualityInput<'_, '_>) -> Vec<RuleHit> {
         }
     }
 
-    let is_heading = matches!(tag, "h1" | "h2" | "h3" | "h4" | "h5" | "h6");
-
-    // --- Tight line height ---
-    if q.has_direct_text && text_len > 50 && !is_heading {
-        if let Some(lh) = q.line_height_px {
-            if font_size > 0.0 {
-                let ratio = lh / font_size;
-                if ratio > 0.0 && ratio < 1.3 {
-                    findings.push(RuleHit::new(
-                        "tight-leading",
-                        format!("line-height {}x (need >=1.3)", to_fixed(ratio, 2)),
-                    ));
-                }
-            }
-        }
-    }
-
-    // --- Justified text (without hyphens) ---
-    if q.has_direct_text && sv_opt(style, "textAlign") == Some("justify") {
-        let hyphens = {
-            let a = sv(style, "hyphens");
-            if !a.is_empty() {
-                a
-            } else {
-                sv(style, "webkitHyphens")
-            }
-        };
-        if hyphens != "auto" {
-            findings.push(RuleHit::new(
-                "justified-text",
-                "text-align: justify without hyphens: auto".to_string(),
-            ));
-        }
-    }
-
-    // --- Tiny body text ---
-    if q.has_direct_text && text_len > 20 && font_size < 12.0 {
-        let skip_tags = [
-            "sub",
-            "sup",
-            "code",
-            "kbd",
-            "samp",
-            "var",
-            "caption",
-            "figcaption",
-        ];
-        let in_ui_context = el.closest(TINY_TEXT_UI_CONTEXT).is_some();
-        let is_uppercase = sv_opt(style, "textTransform") == Some("uppercase");
-        if !skip_tags.contains(&tag)
-            && !in_ui_context
-            && !is_uppercase
-            && !is_non_rendered_text(el, tag, Some(style))
-        {
-            findings.push(RuleHit::new(
-                "tiny-text",
-                format!("{}px body text", number_to_string(font_size)),
-            ));
-        }
-    }
-
-    // --- Undersized functional / UI text ---
-    {
-        let direct_text = js::trim(&collapse_ws(&el.direct_text())).to_string();
-        let dt_len = utf16_len(&direct_text);
-        let ui_skip_tags = ["sub", "sup", "option"];
-        if font_size > 0.0
-            && font_size < 11.0
-            && dt_len >= 2
-            && !ui_skip_tags.contains(&tag)
-            && !is_non_rendered_text(el, tag, Some(style))
-        {
-            let is_exempt_context = el.closest(EXEMPT_CONTEXT).is_some();
-            if !is_exempt_context && !is_visually_hidden(el, style) {
-                let is_interactive = el.closest(INTERACTIVE).is_some();
-                let is_furniture = el.closest(FURNITURE).is_some();
-                let is_smallprint = el.closest(SMALLPRINT).is_some();
-                let floor = if !is_interactive && is_smallprint {
-                    10.0
-                } else {
-                    11.0
-                };
-                if font_size < floor && (is_interactive || is_furniture || dt_len <= 20) {
-                    let excerpt = slice_utf16_prefix(&direct_text, 40);
-                    findings.push(RuleHit::new(
-                        "undersized-ui-text",
-                        format!(
-                            "{}px functional text \"{}\" (below {}px floor)",
-                            number_to_string(font_size),
-                            excerpt,
-                            number_to_string(floor)
-                        ),
-                    ));
-                }
-            }
-        }
-    }
-
-    // --- All-caps body text ---
-    if q.has_direct_text
-        && text_len > 30
-        && sv_opt(style, "textTransform") == Some("uppercase")
-        && !is_heading
-    {
-        findings.push(RuleHit::new(
-            "all-caps-body",
-            format!(
-                "text-transform: uppercase on {} chars of body text",
-                text_len
-            ),
-        ));
-    }
-
-    // --- Wide letter spacing on body text ---
-    if q.has_direct_text && text_len > 20 && sv_opt(style, "textTransform") != Some("uppercase") {
-        if let Some(ls) = q.letter_spacing_px {
-            if ls > 0.0 && font_size > 0.0 {
-                let tracking_em = ls / font_size;
-                if tracking_em > 0.05 {
-                    findings.push(RuleHit::new(
-                        "wide-tracking",
-                        format!(
-                            "letter-spacing: {}em on body text",
-                            to_fixed(tracking_em, 2)
-                        ),
-                    ));
-                }
-            }
-        }
-    }
-
-    // --- Crushed letter spacing ---
-    if q.has_direct_text && text_len > 20 && font_size > 0.0 {
-        if let Some(ls) = q.letter_spacing_px {
-            if ls < 0.0 {
-                let tracking_em = ls / font_size;
-                if tracking_em <= -0.05 {
-                    let excerpt =
-                        slice_utf16_prefix(&collapse_ws(js::trim(&el.text_content())), 40);
-                    findings.push(RuleHit::new(
-                        "extreme-negative-tracking",
-                        format!(
-                            "letter-spacing: {}em — \"{}\"",
-                            to_fixed(tracking_em, 2),
-                            excerpt
-                        ),
-                    ));
-                }
-            }
-        }
-    }
-
+    let direct_text = el.direct_text();
+    let text_content = el.text_content();
+    findings.extend(check_text_quality(&TextQualityInput {
+        tag,
+        has_direct_text: q.has_direct_text,
+        text_len,
+        font_size,
+        line_height_px: q.line_height_px,
+        letter_spacing_px: q.letter_spacing_px,
+        direct_text: &direct_text,
+        text_content: &text_content,
+        text_align: sv(style, "textAlign"),
+        hyphens: sv(style, "hyphens"),
+        webkit_hyphens: sv(style, "webkitHyphens"),
+        text_transform: sv(style, "textTransform"),
+        in_tiny_text_ui_context: el.closest(TINY_TEXT_UI_CONTEXT).is_some(),
+        is_non_rendered_text: is_non_rendered_text(el, tag, Some(style)),
+        in_exempt_context: el.closest(EXEMPT_CONTEXT).is_some(),
+        is_visually_hidden: is_visually_hidden(el, style),
+        is_interactive: el.closest(INTERACTIVE_CONTEXT).is_some(),
+        is_furniture: el.closest(FURNITURE_CONTEXT).is_some(),
+        is_smallprint: el.closest(SMALLPRINT_CONTEXT).is_some(),
+    }));
     findings
 }
 
@@ -539,33 +355,14 @@ pub fn check_element_quality(
 
 /// JS: checks.mjs#checkPageQualityFromDoc(doc)
 pub fn check_page_quality_from_doc(doc: &crate::dom::StaticDocument) -> Vec<RuleHit> {
-    let mut findings = Vec::new();
-    let mut prev_level: i64 = 0;
-    let mut prev_text = String::new();
-    for h in doc.query_selector_all("h1, h2, h3, h4, h5, h6") {
-        let tag = h.tag_upper();
-        let level = tag[1..2].parse::<i64>().unwrap_or(0);
-        let text = slice_utf16_prefix(&collapse_ws(js::trim(&h.text_content())), 60);
-        if prev_level > 0 && level > prev_level + 1 {
-            findings.push(RuleHit::new(
-                "skipped-heading",
-                format!(
-                    "<h{}> \"{}\" followed by <h{}> \"{}\" (missing h{})",
-                    prev_level,
-                    prev_text,
-                    level,
-                    text,
-                    prev_level + 1
-                ),
-            ));
-        }
-        prev_level = level;
-        prev_text = text;
-    }
-    findings
+    let headings: Vec<(String, String)> = doc
+        .query_selector_all("h1, h2, h3, h4, h5, h6")
+        .into_iter()
+        .map(|heading| (heading.tag_upper(), heading.text_content()))
+        .collect();
+    check_skipped_headings(&headings)
 }
 
-/// The `childNodes`-based `hasText` used by `checkStaticPageTypography`.
 pub fn has_nonblank_direct_text(el: &StaticElement<'_>) -> bool {
     el.child_nodes()
         .iter()

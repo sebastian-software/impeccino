@@ -25,10 +25,11 @@ use impeccino_core::checks::rules::{
     ItalicSerifOpts, KickerCandidate, MotionOpts, RuleHit, Sides,
 };
 use impeccino_core::checks::text_rules::{
-    check_numbered_section_labels, is_kicker_candidate, is_numbered_section_label_candidate,
-    parse_numbered_label_text, KickerCandidateInput, NumberedLabelCandidate,
-    NumberedLabelCandidateInput, HEADING_TAGS, KICKER_CARD_CONTEXT_SELECTOR, KICKER_SKIP_SELECTOR,
-    POSITIONED_CHILD_INTERACTIVE_SELECTOR,
+    check_numbered_section_labels, has_active_tab_class_token, is_kicker_candidate,
+    is_numbered_section_label_candidate, parse_numbered_label_text, KickerCandidateInput,
+    NumberedLabelCandidate, NumberedLabelCandidateInput, HEADING_TAGS,
+    KICKER_CARD_CONTEXT_SELECTOR, KICKER_SKIP_SELECTOR, POSITIONED_CHILD_INTERACTIVE_SELECTOR,
+    STATUS_CONTEXT_SELECTOR, TAB_CONTEXT_SELECTOR,
 };
 use impeccino_core::color::{composite_color_over, parse_any_color, parse_rgb};
 use impeccino_core::js::{self, parse_float, parse_int};
@@ -80,20 +81,9 @@ pub fn scoped_ignore_active(el: &StaticElement<'_>, rule_id: &str) -> bool {
     false
 }
 
-static ACTIVE_CLASS_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(&format!(
-        r"(?i)(?:^|[{ws}_-])(?:active|current|selected)(?:$|[{ws}_-])",
-        ws = js::WS_CHARS
-    ))
-    .expect("ACTIVE_CLASS_RE")
-});
-
 /// JS: checks.mjs#isTabContextElement(el)
 pub fn is_tab_context_element(el: &StaticElement<'_>) -> bool {
-    if el
-        .closest("[aria-selected=\"true\"], [aria-current]:not([aria-current=\"false\"])")
-        .is_some()
-    {
+    if el.closest(TAB_CONTEXT_SELECTOR).is_some() {
         return true;
     }
     let mut cur = Some(*el);
@@ -102,7 +92,7 @@ pub fn is_tab_context_element(el: &StaticElement<'_>) -> bool {
         if depth >= 6 {
             break;
         }
-        if ACTIVE_CLASS_RE.is_match(e.class_name()) {
+        if has_active_tab_class_token(e.class_name()) {
             return true;
         }
         cur = e.parent_element();
@@ -113,8 +103,7 @@ pub fn is_tab_context_element(el: &StaticElement<'_>) -> bool {
 
 /// JS: checks.mjs#isStatusContextElement(el)
 pub fn is_status_context_element(el: &StaticElement<'_>) -> bool {
-    el.closest("[role=\"status\"], [role=\"alert\"], [role=\"alertdialog\"], [role=\"log\"], [aria-live=\"polite\"], [aria-live=\"assertive\"]")
-        .is_some()
+    el.closest(STATUS_CONTEXT_SELECTOR).is_some()
 }
 
 /// JS: checks.mjs#cleanInlineText(el): direct text nodes joined with a
@@ -800,7 +789,7 @@ pub fn check_element_hero_eyebrow(
 }
 
 /// JS: checks.mjs#checkElementMotion(tag, style)
-pub fn check_element_motion(tag: &str, style: &StyleValues) -> Vec<RuleHit> {
+pub fn check_element_motion(tag: &str, class_list: &str, style: &StyleValues) -> Vec<RuleHit> {
     let timing: Vec<&str> = [
         sv(style, "animationTimingFunction"),
         sv(style, "transitionTimingFunction"),
@@ -813,7 +802,7 @@ pub fn check_element_motion(tag: &str, style: &StyleValues) -> Vec<RuleHit> {
         transition_property: Some(sv(style, "transitionProperty").to_string()),
         animation_name: Some(sv(style, "animationName").to_string()),
         timing_functions: Some(timing.join(" ")),
-        class_list: Some(String::new()),
+        class_list: Some(class_list.to_string()),
     })
 }
 
