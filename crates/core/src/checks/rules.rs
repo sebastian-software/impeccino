@@ -3,13 +3,14 @@
 //! opts objects become structs whose `Option` fields mirror the JS
 //! `undefined` / `null` distinctions the source relies on.
 
+use crate::checks::measures::{cream_from_class_list, is_cream_color};
 use crate::color::{
     color_to_hex, composite_color_over, contrast_ratio, get_hue, has_chroma, is_gray_ink,
     is_neutral_color, relative_luminance, Rgba,
 };
 use crate::constants::{
-    BORDER_SAFE_TAGS, GENERIC_FONTS, KNOWN_SERIF_FONTS, SAFE_TAGS, WCAG_LARGE_BOLD_TEXT_PX,
-    WCAG_LARGE_TEXT_PX,
+    is_brand_font_on_own_domain, BORDER_SAFE_TAGS, CSS_GENERIC_FONTS, GENERIC_FONTS,
+    KNOWN_SERIF_FONTS, OVERUSED_FONTS, SAFE_TAGS, WCAG_LARGE_BOLD_TEXT_PX, WCAG_LARGE_TEXT_PX,
 };
 use crate::js::{
     self, ci, math_max, math_round, number_to_string, parse_float, parse_int, string_to_number,
@@ -30,6 +31,77 @@ macro_rules! re {
 }
 
 const SIDE_NAMES: [&str; 4] = ["Top", "Right", "Bottom", "Left"];
+
+/// JS `primaryFontFace` with its default generic-family exclusions.
+pub fn primary_font_face(font_family: &str) -> Option<String> {
+    font_family.split(',').find_map(|face| {
+        let face = js::trim(face);
+        let face = face.strip_prefix(['\'', '"']).unwrap_or(face);
+        let face = face.strip_suffix(['\'', '"']).unwrap_or(face);
+        let face = js::to_lower_case(face);
+        (!face.is_empty() && !CSS_GENERIC_FONTS.contains(&face.as_str())).then_some(face)
+    })
+}
+
+/// Select and format the unique leading font used on a page. Both DOM
+/// adapters supply the font-family counts and optional rendered hostname.
+pub fn check_overused_font_usage(
+    font_usage: &[(String, usize)],
+    total_text_elements: usize,
+    hostname: Option<&str>,
+) -> Option<RuleHit> {
+    if total_text_elements < 20 {
+        return None;
+    }
+    let mut ranked: Vec<&(String, usize)> = font_usage.iter().collect();
+    ranked.sort_by_key(|entry| std::cmp::Reverse(entry.1));
+    let (font, count) = ranked.first().copied()?;
+    if ranked.get(1).is_some_and(|entry| entry.1 == *count)
+        || !OVERUSED_FONTS.contains(&font.as_str())
+        || is_brand_font_on_own_domain(font, hostname)
+    {
+        return None;
+    }
+    Some(RuleHit::new(
+        "overused-font",
+        format!(
+            "Primary font: {} ({}% of text)",
+            font,
+            number_to_string(math_round(
+                *count as f64 / total_text_elements as f64 * 100.0
+            ))
+        ),
+    ))
+}
+
+/// Shared formatting and fallback for the page-level cream-palette finding.
+/// Adapters resolve the body/html background before passing it here.
+pub fn check_cream_palette_facts(
+    background: Option<&Rgba>,
+    class_lists: [Option<&str>; 2],
+) -> Vec<RuleHit> {
+    if is_cream_color(background) {
+        let color = background.expect("cream background was checked");
+        return vec![RuleHit::new(
+            "cream-palette",
+            format!(
+                "cream/beige page background rgb({}, {}, {})",
+                number_to_string(color.r),
+                number_to_string(color.g),
+                number_to_string(color.b)
+            ),
+        )];
+    }
+    for class_list in class_lists.into_iter().flatten() {
+        if let Some(token) = cream_from_class_list(Some(class_list)) {
+            return vec![RuleHit::new(
+                "cream-palette",
+                format!("cream/beige page background (Tailwind {})", token),
+            )];
+        }
+    }
+    Vec::new()
+}
 
 /// JS: checks.mjs#checkBorders
 pub fn check_borders(

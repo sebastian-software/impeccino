@@ -15,20 +15,11 @@ pub fn utf16_index(s: &str, byte_idx: usize) -> usize {
     utf16_length(&s[..byte_idx.min(s.len())])
 }
 
-/// JS `str.slice(0, end)` in UTF-16 code units. A cut through a surrogate
-/// pair drops the orphan half (a lone surrogate has no Rust representation).
+/// JS `str.slice(0, end)` in UTF-16 code units, normalized to valid UTF-8.
+/// When the JS boundary splits a surrogate pair, U+FFFD represents the
+/// orphan half, matching the shared-prefix helper used by DOM findings.
 pub fn slice_utf16_start(s: &str, end: usize) -> String {
-    let mut out = String::new();
-    let mut units = 0usize;
-    for c in s.chars() {
-        let n = c.len_utf16();
-        if units + n > end {
-            break;
-        }
-        units += n;
-        out.push(c);
-    }
-    out
+    crate::js_ext_b::slice_utf16_prefix(s, end)
 }
 
 /// Byte offset of the char boundary that is `units` UTF-16 code units after
@@ -209,7 +200,7 @@ mod tests {
     fn utf16_helpers() {
         assert_eq!(utf16_length("a😀b"), 4);
         assert_eq!(utf16_index("a😀b", 5), 3);
-        assert_eq!(slice_utf16_start("a😀b", 2), "a");
+        assert_eq!(slice_utf16_start("a😀b", 2), "a\u{FFFD}");
         assert_eq!(slice_utf16_start("a😀b", 3), "a😀");
         assert_eq!(slice_utf16_start("abc", 60), "abc");
         assert_eq!(advance_utf16("a😀b", 0, 1), 1);

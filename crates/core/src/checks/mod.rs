@@ -42,6 +42,7 @@
 pub mod css_scan;
 pub mod html_patterns;
 pub mod measures;
+pub mod quality;
 pub mod rules;
 pub mod text_rules;
 

@@ -12,15 +12,16 @@ use super::dom::{
 use super::element_checks::{class_selector, effective_opacity_dom, is_rendered_for_browser_rule};
 use super::{BrowserFinding, ElFinding};
 use crate::checks::measures::{
-    cream_from_class_list, css_color_is_transparent, is_cream_color, is_opaque_decorated_box,
-    is_screen_reader_only_text_style, SrOnlyMetrics,
+    css_color_is_transparent, is_opaque_decorated_box, is_screen_reader_only_text_style,
+    SrOnlyMetrics,
 };
 use crate::checks::rules::{
-    check_flat_type_hierarchy_samples, is_card_like_from_props, type_hierarchy_role, RuleHit,
-    TypeSample, TYPE_HIERARCHY_SELECTOR,
+    check_cream_palette_facts, check_flat_type_hierarchy_samples, check_overused_font_usage,
+    is_card_like_from_props, primary_font_face, type_hierarchy_role, RuleHit, TypeSample,
+    TYPE_HIERARCHY_SELECTOR,
 };
 use crate::color::parse_any_color;
-use crate::constants::{is_brand_font_on_own_domain, CSS_GENERIC_FONTS, OVERUSED_FONTS, SAFE_TAGS};
+use crate::constants::SAFE_TAGS;
 use crate::js::{self, math_max, math_min, math_round, number_to_string, parse_float};
 use crate::js_ext_a::num_truthy;
 use crate::js_ext_b::{slice_utf16_prefix, utf16_len};
@@ -41,8 +42,6 @@ const B: &str = r"(?-u:\b)";
 const D: &str = "[0-9]";
 
 re!(WS_RE, format!("{}+", js::WS));
-re!(QUOTE_EDGE_START, r#"^['"]"#);
-re!(QUOTE_EDGE_END, r#"['"]$"#);
 re!(
     SHADOW_CLASS_RE,
     format!(r"{B}shadow(?:-sm|-md|-lg|-xl|-2xl)?{B}")
@@ -92,13 +91,6 @@ fn collapse_ws(s: &str) -> String {
     WS_RE.replace_all(s, " ").into_owned()
 }
 
-/// JS `f.trim().replace(/^['"]|['"]$/g, '')`: one leading and one trailing
-/// quote removed (the `g` flag on an anchored alternation).
-fn strip_edge_quotes(s: &str) -> String {
-    let t = QUOTE_EDGE_START.replace(s, "");
-    QUOTE_EDGE_END.replace(&t, "").into_owned()
-}
-
 /// JS `[...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 0)`.
 fn has_visible_direct_text(dom: &dyn Dom, el: ElId) -> bool {
     has_direct_text_longer_than(dom, el, 0)
@@ -108,8 +100,8 @@ fn has_visible_direct_text(dom: &dyn Dom, el: ElId) -> bool {
 pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
     let mut findings = Vec::new();
 
-    let mut font_usage: Vec<(String, f64)> = Vec::new();
-    let mut total_text_elements = 0.0f64;
+    let mut font_usage: Vec<(String, usize)> = Vec::new();
+    let mut total_text_elements = 0usize;
     for el in dom
         .query_all(
             None,
@@ -120,57 +112,26 @@ pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
         if !has_visible_direct_text(dom, el) {
             continue;
         }
-        let ff = dom.style(el, "fontFamily");
-        if ff.is_empty() {
-            continue;
-        }
-        let stack: Vec<String> = ff
-            .split(',')
-            .map(|f| js::to_lower_case(&strip_edge_quotes(js::trim(f))))
-            .collect();
         // JS-PARITY: checks.mjs#checkTypography uses primaryFontFace(ff) whose
         // default skip is CSS_GENERIC_FONTS, so a system stack keeps its system
         // face as primary (fix #678).
-        let Some(primary) = stack
-            .iter()
-            .find(|f| !f.is_empty() && !CSS_GENERIC_FONTS.contains(&f.as_str()))
-        else {
+        let family = dom.style(el, "fontFamily");
+        let Some(primary) = primary_font_face(&family) else {
             continue;
         };
-        if let Some(slot) = font_usage.iter_mut().find(|(k, _)| k == primary) {
-            slot.1 += 1.0;
+        if let Some(slot) = font_usage.iter_mut().find(|(font, _)| font == &primary) {
+            slot.1 += 1;
         } else {
-            font_usage.push((primary.clone(), 1.0));
+            font_usage.push((primary, 1));
         }
-        total_text_elements += 1.0;
+        total_text_elements += 1;
     }
 
-    if total_text_elements >= 20.0 {
-        // Report the actual primary face: the uniquely most-used family. The
-        // old 15% threshold labeled secondary faces as primary, e.g. an 82/18
-        // split (#709). `Array.prototype.sort` is stable, so ties keep
-        // first-seen order and the tie test compares the top two counts.
-        let hostname = dom.hostname();
-        let mut ranked: Vec<&(String, f64)> = font_usage.iter().collect();
-        ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        if let Some((font, count)) = ranked.first().map(|(f, c)| (f, *c)) {
-            let tied = ranked.get(1).map(|r| r.1) == Some(count);
-            if !tied {
-                let share = count / total_text_elements;
-                if OVERUSED_FONTS.contains(&font.as_str())
-                    && !is_brand_font_on_own_domain(font, Some(&hostname))
-                {
-                    findings.push(BrowserFinding::new(
-                        "overused-font",
-                        format!(
-                            "Primary font: {} ({}% of text)",
-                            font,
-                            number_to_string(math_round(share * 100.0))
-                        ),
-                    ));
-                }
-            }
-        }
+    let hostname = dom.hostname();
+    if let Some(finding) =
+        check_overused_font_usage(&font_usage, total_text_elements, Some(&hostname))
+    {
+        findings.push(BrowserFinding::new(finding.id, finding.snippet));
     }
 
     for hit in check_flat_type_hierarchy_from_dom(dom, None) {
@@ -522,9 +483,8 @@ pub fn check_heading_rhythm_dom(dom: &dyn Dom) -> Vec<ElFinding> {
 
 /// JS: checks.mjs#checkCreamPalette(document) (browser path)
 pub fn check_cream_palette(dom: &dyn Dom) -> Vec<RuleHit> {
-    let mut findings = Vec::new();
     let Some(body) = dom.body() else {
-        return findings;
+        return Vec::new();
     };
     let html = dom.document_element();
 
@@ -534,33 +494,9 @@ pub fn check_cream_palette(dom: &dyn Dom) -> Vec<RuleHit> {
             bg = super::background::read_own_background_color(dom, h);
         }
     }
-    if is_cream_color(bg.as_ref()) {
-        let c = bg.unwrap();
-        findings.push(RuleHit::new(
-            "cream-palette",
-            format!(
-                "cream/beige page background rgb({}, {}, {})",
-                number_to_string(c.r),
-                number_to_string(c.g),
-                number_to_string(c.b)
-            ),
-        ));
-        return findings;
-    }
-
-    for el in [Some(body), html] {
-        let cls = el.and_then(|e| dom.attr(e, "class"));
-        // JS `el && el.getAttribute ? el.getAttribute('class') : ''` then
-        // creamFromClassList(null) → null.
-        if let Some(tok) = cream_from_class_list(cls.as_deref()) {
-            findings.push(RuleHit::new(
-                "cream-palette",
-                format!("cream/beige page background (Tailwind {})", tok),
-            ));
-            break;
-        }
-    }
-    findings
+    let body_class = dom.attr(body, "class");
+    let html_class = html.and_then(|element| dom.attr(element, "class"));
+    check_cream_palette_facts(bg.as_ref(), [body_class.as_deref(), html_class.as_deref()])
 }
 
 const HIDDEN_TEXT_EXCLUDE_TAGS: &[&str] = &[
