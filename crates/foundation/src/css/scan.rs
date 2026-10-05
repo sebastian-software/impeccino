@@ -99,10 +99,7 @@ pub fn enclosing_css_selector(css_text: &str, index: usize) -> Option<String> {
     let before_open = SELECTOR_COMMENT_RE.replace_all(&css_text[..open], |c: &regex::Captures| {
         " ".repeat(c[0].len())
     });
-    let prev_close = match (
-        before_open.rfind('}'),
-        before_open.rfind(';'),
-    ) {
+    let prev_close = match (before_open.rfind('}'), before_open.rfind(';')) {
         (Some(a), Some(b)) => Some(a.max(b)),
         (Some(a), None) => Some(a),
         (None, Some(b)) => Some(b),

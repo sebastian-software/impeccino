@@ -1088,7 +1088,10 @@ mod tests {
         // #707: a `/10` opacity tint is not a solid chromatic fill.
         assert!(hits("text-slate-300 hover:bg-red-500/10").is_empty());
         assert!(hits("text-slate-300 bg-red-500/10").is_empty());
-        assert_eq!(hits("text-slate-300 bg-red-500"), vec!["text-slate-300 on bg-red-500"]);
+        assert_eq!(
+            hits("text-slate-300 bg-red-500"),
+            vec!["text-slate-300 on bg-red-500"]
+        );
         // A later solid class still pairs when an earlier one is a tint.
         assert_eq!(
             hits("text-slate-300 bg-red-500/10 bg-teal-600"),
@@ -1152,7 +1155,8 @@ mod tests {
             effective_bg_stops: None,
             ..opts.clone()
         };
-        let none = check_placeholder_colors(&unresolved, "Name", Rgba::new(187.0, 187.0, 187.0, 1.0));
+        let none =
+            check_placeholder_colors(&unresolved, "Name", Rgba::new(187.0, 187.0, 187.0, 1.0));
         assert!(none.is_empty(), "{none:?}");
         // Translucent black over a light gradient: flatten per stop, then score.
         let gradient = ColorOpts {
@@ -1163,11 +1167,7 @@ mod tests {
             ]),
             ..opts.clone()
         };
-        let wash = check_placeholder_colors(
-            &gradient,
-            "Name",
-            Rgba::new(0.0, 0.0, 0.0, 0.2),
-        );
+        let wash = check_placeholder_colors(&gradient, "Name", Rgba::new(0.0, 0.0, 0.0, 0.2));
         assert_eq!(wash.len(), 1, "{wash:?}");
         assert_eq!(wash[0].id, "low-contrast");
     }

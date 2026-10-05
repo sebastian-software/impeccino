@@ -41,13 +41,20 @@ fn unit(scope: &str, salt: &str, key: &str) -> f64 {
 /// dealt indices (the build index leads). Pure, so the same key always deals
 /// the same hand.
 fn deal(scope: &str, key: &str, reroll: usize, candidate_count: usize) -> (usize, Vec<usize>) {
-    let index_salt = if reroll == 0 { "index".to_string() } else { format!("index:reroll-{}", reroll) };
-    let build_index = 3 + (unit(scope, &index_salt, key) * (candidate_count as f64 - 2.0)).floor() as usize;
+    let index_salt = if reroll == 0 {
+        "index".to_string()
+    } else {
+        format!("index:reroll-{}", reroll)
+    };
+    let build_index =
+        3 + (unit(scope, &index_salt, key) * (candidate_count as f64 - 2.0)).floor() as usize;
     let mut dealt: Vec<usize> = vec![build_index];
     let want = 3.min(candidate_count);
     let mut draw = 0usize;
     while scope == "surface" && dealt.len() < want {
-        let idx = 1 + (unit(scope, &format!("{}:deal-{}", index_salt, draw), key) * candidate_count as f64).floor() as usize;
+        let idx = 1
+            + (unit(scope, &format!("{}:deal-{}", index_salt, draw), key) * candidate_count as f64)
+                .floor() as usize;
         if !dealt.contains(&idx) {
             dealt.push(idx);
         }
@@ -81,7 +88,9 @@ fn render_concept_seed(a: &SeedArgs) -> Result<String, String> {
         Some(_) => return Err("concept-seed: --register must be safer or bolder".into()),
     };
     if register.is_some() && reroll < 1 {
-        return Err("concept-seed: --register steers a re-roll round; pass --reroll <n> with it".into());
+        return Err(
+            "concept-seed: --register steers a re-roll round; pass --reroll <n> with it".into(),
+        );
     }
     if register.is_some() && scope != "direction" {
         return Err("concept-seed: --register applies to direction rounds only".into());
@@ -89,19 +98,36 @@ fn render_concept_seed(a: &SeedArgs) -> Result<String, String> {
     let mode: Option<&str> = match &a.mode {
         None => None,
         Some(Some(m)) if SEED_MODES.contains(&m.as_str()) => Some(m.as_str()),
-        Some(_) => return Err("concept-seed: --mode must be persuade, operate, read, or experience".into()),
+        Some(_) => {
+            return Err(
+                "concept-seed: --mode must be persuade, operate, read, or experience".into(),
+            )
+        }
     };
-    if !(a.candidate_count.is_finite() && a.candidate_count.fract() == 0.0) || a.candidate_count < 5.0 || a.candidate_count > 7.0 {
+    if !(a.candidate_count.is_finite() && a.candidate_count.fract() == 0.0)
+        || a.candidate_count < 5.0
+        || a.candidate_count > 7.0
+    {
         return Err("concept-seed: --candidate-count must be an integer from 5 to 7".into());
     }
     let candidate_count = a.candidate_count as usize;
     let key = a.key.as_str();
     let (build_index, dealt) = deal(scope, key, reroll, candidate_count);
-    let dealt_str = dealt.iter().map(|d| d.to_string()).collect::<Vec<_>>().join(", ");
+    let dealt_str = dealt
+        .iter()
+        .map(|d| d.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
 
     let mode_flag = mode.map(|m| format!(" --mode {}", m)).unwrap_or_default();
-    let reroll_flag = if reroll > 0 { format!(" --reroll {}", reroll) } else { String::new() };
-    let register_flag = register.map(|r| format!(" --register {}", r)).unwrap_or_default();
+    let reroll_flag = if reroll > 0 {
+        format!(" --reroll {}", reroll)
+    } else {
+        String::new()
+    };
+    let register_flag = register
+        .map(|r| format!(" --register {}", r))
+        .unwrap_or_default();
     let mode_or_unscoped = mode.unwrap_or("unscoped").to_string();
     let scope_upper = scope.to_uppercase();
     let build_index_s = build_index.to_string();
@@ -120,7 +146,11 @@ fn render_concept_seed(a: &SeedArgs) -> Result<String, String> {
         ("DEALT_INDICES", &dealt_str),
         ("REROLL", &reroll_s),
     ];
-    let authority = if scope == "direction" { t::AUTHORITY_DIRECTION } else { t::AUTHORITY_SURFACE };
+    let authority = if scope == "direction" {
+        t::AUTHORITY_DIRECTION
+    } else {
+        t::AUTHORITY_SURFACE
+    };
 
     let mut out = fill(t::HEADER, &pairs);
     out.push('\n');
@@ -141,11 +171,25 @@ fn render_concept_seed(a: &SeedArgs) -> Result<String, String> {
         out.push_str(t::BOLDER_BLOCK);
     }
     let (assigned_or_dealt, promoted, restated) = if scope == "direction" {
-        (format!("ASSIGNED INDEX: {}", build_index), fill(t::PROMOTED_DIRECTION, &pairs), fill(t::RESTATED_DIRECTION, &pairs))
+        (
+            format!("ASSIGNED INDEX: {}", build_index),
+            fill(t::PROMOTED_DIRECTION, &pairs),
+            fill(t::RESTATED_DIRECTION, &pairs),
+        )
     } else {
-        (format!("DEALT INDICES: {} (index {} leads)", dealt_str, build_index), fill(t::PROMOTED_SURFACE, &pairs), fill(t::RESTATED_SURFACE, &pairs))
+        (
+            format!("DEALT INDICES: {} (index {} leads)", dealt_str, build_index),
+            fill(t::PROMOTED_SURFACE, &pairs),
+            fill(t::RESTATED_SURFACE, &pairs),
+        )
     };
-    out.push_str(&fill(t::ASSIGNED_BLOCK, &[("ASSIGNED_OR_DEALT", &assigned_or_dealt), ("PROMOTEDINSTRUCTION", &promoted)]));
+    out.push_str(&fill(
+        t::ASSIGNED_BLOCK,
+        &[
+            ("ASSIGNED_OR_DEALT", &assigned_or_dealt),
+            ("PROMOTEDINSTRUCTION", &promoted),
+        ],
+    ));
     if scope == "direction" {
         out.push_str(t::CHANNEL_DIRECTION);
     }
@@ -157,7 +201,10 @@ fn render_concept_seed(a: &SeedArgs) -> Result<String, String> {
 }
 
 fn random_hex8() -> String {
-    let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let t = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
     let mut x = (t as u64) ^ ((std::process::id() as u64) << 32) ^ 0x9E3779B97F4A7C15;
     x ^= x >> 33;
     x = x.wrapping_mul(0xff51afd7ed558ccd);
@@ -170,7 +217,8 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     let env = io.env.clone();
     let idx = |name: &str| args.iter().position(|a| a == name);
     // args[idx+1] may be undefined -> None
-    let val = |name: &str| -> Option<Option<String>> { idx(name).map(|i| args.get(i + 1).cloned()) };
+    let val =
+        |name: &str| -> Option<Option<String>> { idx(name).map(|i| args.get(i + 1).cloned()) };
     if let Some(flag) = REMOVED_FLAGS.iter().find(|f| idx(f).is_some()) {
         io.err(&fill(t::REMOVED_FLAG, &[("FLAG", flag)]));
         return 1;
@@ -180,7 +228,9 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         io.out(t::NO_PRODUCT);
         return 1;
     }
-    let num = |v: Option<Option<String>>| -> Option<f64> { v.map(|x| x.map(|s| crate::util::js_number(&s)).unwrap_or(f64::NAN)) };
+    let num = |v: Option<Option<String>>| -> Option<f64> {
+        v.map(|x| x.map(|s| crate::util::js_number(&s)).unwrap_or(f64::NAN))
+    };
     let seed = SeedArgs {
         scope: match val("--scope") {
             None => Some("surface".to_string()),
@@ -189,7 +239,11 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         key: match val("--from") {
             Some(Some(k)) => k,
             Some(None) => "undefined".to_string(),
-            None => env.get("IMPECCINO_CONCEPT_SEED").filter(|v| !v.is_empty()).cloned().unwrap_or_else(random_hex8),
+            None => env
+                .get("IMPECCINO_CONCEPT_SEED")
+                .filter(|v| !v.is_empty())
+                .cloned()
+                .unwrap_or_else(random_hex8),
         },
         reroll: num(val("--reroll")).unwrap_or(0.0),
         register: val("--register"),
@@ -255,9 +309,24 @@ mod tests {
 
     #[test]
     fn output_names_no_service_catalog_or_ping() {
-        for a in [args("direction", "k", 0.0, None), args("direction", "k", 1.0, Some("bolder")), args("direction", "k", 1.0, Some("safer")), args("surface", "k", 0.0, None)] {
+        for a in [
+            args("direction", "k", 0.0, None),
+            args("direction", "k", 1.0, Some("bolder")),
+            args("direction", "k", 1.0, Some("safer")),
+            args("surface", "k", 0.0, None),
+        ] {
             let out = render_concept_seed(&a).unwrap();
-            for banned in ["challenger", "catalog", "QUALITY BAR", "impeccable.style", "network", "TELEMETRY", "degraded", "--chosen", "--kind"] {
+            for banned in [
+                "challenger",
+                "catalog",
+                "QUALITY BAR",
+                "impeccable.style",
+                "network",
+                "TELEMETRY",
+                "degraded",
+                "--chosen",
+                "--kind",
+            ] {
                 assert!(!out.contains(banned), "{banned} in:\n{out}");
             }
         }

@@ -49,7 +49,10 @@ mod tests {
     use std::collections::HashMap;
 
     fn lookup(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
-        let map: HashMap<String, String> = pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        let map: HashMap<String, String> = pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
         move |k: &str| map.get(k).cloned()
     }
 
@@ -61,7 +64,11 @@ mod tests {
             Some("/xdg/impeccino")
         );
         assert_eq!(
-            user_cache_dir(lookup(&[("XDG_CACHE_HOME", "relative"), ("HOME", "/home/u")])).as_deref(),
+            user_cache_dir(lookup(&[
+                ("XDG_CACHE_HOME", "relative"),
+                ("HOME", "/home/u")
+            ]))
+            .as_deref(),
             Some("/home/u/.cache/impeccino")
         );
         assert_eq!(
@@ -75,7 +82,11 @@ mod tests {
     #[test]
     fn local_app_data_wins_on_windows() {
         assert_eq!(
-            user_cache_dir(lookup(&[("LOCALAPPDATA", r"C:\Users\u\AppData\Local"), ("USERPROFILE", r"C:\Users\u")])).as_deref(),
+            user_cache_dir(lookup(&[
+                ("LOCALAPPDATA", r"C:\Users\u\AppData\Local"),
+                ("USERPROFILE", r"C:\Users\u")
+            ]))
+            .as_deref(),
             Some(r"C:\Users\u\AppData\Local\impeccino")
         );
         assert_eq!(

@@ -13,7 +13,10 @@ const RENOTIFY_INTERVAL_MS: f64 = 7.0 * 24.0 * 60.0 * 60.0 * 1000.0;
 static CACHE_THREAD_LOCK: Mutex<()> = Mutex::new(());
 
 fn cache_path(env: &Env) -> PathBuf {
-    match env.get("IMPECCINO_STALENESS_CACHE").filter(|v| !v.is_empty()) {
+    match env
+        .get("IMPECCINO_STALENESS_CACHE")
+        .filter(|v| !v.is_empty())
+    {
         Some(p) => PathBuf::from(p),
         None => PathBuf::from(jsp::join(&[&user_cache_dir(env), "staleness-check.json"])),
     }
@@ -35,8 +38,13 @@ fn read_cache(path: &Path) -> io::Result<Map<String, Value>> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(empty_cache()),
         Err(error) => return Err(error),
     };
-    let value: Value = serde_json::from_str(&text)
-        .map_err(|error| invalid_cache(format!("invalid JSON at line {}, column {}", error.line(), error.column())))?;
+    let value: Value = serde_json::from_str(&text).map_err(|error| {
+        invalid_cache(format!(
+            "invalid JSON at line {}, column {}",
+            error.line(),
+            error.column()
+        ))
+    })?;
     let Some(raw) = value.as_object().cloned() else {
         return Err(invalid_cache("cache root must be a JSON object"));
     };
@@ -47,7 +55,10 @@ fn read_cache(path: &Path) -> io::Result<Map<String, Value>> {
         let Some(entries) = entries.as_object() else {
             return Err(invalid_cache("project entries must be objects"));
         };
-        if entries.values().any(|timestamp| as_number(timestamp).is_none()) {
+        if entries
+            .values()
+            .any(|timestamp| as_number(timestamp).is_none())
+        {
             return Err(invalid_cache("finding timestamps must be numbers"));
         }
     }
@@ -62,7 +73,9 @@ fn prune_cache(cache: &Map<String, Value>, now: f64) -> Map<String, Value> {
     let mut projects = Map::new();
     if let Some(Value::Object(ps)) = cache.get("projects") {
         for (key, entries) in ps {
-            let Some(obj) = entries.as_object() else { continue };
+            let Some(obj) = entries.as_object() else {
+                continue;
+            };
             let stamps: Vec<f64> = obj.values().filter_map(as_number).collect();
             if !stamps.is_empty() {
                 let max = stamps.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
@@ -84,17 +97,26 @@ fn lock_cache(path: &Path) -> io::Result<(File, MutexGuard<'static, ()>)> {
     let thread_lock = CACHE_THREAD_LOCK
         .lock()
         .map_err(|_| io::Error::other("cache lock mutex was poisoned"))?;
-    let parent = path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or_else(|| Path::new("."));
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(parent)?;
     let mut lock_path = path.as_os_str().to_os_string();
     lock_path.push(".lock");
     let lock_path = PathBuf::from(lock_path);
     match fs::symlink_metadata(&lock_path) {
         Ok(metadata) if metadata.file_type().is_symlink() => {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "cache lock path is a symlink"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "cache lock path is a symlink",
+            ));
         }
         Ok(metadata) if !metadata.is_file() => {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "cache lock path is not a file"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "cache lock path is not a file",
+            ));
         }
         Ok(_) => {}
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
@@ -113,7 +135,10 @@ fn lock_cache(path: &Path) -> io::Result<(File, MutexGuard<'static, ()>)> {
 }
 
 fn write_cache(path: &Path, cache: &Map<String, Value>) -> io::Result<()> {
-    impeccino_common::atomic_file::write(path, json_compact(&Value::Object(cache.clone())).as_bytes())
+    impeccino_common::atomic_file::write(
+        path,
+        json_compact(&Value::Object(cache.clone())).as_bytes(),
+    )
 }
 
 fn cache_failure(path: &Path, error: &io::Error) -> String {
@@ -129,18 +154,39 @@ pub struct FreshFindings {
 /// The boot staleness check is off for this session. There is no config
 /// file (docs/adr/0020), so the env var is the only switch.
 pub fn staleness_check_disabled(env: &Env) -> bool {
-    env.get("IMPECCINO_NO_STALENESS_CHECK").map(|v| !v.is_empty()).unwrap_or(false)
+    env.get("IMPECCINO_NO_STALENESS_CHECK")
+        .map(|v| !v.is_empty())
+        .unwrap_or(false)
 }
 
 /// JS: filterFreshFindings(findings, { projectRoot, now })
-pub fn filter_fresh_findings(env: &Env, findings: Vec<Finding>, project_root: &str, now: f64) -> FreshFindings {
+pub fn filter_fresh_findings(
+    env: &Env,
+    findings: Vec<Finding>,
+    project_root: &str,
+    now: f64,
+) -> FreshFindings {
     if findings.is_empty() {
-        return FreshFindings { findings: vec![], cache_error: None };
+        return FreshFindings {
+            findings: vec![],
+            cache_error: None,
+        };
     }
-    let auto: Vec<Finding> = findings.iter().filter(|f| f.severity == "auto").cloned().collect();
-    let notifiable: Vec<Finding> = findings.iter().filter(|f| f.severity != "auto").cloned().collect();
+    let auto: Vec<Finding> = findings
+        .iter()
+        .filter(|f| f.severity == "auto")
+        .cloned()
+        .collect();
+    let notifiable: Vec<Finding> = findings
+        .iter()
+        .filter(|f| f.severity != "auto")
+        .cloned()
+        .collect();
     if notifiable.is_empty() {
-        return FreshFindings { findings: auto, cache_error: None };
+        return FreshFindings {
+            findings: auto,
+            cache_error: None,
+        };
     }
     let path = cache_path(env);
     let _lock = match lock_cache(&path) {
@@ -187,7 +233,8 @@ pub fn filter_fresh_findings(env: &Env, findings: Vec<Finding>, project_root: &s
     for f in &fresh {
         next.insert(f.id.clone(), Value::from(now as i64));
     }
-    let changed = json_compact(&Value::Object(next.clone())) != json_compact(&Value::Object(seen.clone()));
+    let changed =
+        json_compact(&Value::Object(next.clone())) != json_compact(&Value::Object(seen.clone()));
     if changed {
         let mut pruned = prune_cache(&cache, now);
         if let Some(Value::Object(ps)) = pruned.get_mut("projects") {
@@ -202,7 +249,10 @@ pub fn filter_fresh_findings(env: &Env, findings: Vec<Finding>, project_root: &s
     }
     let mut out = auto;
     out.extend(fresh);
-    FreshFindings { findings: out, cache_error: None }
+    FreshFindings {
+        findings: out,
+        cache_error: None,
+    }
 }
 
 /// JS: buildStalenessDirective(findings)
@@ -294,8 +344,14 @@ mod tests {
             10_000.0,
         );
 
-        assert!(fresh.findings.is_empty(), "reportable findings need a reliable throttle cache");
-        assert!(fresh.cache_error.is_some(), "malformed cache should be reported to stderr");
+        assert!(
+            fresh.findings.is_empty(),
+            "reportable findings need a reliable throttle cache"
+        );
+        assert!(
+            fresh.cache_error.is_some(),
+            "malformed cache should be reported to stderr"
+        );
         assert_eq!(std::fs::read_to_string(cache).unwrap(), malformed);
     }
 
@@ -313,8 +369,18 @@ mod tests {
             10_000.0,
         );
 
-        assert_eq!(fresh.findings.iter().map(|item| item.id.as_str()).collect::<Vec<_>>(), ["migration"]);
-        assert!(fresh.cache_error.is_some(), "failed cache writes should be reported to stderr");
+        assert_eq!(
+            fresh
+                .findings
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["migration"]
+        );
+        assert!(
+            fresh.cache_error.is_some(),
+            "failed cache writes should be reported to stderr"
+        );
         assert!(blocker.is_file());
     }
 
@@ -330,14 +396,15 @@ mod tests {
         let project_a = project_a.to_string_lossy().into_owned();
         let project_b = project_b.to_string_lossy().into_owned();
         let barrier = std::sync::Arc::new(std::sync::Barrier::new(3));
-        let workers = [("first", project_a.clone()), ("second", project_b.clone())].map(|(id, project)| {
-            let env = env.clone();
-            let barrier = barrier.clone();
-            std::thread::spawn(move || {
-                barrier.wait();
-                filter_fresh_findings(&env, vec![finding(id, "mention")], &project, 10_000.0)
-            })
-        });
+        let workers =
+            [("first", project_a.clone()), ("second", project_b.clone())].map(|(id, project)| {
+                let env = env.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    filter_fresh_findings(&env, vec![finding(id, "mention")], &project, 10_000.0)
+                })
+            });
         barrier.wait();
         for worker in workers {
             let result = worker.join().unwrap();
@@ -346,8 +413,22 @@ mod tests {
         }
 
         let saved: Value = serde_json::from_str(&std::fs::read_to_string(cache).unwrap()).unwrap();
-        assert!(saved["projects"][&project_a].as_object().unwrap().contains_key("first"), "saved cache: {}", saved);
-        assert!(saved["projects"][&project_b].as_object().unwrap().contains_key("second"), "saved cache: {}", saved);
+        assert!(
+            saved["projects"][&project_a]
+                .as_object()
+                .unwrap()
+                .contains_key("first"),
+            "saved cache: {}",
+            saved
+        );
+        assert!(
+            saved["projects"][&project_b]
+                .as_object()
+                .unwrap()
+                .contains_key("second"),
+            "saved cache: {}",
+            saved
+        );
     }
 
     #[test]
@@ -357,8 +438,10 @@ mod tests {
         let env = cache_env(&cache);
         let project = root.path().to_string_lossy().into_owned();
 
-        let first = filter_fresh_findings(&env, vec![finding("stale", "mention")], &project, 10_000.0);
-        let second = filter_fresh_findings(&env, vec![finding("stale", "mention")], &project, 10_001.0);
+        let first =
+            filter_fresh_findings(&env, vec![finding("stale", "mention")], &project, 10_000.0);
+        let second =
+            filter_fresh_findings(&env, vec![finding("stale", "mention")], &project, 10_001.0);
 
         assert_eq!(first.findings.len(), 1);
         assert!(first.cache_error.is_none());
@@ -451,7 +534,14 @@ mod tests {
             10_000.0,
         );
 
-        assert_eq!(result.findings.iter().map(|item| item.id.as_str()).collect::<Vec<_>>(), ["migration"]);
+        assert_eq!(
+            result
+                .findings
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["migration"]
+        );
         assert!(result.cache_error.is_none());
         assert!(blocker.is_file());
     }
@@ -473,7 +563,14 @@ mod tests {
             10_000.0,
         );
 
-        assert_eq!(fresh.findings.iter().map(|item| item.id.as_str()).collect::<Vec<_>>(), ["migration"]);
+        assert_eq!(
+            fresh
+                .findings
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["migration"]
+        );
         assert!(fresh.cache_error.is_some());
         assert_eq!(std::fs::read_to_string(target).unwrap(), original);
     }

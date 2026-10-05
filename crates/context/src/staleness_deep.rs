@@ -4,22 +4,38 @@ use crate::context::{extract_platform, TargetCandidate};
 use crate::design_parser::parse_design_md;
 use crate::jsp;
 use crate::signals::git_run;
-use crate::staleness::{check_native_platform_evidence, finding, js_truthy, to_relative, unique_roots, Finding};
+use crate::staleness::{
+    check_native_platform_evidence, finding, js_truthy, to_relative, unique_roots, Finding,
+};
 use crate::util::{exists, js_trim, read_json, safe_read};
 use impeccino_core::inline_ignores::parse_design_waivers;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
 
-const VISUAL_SOURCE_DIRS: [&str; 7] = ["src", "app", "pages", "components", "site", "styles", "public"];
+const VISUAL_SOURCE_DIRS: [&str; 7] = [
+    "src",
+    "app",
+    "pages",
+    "components",
+    "site",
+    "styles",
+    "public",
+];
 
 fn git(args: &[&str], cwd: &str) -> Option<String> {
     git_run(args, cwd, true, Some(5000))
 }
 
 /// JS: checkDesignDrift
-pub fn check_design_drift(design_path: Option<&str>, project_root: &str, threshold: usize) -> Vec<Finding> {
-    let Some(design_path) = design_path else { return vec![] };
+pub fn check_design_drift(
+    design_path: Option<&str>,
+    project_root: &str,
+    threshold: usize,
+) -> Vec<Finding> {
+    let Some(design_path) = design_path else {
+        return vec![];
+    };
     if project_root.is_empty() {
         return vec![];
     }
@@ -28,11 +44,18 @@ pub fn check_design_drift(design_path: Option<&str>, project_root: &str, thresho
         _ => return vec![],
     }
     let rel_design = to_relative(Some(design_path), project_root).unwrap();
-    let last = match git(&["log", "-1", "--format=%H", "--", &rel_design], project_root) {
+    let last = match git(
+        &["log", "-1", "--format=%H", "--", &rel_design],
+        project_root,
+    ) {
         Some(s) if !s.is_empty() => s,
         _ => return vec![],
     };
-    let dirs: Vec<&str> = VISUAL_SOURCE_DIRS.iter().copied().filter(|d| exists(&jsp::join(&[project_root, d]))).collect();
+    let dirs: Vec<&str> = VISUAL_SOURCE_DIRS
+        .iter()
+        .copied()
+        .filter(|d| exists(&jsp::join(&[project_root, d])))
+        .collect();
     if dirs.is_empty() {
         return vec![];
     }
@@ -41,12 +64,29 @@ pub fn check_design_drift(design_path: Option<&str>, project_root: &str, thresho
     args.push(&range);
     args.push("--");
     args.extend(dirs.iter());
-    let Some(log) = git(&args, project_root) else { return vec![] };
-    let commits = if log.is_empty() { 0 } else { log.split('\n').filter(|l| !l.is_empty()).count() };
+    let Some(log) = git(&args, project_root) else {
+        return vec![];
+    };
+    let commits = if log.is_empty() {
+        0
+    } else {
+        log.split('\n').filter(|l| !l.is_empty()).count()
+    };
     if commits < threshold {
         return vec![];
     }
-    let when = git(&["log", "-1", "--format=%ad", "--date=short", "--", &rel_design], project_root).filter(|s| !s.is_empty());
+    let when = git(
+        &[
+            "log",
+            "-1",
+            "--format=%ad",
+            "--date=short",
+            "--",
+            &rel_design,
+        ],
+        project_root,
+    )
+    .filter(|s| !s.is_empty());
     vec![finding(
         "design-md-drift",
         "DESIGN.md",
@@ -75,7 +115,10 @@ fn has_coverage_value(v: Option<&Value>) -> bool {
             }
             // /^(?:\[\s*\]|\{\s*\})$/
             let inner_empty = |open: char, close: char| -> bool {
-                t.starts_with(open) && t.ends_with(close) && t.len() >= 2 && t[1..t.len() - 1].chars().all(|c| c.is_whitespace())
+                t.starts_with(open)
+                    && t.ends_with(close)
+                    && t.len() >= 2
+                    && t[1..t.len() - 1].chars().all(|c| c.is_whitespace())
             };
             !(inner_empty('[', ']') || inner_empty('{', '}'))
         }
@@ -83,19 +126,32 @@ fn has_coverage_value(v: Option<&Value>) -> bool {
     }
 }
 
-const SEED_MARKER_TAIL: &str = "impeccino document once there's code to capture the actual tokens and components. -->";
+const SEED_MARKER_TAIL: &str =
+    "impeccino document once there's code to capture the actual tokens and components. -->";
 
 /// JS: checkDesignCoverage
 pub fn check_design_coverage(design: Option<&str>, design_path: Option<&str>) -> Vec<Finding> {
-    let Some(design) = design.filter(|d| !d.is_empty()) else { return vec![] };
+    let Some(design) = design.filter(|d| !d.is_empty()) else {
+        return vec![];
+    };
     let model = parse_design_md(design);
     let is_seed = ["/", "$"].iter().any(|p| {
-        design.contains(&format!("<!-- SEED: established with the user before implementation; re-run {}{}", p, SEED_MARKER_TAIL))
+        design.contains(&format!(
+            "<!-- SEED: established with the user before implementation; re-run {}{}",
+            p, SEED_MARKER_TAIL
+        ))
     });
-    let required: Vec<&str> = if is_seed { vec!["colors", "typography"] } else { vec!["colors", "typography", "components"] };
+    let required: Vec<&str> = if is_seed {
+        vec!["colors", "typography"]
+    } else {
+        vec!["colors", "typography", "components"]
+    };
     let missing: Vec<&str> = required
         .into_iter()
-        .filter(|s| !model.has_section(s) && !has_coverage_value(model.frontmatter.as_ref().and_then(|f| f.get(*s))))
+        .filter(|s| {
+            !model.has_section(s)
+                && !has_coverage_value(model.frontmatter.as_ref().and_then(|f| f.get(*s)))
+        })
         .collect();
     if missing.is_empty() {
         return vec![];
@@ -115,14 +171,27 @@ pub fn check_design_coverage(design: Option<&str>, design_path: Option<&str>) ->
 }
 
 fn wrap_ticks(items: &[String]) -> String {
-    items.iter().map(|k| format!("`{}`", k)).collect::<Vec<_>>().join(", ")
+    items
+        .iter()
+        .map(|k| format!("`{}`", k))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// Project-wide waivers in DESIGN.md (`<!-- impeccino-disable <rule> -->`)
 /// that name a rule the detector does not have.
-pub fn check_design_waivers(design: Option<&str>, design_path: Option<&str>, known_rule_ids: Option<&[String]>) -> Vec<Finding> {
-    let (Some(design), Some(known)) = (design.filter(|d| !d.is_empty()), known_rule_ids) else { return vec![] };
-    let unknown: Vec<String> = parse_design_waivers(design).into_iter().filter(|r| !known.contains(r)).collect();
+pub fn check_design_waivers(
+    design: Option<&str>,
+    design_path: Option<&str>,
+    known_rule_ids: Option<&[String]>,
+) -> Vec<Finding> {
+    let (Some(design), Some(known)) = (design.filter(|d| !d.is_empty()), known_rule_ids) else {
+        return vec![];
+    };
+    let unknown: Vec<String> = parse_design_waivers(design)
+        .into_iter()
+        .filter(|r| !known.contains(r))
+        .collect();
     if unknown.is_empty() {
         return vec![];
     }
@@ -181,11 +250,19 @@ fn resolve_hook_script_path(token: &str, root: &str) -> Option<String> {
     if PLACEHOLDER.is_match(&expanded) {
         return None;
     }
-    Some(if jsp::is_absolute(&expanded) { expanded } else { jsp::join(&[root, &expanded]) })
+    Some(if jsp::is_absolute(&expanded) {
+        expanded
+    } else {
+        jsp::join(&[root, &expanded])
+    })
 }
 
 /// JS: checkHookInstallation
-pub fn check_hook_installation(project_root: &str, repo_root: Option<&str>, provider_id: &str) -> Vec<Finding> {
+pub fn check_hook_installation(
+    project_root: &str,
+    repo_root: Option<&str>,
+    provider_id: &str,
+) -> Vec<Finding> {
     let mut out = Vec::new();
     let manifests = crate::context_cli::hook_manifests_for(provider_id);
     if manifests.is_empty() {
@@ -196,7 +273,9 @@ pub fn check_hook_installation(project_root: &str, repo_root: Option<&str>, prov
         for rel in manifests {
             let mp = jsp::join(&[root, rel]);
             let Some(raw) = read_json(&mp) else { continue };
-            let Some(hooks) = raw.get("hooks") else { continue };
+            let Some(hooks) = raw.get("hooks") else {
+                continue;
+            };
             if !js_truthy(hooks) {
                 continue;
             }
@@ -205,13 +284,21 @@ pub fn check_hook_installation(project_root: &str, repo_root: Option<&str>, prov
             if commands.is_empty() {
                 continue;
             }
-            let base = if project_root.is_empty() { root.as_str() } else { project_root };
+            let base = if project_root.is_empty() {
+                root.as_str()
+            } else {
+                project_root
+            };
             let installed_at = to_relative(Some(&mp), base);
             let broken: Vec<&String> = commands
                 .iter()
                 .filter(|c| {
-                    let Some(token) = hook_script_token_from(c) else { return false };
-                    let Some(abs) = resolve_hook_script_path(&token, root) else { return false };
+                    let Some(token) = hook_script_token_from(c) else {
+                        return false;
+                    };
+                    let Some(abs) = resolve_hook_script_path(&token, root) else {
+                        return false;
+                    };
                     !exists(&abs)
                 })
                 .collect();
@@ -250,17 +337,44 @@ impl WorkspaceRow {
         let mut m = Map::new();
         m.insert("name".into(), Value::String(self.name.clone()));
         m.insert("path".into(), Value::String(self.path.clone()));
-        m.insert("productStatus".into(), Value::String(self.product_status.to_string()));
-        m.insert("productPath".into(), self.product_path.clone().map(Value::String).unwrap_or(Value::Null));
-        m.insert("designStatus".into(), Value::String(self.design_status.to_string()));
-        m.insert("designPath".into(), self.design_path.clone().map(Value::String).unwrap_or(Value::Null));
-        m.insert("platform".into(), self.platform.clone().map(Value::String).unwrap_or(Value::Null));
+        m.insert(
+            "productStatus".into(),
+            Value::String(self.product_status.to_string()),
+        );
+        m.insert(
+            "productPath".into(),
+            self.product_path
+                .clone()
+                .map(Value::String)
+                .unwrap_or(Value::Null),
+        );
+        m.insert(
+            "designStatus".into(),
+            Value::String(self.design_status.to_string()),
+        );
+        m.insert(
+            "designPath".into(),
+            self.design_path
+                .clone()
+                .map(Value::String)
+                .unwrap_or(Value::Null),
+        );
+        m.insert(
+            "platform".into(),
+            self.platform
+                .clone()
+                .map(Value::String)
+                .unwrap_or(Value::Null),
+        );
         Value::Object(m)
     }
 }
 
 /// JS: checkWorkspaces
-pub fn check_workspaces(repo_root: &str, candidates: &[TargetCandidate]) -> (Vec<Finding>, Vec<WorkspaceRow>) {
+pub fn check_workspaces(
+    repo_root: &str,
+    candidates: &[TargetCandidate],
+) -> (Vec<Finding>, Vec<WorkspaceRow>) {
     if repo_root.is_empty() || candidates.is_empty() {
         return (vec![], vec![]);
     }
@@ -268,7 +382,10 @@ pub fn check_workspaces(repo_root: &str, candidates: &[TargetCandidate]) -> (Vec
     let mut workspaces = Vec::new();
     for c in candidates {
         let workspace_root = jsp::join(&[repo_root, &c.path]);
-        let product_path = c.product_path.as_deref().map(|p| jsp::join(&[repo_root, p]));
+        let product_path = c
+            .product_path
+            .as_deref()
+            .map(|p| jsp::join(&[repo_root, p]));
         let product = product_path.as_deref().and_then(safe_read);
         let platform = extract_platform(product.as_deref());
         workspaces.push(WorkspaceRow {
@@ -286,7 +403,12 @@ pub fn check_workspaces(repo_root: &str, candidates: &[TargetCandidate]) -> (Vec
                 }
             }),
         });
-        let native = check_native_platform_evidence(&workspace_root, platform.as_deref(), product.as_deref(), c.product_path.as_deref());
+        let native = check_native_platform_evidence(
+            &workspace_root,
+            platform.as_deref(),
+            product.as_deref(),
+            c.product_path.as_deref(),
+        );
         for entry in native {
             let inherited = c.product_status == "inherited";
             findings.push(finding(
@@ -311,7 +433,10 @@ pub fn check_workspaces(repo_root: &str, candidates: &[TargetCandidate]) -> (Vec
             ));
         }
     }
-    let inherited: Vec<&WorkspaceRow> = workspaces.iter().filter(|w| w.product_status == "inherited").collect();
+    let inherited: Vec<&WorkspaceRow> = workspaces
+        .iter()
+        .filter(|w| w.product_status == "inherited")
+        .collect();
     if !inherited.is_empty() {
         findings.push(finding(
             "workspace-context-inherited",
@@ -332,7 +457,12 @@ pub fn check_workspaces(repo_root: &str, candidates: &[TargetCandidate]) -> (Vec
 
 /// JS: loadKnownRuleIds -> the bundled registry, lowercased ids.
 pub fn load_known_rule_ids() -> Option<Vec<String>> {
-    Some(impeccino_core::registry::ANTIPATTERNS.iter().map(|r| r.id.to_lowercase()).collect())
+    Some(
+        impeccino_core::registry::ANTIPATTERNS
+            .iter()
+            .map(|r| r.id.to_lowercase())
+            .collect(),
+    )
 }
 
 #[cfg(test)]
@@ -345,7 +475,10 @@ mod tests {
         let base = std::env::temp_dir().join(format!(
             "impeccino-doctor-hook-{}-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
             // A per-process counter: Windows' clock is coarse enough that two
             // parallel tests can share a nanosecond stamp and then delete each
             // other's directories.
@@ -355,8 +488,13 @@ mod tests {
         // Like Node's `realpathSync`: on Windows, `canonicalize` yields a
         // `\\?\` verbatim path, which the kernel takes literally, so the `/`
         // separators a hook command appends would not resolve under it.
-        let real = std::fs::canonicalize(&base).unwrap().to_string_lossy().into_owned();
-        real.strip_prefix(r"\\?\").map(str::to_string).unwrap_or(real)
+        let real = std::fs::canonicalize(&base)
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        real.strip_prefix(r"\\?\")
+            .map(str::to_string)
+            .unwrap_or(real)
     }
 
     fn write(root: &str, rel: &str, body: &str) {
@@ -369,7 +507,11 @@ mod tests {
     fn hook_script_missing_resolves_launcher_and_legacy_forms() {
         let root = tmp();
         // Launcher form pointing at a launcher that exists: no finding.
-        write(&root, ".claude/skills/impeccino/scripts/impeccino", "#!/bin/sh\n");
+        write(
+            &root,
+            ".claude/skills/impeccino/scripts/impeccino",
+            "#!/bin/sh\n",
+        );
         write(
             &root,
             ".claude/settings.local.json",

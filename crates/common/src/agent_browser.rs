@@ -57,7 +57,12 @@ fn resolve_agent_browser_for(
     find_in_paths(Path::new("agent-browser"), search_paths, windows, path_ext)
 }
 
-fn find_in_paths(name: &Path, search_paths: &[PathBuf], windows: bool, path_ext: Option<&OsStr>) -> Option<AgentBrowser> {
+fn find_in_paths(
+    name: &Path,
+    search_paths: &[PathBuf],
+    windows: bool,
+    path_ext: Option<&OsStr>,
+) -> Option<AgentBrowser> {
     for directory in search_paths {
         let candidate = directory.join(name);
         if let Some(found) = find_candidate(&candidate, windows, path_ext) {
@@ -67,7 +72,11 @@ fn find_in_paths(name: &Path, search_paths: &[PathBuf], windows: bool, path_ext:
     None
 }
 
-fn find_candidate(candidate: &Path, windows: bool, path_ext: Option<&OsStr>) -> Option<AgentBrowser> {
+fn find_candidate(
+    candidate: &Path,
+    windows: bool,
+    path_ext: Option<&OsStr>,
+) -> Option<AgentBrowser> {
     if windows && candidate.extension().is_none() {
         // npm places a POSIX shell shim (`agent-browser`) beside its Windows
         // command shim (`agent-browser.cmd`). Match Windows PATH lookup by
@@ -79,11 +88,15 @@ fn find_candidate(candidate: &Path, windows: bool, path_ext: Option<&OsStr>) -> 
             with_extension.push(extension);
             let with_extension = PathBuf::from(with_extension);
             if with_extension.is_file() {
-                return Some(AgentBrowser { path: with_extension });
+                return Some(AgentBrowser {
+                    path: with_extension,
+                });
             }
         }
     }
-    candidate.is_file().then(|| AgentBrowser { path: candidate.to_path_buf() })
+    candidate.is_file().then(|| AgentBrowser {
+        path: candidate.to_path_buf(),
+    })
 }
 
 fn windows_extensions(path_ext: Option<&OsStr>) -> Vec<OsString> {
@@ -93,11 +106,20 @@ fn windows_extensions(path_ext: Option<&OsStr>) -> Vec<OsString> {
     let mut extensions: Vec<OsString> = configured
         .split(';')
         .filter(|extension| !extension.is_empty())
-        .filter(|extension| ["COM", "EXE", "BAT", "CMD"].iter().any(|allowed| extension.trim_start_matches('.').eq_ignore_ascii_case(allowed)))
+        .filter(|extension| {
+            ["COM", "EXE", "BAT", "CMD"].iter().any(|allowed| {
+                extension
+                    .trim_start_matches('.')
+                    .eq_ignore_ascii_case(allowed)
+            })
+        })
         .map(|extension| extension.trim_start_matches('.').into())
         .collect();
     for required in ["EXE", "CMD", "BAT"] {
-        if !extensions.iter().any(|extension| extension.to_string_lossy().eq_ignore_ascii_case(required)) {
+        if !extensions
+            .iter()
+            .any(|extension| extension.to_string_lossy().eq_ignore_ascii_case(required))
+        {
             extensions.push(required.into());
         }
     }
@@ -109,7 +131,10 @@ mod tests {
     use super::*;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!("impeccino-agent-browser-{tag}-{}", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "impeccino-agent-browser-{tag}-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&path);
         std::fs::create_dir_all(&path).unwrap();
         path
@@ -123,18 +148,39 @@ mod tests {
         // when this synthetic resolver test runs on a case-sensitive host.
         let shim = path.join("agent-browser.CMD");
         std::fs::write(&shim, "@echo off\r\n").unwrap();
-        std::fs::write(path.join("agent-browser.PS1"), "Write-Output 'unsupported shim'\n").unwrap();
+        std::fs::write(
+            path.join("agent-browser.PS1"),
+            "Write-Output 'unsupported shim'\n",
+        )
+        .unwrap();
 
-        let resolved = resolve_agent_browser_for(None, std::slice::from_ref(&path), Some(OsStr::new(".PS1;.CMD")), true).unwrap();
+        let resolved = resolve_agent_browser_for(
+            None,
+            std::slice::from_ref(&path),
+            Some(OsStr::new(".PS1;.CMD")),
+            true,
+        )
+        .unwrap();
         assert_eq!(resolved.path(), shim);
-        let explicit = resolve_agent_browser_for(Some(OsStr::new("agent-browser")), std::slice::from_ref(&path), Some(OsStr::new(".PS1;.CMD")), true).unwrap();
+        let explicit = resolve_agent_browser_for(
+            Some(OsStr::new("agent-browser")),
+            std::slice::from_ref(&path),
+            Some(OsStr::new(".PS1;.CMD")),
+            true,
+        )
+        .unwrap();
         assert_eq!(explicit.path(), shim);
-        assert_eq!(resolve_agent_browser_for(Some(OsStr::new("missing-browser")), &[path], None, true), None);
+        assert_eq!(
+            resolve_agent_browser_for(Some(OsStr::new("missing-browser")), &[path], None, true),
+            None
+        );
 
         let extensionless = temp_dir("resolve-extensionless");
         let native = extensionless.join("agent-browser");
         std::fs::write(&native, "native executable fixture").unwrap();
-        let resolved = resolve_agent_browser_for(None, std::slice::from_ref(&extensionless), None, true).unwrap();
+        let resolved =
+            resolve_agent_browser_for(None, std::slice::from_ref(&extensionless), None, true)
+                .unwrap();
         assert_eq!(resolved.path(), native);
     }
 
@@ -165,7 +211,10 @@ mod tests {
             "@echo off\r\nchcp 65001 >nul\r\nsetlocal DisableDelayedExpansion\r\n>\"%IMPECCINO_TEST_ARG_CAPTURE%\" echo %1\r\n>>\"%IMPECCINO_TEST_ARG_CAPTURE%\" echo %2\r\nexit /b 0\r\n",
         ).unwrap();
         let browser = resolve_agent_browser_for(Some(shim.as_os_str()), &[], None, true).unwrap();
-        let url = format!("https://localhost/?q=two%20words&literal=%PATH%!&inject=ok& echo INJECTED > {}", marker.file_name().unwrap().to_string_lossy());
+        let url = format!(
+            "https://localhost/?q=two%20words&literal=%PATH%!&inject=ok& echo INJECTED > {}",
+            marker.file_name().unwrap().to_string_lossy()
+        );
         let phrase = "O'Brien's quoted phrase with spaces — café";
         let args = vec![OsString::from(&url), OsString::from(phrase)];
         let mut command = browser.command(&args);
@@ -175,10 +224,29 @@ mod tests {
         crate::proc::hide_window(&mut command);
         let status = command.status().expect("launch the real cmd shim path");
         assert!(status.success(), "cmd shim exited with {status}");
-        let lines: Vec<String> = std::fs::read_to_string(&capture).unwrap().lines().map(str::to_owned).collect();
-        assert_eq!(lines.len(), 2, "shim received a different argument count: {lines:?}");
-        assert_eq!(unquote(&lines[0]), url, "URL argument changed across the .cmd boundary");
-        assert_eq!(unquote(&lines[1]), phrase, "spaced apostrophe argument changed across the .cmd boundary");
-        assert!(!marker.exists(), "URL metacharacters executed a second command");
+        let lines: Vec<String> = std::fs::read_to_string(&capture)
+            .unwrap()
+            .lines()
+            .map(str::to_owned)
+            .collect();
+        assert_eq!(
+            lines.len(),
+            2,
+            "shim received a different argument count: {lines:?}"
+        );
+        assert_eq!(
+            unquote(&lines[0]),
+            url,
+            "URL argument changed across the .cmd boundary"
+        );
+        assert_eq!(
+            unquote(&lines[1]),
+            phrase,
+            "spaced apostrophe argument changed across the .cmd boundary"
+        );
+        assert!(
+            !marker.exists(),
+            "URL metacharacters executed a second command"
+        );
     }
 }

@@ -164,7 +164,10 @@ fn engines() -> impeccino_detect::Engines<'static> {
         // The shipped binary carries the built-in rules only.
         static_rule_pack: None,
     };
-    impeccino_detect::Engines { html: &HTML, url: Some(&page_scan::AgentBrowserEngine) }
+    impeccino_detect::Engines {
+        html: &HTML,
+        url: Some(&page_scan::AgentBrowserEngine),
+    }
 }
 
 #[cfg(test)]

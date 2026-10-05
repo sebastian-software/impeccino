@@ -14,8 +14,8 @@ use super::BrowserFinding;
 use crate::checks::measures::{
     self, border_colors_from_style, border_widths_from_style, check_gpt_thin_border_wide_shadow,
     check_oversized_h1, check_radial_spotlight, is_screen_reader_only_text_style,
-    positioned_style_implies_escape, GptBorderShadowInput, OversizedH1Input,
-    RadialSpotlightInput, SrOnlyMetrics,
+    positioned_style_implies_escape, GptBorderShadowInput, OversizedH1Input, RadialSpotlightInput,
+    SrOnlyMetrics,
 };
 use crate::checks::rules::{
     check_borders, check_colors, check_glow, check_hero_eyebrow, check_icon_tile,
@@ -200,8 +200,7 @@ pub fn is_rendered_for_browser_rule(dom: &dyn Dom, el: ElId) -> bool {
             return false;
         }
         let visibility = js::to_lower_case(&dom.style(c, "visibility"));
-        if dom.style(c, "display") == "none" || visibility == "hidden" || visibility == "collapse"
-        {
+        if dom.style(c, "display") == "none" || visibility == "hidden" || visibility == "collapse" {
             return false;
         }
         if style_px(dom, c, "opacity") <= 0.01 {
@@ -221,11 +220,7 @@ pub fn effective_opacity_dom(dom: &dyn Dom, el: ElId) -> f64 {
     let mut cur = Some(el);
     while let Some(c) = cur {
         let raw = dom.style(c, "opacity");
-        let v = if raw.is_empty() {
-            "1".to_string()
-        } else {
-            raw
-        };
+        let v = if raw.is_empty() { "1".to_string() } else { raw };
         o *= parse_float(&v);
         if o <= 0.02 {
             return 0.0;
@@ -487,8 +482,16 @@ pub fn check_element_colors_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
                 let t = js::to_lower_case(&dom.attr(el, "type").unwrap_or_else(|| "text".into()));
                 matches!(
                     t.as_str(),
-                    "hidden" | "checkbox" | "radio" | "file" | "submit" | "button" | "image"
-                        | "reset" | "range" | "color"
+                    "hidden"
+                        | "checkbox"
+                        | "radio"
+                        | "file"
+                        | "submit"
+                        | "button"
+                        | "image"
+                        | "reset"
+                        | "range"
+                        | "color"
                 )
             } else {
                 false
@@ -530,8 +533,7 @@ pub fn check_element_icon_tile_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
         .unwrap_or(None);
     let icon_rect = icon_child.map(|c| dom.rect(c));
     let sib_direct = direct_text(dom, sibling);
-    let has_inline_emoji_icon =
-        dom.children(sibling).is_empty() && is_emoji_only_text(&sib_direct);
+    let has_inline_emoji_icon = dom.children(sibling).is_empty() && is_emoji_only_text(&sib_direct);
     check_icon_tile(&IconTileOpts {
         heading_tag: tag,
         heading_text: Some(dom.text_content(el)),
@@ -997,8 +999,25 @@ re!(
     format!(
         "(?-u:\\b)({})(?-u:\\b)",
         [
-            "art", "bg", "background", "badge", "blob", "crop", "decor", "dot", "glow", "grain",
-            "image", "mask", "ornament", "overlay", "photo", "scrim", "shadow", "shine", "texture",
+            "art",
+            "bg",
+            "background",
+            "badge",
+            "blob",
+            "crop",
+            "decor",
+            "dot",
+            "glow",
+            "grain",
+            "image",
+            "mask",
+            "ornament",
+            "overlay",
+            "photo",
+            "scrim",
+            "shadow",
+            "shine",
+            "texture",
         ]
         .iter()
         .map(|w| js::ci(w))
@@ -1011,7 +1030,10 @@ re!(
     VIEWPORT_IDENT_RE,
     r"(?-u:\b)(carousel|comparison|compare|fisheye|marquee|preview|scroller|slider|slideshow|split|viewport)(?-u:\b)"
 );
-re!(DEMO_IDENT_RE, r"(?-u:\b)(demo-area|demo-stage|demo-viewport)(?-u:\b)");
+re!(
+    DEMO_IDENT_RE,
+    r"(?-u:\b)(demo-area|demo-stage|demo-viewport)(?-u:\b)"
+);
 
 /// JS: checks.mjs#positionedChildHasSubstantiveContent(child)
 pub fn positioned_child_has_substantive_content(dom: &dyn Dom, child: ElId) -> bool {
@@ -1127,8 +1149,7 @@ pub fn check_clipped_overflow(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
             if escapes == Some(false) {
                 continue;
             }
-            if escapes.is_none() && !positioned_style_implies_escape(&ElStyle { dom, el: child })
-            {
+            if escapes.is_none() && !positioned_style_implies_escape(&ElStyle { dom, el: child }) {
                 continue;
             }
             return vec![RuleHit::new(
@@ -1150,7 +1171,8 @@ pub fn check_element_clipped_overflow_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHi
 re!(SCROLL_RE, r"(auto|scroll)");
 
 fn is_scroll_region(dom: &dyn Dom, el: ElId) -> bool {
-    SCROLL_RE.is_match(&dom.style(el, "overflowX")) || SCROLL_RE.is_match(&dom.style(el, "overflow"))
+    SCROLL_RE.is_match(&dom.style(el, "overflowX"))
+        || SCROLL_RE.is_match(&dom.style(el, "overflow"))
 }
 
 /// JS: checks.mjs#checkElementTextOverflowDOM(el)
@@ -1227,8 +1249,7 @@ pub fn check_element_text_overflow_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> 
             p = dom.parent(pp);
         }
         let c_rect = dom.rect(container);
-        let content_right =
-            c_rect.left + dom.client_left(container) + dom.client_width(container);
+        let content_right = c_rect.left + dom.client_left(container) + dom.client_width(container);
         let spill = rect.right - content_right;
         if spill >= 16.0 {
             return vec![RuleHit::new(
@@ -1249,7 +1270,12 @@ pub fn check_element_text_overflow_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> 
 re!(HIDDEN_RE, js::ci("hidden"));
 re!(
     BLINK_NAME_RE,
-    format!("{}|{}|{}", js::ci("blink"), js::ci("caret"), js::ci("cursor"))
+    format!(
+        "{}|{}|{}",
+        js::ci("blink"),
+        js::ci("caret"),
+        js::ci("cursor")
+    )
 );
 
 /// JS: checks.mjs#keyframesToggleVisibilityDOM(name)
@@ -1436,23 +1462,54 @@ mod tests {
         let (mut d, body) = page();
         let h = d.add(Some(body), "h1");
         d.add_text(h, "Some places stay with ");
-        d.set_styles(h, &[("fontStyle", "normal"), ("fontFamily", "Georgia, serif"), ("fontSize", "72px")]);
+        d.set_styles(
+            h,
+            &[
+                ("fontStyle", "normal"),
+                ("fontFamily", "Georgia, serif"),
+                ("fontSize", "72px"),
+            ],
+        );
         let em = d.add(Some(h), "em");
         d.add_text(em, "you");
-        d.set_styles(em, &[("fontStyle", "italic"), ("fontFamily", "Georgia, serif"), ("fontSize", "72px")]);
+        d.set_styles(
+            em,
+            &[
+                ("fontStyle", "italic"),
+                ("fontFamily", "Georgia, serif"),
+                ("fontSize", "72px"),
+            ],
+        );
         let hits = check_element_italic_serif_dom(&d, h);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].id, "italic-serif-display");
         // A second decorated word still produces one heading warning.
         let span = d.add(Some(h), "span");
         d.add_text(span, "forever");
-        d.set_styles(span, &[("fontStyle", "italic"), ("fontFamily", "Georgia, serif"), ("fontSize", "72px")]);
+        d.set_styles(
+            span,
+            &[
+                ("fontStyle", "italic"),
+                ("fontFamily", "Georgia, serif"),
+                ("fontSize", "72px"),
+            ],
+        );
         assert_eq!(check_element_italic_serif_dom(&d, h).len(), 1);
         d.set_style(span, "fontStyle", "normal");
-        for (property, value) in [("display", "none"), ("visibility", "hidden"), ("opacity", "0"), ("fontSize", "24px"), ("fontFamily", "Arial, sans-serif"), ("fontStyle", "normal")] {
+        for (property, value) in [
+            ("display", "none"),
+            ("visibility", "hidden"),
+            ("opacity", "0"),
+            ("fontSize", "24px"),
+            ("fontFamily", "Arial, sans-serif"),
+            ("fontStyle", "normal"),
+        ] {
             let old = d.style(em, property);
             d.set_style(em, property, value);
-            assert!(check_element_italic_serif_dom(&d, h).is_empty(), "{property}: {value}");
+            assert!(
+                check_element_italic_serif_dom(&d, h).is_empty(),
+                "{property}: {value}"
+            );
             d.set_style(em, property, &old);
         }
         d.set_style(h, "display", "none");
@@ -1464,10 +1521,24 @@ mod tests {
         let (mut d, body) = page();
         let h = d.add(Some(body), "h2");
         d.add_text(h, "  ");
-        d.set_styles(h, &[("fontStyle", "italic"), ("fontFamily", "Georgia, serif"), ("fontSize", "72px")]);
+        d.set_styles(
+            h,
+            &[
+                ("fontStyle", "italic"),
+                ("fontFamily", "Georgia, serif"),
+                ("fontSize", "72px"),
+            ],
+        );
         let span = d.add(Some(h), "span");
         d.add_text(span, "Roman headline");
-        d.set_styles(span, &[("fontStyle", "normal"), ("fontFamily", "Georgia, serif"), ("fontSize", "72px")]);
+        d.set_styles(
+            span,
+            &[
+                ("fontStyle", "normal"),
+                ("fontFamily", "Georgia, serif"),
+                ("fontSize", "72px"),
+            ],
+        );
         assert!(check_element_italic_serif_dom(&d, h).is_empty());
         d.set_style(span, "fontStyle", "italic");
         assert_eq!(check_element_italic_serif_dom(&d, h).len(), 1);
@@ -1558,7 +1629,8 @@ mod tests {
         assert!(
             hits.iter().any(|h| {
                 h.id == "low-contrast"
-                    && h.snippet.contains("placeholder \"Pale Placeholder On White Field\"")
+                    && h.snippet
+                        .contains("placeholder \"Pale Placeholder On White Field\"")
             }),
             "{hits:?}"
         );
@@ -1637,7 +1709,11 @@ mod tests {
         let hits = check_element_icon_tile_dom(&d, h3);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].id, "icon-tile-stack");
-        assert!(hits[0].snippet.contains("\"Lightning Fast\""), "{}", hits[0].snippet);
+        assert!(
+            hits[0].snippet.contains("\"Lightning Fast\""),
+            "{}",
+            hits[0].snippet
+        );
     }
 
     #[test]
@@ -1652,7 +1728,10 @@ mod tests {
         let hits = check_element_glow_dom(&d, card);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].id, "dark-glow");
-        assert_eq!(hits[0].snippet, "Colored box-shadow glow (#3b82f6) on dark background");
+        assert_eq!(
+            hits[0].snippet,
+            "Colored box-shadow glow (#3b82f6) on dark background"
+        );
 
         let hero = d.add(Some(body), "section");
         d.set_style(
@@ -1695,7 +1774,10 @@ mod tests {
         // With no DESIGN.md the teal contributes ink to the page-wide reading.
         let reading = check_element_ai_palette_dom(&d, label, None);
         assert!(reading.hits.is_empty());
-        assert_eq!(reading.ink.unwrap().snippet, "Cyan neon text on dark background");
+        assert_eq!(
+            reading.ink.unwrap().snippet,
+            "Cyan neon text on dark background"
+        );
         assert_eq!(reading.tells, vec![TellHue::Cyan]);
 
         // Declared in DESIGN.md, so it is the project's palette, not the default.
@@ -1707,12 +1789,16 @@ mod tests {
 
         // A design system that declares some other color leaves the rule alone.
         let other = design_system_with(&[(200.0, 40.0, 30.0)]);
-        assert!(check_element_ai_palette_dom(&d, label, Some(&other)).ink.is_some());
+        assert!(check_element_ai_palette_dom(&d, label, Some(&other))
+            .ink
+            .is_some());
 
         // `hasColors: false` is a DESIGN.md with no palette section: no allowlist
         // to consult, so the rule keeps its unconstrained behavior.
         let empty = DesignSystemConfig::default();
-        assert!(check_element_ai_palette_dom(&d, label, Some(&empty)).ink.is_some());
+        assert!(check_element_ai_palette_dom(&d, label, Some(&empty))
+            .ink
+            .is_some());
     }
 
     #[test]
@@ -1760,12 +1846,19 @@ mod tests {
         assert!(hits[0].snippet.contains("800x400"), "{}", hits[0].snippet);
 
         let h1 = d.add(Some(body), "h1");
-        d.add_text(h1, "A really long headline that dominates the whole viewport");
+        d.add_text(
+            h1,
+            "A really long headline that dominates the whole viewport",
+        );
         d.set_style(h1, "fontSize", "96px");
         d.set_rect(h1, 0.0, 0.0, 1200.0, 300.0);
         let hits = check_element_oversized_h1_dom(&d, h1);
         assert_eq!(hits.len(), 1);
-        assert!(hits[0].snippet.starts_with("96px h1, 56 chars, 38vh"), "{}", hits[0].snippet);
+        assert!(
+            hits[0].snippet.starts_with("96px h1, 56 chars, 38vh"),
+            "{}",
+            hits[0].snippet
+        );
     }
 
     #[test]
@@ -1773,7 +1866,14 @@ mod tests {
         let (mut d, body) = page();
         let box_ = d.add(Some(body), "div");
         d.set_attr(box_, "class", "card");
-        d.set_styles(box_, &[("overflow", "hidden"), ("overflowX", "hidden"), ("overflowY", "hidden")]);
+        d.set_styles(
+            box_,
+            &[
+                ("overflow", "hidden"),
+                ("overflowX", "hidden"),
+                ("overflowY", "hidden"),
+            ],
+        );
         d.set_rect(box_, 0.0, 0.0, 200.0, 100.0);
         let menu = d.add(Some(box_), "div");
         d.add_text(menu, "Menu item");
@@ -1793,7 +1893,18 @@ mod tests {
         d.el_mut(cell).client_width = 100.0;
         d.el_mut(cell).client_height = 20.0;
         d.el_mut(cell).scroll_width = 140.0;
-        d.set_styles(cell, &[("overflow", "visible"), ("overflowX", "visible"), ("overflowY", "visible"), ("position", "static"), ("fontSize", "16px"), ("width", "100px"), ("height", "20px")]);
+        d.set_styles(
+            cell,
+            &[
+                ("overflow", "visible"),
+                ("overflowX", "visible"),
+                ("overflowY", "visible"),
+                ("position", "static"),
+                ("fontSize", "16px"),
+                ("width", "100px"),
+                ("height", "20px"),
+            ],
+        );
         let hits = check_element_text_overflow_dom(&d, cell);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].snippet, "div.cell overflows its box by 40px");
@@ -1805,12 +1916,22 @@ mod tests {
         for ident in ["écarousel", "édemo-area"] {
             let viewport = d.add(Some(body), "div");
             d.set_attr(viewport, "class", ident);
-            d.set_styles(viewport, &[("overflow", "hidden"), ("overflowX", "hidden"), ("overflowY", "hidden")]);
+            d.set_styles(
+                viewport,
+                &[
+                    ("overflow", "hidden"),
+                    ("overflowX", "hidden"),
+                    ("overflowY", "hidden"),
+                ],
+            );
             let slide = d.add(Some(viewport), "div");
             d.add_text(slide, "A slide outside the viewport");
             d.set_styles(slide, &[("position", "absolute"), ("top", "100%")]);
 
-            assert!(check_element_clipped_overflow_dom(&d, viewport).is_empty(), "{ident}");
+            assert!(
+                check_element_clipped_overflow_dom(&d, viewport).is_empty(),
+                "{ident}"
+            );
         }
     }
 

@@ -22,8 +22,14 @@ macro_rules! re {
 // `/^currentcolor$/i`: ASCII case folding (`ci`) and the JS `\s` set (`WS`).
 re!(GRADIENT_RE, js::ci("gradient"));
 re!(URL_RE, format!("{}{}*\\(", js::ci("url"), js::WS));
-re!(GRADIENT_PAREN_RE, format!("{}{}*\\(", js::ci("gradient"), js::WS));
-re!(URL_LEADING_RE, format!("^{}*{}{}*\\(", js::WS, js::ci("url"), js::WS));
+re!(
+    GRADIENT_PAREN_RE,
+    format!("{}{}*\\(", js::ci("gradient"), js::WS)
+);
+re!(
+    URL_LEADING_RE,
+    format!("^{}*{}{}*\\(", js::WS, js::ci("url"), js::WS)
+);
 re!(CURRENTCOLOR_RE, format!("^{}$", js::ci("currentcolor")));
 
 /// JS `{ color, unresolved }` from resolveBackgroundInfo.
@@ -114,9 +120,7 @@ pub fn resolve_background_info(dom: &dyn Dom, el: ElId) -> BackgroundInfo {
                 .iter()
                 .find(|layer| GRADIENT_PAREN_RE.is_match(layer) || URL_RE.is_match(layer));
             let gradient_on_top = match top_paint_layer {
-                Some(layer) => {
-                    GRADIENT_PAREN_RE.is_match(layer) && !URL_LEADING_RE.is_match(layer)
-                }
+                Some(layer) => GRADIENT_PAREN_RE.is_match(layer) && !URL_LEADING_RE.is_match(layer),
                 None => false,
             };
             if !gradient_on_top {
@@ -159,7 +163,11 @@ pub fn resolve_background(dom: &dyn Dom, el: ElId) -> Option<Rgba> {
 }
 
 /// JS: checks.mjs#compositeGradientStops(stops, gradientEl, win, customPropMap)
-fn composite_gradient_stops(dom: &dyn Dom, stops: Vec<Rgba>, gradient_el: ElId) -> Option<Vec<Rgba>> {
+fn composite_gradient_stops(
+    dom: &dyn Dom,
+    stops: Vec<Rgba>,
+    gradient_el: ElId,
+) -> Option<Vec<Rgba>> {
     let has_alpha = stops.iter().any(|s| s.alpha_or_one() < 0.99);
     if !has_alpha {
         return Some(stops);
@@ -202,7 +210,9 @@ pub fn resolve_gradient_stops(dom: &dyn Dom, el: ElId) -> Option<Vec<Rgba>> {
         }
         if let Some(stops) = stops {
             let composited = composite_gradient_stops(dom, stops, cur);
-            let Some(composited) = composited else { return None };
+            let Some(composited) = composited else {
+                return None;
+            };
             if overlays.is_empty() {
                 return Some(composited);
             }
@@ -265,7 +275,10 @@ mod tests {
         let p = d.add(Some(body), "p");
         d.set_style(p, "backgroundColor", "rgba(0, 0, 0, 0)");
         d.set_style(p, "backgroundImage", "none");
-        assert_eq!(resolve_background(&d, p), Some(Rgba::new(255.0, 255.0, 255.0, 1.0)));
+        assert_eq!(
+            resolve_background(&d, p),
+            Some(Rgba::new(255.0, 255.0, 255.0, 1.0))
+        );
         d.set_style(body, "backgroundImage", "url(\"photo.png\")");
         let info = resolve_background_info(&d, p);
         assert!(info.unresolved && info.color.is_none());
@@ -278,7 +291,11 @@ mod tests {
         d.set_style(html, "backgroundColor", "rgba(0, 0, 0, 0)");
         d.set_style(html, "backgroundImage", "none");
         d.set_style(body, "backgroundColor", "rgba(0, 0, 0, 0)");
-        d.set_style(body, "backgroundImage", "linear-gradient(rgb(10, 20, 30), rgb(40, 50, 60))");
+        d.set_style(
+            body,
+            "backgroundImage",
+            "linear-gradient(rgb(10, 20, 30), rgb(40, 50, 60))",
+        );
         let p = d.add(Some(body), "p");
         d.set_style(p, "backgroundColor", "rgba(0, 0, 0, 0)");
         d.set_style(p, "backgroundImage", "none");
@@ -308,6 +325,9 @@ mod tests {
         d.set_style(chip, "backgroundColor", "currentcolor");
         d.set_style(chip, "backgroundImage", "none");
         d.set_style(chip, "color", "rgb(1, 2, 3)");
-        assert_eq!(resolve_background(&d, chip), Some(Rgba::new(1.0, 2.0, 3.0, 1.0)));
+        assert_eq!(
+            resolve_background(&d, chip),
+            Some(Rgba::new(1.0, 2.0, 3.0, 1.0))
+        );
     }
 }

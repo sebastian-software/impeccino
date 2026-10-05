@@ -215,7 +215,11 @@ pub fn merge_text_rects_into_lines(rects: Vec<Rect>) -> Vec<Rect> {
         a.top
             .partial_cmp(&b.top)
             .unwrap_or(std::cmp::Ordering::Equal)
-            .then(a.left.partial_cmp(&b.left).unwrap_or(std::cmp::Ordering::Equal))
+            .then(
+                a.left
+                    .partial_cmp(&b.left)
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
     });
     let mut lines: Vec<Rect> = Vec::new();
     // The band of the rect each row started with. Membership is tested

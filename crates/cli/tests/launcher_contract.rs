@@ -8,12 +8,16 @@
 //! engine-probe handshake, and the .cmd verifies downloads via certutil.
 
 /// Where `.github/workflows/release-engine.yml` publishes engine binaries.
-const DEFAULT_DOWNLOAD_BASE: &str = "https://github.com/sebastian-software/impeccino/releases/download";
+const DEFAULT_DOWNLOAD_BASE: &str =
+    "https://github.com/sebastian-software/impeccino/releases/download";
 
 /// The release asset name for one platform, as the launchers compose it.
 fn asset_url(base: &str, version: &str, os: &str, arch: &str) -> String {
     let ext = if os == "windows" { ".exe" } else { "" };
-    format!("{}/engine-v{version}/impeccino-{os}-{arch}{ext}", base.trim_end_matches('/'))
+    format!(
+        "{}/engine-v{version}/impeccino-{os}-{arch}{ext}",
+        base.trim_end_matches('/')
+    )
 }
 
 /// The launchers ship next to the skill they power.
@@ -127,9 +131,15 @@ fn launchers_verify_only_against_the_digests_pinned_in_the_skill() {
     assert!(cmd.contains(r#"findstr /c:"  engine-v%version%/" "%~dp0engine.sha256""#));
     assert!(cmd.contains("if not defined expected goto no_pin_downloaded"));
     for text in [&sh, &cmd] {
-        assert!(text.contains("refusing the unverified download") || text.contains("refusing to download an unverified engine"));
+        assert!(
+            text.contains("refusing the unverified download")
+                || text.contains("refusing to download an unverified engine")
+        );
         assert!(text.contains("checksum mismatch downloading"));
-        assert!(!text.contains("$url.sha256") && !text.contains("%url%.sha256"), "no sidecar fallback");
+        assert!(
+            !text.contains("$url.sha256") && !text.contains("%url%.sha256"),
+            "no sidecar fallback"
+        );
     }
 }
 
@@ -177,7 +187,11 @@ fn sh_launcher_passes_skill_dir_to_the_env_bin() {
     std::fs::create_dir_all(&dir).unwrap();
     // A stub "engine binary" that just prints the skill dir it was handed.
     let stub = dir.join("stub");
-    std::fs::write(&stub, "#!/bin/sh\nprintf 'SKILL_DIR=%s\\n' \"${IMPECCINO_SKILL_DIR:-UNSET}\"\n").unwrap();
+    std::fs::write(
+        &stub,
+        "#!/bin/sh\nprintf 'SKILL_DIR=%s\\n' \"${IMPECCINO_SKILL_DIR:-UNSET}\"\n",
+    )
+    .unwrap();
     std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
     let out = std::process::Command::new("sh")
         .arg(&launcher)

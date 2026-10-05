@@ -14,13 +14,32 @@ use std::collections::BTreeMap;
 pub const PRODUCT_NAMES: [&str; 3] = ["PRODUCT.md", "Product.md", "product.md"];
 pub const DESIGN_NAMES: [&str; 3] = ["DESIGN.md", "Design.md", "design.md"];
 pub const FALLBACK_DIRS: [&str; 2] = [".agents/context", "docs"];
-pub const MONOREPO_MARKER_FILES: [&str; 4] = ["pnpm-workspace.yaml", "turbo.json", "nx.json", "lerna.json"];
+pub const MONOREPO_MARKER_FILES: [&str; 4] =
+    ["pnpm-workspace.yaml", "turbo.json", "nx.json", "lerna.json"];
 pub const MONOREPO_FALLBACK_PROJECT_DIRS: [&str; 2] = ["apps", "packages"];
 pub const WORKSPACE_DISCOVERY_IGNORED_DIRS: [&str; 12] = [
-    "node_modules", ".git", "dist", "build", ".next", ".nuxt", ".svelte-kit", ".turbo", ".cache", "coverage",
-    "vendor", "vendors",
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    ".svelte-kit",
+    ".turbo",
+    ".cache",
+    "coverage",
+    "vendor",
+    "vendors",
 ];
-const VISUAL_SOURCE_DIRS: [&str; 7] = ["src", "app", "pages", "components", "site", "public", "styles"];
+const VISUAL_SOURCE_DIRS: [&str; 7] = [
+    "src",
+    "app",
+    "pages",
+    "components",
+    "site",
+    "public",
+    "styles",
+];
 const STYLE_EXTENSIONS: [&str; 5] = [".css", ".scss", ".sass", ".less", ".styl"];
 const UI_EXTENSIONS: [&str; 7] = [".html", ".htm", ".jsx", ".tsx", ".vue", ".svelte", ".astro"];
 const VISUAL_SCAN_FILE_LIMIT: usize = 250;
@@ -100,20 +119,32 @@ pub fn load_context(cwd: &str, options: &TargetOptions, env: &Env) -> Ctx {
     let product = resolved.product_path.as_deref().and_then(safe_read);
     let design = resolved.design_path.as_deref().and_then(safe_read);
     let platform = extract_platform(product.as_deref());
-    let target = if has_target_option(options) { options.target_path.as_deref() } else { None };
+    let target = if has_target_option(options) {
+        options.target_path.as_deref()
+    } else {
+        None
+    };
     let sr = resolve_surface_brief(&resolved.project_root, target);
     let brief = sr.brief.clone();
     Ctx {
         has_product: product.as_deref().map(|p| !p.is_empty()).unwrap_or(false),
-        product_path: resolved.product_path.as_deref().map(|p| jsp::relative(&abs_cwd, &abs_cwd, p)),
+        product_path: resolved
+            .product_path
+            .as_deref()
+            .map(|p| jsp::relative(&abs_cwd, &abs_cwd, p)),
         has_design: design.as_deref().map(|d| !d.is_empty()).unwrap_or(false),
-        design_path: resolved.design_path.as_deref().map(|p| jsp::relative(&abs_cwd, &abs_cwd, p)),
+        design_path: resolved
+            .design_path
+            .as_deref()
+            .map(|p| jsp::relative(&abs_cwd, &abs_cwd, p)),
         context_dir: resolved.context_dir.clone(),
         product_context_dir: resolved.product_path.as_deref().map(jsp::dirname),
         design_context_dir: resolved.design_path.as_deref().map(jsp::dirname),
         has_surface_brief: brief.is_some(),
         surface_brief: brief.as_ref().map(|b| b.text.clone()),
-        surface_brief_path: brief.as_ref().map(|b| jsp::relative(&abs_cwd, &abs_cwd, &b.path)),
+        surface_brief_path: brief
+            .as_ref()
+            .map(|b| jsp::relative(&abs_cwd, &abs_cwd, &b.path)),
         surface_brief_reason: sr.reason,
         surface_brief_candidates: sr
             .candidates
@@ -147,11 +178,19 @@ pub fn resolve_context(cwd: &str, options: &TargetOptions, env: &Env) -> Resolve
     let mut product_path = project_context_dir
         .as_deref()
         .and_then(|d| first_existing(d, &PRODUCT_NAMES))
-        .or_else(|| root_context_dir.as_deref().and_then(|d| first_existing(d, &PRODUCT_NAMES)));
+        .or_else(|| {
+            root_context_dir
+                .as_deref()
+                .and_then(|d| first_existing(d, &PRODUCT_NAMES))
+        });
     let mut design_path = project_context_dir
         .as_deref()
         .and_then(|d| first_existing(d, &DESIGN_NAMES))
-        .or_else(|| root_context_dir.as_deref().and_then(|d| first_existing(d, &DESIGN_NAMES)));
+        .or_else(|| {
+            root_context_dir
+                .as_deref()
+                .and_then(|d| first_existing(d, &DESIGN_NAMES))
+        });
     let mut env_context_dir: Option<String> = None;
     if product_path.is_none() && design_path.is_none() {
         env_context_dir = resolve_env_context_dir(&abs_cwd, env);
@@ -165,7 +204,9 @@ pub fn resolve_context(cwd: &str, options: &TargetOptions, env: &Env) -> Resolve
     } else if let Some(d) = &design_path {
         jsp::dirname(d)
     } else {
-        env_context_dir.clone().unwrap_or_else(|| project.project_root.clone())
+        env_context_dir
+            .clone()
+            .unwrap_or_else(|| project.project_root.clone())
     };
     Resolved {
         context_dir,
@@ -205,19 +246,29 @@ pub struct TargetSelection {
 }
 
 /// JS: resolveTargetSelection
-pub fn resolve_target_selection(cwd: &str, options: &TargetOptions, env: &Env) -> Option<TargetSelection> {
+pub fn resolve_target_selection(
+    cwd: &str,
+    options: &TargetOptions,
+    env: &Env,
+) -> Option<TargetSelection> {
     if has_target_option(options) {
         return None;
     }
     let project = resolve_project(cwd, &TargetOptions::default(), env);
-    if !project.is_monorepo || jsp::resolve(&project.project_root, &[]) != jsp::resolve(&project.repo_root, &[]) {
+    if !project.is_monorepo
+        || jsp::resolve(&project.project_root, &[]) != jsp::resolve(&project.repo_root, &[])
+    {
         return None;
     }
     let cands = discover_target_candidates(&project.repo_root, env);
     if cands.is_empty() {
         return None;
     }
-    Some(TargetSelection { project_root: project.project_root, repo_root: project.repo_root, target_candidates: cands })
+    Some(TargetSelection {
+        project_root: project.project_root,
+        repo_root: project.repo_root,
+        target_candidates: cands,
+    })
 }
 
 /// JS: resolveProject
@@ -271,13 +322,15 @@ pub fn resolve_project(cwd: &str, options: &TargetOptions, env: &Env) -> Project
     }
     match repo_root {
         None => Project {
-            project_root: nearest_target_context_root(&abs_cwd, &target_dir).unwrap_or_else(|| abs_cwd.clone()),
+            project_root: nearest_target_context_root(&abs_cwd, &target_dir)
+                .unwrap_or_else(|| abs_cwd.clone()),
             repo_root: abs_cwd,
             is_monorepo: false,
             target_dir,
         },
         Some(root) => Project {
-            project_root: resolve_workspace_project_root(&root, &target_dir).unwrap_or_else(|| root.clone()),
+            project_root: resolve_workspace_project_root(&root, &target_dir)
+                .unwrap_or_else(|| root.clone()),
             repo_root: root,
             is_monorepo: true,
             target_dir,
@@ -338,7 +391,11 @@ fn resolve_env_context_dir(cwd: &str, env: &Env) -> Option<String> {
     if t.is_empty() {
         return None;
     }
-    Some(if jsp::is_absolute(t) { t.to_string() } else { jsp::resolve(cwd, &[t]) })
+    Some(if jsp::is_absolute(t) {
+        t.to_string()
+    } else {
+        jsp::resolve(cwd, &[t])
+    })
 }
 
 /// JS: context.mjs#resolveTargetPath. A bare workspace name (or a
@@ -385,11 +442,17 @@ fn find_unique_bare_target(cwd: &str, target_path: &str, env: &Env) -> Option<St
 }
 
 fn resolve_target_dir(cwd: &str, options: &TargetOptions) -> String {
-    let Some(tp) = options.target_path.as_deref() else { return cwd.to_string() };
+    let Some(tp) = options.target_path.as_deref() else {
+        return cwd.to_string();
+    };
     if js_trim(tp).is_empty() {
         return cwd.to_string();
     }
-    let abs = if jsp::is_absolute(tp) { tp.to_string() } else { jsp::resolve(cwd, &[tp]) };
+    let abs = if jsp::is_absolute(tp) {
+        tp.to_string()
+    } else {
+        jsp::resolve(cwd, &[tp])
+    };
     match std::fs::metadata(&abs) {
         Ok(md) => {
             if md.is_dir() {
@@ -430,10 +493,16 @@ fn find_monorepo_root(start: &str, env: &Env) -> Option<String> {
 }
 
 fn is_monorepo_root(dir: &str) -> bool {
-    if read_project_patterns(dir).iter().any(|p| !normalize_workspace_pattern(p).starts_with('!')) {
+    if read_project_patterns(dir)
+        .iter()
+        .any(|p| !normalize_workspace_pattern(p).starts_with('!'))
+    {
         return true;
     }
-    if !MONOREPO_MARKER_FILES.iter().any(|f| exists(&jsp::join(&[dir, f]))) {
+    if !MONOREPO_MARKER_FILES
+        .iter()
+        .any(|f| exists(&jsp::join(&[dir, f])))
+    {
         return false;
     }
     has_fallback_workspace_children(dir)
@@ -442,8 +511,13 @@ fn is_monorepo_root(dir: &str) -> bool {
 fn has_fallback_workspace_children(dir: &str) -> bool {
     for name in MONOREPO_FALLBACK_PROJECT_DIRS {
         let base = jsp::join(&[dir, name]);
-        let Some(entries) = read_dir_entries(&base) else { continue };
-        if entries.iter().any(|e| e.is_dir && !is_ignored_workspace_discovery_dir(&e.name)) {
+        let Some(entries) = read_dir_entries(&base) else {
+            continue;
+        };
+        if entries
+            .iter()
+            .any(|e| e.is_dir && !is_ignored_workspace_discovery_dir(&e.name))
+        {
             return true;
         }
     }
@@ -474,10 +548,15 @@ pub fn discover_target_candidates(repo_root: &str, env: &Env) -> Vec<TargetCandi
             }
         }
     }
-    if MONOREPO_MARKER_FILES.iter().any(|f| exists(&jsp::join(&[repo_root, f]))) {
+    if MONOREPO_MARKER_FILES
+        .iter()
+        .any(|f| exists(&jsp::join(&[repo_root, f])))
+    {
         for name in MONOREPO_FALLBACK_PROJECT_DIRS {
             let base = jsp::join(&[repo_root, name]);
-            let Some(entries) = read_dir_entries(&base) else { continue };
+            let Some(entries) = read_dir_entries(&base) else {
+                continue;
+            };
             for e in entries {
                 if !e.is_dir || is_ignored_workspace_discovery_dir(&e.name) {
                     continue;
@@ -502,12 +581,22 @@ pub fn discover_target_candidates(repo_root: &str, env: &Env) -> Vec<TargetCandi
         .into_iter()
         .map(|(rel, root)| {
             let target_example = find_target_example(repo_root, &root);
-            let ctx = resolve_context(repo_root, &TargetOptions { target_path: Some(target_example.clone()) }, env);
+            let ctx = resolve_context(
+                repo_root,
+                &TargetOptions {
+                    target_path: Some(target_example.clone()),
+                },
+                env,
+            );
             TargetCandidate {
                 name: jsp::basename(&root),
                 path: rel,
                 target_example,
-                product_status: context_source_status(ctx.product_path.as_deref(), repo_root, &root),
+                product_status: context_source_status(
+                    ctx.product_path.as_deref(),
+                    repo_root,
+                    &root,
+                ),
                 product_path: context_source_path(ctx.product_path.as_deref(), repo_root),
                 design_status: context_source_status(ctx.design_path.as_deref(), repo_root, &root),
                 design_path: context_source_path(ctx.design_path.as_deref(), repo_root),
@@ -533,19 +622,35 @@ pub fn locale_compare(a: &str, b: &str) -> std::cmp::Ordering {
     let kb: Vec<(u8, u32)> = b.chars().map(key).collect();
     ka.cmp(&kb).then_with(|| {
         // lowercase before uppercase at the tertiary level
-        let la: Vec<u8> = a.chars().map(|c| if c.is_ascii_uppercase() { 1 } else { 0 }).collect();
-        let lb: Vec<u8> = b.chars().map(|c| if c.is_ascii_uppercase() { 1 } else { 0 }).collect();
+        let la: Vec<u8> = a
+            .chars()
+            .map(|c| if c.is_ascii_uppercase() { 1 } else { 0 })
+            .collect();
+        let lb: Vec<u8> = b
+            .chars()
+            .map(|c| if c.is_ascii_uppercase() { 1 } else { 0 })
+            .collect();
         la.cmp(&lb)
     })
 }
 
-fn context_source_status(file_path: Option<&str>, repo_root: &str, project_root: &str) -> &'static str {
-    let Some(fp) = file_path else { return "missing" };
+fn context_source_status(
+    file_path: Option<&str>,
+    repo_root: &str,
+    project_root: &str,
+) -> &'static str {
+    let Some(fp) = file_path else {
+        return "missing";
+    };
     let abs = jsp::resolve(fp, &[]);
     let abs_project = jsp::resolve(project_root, &[]);
     let abs_repo = jsp::resolve(repo_root, &[]);
     if is_path_inside_or_equal(&abs, &abs_project) {
-        return if jsp::dirname(&abs) == abs_project { "child" } else { "fallback" };
+        return if jsp::dirname(&abs) == abs_project {
+            "child"
+        } else {
+            "fallback"
+        };
     }
     if abs_project != abs_repo && is_path_inside_or_equal(&abs, &abs_repo) {
         return "inherited";
@@ -598,15 +703,26 @@ fn discover_roots_for_pattern(repo_root: &str, raw: &str) -> Vec<String> {
     expand_simple_pattern(repo_root, &segments, 0, repo_root)
 }
 
-fn expand_simple_pattern(repo_root: &str, segs: &[&str], index: usize, current: &str) -> Vec<String> {
+fn expand_simple_pattern(
+    repo_root: &str,
+    segs: &[&str],
+    index: usize,
+    current: &str,
+) -> Vec<String> {
     if index >= segs.len() {
-        return if exists(current) { vec![current.to_string()] } else { vec![] };
+        return if exists(current) {
+            vec![current.to_string()]
+        } else {
+            vec![]
+        };
     }
     let seg = segs[index];
     if !seg.contains('*') {
         return expand_simple_pattern(repo_root, segs, index + 1, &jsp::join(&[current, seg]));
     }
-    let Some(entries) = read_dir_entries(current) else { return vec![] };
+    let Some(entries) = read_dir_entries(current) else {
+        return vec![];
+    };
     let mut roots = Vec::new();
     for e in entries {
         if !e.is_dir || is_ignored_workspace_discovery_dir(&e.name) {
@@ -615,7 +731,12 @@ fn expand_simple_pattern(repo_root: &str, segs: &[&str], index: usize, current: 
         if !segment_matches(seg, &e.name) {
             continue;
         }
-        roots.extend(expand_simple_pattern(repo_root, segs, index + 1, &jsp::join(&[current, &e.name])));
+        roots.extend(expand_simple_pattern(
+            repo_root,
+            segs,
+            index + 1,
+            &jsp::join(&[current, &e.name]),
+        ));
     }
     roots
 }
@@ -632,7 +753,9 @@ fn direct_child_dirs(dir: &str) -> Vec<String> {
 }
 
 fn walk_dirs(root: &str, visit: &mut dyn FnMut(&str)) {
-    let Some(entries) = read_dir_entries(root) else { return };
+    let Some(entries) = read_dir_entries(root) else {
+        return;
+    };
     for e in entries {
         if !e.is_dir || is_ignored_workspace_discovery_dir(&e.name) {
             continue;
@@ -684,7 +807,8 @@ fn resolve_workspace_project_root(repo_root: &str, target_dir: &str) -> Option<S
             return Some(repo_root.to_string());
         }
         for pattern in &patterns {
-            if let Some(pr) = project_root_from_workspace_pattern(repo_root, &rel_segments, pattern) {
+            if let Some(pr) = project_root_from_workspace_pattern(repo_root, &rel_segments, pattern)
+            {
                 return Some(pr);
             }
         }
@@ -700,7 +824,9 @@ fn resolve_workspace_project_root(repo_root: &str, target_dir: &str) -> Option<S
 
 fn is_selectable_candidate(rel: &str, groups: &[Vec<String>]) -> bool {
     let rel_segments: Vec<&str> = rel.split('/').filter(|s| !s.is_empty()).collect();
-    !groups.iter().any(|patterns| is_excluded_by_workspace_pattern(&rel_segments, patterns))
+    !groups
+        .iter()
+        .any(|patterns| is_excluded_by_workspace_pattern(&rel_segments, patterns))
 }
 
 fn is_excluded_by_workspace_pattern(rel_segments: &[&str], patterns: &[String]) -> bool {
@@ -717,7 +843,10 @@ fn nearest_target_context_root(abs_cwd: &str, target_dir: &str) -> Option<String
     if !is_path_inside(target_dir, abs_cwd) {
         return None;
     }
-    let root_fallbacks: Vec<String> = FALLBACK_DIRS.iter().map(|r| jsp::resolve(abs_cwd, &[r])).collect();
+    let root_fallbacks: Vec<String> = FALLBACK_DIRS
+        .iter()
+        .map(|r| jsp::resolve(abs_cwd, &[r]))
+        .collect();
     let mut dir = jsp::resolve(target_dir, &[]);
     while !dir.is_empty() && dir != abs_cwd {
         if !root_fallbacks.contains(&dir) && resolve_local_context_dir(&dir).is_some() {
@@ -736,7 +865,9 @@ fn nearest_project_like_root(repo_root: &str, target_dir: &str) -> Option<String
     let mut dir = jsp::resolve(target_dir, &[]);
     let stop = jsp::resolve(repo_root, &[]);
     while !dir.is_empty() && dir != stop {
-        if first_existing(&dir, &all_context_names()).is_some() || exists(&jsp::join(&[&dir, "package.json"])) {
+        if first_existing(&dir, &all_context_names()).is_some()
+            || exists(&jsp::join(&[&dir, "package.json"]))
+        {
             return Some(dir);
         }
         let parent = jsp::dirname(&dir);
@@ -748,7 +879,11 @@ fn nearest_project_like_root(repo_root: &str, target_dir: &str) -> Option<String
     None
 }
 
-fn nearest_package_root_between(repo_root: &str, target_dir: &str, stop_dir: &str) -> Option<String> {
+fn nearest_package_root_between(
+    repo_root: &str,
+    target_dir: &str,
+    stop_dir: &str,
+) -> Option<String> {
     let mut dir = jsp::resolve(target_dir, &[]);
     let stop = jsp::resolve(stop_dir, &[]);
     let root = jsp::resolve(repo_root, &[]);
@@ -809,7 +944,10 @@ pub fn read_project_pattern_groups(repo_root: &str) -> Vec<Vec<String>> {
 }
 
 fn read_project_patterns(repo_root: &str) -> Vec<String> {
-    read_project_pattern_groups(repo_root).into_iter().flatten().collect()
+    read_project_pattern_groups(repo_root)
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
 /// JS array-of-strings coercion for workspace patterns: non-string entries
@@ -829,8 +967,12 @@ fn value_strings(v: &Value) -> Vec<String> {
 }
 
 fn read_package_workspaces(repo_root: &str) -> Vec<String> {
-    let Some(pkg) = read_json(&jsp::join(&[repo_root, "package.json"])) else { return vec![] };
-    let Some(ws) = pkg.get("workspaces") else { return vec![] };
+    let Some(pkg) = read_json(&jsp::join(&[repo_root, "package.json"])) else {
+        return vec![];
+    };
+    let Some(ws) = pkg.get("workspaces") else {
+        return vec![];
+    };
     if ws.is_array() {
         return value_strings(ws);
     }
@@ -843,20 +985,25 @@ fn read_package_workspaces(repo_root: &str) -> Vec<String> {
 }
 
 fn read_lerna_workspaces(repo_root: &str) -> Vec<String> {
-    let Some(lerna) = read_json(&jsp::join(&[repo_root, "lerna.json"])) else { return vec![] };
+    let Some(lerna) = read_json(&jsp::join(&[repo_root, "lerna.json"])) else {
+        return vec![];
+    };
     match lerna.get("packages") {
         Some(p) if p.is_array() => value_strings(p),
         _ => vec![],
     }
 }
 
-static PACKAGES_FLOW_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^packages:\s*\[(.*)\]\s*$").unwrap());
+static PACKAGES_FLOW_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^packages:\s*\[(.*)\]\s*$").unwrap());
 static PACKAGES_BLOCK_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^packages:\s*$").unwrap());
 static YAML_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[A-Za-z0-9_-]+:\s*").unwrap());
 static YAML_ITEM_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-\s*(.+)$").unwrap());
 
 fn read_pnpm_workspaces(repo_root: &str) -> Vec<String> {
-    let Some(body) = safe_read(&jsp::join(&[repo_root, "pnpm-workspace.yaml"])) else { return vec![] };
+    let Some(body) = safe_read(&jsp::join(&[repo_root, "pnpm-workspace.yaml"])) else {
+        return vec![];
+    };
     let mut patterns = Vec::new();
     let mut in_packages = false;
     for line in body.split('\n') {
@@ -893,7 +1040,11 @@ fn strip_yaml_inline_comment(line: &str) -> String {
     for i in 0..chars.len() {
         let ch = chars[i];
         if (ch == '"' || ch == '\'') && (i == 0 || chars[i - 1] != '\\') {
-            quote = if quote == Some(ch) { None } else { quote.or(Some(ch)) };
+            quote = if quote == Some(ch) {
+                None
+            } else {
+                quote.or(Some(ch))
+            };
             continue;
         }
         if ch == '#' && quote.is_none() {
@@ -911,7 +1062,11 @@ fn parse_yaml_flow_list(body: &str) -> Vec<String> {
     for i in 0..chars.len() {
         let ch = chars[i];
         if (ch == '"' || ch == '\'') && (i == 0 || chars[i - 1] != '\\') {
-            quote = if quote == Some(ch) { None } else { quote.or(Some(ch)) };
+            quote = if quote == Some(ch) {
+                None
+            } else {
+                quote.or(Some(ch))
+            };
             current.push(ch);
             continue;
         }
@@ -949,7 +1104,11 @@ pub fn strip_one_quote_each_end(t: &str) -> String {
     s.to_string()
 }
 
-fn project_root_from_workspace_pattern(repo_root: &str, rel_segments: &[&str], raw: &str) -> Option<String> {
+fn project_root_from_workspace_pattern(
+    repo_root: &str,
+    rel_segments: &[&str],
+    raw: &str,
+) -> Option<String> {
     let pattern = normalize_workspace_pattern(raw);
     if pattern.is_empty() || pattern.starts_with('!') {
         return None;
@@ -974,7 +1133,11 @@ fn project_root_from_workspace_pattern(repo_root: &str, rel_segments: &[&str], r
     Some(jsp::join(&parts))
 }
 
-fn project_root_from_double_star_pattern(repo_root: &str, rel_segments: &[&str], segs: &[&str]) -> Option<String> {
+fn project_root_from_double_star_pattern(
+    repo_root: &str,
+    rel_segments: &[&str],
+    segs: &[&str],
+) -> Option<String> {
     let first_glob = segs.iter().position(|s| s.contains('*'));
     let prefix: Vec<&str> = match first_glob {
         None => segs.to_vec(),
@@ -1025,7 +1188,9 @@ fn segment_matches(pattern_segment: &str, rel_segment: &str) -> bool {
         }
     }
     re.push('$');
-    Regex::new(&re).map(|r| r.is_match(rel_segment)).unwrap_or(false)
+    Regex::new(&re)
+        .map(|r| r.is_match(rel_segment))
+        .unwrap_or(false)
 }
 
 // ─── extractSectionValue / extractPlatform ─────────────────────────────────
@@ -1060,12 +1225,18 @@ fn is_heading_line(s: &str) -> bool {
     if hashes == 0 || hashes > 6 {
         return false;
     }
-    s[hashes..].chars().next().map(|c| c.is_whitespace()).unwrap_or(false)
+    s[hashes..]
+        .chars()
+        .next()
+        .map(|c| c.is_whitespace())
+        .unwrap_or(false)
 }
 
 /// JS: extractPlatform
 pub fn extract_platform(product: Option<&str>) -> Option<String> {
-    let value = extract_section_value(product, "Platform").unwrap_or_default().to_lowercase();
+    let value = extract_section_value(product, "Platform")
+        .unwrap_or_default()
+        .to_lowercase();
     if value.is_empty() {
         return None;
     }
@@ -1092,12 +1263,18 @@ static RE_BLOCK_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?s)/\*.*?\*/")
 static RE_HTML_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?s)<!--.*?-->").unwrap());
 static RE_LINE_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?m)^\s*//.*$").unwrap());
 static RE_CUSTOM_PROP: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)--[a-z0-9_-]+\s*:").unwrap());
-static RE_VISUAL_DECL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?i)(?-u:\b)(?:color|background(?:-color)?|border(?:-color)?|font-family)\s*:").unwrap());
-static RE_TOKEN_NAME: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?-u:\b)(?:tokens?|theme|design-system)(?-u:\b)").unwrap());
-static RE_STYLE_LINK: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)<style(?-u:\b)|<link[^>]+stylesheet").unwrap());
-static RE_CLASS_ATTR: Lazy<Regex> = Lazy::new(|| Regex::new("(?i)class(?:Name)?\\s*=\\s*[\"'`]([^\"'`]+)[\"'`]").unwrap());
-static RE_STYLED: Lazy<Regex> = Lazy::new(|| Regex::new("(?i)class(?:Name)?\\s*=|style\\s*=|styled\\(|css`").unwrap());
+static RE_VISUAL_DECL: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)(?-u:\b)(?:color|background(?:-color)?|border(?:-color)?|font-family)\s*:")
+        .unwrap()
+});
+static RE_TOKEN_NAME: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?-u:\b)(?:tokens?|theme|design-system)(?-u:\b)").unwrap());
+static RE_STYLE_LINK: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)<style(?-u:\b)|<link[^>]+stylesheet").unwrap());
+static RE_CLASS_ATTR: Lazy<Regex> =
+    Lazy::new(|| Regex::new("(?i)class(?:Name)?\\s*=\\s*[\"'`]([^\"'`]+)[\"'`]").unwrap());
+static RE_STYLED: Lazy<Regex> =
+    Lazy::new(|| Regex::new("(?i)class(?:Name)?\\s*=|style\\s*=|styled\\(|css`").unwrap());
 static RE_MIN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\.min\.[a-z]+$").unwrap());
 
 fn js_slice_utf16(s: &str, n: usize) -> &str {
@@ -1144,7 +1321,9 @@ pub fn has_visual_implementation(project_root: &str) -> bool {
         if n >= VISUAL_SCAN_FILE_LIMIT {
             return false;
         }
-        let Some(raw) = safe_read(file_path) else { return false };
+        let Some(raw) = safe_read(file_path) else {
+            return false;
+        };
         let body = js_slice_utf16(&raw, 64 * 1024);
         let e1 = RE_BLOCK_COMMENT.replace_all(body, "");
         let e2 = RE_HTML_COMMENT.replace_all(&e1, "");
@@ -1175,7 +1354,9 @@ pub fn has_visual_implementation(project_root: &str) -> bool {
                     if t.is_empty() {
                         1
                     } else {
-                        t.split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty()).count()
+                        t.split(|c: char| c.is_whitespace())
+                            .filter(|s| !s.is_empty())
+                            .count()
                     }
                 })
                 .sum();
@@ -1203,7 +1384,9 @@ pub fn has_visual_implementation(project_root: &str) -> bool {
         if scanned >= VISUAL_SCAN_FILE_LIMIT {
             break;
         }
-        let Some(entries) = read_dir_entries(&dir) else { continue };
+        let Some(entries) = read_dir_entries(&dir) else {
+            continue;
+        };
         for e in entries {
             if e.is_dir {
                 if depth >= VISUAL_SCAN_DEPTH_LIMIT
@@ -1213,7 +1396,8 @@ pub fn has_visual_implementation(project_root: &str) -> bool {
                     continue;
                 }
                 queue.push_back((jsp::join(&[&dir, &e.name]), depth + 1));
-            } else if e.is_file && inspect(&jsp::join(&[&dir, &e.name]), &mut scanned, &mut styled) {
+            } else if e.is_file && inspect(&jsp::join(&[&dir, &e.name]), &mut scanned, &mut styled)
+            {
                 return true;
             }
             if scanned >= VISUAL_SCAN_FILE_LIMIT {

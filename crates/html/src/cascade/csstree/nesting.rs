@@ -72,10 +72,7 @@ pub(crate) fn exceeds_nesting_limit(source: &str) -> bool {
             }
             closers[depth] = closer;
             depth += 1;
-        } else if matches!(byte, b')' | b'}' | b']')
-            && depth > 0
-            && closers[depth - 1] == byte
-        {
+        } else if matches!(byte, b')' | b'}' | b']') && depth > 0 && closers[depth - 1] == byte {
             depth -= 1;
         }
         index += 1;

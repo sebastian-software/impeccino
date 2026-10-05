@@ -17,7 +17,23 @@ pub struct Url {
 fn is_forbidden_host_cp(c: char) -> bool {
     matches!(
         c,
-        '\0' | '\t' | '\n' | '\r' | ' ' | '#' | '/' | ':' | '<' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '|' | '%'
+        '\0' | '\t'
+            | '\n'
+            | '\r'
+            | ' '
+            | '#'
+            | '/'
+            | ':'
+            | '<'
+            | '>'
+            | '?'
+            | '@'
+            | '['
+            | '\\'
+            | ']'
+            | '^'
+            | '|'
+            | '%'
     )
 }
 
@@ -45,7 +61,10 @@ fn percent_encode(s: &str, encode_set: &[char]) -> String {
 pub fn parse(input: &str) -> Option<Url> {
     // strip leading/trailing C0+space, remove tab/newline
     let trimmed = input.trim_matches(|c: char| (c as u32) <= 0x20);
-    let cleaned: String = trimmed.chars().filter(|c| !matches!(c, '\t' | '\n' | '\r')).collect();
+    let cleaned: String = trimmed
+        .chars()
+        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
+        .collect();
     let colon = cleaned.find(':')?;
     let scheme = cleaned[..colon].to_ascii_lowercase();
     if scheme != "http" && scheme != "https" {
@@ -55,7 +74,9 @@ pub fn parse(input: &str) -> Option<Url> {
     // special scheme: skip any number of / or \
     let rest = rest.trim_start_matches(|c| c == '/' || c == '\\');
     // authority ends at / \ ? #
-    let auth_end = rest.find(|c| c == '/' || c == '\\' || c == '?' || c == '#').unwrap_or(rest.len());
+    let auth_end = rest
+        .find(|c| c == '/' || c == '\\' || c == '?' || c == '#')
+        .unwrap_or(rest.len());
     let authority = &rest[..auth_end];
     let after = &rest[auth_end..];
     let (userinfo, hostport) = match authority.rfind('@') {
@@ -78,7 +99,10 @@ pub fn parse(input: &str) -> Option<Url> {
         }
     } else {
         match hostport.rfind(':') {
-            Some(i) => (hostport[..i].to_string(), Some(hostport[i + 1..].to_string())),
+            Some(i) => (
+                hostport[..i].to_string(),
+                Some(hostport[i + 1..].to_string()),
+            ),
             None => (hostport.to_string(), None),
         }
     };
@@ -124,7 +148,11 @@ pub fn parse(input: &str) -> Option<Url> {
     let path_part = path_part.replace('\\', "/");
     // segment normalization
     let mut segs: Vec<String> = Vec::new();
-    let raw_segs: Vec<&str> = if path_part.is_empty() { vec![] } else { path_part[1..].split('/').collect() };
+    let raw_segs: Vec<&str> = if path_part.is_empty() {
+        vec![]
+    } else {
+        path_part[1..].split('/').collect()
+    };
     let n = raw_segs.len();
     for (i, seg) in raw_segs.iter().enumerate() {
         let lower = seg.to_ascii_lowercase();
@@ -144,7 +172,11 @@ pub fn parse(input: &str) -> Option<Url> {
             segs.push(percent_encode(seg, PATH_ENCODE_SET));
         }
     }
-    let pathname = if segs.is_empty() { "/".to_string() } else { format!("/{}", segs.join("/")) };
+    let pathname = if segs.is_empty() {
+        "/".to_string()
+    } else {
+        format!("/{}", segs.join("/"))
+    };
     let search = match query {
         Some(q) if !q.is_empty() => format!("?{}", percent_encode(q, QUERY_ENCODE_SET)),
         _ => String::new(),
@@ -153,7 +185,16 @@ pub fn parse(input: &str) -> Option<Url> {
         Some(h) if !h.is_empty() => format!("#{}", percent_encode(h, FRAGMENT_ENCODE_SET)),
         _ => String::new(),
     };
-    Some(Url { scheme, username, password, hostname, port, pathname, search, hash })
+    Some(Url {
+        scheme,
+        username,
+        password,
+        hostname,
+        port,
+        pathname,
+        search,
+        hash,
+    })
 }
 
 fn percent_decode(s: &str) -> String {
@@ -162,7 +203,9 @@ fn percent_decode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() + 0 && i + 2 <= bytes.len() - 1 {
-            let h = std::str::from_utf8(&bytes[i + 1..i + 3]).ok().and_then(|x| u8::from_str_radix(x, 16).ok());
+            let h = std::str::from_utf8(&bytes[i + 1..i + 3])
+                .ok()
+                .and_then(|x| u8::from_str_radix(x, 16).ok());
             if let Some(v) = h {
                 out.push(v);
                 i += 3;
@@ -214,11 +257,20 @@ mod tests {
     fn component_encoding_preserves_distinct_sets() {
         let text = "\u{1}\u{7f} é💡\"<>`{}'%2f";
         let u = parse(&format!("https://example.com/x{text}x?q=x{text}x#x{text}x")).unwrap();
-        assert_eq!(u.pathname, "/x%01%7F%20%C3%A9%F0%9F%92%A1%22%3C%3E%60%7B%7D'%2fx");
-        assert_eq!(u.search, "?q=x%01%7F%20%C3%A9%F0%9F%92%A1%22%3C%3E`{}%27%2fx");
+        assert_eq!(
+            u.pathname,
+            "/x%01%7F%20%C3%A9%F0%9F%92%A1%22%3C%3E%60%7B%7D'%2fx"
+        );
+        assert_eq!(
+            u.search,
+            "?q=x%01%7F%20%C3%A9%F0%9F%92%A1%22%3C%3E`{}%27%2fx"
+        );
         assert_eq!(u.hash, "#x%01%7F%20%C3%A9%F0%9F%92%A1%22%3C%3E%60{}'%2fx");
         let u = parse("https://example.com/a?x=?#h?#").unwrap();
-        assert_eq!((u.pathname.as_str(), u.search.as_str(), u.hash.as_str()), ("/a", "?x=?", "#h?#"));
+        assert_eq!(
+            (u.pathname.as_str(), u.search.as_str(), u.hash.as_str()),
+            ("/a", "?x=?", "#h?#")
+        );
     }
 
     #[test]

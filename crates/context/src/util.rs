@@ -93,7 +93,11 @@ pub fn js_number_to_string(v: f64) -> String {
         return "NaN".into();
     }
     if v.is_infinite() {
-        return if v > 0.0 { "Infinity".into() } else { "-Infinity".into() };
+        return if v > 0.0 {
+            "Infinity".into()
+        } else {
+            "-Infinity".into()
+        };
     }
     if v == 0.0 {
         return "0".into();
@@ -138,7 +142,9 @@ pub fn is_file(p: &str) -> bool {
 
 /// `fs.readFileSync(p, 'utf-8')` or null.
 pub fn safe_read(p: &str) -> Option<String> {
-    std::fs::read(p).ok().map(|b| String::from_utf8_lossy(&b).into_owned())
+    std::fs::read(p)
+        .ok()
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
 }
 
 /// `JSON.parse(fs.readFileSync(p))` or null.
@@ -184,7 +190,11 @@ pub fn read_dir_entries(p: &str) -> Option<Vec<DirEntry>> {
                 Some(t) => (t.is_dir(), t.is_file()),
                 None => (false, false),
             };
-            DirEntry { name, is_dir, is_file }
+            DirEntry {
+                name,
+                is_dir,
+                is_file,
+            }
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -298,7 +308,10 @@ pub fn homedir(env: &Env) -> String {
 /// hook-lib `truthy()`: /^(1|true|yes|on)$/i on the trimmed value.
 pub fn truthy_env(env: &Env, key: &str) -> bool {
     match env.get(key) {
-        Some(v) => matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"),
+        Some(v) => matches!(
+            v.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
         None => false,
     }
 }
@@ -359,10 +372,14 @@ pub fn js_number(s: &str) -> f64 {
         return f64::NEG_INFINITY;
     }
     if let Some(h) = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")) {
-        return i64::from_str_radix(h, 16).map(|v| v as f64).unwrap_or(f64::NAN);
+        return i64::from_str_radix(h, 16)
+            .map(|v| v as f64)
+            .unwrap_or(f64::NAN);
     }
     // Reject things Rust accepts but JS doesn't (e.g. "nan", "inf")
-    if t.chars().any(|c| c.is_ascii_alphabetic() && c != 'e' && c != 'E') {
+    if t.chars()
+        .any(|c| c.is_ascii_alphabetic() && c != 'e' && c != 'E')
+    {
         return f64::NAN;
     }
     t.parse::<f64>().unwrap_or(f64::NAN)

@@ -12,7 +12,11 @@ input { background: white; font-size: 16px; width: 200px; height: 40px; border: 
 "#;
 
 fn scan(html: &str) -> Vec<impeccino_core::findings::Finding> {
-    detect_html_source(html, Path::new("/tmp/placeholder.html"), &DetectHtmlOptions::default())
+    detect_html_source(
+        html,
+        Path::new("/tmp/placeholder.html"),
+        &DetectHtmlOptions::default(),
+    )
 }
 
 fn repo_root() -> std::path::PathBuf {

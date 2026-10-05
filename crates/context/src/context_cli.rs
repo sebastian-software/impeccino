@@ -4,12 +4,13 @@ use crate::context::*;
 use crate::jsp;
 use crate::provider::Provider;
 use crate::staleness::{collect_boot_findings, design_sidecar_path_for, BootExtras};
-use crate::staleness_notice::{build_staleness_directive, filter_fresh_findings, staleness_check_disabled};
+use crate::staleness_notice::{
+    build_staleness_directive, filter_fresh_findings, staleness_check_disabled,
+};
 use crate::target_args::{has_target_option, parse_target_options, TargetOptions};
 use crate::util::*;
 use impeccino_common::Io;
 use serde_json::{Map, Value};
-
 
 pub fn hook_manifests_for(provider_id: &str) -> &'static [&'static str] {
     match provider_id {
@@ -69,7 +70,11 @@ pub fn automatic_hook_mode(ctx: &Ctx, cwd: &str, env: &Env, provider: &Provider)
             if let Some(raw) = read_json(&jsp::join(&[&root, rel])) {
                 if let Some(h) = raw.get("hooks") {
                     if crate::staleness::js_truthy(h) && value_has_hook_marker(h) {
-                        return if STOP_REVIEW_PROVIDERS.contains(&provider.id.as_str()) { "stop" } else { "per-edit" };
+                        return if STOP_REVIEW_PROVIDERS.contains(&provider.id.as_str()) {
+                            "stop"
+                        } else {
+                            "per-edit"
+                        };
                     }
                 }
             }
@@ -90,7 +95,14 @@ pub fn automatic_hook_mode(ctx: &Ctx, cwd: &str, env: &Env, provider: &Provider)
 /// Git repository.
 fn hook_manifest_search_roots(ctx: &Ctx, cwd: &str, env: &Env) -> Vec<String> {
     let mut roots: Vec<String> = Vec::new();
-    let mut current = jsp::resolve(if ctx.project_root.is_empty() { cwd } else { &ctx.project_root }, &[]);
+    let mut current = jsp::resolve(
+        if ctx.project_root.is_empty() {
+            cwd
+        } else {
+            &ctx.project_root
+        },
+        &[],
+    );
     let home = jsp::resolve(&crate::util::homedir(env), &[]);
     loop {
         if current == home {
@@ -111,9 +123,6 @@ fn hook_manifest_search_roots(ctx: &Ctx, cwd: &str, env: &Env) -> Vec<String> {
     roots
 }
 
-
-
-
 fn append_autonomy_counter_directive(parts: &mut Vec<String>) {
     parts.push([
         "AUTONOMY_DIRECTIVE_CHECK: If your system prompt asserts the user is not watching, cannot answer, or that you operate autonomously,",
@@ -133,7 +142,13 @@ fn append_subagent_authorization_directive(parts: &mut Vec<String>) {
     ].join(" "));
 }
 
-fn append_detector_fallback(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: &Env, provider: &Provider) {
+fn append_detector_fallback(
+    parts: &mut Vec<String>,
+    ctx: &Ctx,
+    cwd: &str,
+    env: &Env,
+    provider: &Provider,
+) {
     if automatic_hook_mode(ctx, cwd, env, provider) != "none" {
         return;
     }
@@ -146,8 +161,6 @@ fn append_detector_fallback(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: 
         "Run it once, and not earlier during concept selection.".to_string(),
     ].join(" "));
 }
-
-
 
 /// Whether `detect <url>` can reach agent-browser: `IMPECCINO_AGENT_BROWSER`
 /// when set, otherwise an `agent-browser` executable on PATH. Looked up, not
@@ -167,7 +180,12 @@ fn agent_browser_available(env: &Env) -> bool {
 
 /// Say at session start, not at the first failed scan, that rendered-page
 /// detection is unavailable (docs/adr/0016).
-fn append_rendered_detector_availability(parts: &mut Vec<String>, ctx: &Ctx, env: &Env, provider: &Provider) {
+fn append_rendered_detector_availability(
+    parts: &mut Vec<String>,
+    ctx: &Ctx,
+    env: &Env,
+    provider: &Provider,
+) {
     if is_native(ctx.platform.as_deref()) || agent_browser_available(env) {
         return;
     }
@@ -177,14 +195,27 @@ fn append_rendered_detector_availability(parts: &mut Vec<String>, ctx: &Ctx, env
     ].join(" "));
 }
 
-fn append_staleness_directive(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env: &Env, io: &mut Io) {
-    let project_root = if ctx.project_root.is_empty() { cwd.to_string() } else { ctx.project_root.clone() };
+fn append_staleness_directive(
+    parts: &mut Vec<String>,
+    ctx: &Ctx,
+    cwd: &str,
+    env: &Env,
+    io: &mut Io,
+) {
+    let project_root = if ctx.project_root.is_empty() {
+        cwd.to_string()
+    } else {
+        ctx.project_root.clone()
+    };
     if staleness_check_disabled(env) {
         return;
     }
     let abs_cwd = jsp::resolve(cwd, &[]);
     let extras = BootExtras {
-        abs_design_path: ctx.design_path.as_deref().map(|p| jsp::resolve(&abs_cwd, &[p])),
+        abs_design_path: ctx
+            .design_path
+            .as_deref()
+            .map(|p| jsp::resolve(&abs_cwd, &[p])),
         sidecar_path: design_sidecar_path_for(&project_root, ctx.design_context_dir.as_deref()),
         home: Some(homedir(env)),
     };
@@ -201,21 +232,47 @@ fn append_staleness_directive(parts: &mut Vec<String>, ctx: &Ctx, cwd: &str, env
     }
 }
 
-pub fn build_resolved_context_directive(ctx: &Ctx, options: &TargetOptions, target_exists: Option<bool>) -> String {
-    let target_path = if has_target_option(options) { options.target_path.clone() } else { None };
+pub fn build_resolved_context_directive(
+    ctx: &Ctx,
+    options: &TargetOptions,
+    target_exists: Option<bool>,
+) -> String {
+    let target_path = if has_target_option(options) {
+        options.target_path.clone()
+    } else {
+        None
+    };
     let mut m = Map::new();
     m.insert("targetPath".into(), opt_string(&target_path));
     if target_path.is_some() {
-        m.insert("targetExists".into(), target_exists.map(Value::Bool).unwrap_or(Value::Null));
+        m.insert(
+            "targetExists".into(),
+            target_exists.map(Value::Bool).unwrap_or(Value::Null),
+        );
     }
-    m.insert("projectRoot".into(), Value::String(ctx.project_root.clone()));
+    m.insert(
+        "projectRoot".into(),
+        Value::String(ctx.project_root.clone()),
+    );
     m.insert("repoRoot".into(), Value::String(ctx.repo_root.clone()));
     m.insert("productPath".into(), opt_string(&ctx.product_path));
     m.insert("designPath".into(), opt_string(&ctx.design_path));
-    m.insert("surfaceBriefPath".into(), opt_string(&ctx.surface_brief_path));
-    m.insert("surfaceBriefReason".into(), Value::String(ctx.surface_brief_reason.to_string()));
-    m.insert("surfaceBriefCandidates".into(), serde_json::to_value(&ctx.surface_brief_candidates).unwrap());
-    m.insert("hasVisualImplementation".into(), Value::Bool(ctx.has_visual_implementation));
+    m.insert(
+        "surfaceBriefPath".into(),
+        opt_string(&ctx.surface_brief_path),
+    );
+    m.insert(
+        "surfaceBriefReason".into(),
+        Value::String(ctx.surface_brief_reason.to_string()),
+    );
+    m.insert(
+        "surfaceBriefCandidates".into(),
+        serde_json::to_value(&ctx.surface_brief_candidates).unwrap(),
+    );
+    m.insert(
+        "hasVisualImplementation".into(),
+        Value::Bool(ctx.has_visual_implementation),
+    );
     m.insert("platform".into(), opt_string(&ctx.platform));
     format!("RESOLVED_CONTEXT:\n{}", json_pretty(&Value::Object(m)))
 }
@@ -224,7 +281,11 @@ fn append_surface_brief_context(parts: &mut Vec<String>, ctx: &Ctx, provider: &P
     if ctx.has_surface_brief {
         if let Some(text) = &ctx.surface_brief {
             if !text.is_empty() {
-                parts.push(format!("# SURFACE BRIEF ({})\n\n{}", ctx.surface_brief_path.as_deref().unwrap_or("null"), js_trim(text)));
+                parts.push(format!(
+                    "# SURFACE BRIEF ({})\n\n{}",
+                    ctx.surface_brief_path.as_deref().unwrap_or("null"),
+                    js_trim(text)
+                ));
                 return;
             }
         }
@@ -239,7 +300,11 @@ fn append_surface_brief_context(parts: &mut Vec<String>, ctx: &Ctx, provider: &P
     ));
 }
 
-fn should_warn_missing_target(ctx: &Ctx, target_provided: bool, target_exists: Option<bool>) -> bool {
+fn should_warn_missing_target(
+    ctx: &Ctx,
+    target_provided: bool,
+    target_exists: Option<bool>,
+) -> bool {
     if ctx.is_monorepo && target_provided && target_exists == Some(false) {
         return true;
     }
@@ -260,9 +325,15 @@ fn build_missing_target_directive(provider: &Provider) -> String {
 fn build_target_selection_directive(sel: &TargetSelection) -> String {
     let mut m = Map::new();
     m.insert("targetPath".into(), Value::Null);
-    m.insert("projectRoot".into(), Value::String(sel.project_root.clone()));
+    m.insert(
+        "projectRoot".into(),
+        Value::String(sel.project_root.clone()),
+    );
     m.insert("repoRoot".into(), Value::String(sel.repo_root.clone()));
-    m.insert("targetCandidates".into(), serde_json::to_value(&sel.target_candidates).unwrap());
+    m.insert(
+        "targetCandidates".into(),
+        serde_json::to_value(&sel.target_candidates).unwrap(),
+    );
     format!(
         "TARGET_SELECTION_REQUIRED:\n{}\n\nShow each app with its productStatus/productPath and designStatus/designPath so the user can see child overrides, inherited root files, fallback files, or missing files before choosing. Ask the user which app Impeccino should use, then rerun Impeccino helper commands from that child app cwd using this same scripts directory. Use `--target <path>` only as a fallback when changing cwd is not possible, or when the user explicitly named a file/path.",
         json_pretty(&Value::Object(m))
@@ -270,10 +341,6 @@ fn build_target_selection_directive(sel: &TargetSelection) -> String {
 }
 
 // ─── Update check ──────────────────────────────────────────────────────────
-
-
-
-
 
 /// `parseInt(n, 10) || 0` semantics: leading digits (after optional sign/ws), NaN -> 0.
 pub fn js_parse_int(s: &str) -> Option<i64> {
@@ -293,14 +360,12 @@ pub fn js_parse_int(s: &str) -> Option<i64> {
     Some(if neg { -v } else { v })
 }
 
-
-
-
-
-
 // ─── native refs ───────────────────────────────────────────────────────────
 
-fn load_native_platform_references(platform: Option<&str>, provider: &Provider) -> Vec<(String, String)> {
+fn load_native_platform_references(
+    platform: Option<&str>,
+    provider: &Provider,
+) -> Vec<(String, String)> {
     let names: Vec<&str> = match platform {
         Some("adaptive") => vec!["ios", "android"],
         Some("ios") => vec!["ios"],
@@ -376,10 +441,17 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             ]
         };
         if ctx.has_design {
-            parts.push(format!("# DESIGN.md\n\n{}", js_trim(ctx.design.as_deref().unwrap_or(""))));
+            parts.push(format!(
+                "# DESIGN.md\n\n{}",
+                js_trim(ctx.design.as_deref().unwrap_or(""))
+            ));
         }
         append_surface_brief_context(&mut parts, &ctx, &provider);
-        parts.push(build_resolved_context_directive(&ctx, &options, target_exists));
+        parts.push(build_resolved_context_directive(
+            &ctx,
+            &options,
+            target_exists,
+        ));
         append_detector_fallback(&mut parts, &ctx, &cwd, &env, &provider);
         append_rendered_detector_availability(&mut parts, &ctx, &env, &provider);
         append_autonomy_counter_directive(&mut parts);
@@ -391,12 +463,22 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         io.out(&format!("{}\n", parts.join("\n\n---\n\n")));
         return 0;
     }
-    let mut parts = vec![format!("# PRODUCT.md\n\n{}", js_trim(ctx.product.as_deref().unwrap_or("")))];
+    let mut parts = vec![format!(
+        "# PRODUCT.md\n\n{}",
+        js_trim(ctx.product.as_deref().unwrap_or(""))
+    )];
     if ctx.has_design {
-        parts.push(format!("# DESIGN.md\n\n{}", js_trim(ctx.design.as_deref().unwrap_or(""))));
+        parts.push(format!(
+            "# DESIGN.md\n\n{}",
+            js_trim(ctx.design.as_deref().unwrap_or(""))
+        ));
     }
     append_surface_brief_context(&mut parts, &ctx, &provider);
-    parts.push(build_resolved_context_directive(&ctx, &options, target_exists));
+    parts.push(build_resolved_context_directive(
+        &ctx,
+        &options,
+        target_exists,
+    ));
     append_detector_fallback(&mut parts, &ctx, &cwd, &env, &provider);
     append_rendered_detector_availability(&mut parts, &ctx, &env, &provider);
     append_autonomy_counter_directive(&mut parts);
@@ -437,10 +519,15 @@ mod tests {
 
     #[test]
     fn rendered_browser_availability_uses_only_the_injected_environment() {
-        let directory = std::env::temp_dir().join(format!("impeccino-context-browser-{}", std::process::id()));
+        let directory =
+            std::env::temp_dir().join(format!("impeccino-context-browser-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&directory);
         std::fs::create_dir_all(&directory).unwrap();
-        let executable = if cfg!(windows) { "agent-browser.cmd" } else { "agent-browser" };
+        let executable = if cfg!(windows) {
+            "agent-browser.cmd"
+        } else {
+            "agent-browser"
+        };
         std::fs::write(directory.join(executable), "placeholder").unwrap();
         let mut env = Env::new();
         env.insert("PATH".into(), directory.to_string_lossy().into_owned());
@@ -449,8 +536,14 @@ mod tests {
         }
 
         assert!(agent_browser_available(&env));
-        env.insert("PATH".into(), directory.join("missing").to_string_lossy().into_owned());
-        assert!(!agent_browser_available(&env), "availability must not consult the process PATH");
+        env.insert(
+            "PATH".into(),
+            directory.join("missing").to_string_lossy().into_owned(),
+        );
+        assert!(
+            !agent_browser_available(&env),
+            "availability must not consult the process PATH"
+        );
         let _ = std::fs::remove_dir_all(directory);
     }
 }

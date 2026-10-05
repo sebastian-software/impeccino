@@ -122,11 +122,17 @@ impl InterruptGuard {
             Ok(lock) => lock,
             Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
             Err(TryLockError::WouldBlock) => {
-                return Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, "another interrupt listener is active"));
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::WouldBlock,
+                    "another interrupt listener is active",
+                ));
             }
         };
         flag.store(false, std::sync::atomic::Ordering::SeqCst);
-        let previous_flag = FLAG.swap(flag as *const AtomicBool as *mut AtomicBool, std::sync::atomic::Ordering::SeqCst);
+        let previous_flag = FLAG.swap(
+            flag as *const AtomicBool as *mut AtomicBool,
+            std::sync::atomic::Ordering::SeqCst,
+        );
         #[cfg(unix)]
         {
             let mut action: libc::sigaction = unsafe { std::mem::zeroed() };
@@ -150,7 +156,12 @@ impl InterruptGuard {
                 FLAG.store(previous_flag, std::sync::atomic::Ordering::SeqCst);
                 return Err(error);
             }
-            Ok(InterruptGuard { _lock: lock, previous_flag, previous_sigint, previous_sigterm })
+            Ok(InterruptGuard {
+                _lock: lock,
+                previous_flag,
+                previous_sigint,
+                previous_sigterm,
+            })
         }
         #[cfg(windows)]
         {
@@ -160,12 +171,18 @@ impl InterruptGuard {
                 FLAG.store(previous_flag, std::sync::atomic::Ordering::SeqCst);
                 return Err(error);
             }
-            Ok(InterruptGuard { _lock: lock, previous_flag })
+            Ok(InterruptGuard {
+                _lock: lock,
+                previous_flag,
+            })
         }
         #[cfg(not(any(unix, windows)))]
         {
             FLAG.store(previous_flag, std::sync::atomic::Ordering::SeqCst);
-            Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "interrupt handling is unavailable"))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "interrupt handling is unavailable",
+            ))
         }
     }
 }
@@ -254,7 +271,10 @@ mod tests {
         #[cfg(unix)]
         let previous_sigint = unsafe {
             let mut action: libc::sigaction = std::mem::zeroed();
-            assert_eq!(libc::sigaction(libc::SIGINT, std::ptr::null(), &mut action), 0);
+            assert_eq!(
+                libc::sigaction(libc::SIGINT, std::ptr::null(), &mut action),
+                0
+            );
             action.sa_sigaction
         };
 
@@ -263,21 +283,38 @@ mod tests {
         #[cfg(unix)]
         unsafe {
             let mut action: libc::sigaction = std::mem::zeroed();
-            assert_eq!(libc::sigaction(libc::SIGINT, std::ptr::null(), &mut action), 0);
-            assert_eq!(action.sa_sigaction, unix_on_signal as *const () as libc::sighandler_t);
+            assert_eq!(
+                libc::sigaction(libc::SIGINT, std::ptr::null(), &mut action),
+                0
+            );
+            assert_eq!(
+                action.sa_sigaction,
+                unix_on_signal as *const () as libc::sighandler_t
+            );
         }
 
         INTERRUPT_TEST_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
-        let nested_error = InterruptGuard::install(&INTERRUPT_TEST_SECOND_FLAG).err().expect("nested guard must be rejected");
+        let nested_error = InterruptGuard::install(&INTERRUPT_TEST_SECOND_FLAG)
+            .err()
+            .expect("nested guard must be rejected");
         assert_eq!(nested_error.kind(), std::io::ErrorKind::WouldBlock);
-        assert!(INTERRUPT_TEST_FLAG.load(std::sync::atomic::Ordering::SeqCst), "a rejected nested guard cleared the active listener");
-        assert!(INTERRUPT_TEST_SECOND_FLAG.load(std::sync::atomic::Ordering::SeqCst), "a rejected nested guard reset its caller's flag");
+        assert!(
+            INTERRUPT_TEST_FLAG.load(std::sync::atomic::Ordering::SeqCst),
+            "a rejected nested guard cleared the active listener"
+        );
+        assert!(
+            INTERRUPT_TEST_SECOND_FLAG.load(std::sync::atomic::Ordering::SeqCst),
+            "a rejected nested guard reset its caller's flag"
+        );
         drop(guard);
 
         #[cfg(unix)]
         unsafe {
             let mut action: libc::sigaction = std::mem::zeroed();
-            assert_eq!(libc::sigaction(libc::SIGINT, std::ptr::null(), &mut action), 0);
+            assert_eq!(
+                libc::sigaction(libc::SIGINT, std::ptr::null(), &mut action),
+                0
+            );
             assert_eq!(action.sa_sigaction, previous_sigint);
         }
     }

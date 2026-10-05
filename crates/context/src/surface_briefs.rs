@@ -91,7 +91,11 @@ pub fn normalize_surface_target(target: Option<&str>, project_root: &str) -> Opt
             return normalize_route_target(trimmed);
         }
     }
-    let abs = if jsp::is_absolute(trimmed) { trimmed.to_string() } else { jsp::resolve(project_root, &[trimmed]) };
+    let abs = if jsp::is_absolute(trimmed) {
+        trimmed.to_string()
+    } else {
+        jsp::resolve(project_root, &[trimmed])
+    };
     let rel = jsp::relative(project_root, project_root, &abs);
     if rel.is_empty() || rel == "." || rel.starts_with("..") || jsp::is_absolute(&rel) {
         return None;
@@ -140,7 +144,12 @@ fn parse_marker(line: &str) -> Option<(String, Vec<String>)> {
         return None;
     }
     let related = match v.get("related") {
-        Some(Value::Array(a)) => a.iter().filter_map(|x| x.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+        Some(Value::Array(a)) => a
+            .iter()
+            .filter_map(|x| x.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect(),
         _ => Vec::new(),
     };
     Some((target, related))
@@ -157,8 +166,14 @@ pub fn parse_surfaces(text: &str) -> SurfacesDoc {
         if !outside_fence[i] {
             continue;
         }
-        let Some((target, related)) = parse_marker(line) else { continue };
-        let start = if i > 0 && lines[i - 1].starts_with("## ") { i - 1 } else { i };
+        let Some((target, related)) = parse_marker(line) else {
+            continue;
+        };
+        let start = if i > 0 && lines[i - 1].starts_with("## ") {
+            i - 1
+        } else {
+            i
+        };
         // A heading already claimed by the previous marker cannot start
         // another section; fall back to the marker line itself.
         let start = match starts.last() {
@@ -174,7 +189,12 @@ pub fn parse_surfaces(text: &str) -> SurfacesDoc {
         let end = starts.get(n + 1).map(|s| s.0).unwrap_or(lines.len());
         let raw = lines[*start..end].join("\n").trim_end().to_string();
         let body = js_trim(&lines[marker + 1..end].join("\n")).to_string();
-        sections.push(Section { raw, target: target.clone(), related: related.clone(), body });
+        sections.push(Section {
+            raw,
+            target: target.clone(),
+            related: related.clone(),
+            body,
+        });
     }
     SurfacesDoc { preamble, sections }
 }
@@ -188,7 +208,13 @@ fn marker_json(target: &str, related: &[String]) -> String {
 
 /// The section text `write` produces for one surface.
 pub fn render_section(target: &str, related: &[String], body: &str) -> String {
-    let head = format!("## {}\n{}{} {}", target, MARKER_PREFIX, marker_json(target, related), MARKER_SUFFIX);
+    let head = format!(
+        "## {}\n{}{} {}",
+        target,
+        MARKER_PREFIX,
+        marker_json(target, related),
+        MARKER_SUFFIX
+    );
     let body = js_trim(body);
     if body.is_empty() {
         head
@@ -213,7 +239,9 @@ pub fn render_surfaces(doc: &SurfacesDoc) -> String {
 /// Every brief in SURFACES.md, in file order. Empty when the file is missing.
 pub fn list_surface_briefs(project_root: &str) -> Vec<SurfaceBrief> {
     let path = surfaces_path(project_root);
-    let Some(text) = safe_read(&path) else { return vec![] };
+    let Some(text) = safe_read(&path) else {
+        return vec![];
+    };
     parse_surfaces(&text)
         .sections
         .into_iter()
@@ -246,23 +274,55 @@ pub fn resolve_surface_brief(project_root: &str, target: Option<&str>) -> Surfac
     let Some(target) = target.filter(|t| !t.is_empty()) else {
         let n = briefs.len();
         return SurfaceResolution {
-            brief: if n == 1 { Some(briefs[0].clone()) } else { None },
-            reason: if n == 1 { "only-brief" } else if n > 1 { "ambiguous" } else { "none" },
+            brief: if n == 1 {
+                Some(briefs[0].clone())
+            } else {
+                None
+            },
+            reason: if n == 1 {
+                "only-brief"
+            } else if n > 1 {
+                "ambiguous"
+            } else {
+                "none"
+            },
             candidates: briefs,
         };
     };
     let Some(normalized) = normalize_surface_target(Some(target), project_root) else {
-        return SurfaceResolution { brief: None, candidates: briefs, reason: "invalid-target" };
+        return SurfaceResolution {
+            brief: None,
+            candidates: briefs,
+            reason: "invalid-target",
+        };
     };
     if let Some(exact) = briefs.iter().find(|b| b.primary_target == normalized) {
-        return SurfaceResolution { brief: Some(exact.clone()), candidates: briefs, reason: "primary" };
+        return SurfaceResolution {
+            brief: Some(exact.clone()),
+            candidates: briefs,
+            reason: "primary",
+        };
     }
-    let mapped: Vec<SurfaceBrief> = briefs.iter().filter(|b| b.related_targets.contains(&normalized)).cloned().collect();
+    let mapped: Vec<SurfaceBrief> = briefs
+        .iter()
+        .filter(|b| b.related_targets.contains(&normalized))
+        .cloned()
+        .collect();
     let n = mapped.len();
     SurfaceResolution {
-        brief: if n == 1 { Some(mapped[0].clone()) } else { None },
+        brief: if n == 1 {
+            Some(mapped[0].clone())
+        } else {
+            None
+        },
         candidates: if n > 1 { mapped } else { briefs },
-        reason: if n == 1 { "mapping" } else if n > 1 { "ambiguous-target" } else { "not-found" },
+        reason: if n == 1 {
+            "mapping"
+        } else if n > 1 {
+            "ambiguous-target"
+        } else {
+            "not-found"
+        },
     }
 }
 
@@ -276,7 +336,9 @@ pub fn write_surface_brief(
     body: &str,
 ) -> Result<String, String> {
     let normalized_primary = normalize_surface_target(Some(primary_target), project_root)
-        .ok_or_else(|| "surface brief requires a concrete project-relative primary target or URL".to_string())?;
+        .ok_or_else(|| {
+            "surface brief requires a concrete project-relative primary target or URL".to_string()
+        })?;
     let mut related: Vec<String> = Vec::new();
     for t in related_targets {
         if let Some(n) = normalize_surface_target(Some(t), project_root) {
@@ -288,7 +350,10 @@ pub fn write_surface_brief(
     let file_path = surfaces_path(project_root);
     let mut doc = match safe_read(&file_path) {
         Some(text) => parse_surfaces(&text),
-        None => SurfacesDoc { preamble: DEFAULT_PREAMBLE.to_string(), sections: vec![] },
+        None => SurfacesDoc {
+            preamble: DEFAULT_PREAMBLE.to_string(),
+            sections: vec![],
+        },
     };
     let section = Section {
         raw: render_section(&normalized_primary, &related, body),
@@ -296,7 +361,11 @@ pub fn write_surface_brief(
         related,
         body: js_trim(body).to_string(),
     };
-    match doc.sections.iter().position(|s| s.target == normalized_primary) {
+    match doc
+        .sections
+        .iter()
+        .position(|s| s.target == normalized_primary)
+    {
         Some(i) => doc.sections[i] = section,
         None => doc.sections.push(section),
     }
@@ -329,7 +398,10 @@ mod tests {
         assert_eq!(doc.sections.len(), 2);
         assert_eq!(doc.sections[0].target, "a.html");
         assert!(doc.sections[0].body.starts_with("## Direction contract"));
-        assert!(doc.sections[0].body.contains("b.html"), "fenced marker stays body text");
+        assert!(
+            doc.sections[0].body.contains("b.html"),
+            "fenced marker stays body text"
+        );
         assert_eq!(doc.sections[1].related, vec!["route:/c".to_string()]);
         assert_eq!(doc.sections[1].body, "C body.");
         assert_eq!(render_surfaces(&doc), text);
@@ -357,16 +429,38 @@ mod tests {
         write_surface_brief(&root, "b.html", &["route:/b/".to_string()], "B one.").unwrap();
         write_surface_brief(&root, "c.html", &[], "C one.").unwrap();
         let before = std::fs::read_to_string(surfaces_path(&root)).unwrap();
-        write_surface_brief(&root, "b.html", &[], "B two.\n\n### Direction contract\nTHESIS: two.").unwrap();
+        write_surface_brief(
+            &root,
+            "b.html",
+            &[],
+            "B two.\n\n### Direction contract\nTHESIS: two.",
+        )
+        .unwrap();
         let after = std::fs::read_to_string(surfaces_path(&root)).unwrap();
         let doc = parse_surfaces(&after);
-        assert_eq!(doc.sections.iter().map(|s| s.target.as_str()).collect::<Vec<_>>(), vec!["a.html", "b.html", "c.html"]);
+        assert_eq!(
+            doc.sections
+                .iter()
+                .map(|s| s.target.as_str())
+                .collect::<Vec<_>>(),
+            vec!["a.html", "b.html", "c.html"]
+        );
         assert!(doc.sections[1].related.is_empty());
         assert!(doc.sections[1].body.ends_with("THESIS: two."));
-        let unchanged = |t: &str| parse_surfaces(&before).sections.into_iter().find(|s| s.target == t).unwrap().raw;
+        let unchanged = |t: &str| {
+            parse_surfaces(&before)
+                .sections
+                .into_iter()
+                .find(|s| s.target == t)
+                .unwrap()
+                .raw
+        };
         assert_eq!(doc.sections[0].raw, unchanged("a.html"));
         assert_eq!(doc.sections[2].raw, unchanged("c.html"));
-        assert_eq!(resolve_surface_brief(&root, Some("b.html")).reason, "primary");
+        assert_eq!(
+            resolve_surface_brief(&root, Some("b.html")).reason,
+            "primary"
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 

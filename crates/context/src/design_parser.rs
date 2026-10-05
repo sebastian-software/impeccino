@@ -6,8 +6,16 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
 
-pub const CANONICAL_SECTIONS: [&str; 8] =
-    ["Overview", "Colors", "Typography", "Layout", "Elevation", "Shapes", "Components", "Do's and Don'ts"];
+pub const CANONICAL_SECTIONS: [&str; 8] = [
+    "Overview",
+    "Colors",
+    "Typography",
+    "Layout",
+    "Elevation",
+    "Shapes",
+    "Components",
+    "Do's and Don'ts",
+];
 
 pub struct DesignModel {
     pub frontmatter: Option<Map<String, Value>>,
@@ -23,7 +31,9 @@ impl DesignModel {
 }
 
 fn split_lines(md: &str) -> Vec<&str> {
-    md.split('\n').map(|l| l.strip_suffix('\r').unwrap_or(l)).collect()
+    md.split('\n')
+        .map(|l| l.strip_suffix('\r').unwrap_or(l))
+        .collect()
 }
 
 /// JS: parseFrontmatter(md) -> (frontmatter|null, body)
@@ -39,7 +49,9 @@ fn parse_frontmatter(md: &str) -> (Option<Map<String, Value>>, String) {
             break;
         }
     }
-    let Some(end) = end else { return (None, md.to_string()) };
+    let Some(end) = end else {
+        return (None, md.to_string());
+    };
     let yaml = lines[1..end].join("\n");
     let body = lines[end + 1..].join("\n");
     (Some(parse_yaml_subset(&yaml)), body)
@@ -65,7 +77,9 @@ fn find_top_level_colon(s: &str) -> Option<usize> {
 
 fn unquote_yaml_key(key: &str) -> String {
     let c: Vec<char> = key.chars().collect();
-    if c.len() >= 2 && ((c[0] == '"' && c[c.len() - 1] == '"') || (c[0] == '\'' && c[c.len() - 1] == '\'')) {
+    if c.len() >= 2
+        && ((c[0] == '"' && c[c.len() - 1] == '"') || (c[0] == '\'' && c[c.len() - 1] == '\''))
+    {
         return c[1..c.len() - 1].iter().collect();
     }
     if c.len() == 1 && (c[0] == '"' || c[0] == '\'') {
@@ -138,7 +152,9 @@ fn unescape_yaml_double_quoted(body: &str) -> String {
             _ => None,
         };
         if let Some(hl) = hex_len {
-            let hex: String = chars[(i + 2).min(chars.len())..(i + 2 + hl).min(chars.len())].iter().collect();
+            let hex: String = chars[(i + 2).min(chars.len())..(i + 2 + hl).min(chars.len())]
+                .iter()
+                .collect();
             if hex.chars().count() == hl && hex.chars().all(|c| c.is_ascii_hexdigit()) {
                 if let Ok(cp) = u32::from_str_radix(&hex, 16) {
                     if cp <= 0x10ffff {
@@ -182,7 +198,10 @@ fn parse_scalar(raw: &str) -> Value {
     }
     // /^-?\d*\.\d+$/
     if let Some((a, b)) = d.split_once('.') {
-        if a.chars().all(|ch| ch.is_ascii_digit()) && !b.is_empty() && b.chars().all(|ch| ch.is_ascii_digit()) {
+        if a.chars().all(|ch| ch.is_ascii_digit())
+            && !b.is_empty()
+            && b.chars().all(|ch| ch.is_ascii_digit())
+        {
             return crate::util::js_num(crate::util::js_number(s));
         }
     }
@@ -201,7 +220,9 @@ fn parse_yaml_subset(yaml: &str) -> Map<String, Value> {
         }
         let indent = raw.chars().take_while(|c| c.is_whitespace()).count() as i64;
         let content: String = raw.chars().skip(indent as usize).collect();
-        let Some(colon) = find_top_level_colon(&content) else { continue };
+        let Some(colon) = find_top_level_colon(&content) else {
+            continue;
+        };
         while stack.len() > 1 && stack.last().unwrap().0 >= indent {
             stack.pop();
         }
@@ -224,10 +245,15 @@ fn parse_yaml_subset(yaml: &str) -> Map<String, Value> {
     root
 }
 
-fn get_map_mut<'a>(root: &'a mut Map<String, Value>, path: &[String]) -> &'a mut Map<String, Value> {
+fn get_map_mut<'a>(
+    root: &'a mut Map<String, Value>,
+    path: &[String],
+) -> &'a mut Map<String, Value> {
     let mut cur = root;
     for k in path {
-        let entry = cur.entry(k.clone()).or_insert_with(|| Value::Object(Map::new()));
+        let entry = cur
+            .entry(k.clone())
+            .or_insert_with(|| Value::Object(Map::new()));
         if !entry.is_object() {
             *entry = Value::Object(Map::new());
         }
@@ -236,7 +262,8 @@ fn get_map_mut<'a>(root: &'a mut Map<String, Value>, path: &[String]) -> &'a mut
     cur
 }
 
-static H2_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^##\s+(?:\d+\.\s*)?([^:\n]+?)(?::\s*(.+))?$").unwrap());
+static H2_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^##\s+(?:\d+\.\s*)?([^:\n]+?)(?::\s*(.+))?$").unwrap());
 
 fn normalize_apostrophes(s: &str) -> String {
     s.replace(['\u{2018}', '\u{2019}'], "'")
@@ -252,7 +279,10 @@ fn match_canonical_section(name: &str) -> Option<&'static str> {
     for c in CANONICAL_SECTIONS {
         let key = normalize_apostrophes(c).to_lowercase();
         let pat = format!(r"(?-u:\b){}(?-u:\b)", regex::escape(&key));
-        if Regex::new(&pat).map(|r| r.is_match(&normalized)).unwrap_or(false) {
+        if Regex::new(&pat)
+            .map(|r| r.is_match(&normalized))
+            .unwrap_or(false)
+        {
             return Some(c);
         }
     }
@@ -285,5 +315,8 @@ fn split_sections(md: &str) -> Vec<&'static str> {
 /// JS: parseDesignMd(md), reduced to what doctor needs.
 pub fn parse_design_md(md: &str) -> DesignModel {
     let (frontmatter, body) = parse_frontmatter(md);
-    DesignModel { frontmatter, sections: split_sections(&body) }
+    DesignModel {
+        frontmatter,
+        sections: split_sections(&body),
+    }
 }

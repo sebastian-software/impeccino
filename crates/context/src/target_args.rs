@@ -46,7 +46,9 @@ pub fn parse_target_path(args: &[String], strict: bool) -> Result<Option<String>
 /// JS: parseTargetOptions
 pub fn parse_target_options(args: &[String], strict: bool) -> Result<TargetOptions, String> {
     let t = parse_target_path(args, strict)?;
-    Ok(TargetOptions { target_path: t.filter(|s| !s.is_empty()) })
+    Ok(TargetOptions {
+        target_path: t.filter(|s| !s.is_empty()),
+    })
 }
 
 /// JS: hasTargetOption

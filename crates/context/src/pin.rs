@@ -6,17 +6,53 @@ use impeccino_common::Io;
 
 /// `skill/scripts/command-metadata.json`, compiled in as the fallback when the
 /// skill directory is not known at run time.
-pub const COMMAND_METADATA_JSON: &str = include_str!("../../../skill/scripts/command-metadata.json");
+pub const COMMAND_METADATA_JSON: &str =
+    include_str!("../../../skill/scripts/command-metadata.json");
 
 const HARNESS_DIRS: [&str; 18] = [
-    ".claude", ".cursor", ".dsh", ".gemini", ".codex", ".agents", ".agent", ".github", ".grok", ".hermes", ".trae", ".trae-cn",
-    ".pi", ".opencode", ".kiro", ".rovodev", ".vibe", ".qoder",
+    ".claude",
+    ".cursor",
+    ".dsh",
+    ".gemini",
+    ".codex",
+    ".agents",
+    ".agent",
+    ".github",
+    ".grok",
+    ".hermes",
+    ".trae",
+    ".trae-cn",
+    ".pi",
+    ".opencode",
+    ".kiro",
+    ".rovodev",
+    ".vibe",
+    ".qoder",
 ];
 const CODEX_HARNESSES: [&str; 2] = [".codex", ".agents"];
 pub const VALID_COMMANDS: [&str; 22] = [
-    "craft", "init", "extract", "document", "shape", "critique", "audit", "polish", "bolder", "quieter", "distill",
-    "harden", "onboard", "animate", "colorize", "typeset", "layout", "delight", "overdrive", "clarify",
-    "adapt", "optimize",
+    "craft",
+    "init",
+    "extract",
+    "document",
+    "shape",
+    "critique",
+    "audit",
+    "polish",
+    "bolder",
+    "quieter",
+    "distill",
+    "harden",
+    "onboard",
+    "animate",
+    "colorize",
+    "typeset",
+    "layout",
+    "delight",
+    "overdrive",
+    "clarify",
+    "adapt",
+    "optimize",
 ];
 const PIN_MARKER: &str = "<!-- impeccino-pinned-skill -->";
 const OPENCODE_PIN_MARKER: &str = "<!-- impeccino-pinned-command -->";
@@ -43,7 +79,9 @@ fn find_harness_dirs(project_root: &str) -> Vec<String> {
     let mut dirs = Vec::new();
     for h in HARNESS_DIRS {
         let skills = jsp::join(&[project_root, h, "skills"]);
-        if exists(&jsp::join(&[&skills, "impeccino"])) || exists(&jsp::join(&[&skills, "i-impeccino"])) {
+        if exists(&jsp::join(&[&skills, "impeccino"]))
+            || exists(&jsp::join(&[&skills, "i-impeccino"]))
+        {
             dirs.push(skills);
         }
     }
@@ -59,7 +97,12 @@ fn command_prefix_for(skills_dir: &str) -> &'static str {
     }
 }
 
-fn generate_pinned_skill(command: &str, metadata: &serde_json::Value, prefix: &str, is_codex: bool) -> String {
+fn generate_pinned_skill(
+    command: &str,
+    metadata: &serde_json::Value,
+    prefix: &str,
+    is_codex: bool,
+) -> String {
     let entry = metadata.get(command);
     let desc = entry
         .and_then(|e| e.get("description"))
@@ -141,7 +184,14 @@ fn find_opencode_commands_dirs(project_root: &str, io: &Io, for_cleanup: bool) -
             dirs.push(dir);
         }
     };
-    if for_cleanup || exists(&jsp::join(&[project_root, ".opencode", "skills", "impeccino"])) {
+    if for_cleanup
+        || exists(&jsp::join(&[
+            project_root,
+            ".opencode",
+            "skills",
+            "impeccino",
+        ]))
+    {
         push(jsp::join(&[project_root, ".opencode", "commands"]));
     }
     let user_config = opencode_user_config_dir(io);
@@ -171,7 +221,8 @@ fn write_pinned_opencode_command(
             return Ok(false);
         }
     } else {
-        std::fs::create_dir_all(commands_dir).map_err(|err| format!("Could not create {}: {}", commands_dir, err))?;
+        std::fs::create_dir_all(commands_dir)
+            .map_err(|err| format!("Could not create {}: {}", commands_dir, err))?;
     }
     let content = generate_pinned_opencode_command(command, metadata);
     impeccino_common::atomic_file::write(std::path::Path::new(&command_file), content.as_bytes())
@@ -181,7 +232,11 @@ fn write_pinned_opencode_command(
 }
 
 /// JS: pin.mjs#removePinnedOpencodeCommand
-fn remove_pinned_opencode_command(commands_dir: &str, command: &str, io: &mut Io) -> Result<bool, String> {
+fn remove_pinned_opencode_command(
+    commands_dir: &str,
+    command: &str,
+    io: &mut Io,
+) -> Result<bool, String> {
     let command_file = jsp::join(&[commands_dir, &format!("impeccino-{command}.md")]);
     if !exists(&command_file) {
         return Ok(false);
@@ -190,10 +245,14 @@ fn remove_pinned_opencode_command(commands_dir: &str, command: &str, io: &mut Io
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
         .map_err(|err| format!("Could not read {}: {}", command_file, err))?;
     if !content.contains(OPENCODE_PIN_MARKER) {
-        io.out(&format!("  SKIP: {} (not a pinned command)\n", command_file));
+        io.out(&format!(
+            "  SKIP: {} (not a pinned command)\n",
+            command_file
+        ));
         return Ok(false);
     }
-    std::fs::remove_file(&command_file).map_err(|err| format!("Could not remove {}: {}", command_file, err))?;
+    std::fs::remove_file(&command_file)
+        .map_err(|err| format!("Could not remove {}: {}", command_file, err))?;
     io.out(&format!("  - {}\n", command_file));
     Ok(true)
 }
@@ -242,24 +301,37 @@ fn load_metadata(io: &Io) -> serde_json::Value {
             return v;
         }
     }
-    serde_json::from_str(COMMAND_METADATA_JSON).unwrap_or(serde_json::Value::Object(Default::default()))
+    serde_json::from_str(COMMAND_METADATA_JSON)
+        .unwrap_or(serde_json::Value::Object(Default::default()))
 }
 
 pub fn run(args: &[String], io: &mut Io) -> i32 {
     let action = args.first().cloned();
     let command = args.get(1).cloned();
-    let (Some(action), Some(command)) = (action.filter(|a| !a.is_empty()), command.filter(|c| !c.is_empty())) else {
+    let (Some(action), Some(command)) = (
+        action.filter(|a| !a.is_empty()),
+        command.filter(|c| !c.is_empty()),
+    ) else {
         io.out("Usage: impeccino pin <pin|unpin> <command>\n");
-        io.out(&format!("\nAvailable commands: {}\n", VALID_COMMANDS.join(", ")));
+        io.out(&format!(
+            "\nAvailable commands: {}\n",
+            VALID_COMMANDS.join(", ")
+        ));
         return 1;
     };
     if action != "pin" && action != "unpin" {
-        io.err(&format!("Unknown action: {}. Use 'pin' or 'unpin'.\n", action));
+        io.err(&format!(
+            "Unknown action: {}. Use 'pin' or 'unpin'.\n",
+            action
+        ));
         return 1;
     }
     if !VALID_COMMANDS.contains(&command.as_str()) {
         io.err(&format!("Unknown command: {}\n", command));
-        io.err(&format!("Available commands: {}\n", VALID_COMMANDS.join(", ")));
+        io.err(&format!(
+            "Available commands: {}\n",
+            VALID_COMMANDS.join(", ")
+        ));
         return 1;
     }
     let cwd = io.cwd.to_string_lossy().into_owned();
@@ -297,19 +369,31 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
                         }
                     };
                     if !existing.contains(PIN_MARKER) {
-                        io.out(&format!("  SKIP: {} (non-pinned skill already exists)\n", skill_dir));
+                        io.out(&format!(
+                            "  SKIP: {} (non-pinned skill already exists)\n",
+                            skill_dir
+                        ));
                         continue;
                     }
                 }
             }
             let skill_file = jsp::join(&[&skill_dir, "SKILL.md"]);
             if let Err(err) = std::fs::create_dir_all(&skill_dir) {
-                io.err(&format!("  ERROR: Could not create {}: {}\n", skill_dir, err));
+                io.err(&format!(
+                    "  ERROR: Could not create {}: {}\n",
+                    skill_dir, err
+                ));
                 failed = true;
                 continue;
             }
-            if let Err(err) = impeccino_common::atomic_file::write(std::path::Path::new(&skill_file), content.as_bytes()) {
-                io.err(&format!("  ERROR: Could not write {}: {}\n", skill_file, err));
+            if let Err(err) = impeccino_common::atomic_file::write(
+                std::path::Path::new(&skill_file),
+                content.as_bytes(),
+            ) {
+                io.err(&format!(
+                    "  ERROR: Could not write {}: {}\n",
+                    skill_file, err
+                ));
                 failed = true;
                 continue;
             }
@@ -329,10 +413,17 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             }
         }
         if created > 0 {
-            io.out(&format!("\nPinned '{}' as a standalone shortcut in {} location(s).\n", command, created));
+            io.out(&format!(
+                "\nPinned '{}' as a standalone shortcut in {} location(s).\n",
+                command, created
+            ));
             io.out("Use the pinned command directly in each harness.\n");
         }
-        if failed { 1 } else { 0 }
+        if failed {
+            1
+        } else {
+            0
+        }
     } else {
         let harness_dirs = find_harness_dirs(&root);
         let mut removed = 0;
@@ -368,12 +459,22 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             }
         }
         if removed > 0 {
-            io.out(&format!("\nUnpinned '{}' from {} location(s).\n", command, removed));
-            io.out(&format!("Use Impeccino's '{}' workflow directly to access it.\n", command));
+            io.out(&format!(
+                "\nUnpinned '{}' from {} location(s).\n",
+                command, removed
+            ));
+            io.out(&format!(
+                "Use Impeccino's '{}' workflow directly to access it.\n",
+                command
+            ));
         } else {
             io.out(&format!("No pinned '{}' shortcut found.\n", command));
         }
-        if failed { 1 } else { 0 }
+        if failed {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -395,7 +496,10 @@ mod tests {
             let path = std::env::temp_dir().join(format!(
                 "impeccino pin write {} {} {}",
                 std::process::id(),
-                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos(),
                 suffix
             ));
             std::fs::create_dir_all(&path).unwrap();
@@ -417,7 +521,10 @@ mod tests {
 
     fn invoke(root: &Path, action: &str) -> (i32, String, String) {
         let home = root.join("isolated-home").to_string_lossy().into_owned();
-        let opencode = root.join("isolated-opencode-config").to_string_lossy().into_owned();
+        let opencode = root
+            .join("isolated-opencode-config")
+            .to_string_lossy()
+            .into_owned();
         let mut env = HashMap::new();
         env.insert("HOME".to_string(), home.clone());
         env.insert("USERPROFILE".to_string(), home);
@@ -441,15 +548,33 @@ mod tests {
     #[test]
     fn pin_reports_path_conflict_and_counts_only_successful_harness_writes() {
         let root = TempDir::new();
-        write(&root.0, ".claude/skills/impeccino/SKILL.md", "---\nname: impeccino\n---\n");
-        write(&root.0, ".cursor/skills/impeccino/SKILL.md", "---\nname: impeccino\n---\n");
-        write(&root.0, ".claude/skills/polish", "a regular file blocks the skill directory\n");
+        write(
+            &root.0,
+            ".claude/skills/impeccino/SKILL.md",
+            "---\nname: impeccino\n---\n",
+        );
+        write(
+            &root.0,
+            ".cursor/skills/impeccino/SKILL.md",
+            "---\nname: impeccino\n---\n",
+        );
+        write(
+            &root.0,
+            ".claude/skills/polish",
+            "a regular file blocks the skill directory\n",
+        );
 
         let (code, stdout, stderr) = invoke(&root.0, "pin");
         assert_eq!(code, 1);
         assert!(stderr.contains("ERROR: Could not create"), "{stderr}");
-        assert!(stdout.contains("Pinned 'polish' as a standalone shortcut in 1 location(s)."), "{stdout}");
-        assert!(!stdout.contains("  + ") || stdout.matches("  + ").count() == 1, "{stdout}");
+        assert!(
+            stdout.contains("Pinned 'polish' as a standalone shortcut in 1 location(s)."),
+            "{stdout}"
+        );
+        assert!(
+            !stdout.contains("  + ") || stdout.matches("  + ").count() == 1,
+            "{stdout}"
+        );
         assert!(root.0.join(".cursor/skills/polish/SKILL.md").is_file());
         assert!(root.0.join(".claude/skills/polish").is_file());
     }
@@ -457,8 +582,16 @@ mod tests {
     #[test]
     fn opencode_pin_reports_a_commands_directory_conflict() {
         let root = TempDir::new();
-        write(&root.0, ".opencode/skills/impeccino/SKILL.md", "---\nname: impeccino\n---\n");
-        write(&root.0, ".opencode/commands", "a regular file blocks the commands directory\n");
+        write(
+            &root.0,
+            ".opencode/skills/impeccino/SKILL.md",
+            "---\nname: impeccino\n---\n",
+        );
+        write(
+            &root.0,
+            ".opencode/commands",
+            "a regular file blocks the commands directory\n",
+        );
 
         let (code, stdout, stderr) = invoke(&root.0, "pin");
         assert_eq!(code, 1);
@@ -471,10 +604,17 @@ mod tests {
     fn unpin_remove_failure_is_not_reported_as_removed() {
         let root = TempDir::new();
         write(&root.0, ".claude/skills/polish/SKILL.md", PIN_MARKER);
-        let skill_dir = root.0.join(".claude/skills/polish").to_string_lossy().into_owned();
+        let skill_dir = root
+            .0
+            .join(".claude/skills/polish")
+            .to_string_lossy()
+            .into_owned();
         let (mut io, captured) = Io::captured("", root.0.clone(), HashMap::new());
         let result = remove_pinned_skill_with(&skill_dir, &mut io, |_| {
-            Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "injected remove failure"))
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "injected remove failure",
+            ))
         });
         assert!(result.unwrap_err().contains("Could not remove"));
         assert!(root.0.join(".claude/skills/polish/SKILL.md").is_file());
