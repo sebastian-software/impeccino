@@ -4,10 +4,10 @@
 //! `html` crate and the browser bundle) share.
 
 use crate::checks::measures::{Finding, StyleMap};
-use crate::checks::rules::RuleHit;
+use crate::checks::rules::{is_accent_color, is_card_like_from_props, RuleHit};
 use crate::color;
 
-use crate::js::{self, ci, parse_float, parse_int, string_to_number, WS};
+use crate::js::{self, ci, parse_float, string_to_number, WS};
 
 use crate::js_ext_b::{num_truthy, same_value_zero, utf16_len};
 use once_cell::sync::Lazy;
@@ -87,83 +87,6 @@ pub static KICKER_DOC_NUMBERING_RE: Lazy<Regex> = Lazy::new(|| {
     ))
     .expect("KICKER_DOC_NUMBERING_RE")
 });
-
-// ─── Group-A helpers duplicated until rules.rs lands ────────────────────────
-
-/// JS: checks.mjs#isCardLikeFromProps.
-// TODO(dedupe): use rules::is_card_like_from_props
-fn is_card_like_from_props(
-    has_shadow: bool,
-    has_border: bool,
-    has_radius: bool,
-    has_bg: bool,
-) -> bool {
-    if !has_shadow && !has_border {
-        return false;
-    }
-    has_radius || has_bg
-}
-
-/// JS: checks.mjs#isAccentColor. Whether a CSS color has visible chroma.
-// TODO(dedupe): use rules::is_accent_color
-fn is_accent_color(css_color: &str) -> bool {
-    re!(
-        RGB_STRICT,
-        format!(
-            r"rgba?\({ws}*({d}+){ws}*,{ws}*({d}+){ws}*,{ws}*({d}+)",
-            ws = WS,
-            d = D
-        )
-    );
-    re!(HEX_RE, r"^#([0-9a-fA-F]{3,8})(?-u:\b)");
-    re!(OKLCH_START, format!(r"^{}\(", ci("oklch")));
-    re!(NUM_RE, format!(r"{d}*\.{d}+|{d}+", d = D));
-    re!(
-        HSL_RE,
-        format!(
-            r"{hsl}[aA]?\({ws}*[0-9.]+{ws}*,{ws}*([0-9.]+)%",
-            hsl = ci("hsl"),
-            ws = WS
-        )
-    );
-    if css_color.is_empty() {
-        return false;
-    }
-    let s = js::trim(css_color);
-    if let Some(m) = RGB_STRICT.captures(s) {
-        let r = string_to_number(&m[1]);
-        let g = string_to_number(&m[2]);
-        let b = string_to_number(&m[3]);
-        return js::math_max3(r, g, b) - js::math_min3(r, g, b) >= 40.0;
-    }
-    if let Some(m) = HEX_RE.captures(s) {
-        let mut h = m[1].to_string();
-        if h.len() == 3 || h.len() == 4 {
-            let doubled: String = h.chars().flat_map(|c| [c, c]).collect();
-            h = doubled.chars().take(6).collect();
-        } else {
-            h = h.chars().take(6).collect();
-        }
-        if h.len() == 6 {
-            let r = parse_int(&h[0..2], 16);
-            let g = parse_int(&h[2..4], 16);
-            let b = parse_int(&h[4..6], 16);
-            return js::math_max3(r, g, b) - js::math_min3(r, g, b) >= 40.0;
-        }
-    }
-    if OKLCH_START.is_match(s) {
-        let nums: Vec<&str> = NUM_RE.find_iter(s).map(|m| m.as_str()).collect();
-        if nums.len() >= 2 {
-            let c = parse_float(nums[1]);
-            return !c.is_nan() && c >= 0.05;
-        }
-    }
-    if let Some(m) = HSL_RE.captures(s) {
-        let sat = parse_float(&m[1]);
-        return !sat.is_nan() && sat >= 20.0;
-    }
-    false
-}
 
 /// JS: checks.mjs#isKickerCandidate.
 pub fn is_kicker_candidate(o: &KickerCandidateInput) -> bool {
