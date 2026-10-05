@@ -219,7 +219,7 @@ pub const COLOR_FUNCTION_NAMES: &[&str] = &[
     "color-mix",
 ];
 
-re!(FN_NAME, r"([a-zA-Z][a-zA-Z\-]*)\(".to_string());
+re!(FN_NAME, r"([a-zA-Z][a-zA-Z\-]*)\(");
 
 /// JS `extractColorFunctionTokens(value)`.
 pub fn extract_color_function_tokens(value: Option<&str>) -> Vec<String> {
@@ -261,10 +261,7 @@ pub fn extract_color_function_tokens(value: Option<&str>) -> Vec<String> {
 
 // ─── parseGradientColors ────────────────────────────────────────────────────
 
-re!(
-    HEX_IN_GRADIENT,
-    r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?-u:\b)".to_string()
-);
+re!(HEX_IN_GRADIENT, r"#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?-u:\b)");
 
 /// JS `parseGradientColors(bgImage)`.
 pub fn parse_gradient_colors(bg_image: Option<&str>) -> Vec<Rgba> {
@@ -484,8 +481,8 @@ pub fn lab_to_rgb(l: f64, a: f64, b: f64) -> Rgba {
     let z = invert(fz) * zn;
     linear_srgb_to_color(
         3.1341359569958707 * x - 1.6173863321612538 * y - 0.4906619460083532 * z,
-        -0.9787955029120890 * x + 1.9162545672595240 * y + 0.0334427311613195 * z,
-        0.0719553798841168 * x - 0.2289768264158322 * y + 1.4053860583241250 * z,
+        -0.978_795_502_912_089 * x + 1.916_254_567_259_524 * y + 0.0334427311613195 * z,
+        0.0719553798841168 * x - 0.2289768264158322 * y + 1.405_386_058_324_125 * z,
     )
 }
 
@@ -514,7 +511,7 @@ pub fn color_function_to_rgb(space: &str, c1: f64, c2: f64, c3: f64) -> Option<R
             Some(linear_srgb_to_color(
                 1.2249401762805587 * r - 0.2249404646817506 * g + 0.0000002884022551 * b,
                 -0.0420569547096138 * r + 1.0420571661298634 * g - 0.0000002113202247 * b,
-                -0.0196375587040044 * r - 0.0786360772174755 * g + 1.0982736359214800 * b,
+                -0.0196375587040044 * r - 0.0786360772174755 * g + 1.098_273_635_921_48 * b,
             ))
         }
         _ => None,
@@ -784,7 +781,7 @@ re!(
         r"rgba?\({WS}*({D}+(?:\.{D}+)?){WS}*,?{WS}*({D}+(?:\.{D}+)?){WS}*,?{WS}*({D}+(?:\.{D}+)?)(?:{WS}*[,/]{WS}*([0-9.]+)(%)?)?{WS}*\)"
     )
 );
-re!(ANY_HEX, r"^#([0-9a-fA-F]{3,8})$".to_string());
+re!(ANY_HEX, r"^#([0-9a-fA-F]{3,8})$");
 re!(
     ANY_OKLCH,
     format!(

@@ -419,7 +419,6 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     let load_options = match resolved_target_path.as_deref() {
         Some(p) => TargetOptions {
             target_path: Some(p.to_string()),
-            ..Default::default()
         },
         None => options.clone(),
     };

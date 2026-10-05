@@ -700,15 +700,10 @@ fn discover_roots_for_pattern(repo_root: &str, raw: &str) -> Vec<String> {
         }
         return direct_child_dirs(&base);
     }
-    expand_simple_pattern(repo_root, &segments, 0, repo_root)
+    expand_simple_pattern(&segments, 0, repo_root)
 }
 
-fn expand_simple_pattern(
-    repo_root: &str,
-    segs: &[&str],
-    index: usize,
-    current: &str,
-) -> Vec<String> {
+fn expand_simple_pattern(segs: &[&str], index: usize, current: &str) -> Vec<String> {
     if index >= segs.len() {
         return if exists(current) {
             vec![current.to_string()]
@@ -718,7 +713,7 @@ fn expand_simple_pattern(
     }
     let seg = segs[index];
     if !seg.contains('*') {
-        return expand_simple_pattern(repo_root, segs, index + 1, &jsp::join(&[current, seg]));
+        return expand_simple_pattern(segs, index + 1, &jsp::join(&[current, seg]));
     }
     let Some(entries) = read_dir_entries(current) else {
         return vec![];
@@ -732,7 +727,6 @@ fn expand_simple_pattern(
             continue;
         }
         roots.extend(expand_simple_pattern(
-            repo_root,
             segs,
             index + 1,
             &jsp::join(&[current, &e.name]),
@@ -1205,8 +1199,8 @@ pub fn extract_section_value(product: Option<&str>, heading: &str) -> Option<Str
     let lines: Vec<&str> = product.split('\n').collect();
     for i in 0..lines.len() {
         if heading_re.is_match(js_trim(lines[i])) {
-            for j in i + 1..lines.len() {
-                let next = js_trim(lines[j]);
+            for line in lines.iter().skip(i + 1) {
+                let next = js_trim(line);
                 if is_heading_line(next) {
                     return None;
                 }

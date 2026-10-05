@@ -180,7 +180,7 @@ fn set_matches(set: Option<&RuleSet>, rule: &str) -> bool {
     }
 }
 
-fn map_get<'a>(map: &'a [(usize, RuleSet)], key: usize) -> Option<&'a RuleSet> {
+fn map_get(map: &[(usize, RuleSet)], key: usize) -> Option<&RuleSet> {
     map.iter().find(|(k, _)| *k == key).map(|(_, s)| s)
 }
 

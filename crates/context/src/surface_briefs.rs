@@ -39,7 +39,7 @@ fn normalize_route_target(route: &str) -> Option<String> {
     if !route.starts_with('/') || route.contains("..") {
         return None;
     }
-    let cut = route.split(|c| c == '?' || c == '#').next().unwrap_or("");
+    let cut = route.split(['?', '#']).next().unwrap_or("");
     // collapse //+ -> /
     let mut collapsed = String::with_capacity(cut.len());
     let mut prev_slash = false;

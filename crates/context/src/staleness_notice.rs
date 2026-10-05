@@ -218,7 +218,9 @@ pub fn filter_fresh_findings(
     let fresh: Vec<Finding> = notifiable
         .iter()
         .filter(|f| match seen.get(&f.id).and_then(as_number) {
-            Some(last) => !(now - last < RENOTIFY_INTERVAL_MS),
+            Some(last) => {
+                (now - last).partial_cmp(&RENOTIFY_INTERVAL_MS) != Some(std::cmp::Ordering::Less)
+            }
             None => true,
         })
         .cloned()

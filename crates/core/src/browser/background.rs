@@ -86,7 +86,7 @@ pub fn resolve_background_info(dom: &dyn Dom, el: ElId) -> BackgroundInfo {
         let mut bg = read_cascade_background_color(dom, cur);
 
         let bg_color_raw = dom.style(cur, "backgroundColor");
-        if (bg.is_none() || bg.map_or(false, |b| b.alpha_or_one() < 0.1))
+        if (bg.is_none() || bg.is_some_and(|b| b.alpha_or_one() < 0.1))
             && CURRENTCOLOR_RE.is_match(js::trim(&bg_color_raw))
         {
             // JS: `bg.a < 0.1` with `a` undefined is false; alpha_or_one keeps
@@ -97,7 +97,7 @@ pub fn resolve_background_info(dom: &dyn Dom, el: ElId) -> BackgroundInfo {
 
         match bg {
             Some(b) if alpha_gt(&b, 0.1) => {
-                if b.a.map_or(false, |a| a >= 0.99) {
+                if b.a.is_some_and(|a| a >= 0.99) {
                     return BackgroundInfo {
                         color: Some(flatten(&overlays, b)),
                         unresolved: false,
@@ -210,9 +210,7 @@ pub fn resolve_gradient_stops(dom: &dyn Dom, el: ElId) -> Option<Vec<Rgba>> {
         }
         if let Some(stops) = stops {
             let composited = composite_gradient_stops(dom, stops, cur);
-            let Some(composited) = composited else {
-                return None;
-            };
+            let composited = composited?;
             if overlays.is_empty() {
                 return Some(composited);
             }
@@ -232,7 +230,7 @@ pub fn resolve_gradient_stops(dom: &dyn Dom, el: ElId) -> Option<Vec<Rgba>> {
         let bg = read_cascade_background_color(dom, cur);
         if let Some(b) = bg {
             if alpha_gt(&b, 0.1) {
-                if b.a.map_or(false, |a| a >= 0.99) {
+                if b.a.is_some_and(|a| a >= 0.99) {
                     return None;
                 }
                 overlays.push(b);

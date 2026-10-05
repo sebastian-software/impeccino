@@ -353,7 +353,7 @@ mod jsonc_tests {
         assert!(had);
         assert_eq!(v["u"], "http://x//y");
         assert_eq!(v["s"], "/* no */\"//");
-        assert_eq!(parse_manifest_jsonc("{\"a\": 1}").unwrap().1, false);
+        assert!(!parse_manifest_jsonc("{\"a\": 1}").unwrap().1);
         assert!(parse_manifest_jsonc("{ \"a\": ").is_none());
     }
 }

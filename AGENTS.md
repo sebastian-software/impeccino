@@ -8,6 +8,7 @@
 
 - `cargo build --release -p impeccino` - build this checkout's runtime into `target/release/impeccino`.
 - `cargo test --workspace` - run the Rust workspace tests.
+- `cargo fmt --all --check` and `cargo clippy --workspace --all-targets -- -D warnings` - run the Rust format and lint gates.
 - `pnpm run check` - repository checks: count claims, skill frontmatter limits, and the prose gates. There is no skill build.
 - `pnpm exec vitest run tests/skill-source.test.js` - run one test file.
 - `pnpm run fetch:engine` - download the pinned engine binary for this machine into `skill/scripts/bin/<os>-<arch>/` (or set `IMPECCINO_BIN` to a local build). The oracle suite skips without it.
@@ -40,7 +41,7 @@ Some repo workflows need to run outside the sandbox in the desktop app:
 
 ## Coding Style & Naming Conventions
 
-Use ESM, semicolons, and the existing two-space indentation style in JS, HTML, and CSS. Prefer small, single-purpose modules over large abstractions. Keep filenames descriptive and lowercase with hyphens where needed; skill entrypoints stay as `SKILL.md`, build and test helpers use `.js` or `.mjs`. In source frontmatter, use clear kebab-case names and concise descriptions. There is no dedicated formatter or linter configured here, so match surrounding code closely.
+Use ESM, semicolons, and the existing two-space indentation style in JS, HTML, and CSS. Prefer small, single-purpose modules over large abstractions. Keep filenames descriptive and lowercase with hyphens where needed; skill entrypoints stay as `SKILL.md`, build and test helpers use `.js` or `.mjs`. In source frontmatter, use clear kebab-case names and concise descriptions. Rust formatting and linting use the workspace gates `cargo fmt --all --check` and `cargo clippy --workspace --all-targets -- -D warnings`. JavaScript has no dedicated formatter or linter; match surrounding code closely.
 
 For Rust, follow the surrounding crate's conventions and workspace formatting configuration. Keep changes scoped; do not reformat unrelated modules.
 

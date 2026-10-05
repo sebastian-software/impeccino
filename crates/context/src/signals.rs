@@ -288,7 +288,7 @@ const SCANNABLE_EXT: [&str; 11] = [
 const SOURCE_DIRS: [&str; 5] = ["src", "app", "components", "pages", "public"];
 
 fn is_vendored_path(rel: &str) -> bool {
-    let segs: Vec<&str> = rel.split(|c| c == '/' || c == '\\').collect();
+    let segs: Vec<&str> = rel.split(['/', '\\']).collect();
     let dirs = &segs[..segs.len().saturating_sub(1)];
     dirs.iter().any(|seg| {
         (seg.starts_with('.')

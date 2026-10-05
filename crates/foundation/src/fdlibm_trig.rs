@@ -140,15 +140,13 @@ fn kernel_rem_pio2(
     }
     let mut q0 = e0 - 24 * (jv + 1);
 
-    let mut j = jv - jx;
     let m = jx + jk;
-    for i in 0..=m {
+    for (j, i) in (jv - jx..).zip(0..=m) {
         f[i as usize] = if j < 0 {
             ZERO
         } else {
             ipio2[j as usize] as f64
         };
-        j += 1;
     }
     for i in 0..=jk {
         let mut fw = 0.0;
@@ -345,6 +343,9 @@ fn kernel_rem_pio2(
 
 /// fdlibm `__ieee754_rem_pio2` (the original fdlibm shape with the
 /// `npio2_hw` table, as V8 carries it).
+// Preserve fdlibm's truncated `INVPIO2` value (`FRAC_2_PI` differs) and the
+// source's `x - x` invalid-operation path for NaN and infinity.
+#[allow(clippy::approx_constant, clippy::eq_op)]
 fn rem_pio2(x: f64, y: &mut [f64; 2]) -> i32 {
     const ZERO: f64 = 0.0;
     const HALF: f64 = 0.5;
@@ -511,6 +512,8 @@ fn kernel_sin(x: f64, y: f64, iy: i32) -> f64 {
 }
 
 /// fdlibm `sin`.
+// Keep fdlibm's `x - x` invalid-operation result for NaN and infinities.
+#[allow(clippy::eq_op)]
 pub fn fdlibm_sin(x: f64) -> f64 {
     let ix = high_word(x) & 0x7FFFFFFF;
     if ix <= 0x3FE921FB {
@@ -530,6 +533,8 @@ pub fn fdlibm_sin(x: f64) -> f64 {
 }
 
 /// fdlibm `cos`.
+// Keep fdlibm's `x - x` invalid-operation result for NaN and infinities.
+#[allow(clippy::eq_op)]
 pub fn fdlibm_cos(x: f64) -> f64 {
     let ix = high_word(x) & 0x7FFFFFFF;
     if ix <= 0x3FE921FB {

@@ -282,10 +282,7 @@ pub fn parse_radial_gradient_stops(value: Option<&str>) -> Option<Vec<GradientSt
             continue; // repeating-* is a pattern, not a spotlight
         }
         let start = g.get(0).map(|m| m.start()).unwrap_or(0);
-        let open = match value[start..].find('(') {
-            Some(i) => start + i,
-            None => return None,
-        };
+        let open = start + value[start..].find('(')?;
         let mut depth = 0i32;
         let mut end: Option<usize> = None;
         for (i, &b) in bytes.iter().enumerate().skip(open) {
@@ -299,7 +296,7 @@ pub fn parse_radial_gradient_stops(value: Option<&str>) -> Option<Vec<GradientSt
                 }
             }
         }
-        let Some(end) = end else { return None };
+        let end = end?;
         let args = color::split_top_level_commas(&value[open + 1..end]);
         let stop_args: Vec<&String> = args
             .iter()

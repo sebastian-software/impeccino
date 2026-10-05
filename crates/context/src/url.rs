@@ -72,11 +72,9 @@ pub fn parse(input: &str) -> Option<Url> {
     }
     let rest = &cleaned[colon + 1..];
     // special scheme: skip any number of / or \
-    let rest = rest.trim_start_matches(|c| c == '/' || c == '\\');
+    let rest = rest.trim_start_matches(['/', '\\']);
     // authority ends at / \ ? #
-    let auth_end = rest
-        .find(|c| c == '/' || c == '\\' || c == '?' || c == '#')
-        .unwrap_or(rest.len());
+    let auth_end = rest.find(['/', '\\', '?', '#']).unwrap_or(rest.len());
     let authority = &rest[..auth_end];
     let after = &rest[auth_end..];
     let (userinfo, hostport) = match authority.rfind('@') {
@@ -89,13 +87,11 @@ pub fn parse(input: &str) -> Option<Url> {
     };
     // host and port
     let (host_raw, port_raw) = if hostport.starts_with('[') {
-        match hostport.find(']') {
-            Some(i) => {
-                let h = &hostport[..=i];
-                let p = &hostport[i + 1..];
-                (h.to_string(), p.strip_prefix(':').map(|s| s.to_string()))
-            }
-            None => return None,
+        {
+            let i = hostport.find(']')?;
+            let h = &hostport[..=i];
+            let p = &hostport[i + 1..];
+            (h.to_string(), p.strip_prefix(':').map(|s| s.to_string()))
         }
     } else {
         match hostport.rfind(':') {
@@ -202,7 +198,7 @@ fn percent_decode(s: &str) -> String {
     let mut out: Vec<u8> = Vec::new();
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() + 0 && i + 2 <= bytes.len() - 1 {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
             let h = std::str::from_utf8(&bytes[i + 1..i + 3])
                 .ok()
                 .and_then(|x| u8::from_str_radix(x, 16).ok());
@@ -228,6 +224,8 @@ impl Url {
         s
     }
     /// `href`
+    // The method name mirrors WHATWG URL.prototype.toString for this JS port.
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         let mut s = format!("{}://", self.scheme);
         if !self.username.is_empty() || !self.password.is_empty() {

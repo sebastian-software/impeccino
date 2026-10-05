@@ -118,7 +118,7 @@ pub fn check_element_borders_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
         colors[i] = dom.style(el, &format!("border{s}Color"));
     }
     let own_bg = parse_rgb_or_any(&dom.style(el, "backgroundColor"));
-    let badge_like = own_bg.map_or(false, |c| c.alpha_or_one() > 0.1);
+    let badge_like = own_bg.is_some_and(|c| c.alpha_or_one() > 0.1);
     check_borders(
         &tag,
         &Sides {
@@ -306,11 +306,11 @@ pub fn check_element_pseudo_stripe_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> 
         let right = parse_float(&pseudo_str(dom, el, which, "right"));
         let top = parse_float(&pseudo_str(dom, el, which, "top"));
         let bottom = parse_float(&pseudo_str(dom, el, which, "bottom"));
-        let hugs = |v: f64| v.is_finite() && v >= -2.0 && v <= 2.0;
+        let hugs = |v: f64| v.is_finite() && (-2.0..=2.0).contains(&v);
 
         let mut edge: Option<&str> = None;
         let mut thickness = 0.0;
-        if w >= 3.0 && w <= 12.0 && h >= rect.height - 44.0 && h >= rect.height * 0.5 {
+        if (3.0..=12.0).contains(&w) && h >= rect.height - 44.0 && h >= rect.height * 0.5 {
             edge = if hugs(left) {
                 Some("left")
             } else if hugs(right) {
@@ -321,8 +321,7 @@ pub fn check_element_pseudo_stripe_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> 
             thickness = w;
         }
         if edge.is_none()
-            && h >= 3.0
-            && h <= 12.0
+            && (3.0..=12.0).contains(&h)
             && w >= rect.width - 44.0
             && w >= rect.width * 0.5
         {
@@ -418,7 +417,7 @@ pub fn check_element_colors_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let mut effective_bg = bg_info.color;
     let mut surface_unresolved = bg_info.unresolved;
     let mut own_bg = read_own_background_color(dom, el);
-    if own_bg.map_or(true, |c| c.alpha_or_one() <= 0.5) {
+    if own_bg.is_none_or(|c| c.alpha_or_one() <= 0.5) {
         if let Some(pseudo_surface) = read_pseudo_surface_dom(dom, el, &rect) {
             own_bg = Some(pseudo_surface);
             effective_bg = Some(pseudo_surface);
@@ -595,7 +594,7 @@ pub fn dom_accent_dash_pseudo(dom: &dyn Dom, el: ElId) -> bool {
         }
         let w = pseudo_px(dom, el, which, "width");
         let h = pseudo_px(dom, el, which, "height");
-        if !(w >= 8.0 && w <= 80.0 && h >= 1.0 && h <= 6.0) {
+        if !((8.0..=80.0).contains(&w) && (1.0..=6.0).contains(&h)) {
             continue;
         }
         let Some(bg) = parse_rgb_or_any(&pseudo_str(dom, el, which, "backgroundColor")) else {
@@ -1371,7 +1370,7 @@ pub fn check_element_blinking_cursor_dom(dom: &dyn Dom, el: ElId) -> Vec<Browser
             return Vec::new();
         }
         let bg = parse_any_color(Some(&dom.style(el, "backgroundColor")));
-        let filled = bg.map_or(false, |b| b.alpha_or_one() > 0.2);
+        let filled = bg.is_some_and(|b| b.alpha_or_one() > 0.2);
         let has_border_fill = ["Left", "Right", "Bottom"]
             .iter()
             .any(|side| style_px(dom, el, &format!("border{side}Width")) >= 1.0);

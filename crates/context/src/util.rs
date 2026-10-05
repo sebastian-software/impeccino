@@ -106,7 +106,7 @@ pub fn js_number_to_string(v: f64) -> String {
         return format!("{}", v as i128);
     }
     let a = v.abs();
-    if a >= 1e-6 && a < 1e21 {
+    if (1e-6..1e21).contains(&a) {
         let s = format!("{}", v);
         return s;
     }
@@ -323,30 +323,11 @@ pub fn node_read_error(p: &str, err: &std::io::Error) -> String {
         std::io::ErrorKind::PermissionDenied => format!("EACCES: permission denied, open '{}'", p),
         _ => {
             if err.raw_os_error() == Some(21) {
-                format!("EISDIR: illegal operation on a directory, read")
+                "EISDIR: illegal operation on a directory, read".to_string()
             } else {
                 format!("{}", err)
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn fixed() {
-        assert_eq!(to_fixed(2.5, 0), "3");
-        assert_eq!(to_fixed(0.1234, 3), "0.123");
-        assert_eq!(to_fixed(1.0005, 3), "1.000"); // 1.0005 is below the tie in binary
-        assert_eq!(to_fixed(22.5, 0), "23");
-        assert_eq!(to_fixed(0.65, 3), "0.650");
-        assert_eq!(to_fixed(359.99, 1), "360.0");
-    }
-    #[test]
-    fn iso() {
-        assert_eq!(iso_from_ms(0.0), "1970-01-01T00:00:00.000Z");
-        assert_eq!(iso_from_ms(1778610600123.0), "2026-05-12T18:30:00.123Z");
     }
 }
 
@@ -415,5 +396,24 @@ pub fn js_string_value(v: &Value) -> String {
         Value::Bool(b) => b.to_string(),
         Value::Number(n) => js_number_value_string(n),
         Value::Null => "null".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn fixed() {
+        assert_eq!(to_fixed(2.5, 0), "3");
+        assert_eq!(to_fixed(0.1234, 3), "0.123");
+        assert_eq!(to_fixed(1.0005, 3), "1.000"); // 1.0005 is below the tie in binary
+        assert_eq!(to_fixed(22.5, 0), "23");
+        assert_eq!(to_fixed(0.65, 3), "0.650");
+        assert_eq!(to_fixed(359.99, 1), "360.0");
+    }
+    #[test]
+    fn iso() {
+        assert_eq!(iso_from_ms(0.0), "1970-01-01T00:00:00.000Z");
+        assert_eq!(iso_from_ms(1778610600123.0), "2026-05-12T18:30:00.123Z");
     }
 }
