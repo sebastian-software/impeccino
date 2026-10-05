@@ -763,8 +763,8 @@ fn merge_hook_manifests(existing: &Value, fresh: &Value) -> Value {
     Value::Object(merged)
 }
 
-/// A manifest parsed with comments tolerated (Gemini's `settings.json`
-/// allows them); the flag says a rewrite would drop comments.
+/// A manifest parsed with comments tolerated; the flag says a rewrite would
+/// drop those comments.
 fn read_manifest(path: &str) -> Option<(Value, bool)> {
     let (parsed, had_comments) = impeccino_context::hook_markers::parse_manifest_jsonc(&safe_read(path)?)?;
     parsed.as_object()?;
@@ -985,7 +985,7 @@ fn prune_impeccino_hook_from_manifest(path: &str) -> Result<bool, String> {
 fn reset(rt: &Runtime, cwd: &str, manifest_root: &str) -> Result<String, String> {
     let (pruned, shared_left) = uninstall(rt, manifest_root)?;
     let mut removed: Vec<String> = Vec::new();
-    for file_path in [get_cache_path(cwd), get_pending_path(cwd)] {
+    for file_path in [get_cache_path(cwd)] {
         if remove_state_file_with(&file_path, |path| std::fs::remove_file(path))? {
             removed.push(file_path);
         }
@@ -1065,14 +1065,14 @@ mod tests {
 
     #[test]
     fn reset_state_removal_failure_is_reported_with_path() {
-        let error = remove_state_file_with("/cache/hook.pending.json", |_| {
+        let error = remove_state_file_with("/cache/hook.cache.json", |_| {
             Err(std::io::Error::new(
                 std::io::ErrorKind::PermissionDenied,
                 "injected delete failure",
             ))
         })
         .unwrap_err();
-        assert!(error.contains("/cache/hook.pending.json"), "{error}");
+        assert!(error.contains("/cache/hook.cache.json"), "{error}");
         assert!(error.contains("injected delete failure"), "{error}");
     }
 }

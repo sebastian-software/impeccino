@@ -92,9 +92,6 @@ fn has_visible_direct_text(dom: &dyn Dom, el: ElId) -> bool {
     has_direct_text_longer_than(dom, el, 0)
 }
 
-const IMPECCINO_OWN: &str =
-    ".impeccino-overlay, .impeccino-label, .impeccino-banner, .impeccino-tooltip";
-
 /// JS: checks.mjs#checkTypography()
 pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
     let mut findings = Vec::new();
@@ -108,9 +105,6 @@ pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
         )
         .unwrap_or_default()
     {
-        if closest_or_none(dom, el, IMPECCINO_OWN).is_some() {
-            continue;
-        }
         if !has_visible_direct_text(dom, el) {
             continue;
         }
@@ -167,17 +161,12 @@ pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
         }
     }
 
-    for hit in check_flat_type_hierarchy_from_dom(dom, Some(TYPE_HIERARCHY_SKIP_SELECTOR)) {
+    for hit in check_flat_type_hierarchy_from_dom(dom, None) {
         findings.push(BrowserFinding::new(&hit.id, hit.snippet));
     }
 
     findings
 }
-
-/// The overlay chrome `checkTypography` hands `checkFlatTypeHierarchyFromDoc`
-/// as its `skipElement` selector.
-pub const TYPE_HIERARCHY_SKIP_SELECTOR: &str =
-    ".impeccino-overlay, .impeccino-label, .impeccino-banner, .impeccino-tooltip, [id^=\"impeccino-live-\"]";
 
 /// JS: checks.mjs#isRenderedTypeElement over a live DOM.
 fn is_rendered_type_element(dom: &dyn Dom, el: ElId) -> bool {
@@ -1501,7 +1490,7 @@ mod tests {
     }
 
     #[test]
-    fn typography_ignores_tied_leaders_divs_and_own_tool_nodes() {
+    fn typography_counts_text_under_former_overlay_nodes() {
         let mut d = FakeDom::new();
         let (_h, body) = d.with_page();
         let paragraph = d.add(Some(body), "p");
@@ -1522,7 +1511,8 @@ mod tests {
         }
 
         let findings = check_typography(&d);
-        assert!(findings.iter().all(|finding| finding.type_ != "overused-font"), "{findings:?}");
+        let font = findings.iter().find(|finding| finding.type_ == "overused-font").unwrap();
+        assert_eq!(font.detail, "Primary font: inter (95% of text)");
     }
 
     #[test]

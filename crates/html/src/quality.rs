@@ -190,11 +190,6 @@ pub fn check_quality(q: &QualityInput<'_, '_>) -> Vec<RuleHit> {
     let text_len = q.text_len;
     let mut findings: Vec<RuleHit> = Vec::new();
 
-    let el_id = el.id_attr();
-    if el_id.starts_with("claude-") || el_id.starts_with("cic-") {
-        return findings;
-    }
-
     // A raster (<img>, or an element with a background url) at near-zero
     // opacity never reaches the screen: the produced material ships as a
     // compliance token. The CSS-text scan catches the stylesheet form; this

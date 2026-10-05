@@ -1,12 +1,8 @@
-//! [`Dom`] over a serialized page snapshot.
+//! [`Dom`] over the rendered-page snapshot captured by the CLI.
 //!
-//! The in-page bundle measures the live DOM through the JS probe
-//! (`10-probe.js` → `crates/wasm/src/js_dom.rs`). Where WebAssembly cannot
-//! run next to the page — the Chrome extension on a strict-CSP site — the
-//! measurement happens in the content-script world (`15-snapshot.js`,
-//! measurement only), travels as JSON to wherever the wasm core does run
-//! (the extension's offscreen document), and this type answers every
-//! [`Dom`] question from it. Same rules, same core, one more probe.
+//! `agent-browser` runs the page measurement in
+//! `crates/cli/assets/page-snapshot.js`; its serialized result is read here
+//! so the browser rules can answer DOM questions without another page call.
 //!
 //! What the snapshot carries is exactly what the probe surface reads: the
 //! element tree in document order (child nodes with their text, so
@@ -55,7 +51,7 @@ pub const NS_MATHML: &str = "http://www.w3.org/1998/Math/MathML";
 /// The computed-style properties the browser rules read (`getComputedStyle`
 /// spellings as the rules pass them). The capture reads exactly this list
 /// per element; the order is the column order of `SnapNode::style`. Keep in
-/// sync with `STYLE_PROPS` in `browser-bundle/15-snapshot.js` (the build
+/// sync with `STYLE_PROPS` in `crates/cli/assets/page-snapshot.js` (a test
 /// checks the two lists agree).
 pub const STYLE_PROPS: &[&str] = &[
     "animationIterationCount",
@@ -263,8 +259,7 @@ pub struct SnapNode {
     #[serde(rename = "r", default)]
     pub rect: Option<[f64; 4]>,
     /// `[clientWidth, clientHeight, clientLeft, scrollWidth, scrollLeft,
-    /// offsetWidth, offsetHeight]` (`null` → NaN, as `undefined` crosses
-    /// into a wasm f64).
+    /// offsetWidth, offsetHeight]` (`null` becomes NaN when metrics are missing).
     #[serde(rename = "m", default)]
     pub metrics: Vec<Option<f64>>,
     /// `checkVisibility`: 1 / 0, `-1` when the method is missing.
@@ -610,11 +605,6 @@ impl SnapshotDom {
         self.unknown_props.borrow().clone()
     }
 
-    /// Forget per-run memo tables (selectors, closest, text) but keep facts.
-    pub fn reset_memo(&self) {
-        self.closest_cache.borrow_mut().clear();
-    }
-
     fn hit(&self, x: f64, y: f64) -> Option<(Option<ElId>, Vec<ElId>)> {
         let k = Self::key(x, y);
         if let Some(v) = self.hits.borrow().get(&k) {
@@ -952,8 +942,8 @@ impl Dom for SnapshotDom {
     }
 }
 
-/// `undefined` read into a wasm f64 is NaN (`offsetWidth` on an SVG
-/// element); a missing column reads the same way.
+/// Missing metrics and style columns read as NaN, matching the rules' numeric
+/// handling of an unavailable browser measurement.
 fn metric(m: &[Option<f64>], i: usize) -> f64 {
     match m.get(i) {
         Some(Some(v)) => *v,

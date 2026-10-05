@@ -1,9 +1,7 @@
-//! The in-page (browser) rule set, ported from the DOM adapters of
+//! The rendered-page rule set, ported from the DOM adapters of
 //! `cli/engine/rules/checks.mjs` (Sections 4-6, the `*DOM` functions) and
-//! the driver in `cli/engine/browser/injected/index.mjs`. Everything here is
-//! rule logic written against the [`dom::Dom`] probe trait; the JavaScript
-//! left in the bundle only implements that trait, marshals JSON, and draws
-//! the overlay UI.
+//! the former browser driver. Rule logic uses the [`dom::Dom`] interface;
+//! the CLI captures page measurements and supplies them as a snapshot.
 //!
 //! The probe trait itself, its snapshot implementation, the selector engine,
 //! the test fake and the plain-data types live in
@@ -13,10 +11,8 @@
 //! Module map (one JS region each, so parallel work does not collide):
 //!
 //! - `dom`: the [`dom::Dom`] trait, `ElId`, `Rect`, shared helpers.
-//! - `snapshot`: [`snapshot::SnapshotDom`], the trait over a serialized page
-//!   (the extension's CSP-proof path), plus the one-shot findings run that
-//!   drives the checks below; `selector`: the Chrome-flavored selector
-//!   engine it matches with.
+//! - `snapshot`: [`snapshot::SnapshotDom`], the adapter over a serialized
+//!   page snapshot; `selector`: the browser-flavored selector engine.
 //! - `fake_dom`: a table-driven fake for unit tests (test builds only).
 //! - `background`: Section 4 in browser mode — `readOwnBackgroundColor`,
 //!   `readCascadeBackgroundColor`, `resolveBackgroundInfo`,
@@ -53,9 +49,7 @@
 //!   `collectRepeatedContainerTextFindings`, `checkRepeatedContainerTextDOM`.
 //! - `driver`: index.mjs — `scopedIgnoreActive`, `collectBrowserFindings`
 //!   (element loop, page-level passes, html-pattern scoping, pulsing-dot
-//!   promotion), the design-system checks, `serializeFindings`,
-//!   `generateSelector`/`buildSelectorSegment`/`isLikelyHashedClass`,
-//!   `isElementHidden`, `addVisualContrastResult`'s decision.
+//!   promotion), the design-system checks, and selector generation.
 //! - `visual`: the visual-contrast subsystem's decisions —
 //!   `collectVisualContrastReasons`, `collectVisualContrastCandidates`,
 //!   `blendRgba`, `pickWorstContrastColor`, `textSamplePoints`,
@@ -87,5 +81,5 @@ pub mod visual;
 
 pub use dom::{Dom, ElId, Rect};
 pub use impeccino_foundation::browser::{
-    BrowserConfig, BrowserFinding, DisabledValue, ElFinding, FindingGroup,
+    BrowserConfig, BrowserFinding, DesignSystemConfig, ElFinding, FindingGroup,
 };

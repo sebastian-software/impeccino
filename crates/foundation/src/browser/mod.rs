@@ -1,12 +1,10 @@
-//! The shared half of the in-page rule set: the DOM probe trait every engine
-//! implements ([`dom::Dom`]), the snapshot implementation and its selector
-//! engine, the test fake, and the plain-data types the browser checks take
-//! in and hand back. The checks themselves live in `impeccino-core`.
+//! Shared types for rendered-page checks: the [`dom::Dom`] interface, the
+//! serialized-page snapshot and selector engine, test fake, and plain-data
+//! inputs and outputs. The checks themselves live in `impeccino-core`.
 //!
 //! - `dom`: the [`dom::Dom`] trait, `ElId`, `Rect`, shared helpers.
-//! - `snapshot`: [`snapshot::SnapshotDom`], the trait over a serialized page
-//!   (the extension's CSP-proof path); `selector`: the Chrome-flavored
-//!   selector engine it matches with.
+//! - `snapshot`: [`snapshot::SnapshotDom`], the adapter over the page snapshot
+//!   captured by the CLI; `selector`: the browser-flavored selector engine.
 //! - `fake_dom`: a table-driven fake for unit tests (test builds only).
 //! - `visual`: the plain-data plans and rects of the visual-contrast
 //!   subsystem.
@@ -23,8 +21,8 @@ use serde::{Deserialize, Serialize};
 
 pub use dom::{Dom, ElId, Rect};
 
-/// The `{ type, detail, severity?, ignoreValue? }` shape the overlay loop
-/// carries (`checkElement*DOM(el).map(f => ({ type: f.id, detail: f.snippet }))`).
+/// The `{ type, detail, severity?, ignoreValue? }` shape page scans carry
+/// (`checkElement*DOM(el).map(f => ({ type: f.id, detail: f.snippet }))`).
 /// Field order matches the JS object literal so serialized JSON is byte-equal.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BrowserFinding {
@@ -76,120 +74,23 @@ pub struct FindingGroup {
     pub findings: Vec<BrowserFinding>,
 }
 
-/// One `{ rule, value }` entry of `window.__IMPECCINO_CONFIG__.disabledValues`:
-/// a project `ignoreValues` waiver the live overlay resolved for this page
-/// (live-browser-ignores.js) and forwarded for the scan to apply where the
-/// findings are assembled. Rule and value are carried raw; the driver
-/// normalizes them the way the CLI's `isIgnoredFindingValue` does.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct DisabledValue {
-    pub rule: String,
-    pub value: String,
+/// Design tokens passed into the rendered-page checks.
+#[derive(Debug, Clone, Default)]
+pub struct DesignSystemConfig {
+    pub declared_selectors: Vec<String>,
+    pub has_fonts: bool,
+    pub allowed_fonts: Vec<String>,
+    pub has_colors: bool,
+    pub allowed_colors: Vec<crate::color::Rgba>,
+    pub has_radii: bool,
+    pub allowed_radii: Vec<f64>,
+    pub has_pill_radius: bool,
 }
 
-/// JS `.filter(e => e && typeof e === 'object' && e.rule && e.value)` over
-/// whatever the page put on the config. `__IMPECCINO_CONFIG__` arrives in
-/// whatever state it was written in, so a hand-edited entry of the wrong
-/// shape is dropped rather than failing the parse of the whole config.
-fn de_disabled_values<'de, D>(de: D) -> Result<Vec<DisabledValue>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let raw = serde_json::Value::deserialize(de)?;
-    let Some(items) = raw.as_array() else {
-        return Ok(Vec::new());
-    };
-    Ok(items
-        .iter()
-        .filter_map(|entry| {
-            let obj = entry.as_object()?;
-            // JS `String(e.rule)` after the truthiness filter: an empty
-            // string and a numeric 0 are both falsy, so both drop the entry.
-            let text = |key: &str| match obj.get(key) {
-                Some(serde_json::Value::String(s)) => s.clone(),
-                Some(serde_json::Value::Number(n)) => {
-                    let v = n.as_f64().unwrap_or(0.0);
-                    if v == 0.0 {
-                        String::new()
-                    } else {
-                        crate::js::number_to_string(v)
-                    }
-                }
-                _ => String::new(),
-            };
-            let rule = text("rule");
-            let value = text("value");
-            if rule.is_empty() || value.is_empty() {
-                return None;
-            }
-            Some(DisabledValue { rule, value })
-        })
-        .collect())
-}
-
-/// What the bundle passes into `collectBrowserFindings`: extension mode and
-/// the relevant slice of `window.__IMPECCINO_CONFIG__`.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+/// Options for measuring one rendered page.
+#[derive(Debug, Clone, Default)]
 pub struct BrowserConfig {
-    #[serde(default)]
-    pub extension_mode: bool,
-    /// `window.__IMPECCINO_CONFIG__?.disabledRules || []` (only honored in
-    /// extension mode, exactly as the JS reads it).
-    #[serde(default)]
-    pub disabled_rules: Vec<String>,
-    /// `window.__IMPECCINO_CONFIG__?.disabledValues || []` (only honored in
-    /// extension mode, exactly as the JS reads it). `disabled_rules` waives
-    /// whole rules; these waive one reported value of one rule, which is how
-    /// a project entry like `overused-font = "geist mono"` reaches the
-    /// overlay. Serialized as `disabledValues`.
-    #[serde(default, deserialize_with = "de_disabled_values")]
-    pub disabled_values: Vec<DisabledValue>,
-    /// `window.__IMPECCINO_CONFIG__?.skipScan === true` (only honored in
-    /// extension mode): the page is waived wholesale by detector.ignoreFiles,
-    /// so every scan stage answers empty.
-    #[serde(default)]
-    pub skip_scan: bool,
-    /// `window.__IMPECCINO_CONFIG__?.designSystem`, raw.
-    #[serde(default)]
-    pub design_system: Option<serde_json::Value>,
-    /// `window.__IMPECCINO_CONFIG__?.lineLengthMax` (any JSON value; the JS
-    /// applies `|| 80`).
-    #[serde(default)]
-    pub line_length_max: Option<serde_json::Value>,
-    /// The installed rule pack, when the host linked one in
-    /// ([`crate::rule_pack`]). Not part of the JSON config: a pack is a Rust
-    /// value, so it is skipped in both directions and a config parsed from
-    /// the page carries `None`.
-    #[serde(skip)]
-    pub rule_pack: Option<&'static dyn crate::rule_pack::RulePack>,
-}
-
-impl BrowserConfig {
-    /// JS `(window.__IMPECCINO_CONFIG__?.lineLengthMax) || 80`.
-    pub fn line_max(&self) -> f64 {
-        match &self.line_length_max {
-            Some(serde_json::Value::Number(n)) => {
-                let v = n.as_f64().unwrap_or(f64::NAN);
-                if crate::js_ext_a::num_truthy(v) {
-                    v
-                } else {
-                    80.0
-                }
-            }
-            Some(serde_json::Value::String(s)) if !s.is_empty() => {
-                // JS keeps the string; `textLen > lineMax` then compares
-                // number-to-string. Coerce like `>` would.
-                let v = crate::js::string_to_number(s);
-                if v.is_nan() {
-                    f64::NAN
-                } else {
-                    v
-                }
-            }
-            _ => 80.0,
-        }
-    }
+    pub design_system: Option<DesignSystemConfig>,
 }
 
 /// JS: checks.mjs#measureHiddenTextDOM() result.

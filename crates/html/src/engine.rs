@@ -24,7 +24,6 @@ use crate::page::{
     check_cream_palette, check_page_layout, check_repeated_container_text_from_doc,
     check_static_page_typography,
 };
-use crate::profile::{self, Meta, ProfileSink};
 use crate::quality::{check_element_quality, check_page_quality_from_doc, pf0};
 use impeccino_core::checks::html_patterns::{check_html_patterns, HtmlPatternCorpora};
 use impeccino_core::checks::rules::RuleHit;
@@ -75,8 +74,6 @@ pub struct DetectHtmlOptions<'a> {
     pub design_system: Option<&'a dyn DesignSystemHook>,
     /// The regex engine's text-content analyzers; `None` skips them.
     pub text_content_analyzers: Option<TextContentAnalyzers<'a>>,
-    /// JS `options.profile`.
-    pub profile: Option<&'a dyn ProfileSink>,
     /// Sink for the JS `process.stderr.write` notices (unreadable linked
     /// stylesheets); `None` drops them.
     pub warn: Option<&'a dyn Fn(&str)>,
@@ -176,12 +173,7 @@ pub fn detect_html(
     file_path: &Path,
     options: &DetectHtmlOptions<'_>,
 ) -> Result<Vec<Finding>, HtmlEngineError> {
-    let file_str = file_path.to_string_lossy().into_owned();
-    let html = profile::step(
-        options.profile,
-        Meta::new("setup", "read-html", &file_str),
-        || read_source(file_path),
-    )?;
+    let html = read_source(file_path)?;
     Ok(detect_html_source(&html, file_path, options))
 }
 
@@ -192,17 +184,8 @@ pub fn detect_html_source(
     file_path: &Path,
     options: &DetectHtmlOptions<'_>,
 ) -> Vec<Finding> {
-    let profile = options.profile;
     let file_str = file_path.to_string_lossy().into_owned();
     let fp = file_str.as_str();
-    // JS loads htmlparser2 / css-select / css-tree / domutils here (and falls
-    // back to the regex engine with a DEGRADED notice when they are missing);
-    // the port links them in, so the step is only kept for the profile shape.
-    profile::step(
-        profile,
-        Meta::new("setup", "import-static-parser", fp),
-        || (),
-    );
     // JS `path.dirname(path.resolve(filePath))`.
     let resolved = if file_path.is_absolute() {
         file_path.to_path_buf()
@@ -216,13 +199,9 @@ pub fn detect_html_source(
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| resolved.clone());
 
-    let mut doc = profile::step(
-        profile,
-        Meta::new("parse-html", "parse-document", fp),
-        || StaticDocument::parse(html),
-    );
-    let css_text = collect_static_css_text(&doc, &file_dir, profile, fp, options.warn);
-    build_static_style_map(&mut doc, css_text.as_str(), profile, fp);
+    let mut doc = StaticDocument::parse(html);
+    let css_text = collect_static_css_text(&doc, &file_dir, options.warn);
+    build_static_style_map(&mut doc, css_text.as_str());
     let doc = doc;
 
     let mut findings: Vec<Finding> = Vec::new();
@@ -232,12 +211,7 @@ pub fn detect_html_source(
         let elements = doc.query_selector_all(selector);
         for el in &elements {
             let tag = el.tag_lower();
-            let hits = profile::findings(
-                profile,
-                Meta::new("element", rule_id, fp),
-                |h: &RuleHit| h.id.as_str(),
-                || run_rule(rule_id, el, &tag),
-            );
+            let hits = run_rule(rule_id, el, &tag);
             for h in hits {
                 if scoped_ignore_active(el, &h.id) {
                     continue;
@@ -250,29 +224,15 @@ pub fn detect_html_source(
     }
 
     if let Some(ds) = options.design_system {
-        let source_design = profile::findings(
-            profile,
-            Meta::new("source", "design-system", fp),
-            |f: &Finding| f.antipattern.as_str(),
-            || ds.check_source(html, fp),
-        );
-        let static_design = profile::findings(
-            profile,
-            Meta::new("page", "design-system", fp),
-            |f: &Finding| f.antipattern.as_str(),
-            || ds.collect_static(&doc, fp),
-        );
+        let source_design = ds.check_source(html, fp);
+        let static_design = ds.collect_static(&doc, fp);
         findings.extend(ds.merge(static_design, source_design));
     }
 
     if is_full_page(html) {
         let page = |rule_id: &str, f: &dyn Fn() -> Vec<RuleHit>| -> Vec<RuleHit> {
-            profile::findings(
-                profile,
-                Meta::new("page", rule_id, fp),
-                |h: &RuleHit| h.id.as_str(),
-                f,
-            )
+            let _ = rule_id;
+            f()
         };
         let mut push_hits = |hits: Vec<RuleHit>| {
             for h in hits {
@@ -318,17 +278,10 @@ pub fn detect_html_source(
             style_text: style_parts.join("\n"),
             class_text: class_attr_parts.join("\n"),
         };
-        let pattern_hits = profile::findings(
-            profile,
-            Meta::new("page", "html-patterns", fp),
-            |f: &impeccino_core::checks::css_scan::PatternFinding| f.id.as_str(),
-            || {
-                check_html_patterns(html, Some(&corpora))
-                    .into_iter()
-                    .filter(|item| item.id != "bounce-easing" && item.id != "layout-transition")
-                    .collect()
-            },
-        );
+        let pattern_hits: Vec<_> = check_html_patterns(html, Some(&corpora))
+            .into_iter()
+            .filter(|item| item.id != "bounce-easing" && item.id != "layout-transition")
+            .collect();
         for f in pattern_hits {
             if let Some(selector) = f.selector.as_deref() {
                 let stripped = PSEUDO_STRIP_RE.replace_all(selector, "");
@@ -355,12 +308,7 @@ pub fn detect_html_source(
         }
 
         if let Some(analyzers) = options.text_content_analyzers {
-            let text_findings = profile::findings(
-                profile,
-                Meta::new("page", "text-content", fp),
-                |f: &Finding| f.antipattern.as_str(),
-                || analyzers(html, fp),
-            );
+            let text_findings = analyzers(html, fp);
             for f in text_findings {
                 if let Some(item) = mk(&f.antipattern, &f.snippet) {
                     findings.push(item);
@@ -374,21 +322,11 @@ pub fn detect_html_source(
     // appending keeps built-in output byte-identical when no pack is
     // installed, and pack findings are waivable like built-in ones.
     if let Some(pack) = options.static_rule_pack {
-        let pack_findings = profile::findings(
-            profile,
-            Meta::new("page", "rule-pack", fp),
-            |f: &Finding| f.antipattern.as_str(),
-            || pack.check_document(&doc, fp),
-        );
+        let pack_findings = pack.check_document(&doc, fp);
         findings.extend(pack_findings);
     } else if let Some(pack) = options.rule_pack {
         let ext = impeccino_detect::detect_text::ext_from_file_path(fp);
-        let pack_findings = profile::findings(
-            profile,
-            Meta::new("source", "rule-pack", fp),
-            |f: &Finding| f.antipattern.as_str(),
-            || pack.check_text(html, fp, &ext),
-        );
+        let pack_findings = pack.check_text(html, fp, &ext);
         findings.extend(pack_findings);
     }
 
@@ -402,13 +340,12 @@ pub fn detect_html_source(
 /// The selectors css-select would refuse that a scan of `html` hits (for the
 /// parity report; not part of the JS API).
 pub fn unsupported_selectors(html: &str, file_path: &Path) -> Vec<String> {
-    let file_str = file_path.to_string_lossy().into_owned();
     let file_dir = file_path
         .parent()
         .map(|p| p.to_path_buf())
         .unwrap_or_default();
     let mut doc = StaticDocument::parse(html);
-    let css_text = collect_static_css_text(&doc, &file_dir, None, &file_str, None);
-    build_static_style_map(&mut doc, &css_text, None, &file_str);
+    let css_text = collect_static_css_text(&doc, &file_dir, None);
+    build_static_style_map(&mut doc, &css_text);
     doc.unsupported_selectors()
 }

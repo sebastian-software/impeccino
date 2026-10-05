@@ -42,12 +42,6 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
     for el in doc.query_selector_all(
         "p, h1, h2, h3, h4, h5, h6, li, td, th, dd, blockquote, figcaption, a, button, label, span",
     ) {
-        if el
-            .closest(".impeccino-overlay, .impeccino-label, .impeccino-banner, .impeccino-tooltip")
-            .is_some()
-        {
-            continue;
-        }
         if !has_nonblank_direct_text(&el) {
             continue;
         }
@@ -442,8 +436,8 @@ mod tests {
 
     fn styled_document(source: &str) -> StaticDocument {
         let mut doc = StaticDocument::parse(source);
-        let css = collect_static_css_text(&doc, Path::new("."), None, "fixture.html", None);
-        build_static_style_map(&mut doc, &css, None, "fixture.html");
+        let css = collect_static_css_text(&doc, Path::new("."), None);
+        build_static_style_map(&mut doc, &css);
         doc
     }
 
@@ -501,7 +495,7 @@ mod tests {
     }
 
     #[test]
-    fn overused_font_excludes_direct_text_in_divs_and_own_tool_nodes() {
+    fn overused_font_counts_text_under_former_overlay_nodes() {
         let divs = (0..19)
             .map(|i| format!("<div class='inter'>Inter div {i}</div>"))
             .collect::<String>();
@@ -516,7 +510,8 @@ mod tests {
         ));
 
         let findings = check_static_page_typography(&doc);
-        assert!(findings.iter().all(|hit| hit.id != "overused-font"), "{findings:?}");
+        let font = findings.iter().find(|hit| hit.id == "overused-font").unwrap();
+        assert_eq!(font.snippet, "Primary font: inter (95% of text)");
     }
 
     #[test]

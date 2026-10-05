@@ -1,11 +1,7 @@
-//! The DOM probe the browser rules run against.
+//! The DOM interface used by rendered-page rules.
 //!
-//! The in-page bundle keeps only measurement in JavaScript: every rule that
-//! used to be a `checkElement*DOM` / `check*DOM` adapter in `checks.mjs` and
-//! the driver in `browser/injected/index.mjs` is Rust code written against
-//! this trait. The wasm crate implements it by calling back into a small JS
-//! probe object (element handles are indexes into a JS-side registry); unit
-//! tests implement it with [`super::fake_dom::FakeDom`].
+//! Rules use this trait for observations supplied by the CLI's page snapshot;
+//! unit tests implement it with [`super::fake_dom::FakeDom`].
 //!
 //! Semantics mirror the DOM APIs the JS called, one method per API, so a
 //! ported function reads like the source: `dom.style(el, "fontSize")` is
@@ -98,8 +94,7 @@ pub trait Dom {
     /// when no sheet declares it. Mirrors `keyframesToggleVisibilityDOM`'s
     /// walk order.
     fn keyframes(&self, name: &str) -> Option<Vec<KeyframeFrame>>;
-    /// `document.documentElement.cloneNode(true)` with every
-    /// `[id^="impeccino-live-"]` node removed, serialized as `outerHTML`.
+    /// `document.documentElement.outerHTML` for HTML-pattern checks.
     fn document_html_for_patterns(&self) -> String;
     /// The CSS of every readable linked stylesheet whose rules resolve to a
     /// live element, flattened out of its grouping rules (#709). Empty when

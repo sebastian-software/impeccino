@@ -824,7 +824,7 @@ fn audit_str<'a>(a: &'a Map<String, Value>, k: &str) -> Option<&'a str> {
 // ── classifiers ───────────────────────────────────────────────────────────
 
 #[test]
-fn truthy_and_depth() {
+fn truthy_values() {
     for v in ["1", "true", "TRUE", "yes", "YES", "on", "On"] {
         assert!(truthy(Some(v)), "{v}");
     }
@@ -832,11 +832,6 @@ fn truthy_and_depth() {
         assert!(!truthy(Some(v)), "{v}");
     }
     assert!(!truthy(None));
-    assert!(depth_is_set(Some("2")));
-    assert!(depth_is_set(Some(" 1 ")));
-    assert!(!depth_is_set(Some("0")));
-    assert!(!depth_is_set(Some("")));
-    assert!(!depth_is_set(None));
 }
 
 #[test]
@@ -1519,8 +1514,10 @@ fn run_hook_acks_and_quiet_modes() {
     let q = hook::run_hook(&quiet, &edit_event(&cwd, &clean, "s2"));
     assert_eq!(q.audit["quiet"], json!(true));
     assert!(q.stdout.is_empty());
-    let re = rt_with(&cwd, env(&[("CLAUDE_HOOK_DEPTH", "2")]));
-    assert_eq!(hook::run_hook(&re, &ev).audit["reentrant"], json!(true));
+    let nested = rt_with(&cwd, env(&[("CLAUDE_HOOK_DEPTH", "2")]));
+    let nested_css = t.write("src/nested.css", GRADIENT_CSS);
+    let nested_scan = hook::run_hook(&nested, &edit_event(&cwd, &nested_css, "s3"));
+    assert!(nested_scan.stdout.contains("[gradient-text]"), "{}", nested_scan.stdout);
     let off = rt_with(&cwd, env(&[("IMPECCINO_HOOK_DISABLED", "yes")]));
     assert_eq!(
         audit_str(&hook::run_hook(&off, &ev).audit, "skipped"),
@@ -3074,15 +3071,15 @@ fn admin_reset_reports_state_file_delete_errors() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
-    let pending = get_pending_path(&cwd);
-    std::fs::create_dir_all(&pending).unwrap();
+    let cache = get_cache_path(&cwd);
+    std::fs::create_dir_all(&cache).unwrap();
 
     let (out, err, code) = admin_run(&r, &["reset"]);
 
     assert_eq!(code, 1);
     assert!(out.is_empty());
     assert!(err.contains("could not remove hook state file"), "{err}");
-    assert!(err.contains(&pending), "{err}");
+    assert!(err.contains(&cache), "{err}");
 }
 
 // ── Grok Build + Codex (#646, #603, upstream 35ae0733/bfe634e2/3c442af7/c9e7cd8a) ──
@@ -3208,43 +3205,28 @@ fn codex_stop_emits_decision_block() {
     assert!(out.get("hookSpecificOutput").is_none());
 }
 
-// ── live-preview stand-down ───────────────────────────────────────────────
-//
-// A live variant session owns files carrying preview scaffolding
-// (`data-impeccino-variants=` wrappers, `impeccino-carbonize-start`
-// blocks). Every hook entry stands down on them: findings there are noise
-// and acting on them derails the session; live-complete verifies the file
-// once the accepted variant is permanent.
+// ── removed live-preview stand-down ────────────────────────────────────────
 
 #[test]
-fn run_hook_stands_down_on_live_preview_markers() {
+fn run_hook_scans_files_with_live_preview_markers() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
     // Control: the same slop without markers is reported.
     let plain = t.write("src/plain.css", GRADIENT_CSS);
     let reported = hook::run_hook(&r, &edit_event(&cwd, &plain, "s1"));
-    assert!(reported.stdout.contains("[gradient-text]"), "{}", reported.stdout);
-    // A carbonize block in flight: skipped, nothing emitted.
+    assert!(reported.stdout.contains("[gradient-text]"), "output={} audit={:?}", reported.stdout, reported.audit);
+    // The old preview wrapper no longer exempts the source from normal checks.
     let carbonized = t.write(
         "src/carbonized.css",
         &format!("/* impeccino-carbonize-start ab12cd34 */\n{GRADIENT_CSS}/* impeccino-carbonize-end ab12cd34 */\n"),
     );
-    let skipped = hook::run_hook(&r, &edit_event(&cwd, &carbonized, "s1"));
-    assert_eq!(skipped.stdout, "", "no findings while live markers are in the file");
-    assert_eq!(skipped.audit["skipped"], json!("live-preview"));
-    // A published variants wrapper, same stand-down.
-    let wrapped = t.write(
-        "src/wrapped.html",
-        "<!-- impeccino-variants-start ab12cd34 --><div data-impeccino-variants=\"ab12cd34\" data-impeccino-variant-count=\"3\"></div>\n",
-    );
-    let skipped = hook::run_hook(&r, &edit_event(&cwd, &wrapped, "s1"));
-    assert_eq!(skipped.stdout, "");
-    assert_eq!(skipped.audit["skipped"], json!("live-preview"));
+    let checked = hook::run_hook(&r, &edit_event(&cwd, &carbonized, "s1"));
+    assert!(checked.stdout.contains("[gradient-text]"), "{}", checked.stdout);
 }
 
 #[test]
-fn before_edit_stands_down_on_live_preview_markers() {
+fn before_edit_scans_proposed_and_existing_files_with_live_preview_markers() {
     let t = Tmp::new();
     let cwd = t.path();
     t.write("package.json", "{}");
@@ -3254,25 +3236,24 @@ fn before_edit_stands_down_on_live_preview_markers() {
     let (out, _) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/x.css", "content": slop})));
     assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
     // The very first variants write introduces the markers in the proposed
-    // content itself.
+    // content itself, and it still gets checked.
     let proposed = format!("/* impeccino-carbonize-start ab12cd34 */\n{slop}");
-    let (out, code) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/x.css", "content": proposed})));
+    let (out, code) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/y.css", "content": proposed})));
     assert_eq!(code, 0);
-    assert_eq!(out, "{\"permission\":\"allow\"}");
+    assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
     // Later fragment edits touch a file that already carries them on disk:
     // the proposed content alone looks like plain slop.
-    t.write("src/y.css", "/* impeccino-carbonize-start ab12cd34 */\n.v { color: red; }\n");
-    let (out, code) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/y.css", "content": slop})));
+    t.write("src/z.css", "/* impeccino-carbonize-start ab12cd34 */\n.v { color: red; }\n");
+    let (out, code) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/z.css", "content": slop})));
     assert_eq!(code, 0);
-    assert_eq!(out, "{\"permission\":\"allow\"}");
+    assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
 }
 
 #[test]
-fn run_hook_stands_down_for_the_whole_edit_when_the_primary_carries_live_markers() {
+fn run_hook_scans_companion_files_when_the_primary_carries_live_markers() {
     // The edited JSX carries the wrapper; the stylesheet it imports does not.
-    // Co-scanning would still speak up about the stylesheet mid-session, so
-    // the whole event stands down. The same files without markers prove the
-    // co-scan is otherwise live.
+    // Both files remain subject to the normal scan, so the co-scanned
+    // stylesheet finding still surfaces.
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
@@ -3284,31 +3265,28 @@ fn run_hook_stands_down_for_the_whole_edit_when_the_primary_carries_live_markers
         "src/App.jsx",
         "import './styles.css';\n{/* impeccino-variants-start ab12cd34 */}<div data-impeccino-variants=\"ab12cd34\" data-impeccino-variant-count=\"3\"></div>\n",
     );
-    let skipped = hook::run_hook(&r, &edit_event(&cwd, &wrapped, "s2"));
-    assert_eq!(skipped.stdout, "", "nothing is emitted while the edited file is in a live session");
-    assert_eq!(skipped.audit["skipped"], json!("live-preview"));
-    let audited = audit_str(&skipped.audit, "file").unwrap_or("").replace('\\', "/");
-    assert!(audited.ends_with("src/App.jsx"), "the audit names the edited file, not the companion: {audited}");
+    let checked = hook::run_hook(&r, &edit_event(&cwd, &wrapped, "s2"));
+    assert!(checked.stdout.contains("[gradient-text]"), "{}", checked.stdout);
 }
 
 #[test]
-fn run_hook_stands_down_before_the_edit_cap_can_suppress_a_live_file() {
-    // A file edited past the per-session cap would be skipped as
-    // "suppressed" (with the notice) before its content is read. A live
-    // wrap on such a file must stand down instead, every time.
+fn run_hook_keeps_the_edit_cap_for_files_with_live_preview_markers() {
+    // Preview markers do not change the per-session edit cap or its notice.
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
+    // The first clean session cache is created by earlier runs in a real
+    // project; seed it so this test exercises the persisted edit counter.
+    assert!(persist_cache(&r, &cwd, &read_cache(&cwd)));
     // Seven plain edits cross the cap: the 7th carries the notice.
     let css = t.write("src/b.css", GRADIENT_CSS);
     let mut outputs = Vec::new();
     for _ in 0..7 {
         outputs.push(hook::run_hook(&r, &edit_event(&cwd, &css, "cap")));
     }
-    assert_eq!(outputs[6].audit["suppressed"], json!(true));
+    assert_eq!(outputs[6].audit.get("suppressed"), Some(&json!(true)), "{:?}", outputs[6].audit);
     assert!(outputs[6].stdout.contains("Suppressing further design hints"));
-    // Now a live session carbonizes into that same file: stand down, never
-    // suppress.
+    // Adding preview scaffolding does not bypass the existing edit cap.
     t.write(
         "src/b.css",
         &format!("/* impeccino-carbonize-start ab12cd34 */\n{GRADIENT_CSS}/* impeccino-carbonize-end ab12cd34 */\n"),
@@ -3316,8 +3294,25 @@ fn run_hook_stands_down_before_the_edit_cap_can_suppress_a_live_file() {
     for i in 0..3 {
         let out = hook::run_hook(&r, &edit_event(&cwd, &css, "cap"));
         assert_eq!(out.stdout, "", "edit {i}: nothing emitted");
-        assert_eq!(out.audit["skipped"], json!("live-preview"), "edit {i}");
-        assert!(out.audit.get("suppressed").is_none(), "edit {i}: {:?}", out.audit);
-        assert!(out.audit.get("editCount").is_none(), "edit {i}: the cap is not bumped for a live wrap");
+        assert_eq!(out.audit["suppressed"], json!(true), "edit {i}");
+        assert_eq!(out.audit["editCount"], json!(8 + i), "edit {i}");
     }
+}
+
+#[test]
+fn stop_scans_touched_files_with_live_preview_markers() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    let css = t.write(
+        "src/preview.css",
+        &format!("/* impeccino-carbonize-start ab12cd34 */\n{GRADIENT_CSS}"),
+    );
+    let mut cache = read_cache(&cwd);
+    touch_file(&mut cache, "preview-stop", &css);
+    assert!(persist_cache(&r, &cwd, &cache));
+
+    let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "preview-stop"));
+    assert!(stop.stdout.contains("[gradient-text]"), "audit={:?} output={}", stop.audit, stop.stdout);
+    assert_eq!(stop.audit.get("skipped"), None);
 }

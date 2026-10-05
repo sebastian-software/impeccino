@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use impeccino_detect::MissingHtmlEngine;
-use impeccino_hook::hook_lib::{get_cache_path, get_pending_path, Runtime};
+use impeccino_hook::hook_lib::{get_cache_path, Runtime};
 use impeccino_hook::hook;
 use serde_json::json;
 
@@ -105,12 +105,6 @@ fn state_relocates_and_slug_normalizes() {
     let cache = get_cache_path("/x/my.app");
     assert!(cache.starts_with(&root.path()), "{}", cache);
     assert!(cache.ends_with("hook.cache.json"));
-    // Pending lands in the same per-project dir.
-    let pending = get_pending_path("/x/my.app");
-    assert_eq!(
-        std::path::Path::new(&cache).parent(),
-        std::path::Path::new(&pending).parent()
-    );
     // Trailing separators and relative segments slug to the same dir.
     assert_eq!(get_cache_path("/x/my.app"), get_cache_path("/x/my.app/"));
     assert_eq!(get_cache_path("/x/my.app"), get_cache_path("/x/other/../my.app"));

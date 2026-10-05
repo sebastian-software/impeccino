@@ -19,7 +19,7 @@ fn main() {
         std::process::exit(1);
     };
     let analyzers = |content: &str, file_path: &str| {
-        impeccino_detect::detect_text::run_text_content_analyzers(content, file_path, None)
+        impeccino_detect::detect_text::run_text_content_analyzers(content, file_path)
     };
     let opts = DetectHtmlOptions {
         inline_ignores_disabled: !inline,

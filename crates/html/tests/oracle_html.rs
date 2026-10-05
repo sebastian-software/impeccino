@@ -19,7 +19,7 @@ fn run_text_content_analyzers(
     content: &str,
     file_path: &str,
 ) -> Vec<impeccino_core::findings::Finding> {
-    impeccino_detect::detect_text::run_text_content_analyzers(content, file_path, None)
+    impeccino_detect::detect_text::run_text_content_analyzers(content, file_path)
 }
 use serde_json::Value;
 use std::path::{Path, PathBuf};

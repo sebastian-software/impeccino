@@ -85,21 +85,7 @@ pub fn truthy(value: Option<&str>) -> bool {
     )
 }
 
-/// JS: depthIsSet(value)
-pub fn depth_is_set(value: Option<&str>) -> bool {
-    let Some(v) = value else { return false };
-    let text = js::trim(v);
-    if text.is_empty() {
-        return false;
-    }
-    if truthy(Some(text)) {
-        return true;
-    }
-    !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) && text.bytes().any(|b| b != b'0')
-}
-
-/// The immediate tier, owned by the registry so wasm consumers can read the
-/// same list without linking this native-only crate.
+/// The immediate tier defined by the shared registry.
 pub use impeccino_core::registry::IMMEDIATE_TIER_RULES;
 
 /// A legacy id fallback that keeps older detector findings recognizable when
@@ -125,8 +111,8 @@ const STEER_LINE: &str = "That does not mean the design is good: keep following 
 
 // ── paths ─────────────────────────────────────────────────────────────────
 
-/// JS: hook-lib.mjs#hookStateDir (issue #422) — where mutable hook state
-/// (cache + pending) lives: a per-project directory under the user cache,
+/// JS: hook-lib.mjs#hookStateDir (issue #422) — where the mutable hook cache
+/// lives: a per-project directory under the user cache,
 /// `<cache>/impeccino/projects/<slug>-<hash>` (docs/adr/0020), so the project
 /// itself carries no tool state. IMPECCINO_CACHE_ROOT replaces
 /// `<cache>/impeccino/projects` with a root of its own.
@@ -193,10 +179,6 @@ fn user_projects_cache_root() -> String {
 pub fn get_cache_path(cwd: &str) -> String {
     jsp::join(&[&hook_state_dir(cwd), "hook.cache.json"])
 }
-pub fn get_pending_path(cwd: &str) -> String {
-    jsp::join(&[&hook_state_dir(cwd), "hook.pending.json"])
-}
-
 // ── runtime handle ────────────────────────────────────────────────────────
 
 /// What the JS reached through `process.*`, `import.meta.url` and
@@ -1522,7 +1504,6 @@ impl HookScanOptions {
             inline_ignores: true,
             design_system: self.design_system.clone(),
             viewport: None,
-            profile: None,
             rule_pack: None,
         }
     }
@@ -1572,7 +1553,6 @@ pub fn detector_detect_text(
     scan: &HookScanOptions,
 ) -> Vec<Finding> {
     let opts = TextOptions {
-        profile: None,
         design_system: scan.design_system.as_deref(),
         inline_ignores: true,
         rule_pack: None,
@@ -1687,15 +1667,14 @@ pub fn payload(text: &str, event_name: &str, harness: &str) -> String {
         out.insert("additional_context".into(), Value::String(text.to_string()));
     } else if harness == "github" {
         out.insert("additionalContext".into(), Value::String(text.to_string()));
-    } else if matches!(harness, "codex" | "gemini") && event_name == "Stop" {
-        // Codex shares Claude Code's PostToolUse additional-context shape,
-        // but its Stop schema rejects unknown fields. Findings that should
-        // continue the turn must be a top-level blocking decision (#603).
+    } else if harness == "codex" && event_name == "Stop" {
+        // Codex's Stop schema rejects unknown fields, so findings that should
+        // continue the turn use a top-level blocking decision (#603).
         // https://developers.openai.com/codex/hooks#stop
         if js::trim(text).is_empty() {
             return String::new();
         }
-        out.insert("decision".into(), Value::String(if harness == "gemini" { "deny" } else { "block" }.to_string()));
+        out.insert("decision".into(), Value::String("block".to_string()));
         out.insert("reason".into(), Value::String(text.to_string()));
     } else {
         let mut inner = Map::new();
@@ -1777,13 +1756,9 @@ pub fn resolve_harness(rt: &Runtime, event: Option<&Map<String, Value>>) -> &'st
         Some("grok") => return "grok",
         Some("claude") => return "claude",
         Some("codex") => return "codex",
-        Some("gemini") => return "gemini",
         _ => {}
     }
     if let Some(ev) = event {
-        if matches!(str_field(ev, "hook_event_name"), Some("BeforeTool" | "AfterAgent")) {
-            return "gemini";
-        }
         // Grok Build sends camelCase `toolName`/`toolInput`/`hookEventName`
         // and no snake_case pair. GitHub Copilot sends camelCase
         // `toolName`/`toolArgs`. Check Grok first: the old GitHub heuristic
@@ -2354,16 +2329,6 @@ pub fn write_audit_log(rt: &Runtime, entry: &Map<String, Value>, cwd: &str) -> b
 /// The value normalizer, re-exported for hook-admin.
 pub fn normalize_ignore_value_str(v: &str) -> String {
     normalize_ignore_value(v)
-}
-
-/// A live variant session owns files carrying preview scaffolding: the
-/// wrapper a generate publishes and the carbonize block an accept leaves
-/// until cleanup. Findings on those files are noise (variants are meant to
-/// be tried, not audited) and acting on them derails the session mid-cycle,
-/// so every hook entry stands down on the markers; `live-complete` verifies
-/// the file once the accepted variant is permanent.
-pub fn has_live_preview_markers(content: &str) -> bool {
-    content.contains("data-impeccino-variants=") || content.contains("impeccino-carbonize-start")
 }
 
 #[cfg(test)]

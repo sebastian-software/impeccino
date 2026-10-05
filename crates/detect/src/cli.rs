@@ -330,7 +330,6 @@ impl<'a> Ctx<'a> {
             &content,
             file_path,
             &TextOptions {
-                profile: options.profile.as_deref(),
                 design_system: options.design_system.as_deref(),
                 inline_ignores: options.inline_ignores,
                 rule_pack: options.rule_pack,
@@ -359,7 +358,6 @@ impl<'a> Ctx<'a> {
             &input,
             "<stdin>",
             &TextOptions {
-                profile: opts.profile.as_deref(),
                 design_system: opts.design_system.as_deref(),
                 inline_ignores: opts.inline_ignores,
                 rule_pack: opts.rule_pack,
@@ -529,7 +527,6 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
         inline_ignores: inline_ignores_enabled,
         design_system: None,
         viewport,
-        profile: None,
         // The `impeccino` binary installs no rule pack; a library caller that
         // does sets this before handing the options to an engine.
         rule_pack: None,
