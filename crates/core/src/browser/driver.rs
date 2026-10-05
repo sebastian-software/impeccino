@@ -3,8 +3,8 @@
 //! map.
 
 use super::dom::{tag_lower, Dom, ElId};
-use super::{BrowserConfig, BrowserFinding, FindingGroup};
 pub use super::DesignSystemConfig;
+use super::{BrowserConfig, BrowserFinding, FindingGroup};
 
 /// The collect result type is shared.
 pub use impeccino_foundation::browser::CollectResult;
@@ -17,10 +17,7 @@ pub fn scoped_ignore_active(dom: &dyn Dom, el: ElId, rule_id: &str) -> bool {
     while let Some(c) = cur {
         if let Some(attr) = dom.attr(c, "data-impeccino-ignore") {
             let lowered = crate::js::to_lower_case(crate::js::trim(&attr));
-            let rules: Vec<&str> = SPLIT_RE
-                .split(&lowered)
-                .filter(|s| !s.is_empty())
-                .collect();
+            let rules: Vec<&str> = SPLIT_RE.split(&lowered).filter(|s| !s.is_empty()).collect();
             if rules.is_empty() || rules.contains(&"*") || rules.contains(&rule.as_str()) {
                 return true;
             }
@@ -79,8 +76,9 @@ const DESIGN_SKIP_TAGS: &[&str] = &[
 static WS_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
     regex::Regex::new(&format!("{}+", crate::js::WS)).expect("WS_RE")
 });
-static VAR_RE: once_cell::sync::Lazy<regex::Regex> =
-    once_cell::sync::Lazy::new(|| regex::Regex::new(&format!("{}\\(", crate::js::ci("var"))).expect("VAR_RE"));
+static VAR_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+    regex::Regex::new(&format!("{}\\(", crate::js::ci("var"))).expect("VAR_RE")
+});
 static SLASH_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
     regex::Regex::new(&format!("{ws}*/{ws}*", ws = crate::js::WS)).expect("SLASH_RE")
 });
@@ -517,23 +515,25 @@ pub fn pseudo_element_host_selector(selector: &str) -> Option<String> {
             continue;
         }
 
-        let mut end = i + 1;
-        let is_pseudo_element;
-        if raw.get(end) == Some(&':') {
-            end += 1;
+        let (mut end, is_pseudo_element) = if raw.get(i + 1) == Some(&':') {
+            let mut end = i + 2;
             let name_start = end;
             while is_selector_name_char(raw.get(end).copied()) {
                 end += 1;
             }
-            is_pseudo_element = end > name_start;
+            (end, end > name_start)
         } else {
+            let mut end = i + 1;
             let name_start = end;
             while is_selector_name_char(raw.get(end).copied()) {
                 end += 1;
             }
             let name: String = raw[name_start..end].iter().collect();
-            is_pseudo_element = LEGACY_NAMES.contains(&crate::js::to_lower_case(&name).as_str());
-        }
+            (
+                end,
+                LEGACY_NAMES.contains(&crate::js::to_lower_case(&name).as_str()),
+            )
+        };
         if !is_pseudo_element {
             output.push(ch);
             i += 1;
@@ -604,7 +604,10 @@ pub fn scoped_html_pattern_findings(dom: &dyn Dom) -> Vec<BrowserFinding> {
             if matches.is_empty() {
                 continue;
             }
-            if !matches.iter().any(|el| !scoped_ignore_active(dom, *el, &f.id)) {
+            if !matches
+                .iter()
+                .any(|el| !scoped_ignore_active(dom, *el, &f.id))
+            {
                 continue;
             }
         }
@@ -626,7 +629,6 @@ pub fn scoped_html_pattern_findings(dom: &dyn Dom) -> Vec<BrowserFinding> {
     }
     out
 }
-
 
 // JS `/^(css|sc|emotion|jsx|module)-[\w-]{4,}$/i`, `/^_[\w-]{5,}$/`,
 // `/^[a-z0-9]{6,}$/i` (JS `\w` is ASCII; the `i` flag folds ASCII only).
@@ -668,7 +670,7 @@ pub fn is_likely_hashed_class(c: &str) -> bool {
 fn class_list(dom: &dyn Dom, el: ElId) -> Vec<String> {
     let cls = dom.attr(el, "class").unwrap_or_default();
     let mut out: Vec<String> = Vec::new();
-    for tok in cls.split(|c: char| matches!(c, ' ' | '\t' | '\n' | '\x0C' | '\r')) {
+    for tok in cls.split([' ', '\t', '\n', '\x0C', '\r']) {
         if tok.is_empty() || out.iter().any(|t| t == tok) {
             continue;
         }
@@ -706,7 +708,12 @@ pub fn build_selector_segment(dom: &dyn Dom, el: ElId) -> String {
                         .into_iter()
                         .filter(|c| dom.tag_name(*c) == tag_name)
                         .collect();
-                    let idx = same_type.iter().position(|c| *c == el).map(|i| i as i64).unwrap_or(-1) + 1;
+                    let idx = same_type
+                        .iter()
+                        .position(|c| *c == el)
+                        .map(|i| i as i64)
+                        .unwrap_or(-1)
+                        + 1;
                     sel.push_str(&format!(":nth-of-type({idx})"));
                 }
             }
@@ -784,7 +791,6 @@ pub fn is_element_hidden(dom: &dyn Dom, el: ElId) -> bool {
     }
     dom.offset_width(el) == 0.0 && dom.offset_height(el) == 0.0
 }
-
 
 fn hits(v: Vec<crate::checks::rules::RuleHit>) -> Vec<BrowserFinding> {
     v.iter().map(BrowserFinding::from_hit).collect()
@@ -865,15 +871,15 @@ pub fn collect_browser_findings(dom: &dyn Dom, config: &BrowserConfig) -> Collec
     }
 
     // Two different tell hues on one page is the palette; one is an accent.
-    if palette_tells.iter().any(|t| *t == ec::TellHue::Cyan)
-        && palette_tells.iter().any(|t| *t == ec::TellHue::Purple)
-    {
+    if palette_tells.contains(&ec::TellHue::Cyan) && palette_tells.contains(&ec::TellHue::Purple) {
         for (el, finding) in palette_ink {
             add_browser_findings(dom, &mut groups, el, vec![finding]);
         }
     }
 
-    let page_pass = |groups: &mut Vec<FindingGroup>, page_level: &mut Vec<BrowserFinding>, list: Vec<BrowserFinding>| {
+    let page_pass = |groups: &mut Vec<FindingGroup>,
+                     page_level: &mut Vec<BrowserFinding>,
+                     list: Vec<BrowserFinding>| {
         if !list.is_empty() {
             page_level.extend(list.iter().cloned());
             add_browser_findings(dom, groups, body_key, list);
@@ -887,7 +893,10 @@ pub fn collect_browser_findings(dom: &dyn Dom, config: &BrowserConfig) -> Collec
                 dom,
                 groups,
                 target,
-                vec![BrowserFinding::new(f.finding.type_.clone(), f.finding.detail.clone())],
+                vec![BrowserFinding::new(
+                    f.finding.type_.clone(),
+                    f.finding.detail.clone(),
+                )],
             );
         }
     };
@@ -898,20 +907,46 @@ pub fn collect_browser_findings(dom: &dyn Dom, config: &BrowserConfig) -> Collec
         check_browser_design_system_sources(dom, design_system, &mut design_seen),
     );
     page_pass(&mut groups, &mut page_level, pc::check_typography(dom));
-    el_pass(&mut groups, tc::check_kicker_above_heading_dom(dom, design_system));
-    page_pass(&mut groups, &mut page_level, hits(tc::check_numbered_section_labels_dom(dom)));
-    page_pass(&mut groups, &mut page_level, hits(tc::check_repeated_container_text_dom(dom)));
-    page_pass(&mut groups, &mut page_level, hits(tc::check_em_dash_overuse_dom(dom)));
+    el_pass(
+        &mut groups,
+        tc::check_kicker_above_heading_dom(dom, design_system),
+    );
+    page_pass(
+        &mut groups,
+        &mut page_level,
+        hits(tc::check_numbered_section_labels_dom(dom)),
+    );
+    page_pass(
+        &mut groups,
+        &mut page_level,
+        hits(tc::check_repeated_container_text_dom(dom)),
+    );
+    page_pass(
+        &mut groups,
+        &mut page_level,
+        hits(tc::check_em_dash_overuse_dom(dom)),
+    );
 
     el_pass(&mut groups, pc::check_layout(dom));
     el_pass(&mut groups, pc::check_heading_rhythm_dom(dom));
     el_pass(&mut groups, pc::check_edge_flush_cards_dom(dom));
     el_pass(&mut groups, pc::check_text_occlusion_dom(dom));
-    el_pass(&mut groups, pc::check_first_viewport_column_overflow_dom(dom));
+    el_pass(
+        &mut groups,
+        pc::check_first_viewport_column_overflow_dom(dom),
+    );
 
     page_pass(&mut groups, &mut page_level, q::check_page_quality_dom(dom));
-    page_pass(&mut groups, &mut page_level, hits(pc::check_cream_palette(dom)));
-    page_pass(&mut groups, &mut page_level, scoped_html_pattern_findings(dom));
+    page_pass(
+        &mut groups,
+        &mut page_level,
+        hits(pc::check_cream_palette(dom)),
+    );
+    page_pass(
+        &mut groups,
+        &mut page_level,
+        scoped_html_pattern_findings(dom),
+    );
 
     CollectResult { groups, page_level }
 }
@@ -927,7 +962,12 @@ mod tests {
             has_fonts: true,
             allowed_fonts: vec!["inter".to_string()],
             has_colors: true,
-            allowed_colors: vec![crate::color::Rgba { r: 10.0, g: 20.0, b: 30.0, a: None }],
+            allowed_colors: vec![crate::color::Rgba {
+                r: 10.0,
+                g: 20.0,
+                b: 30.0,
+                a: None,
+            }],
             has_radii: true,
             allowed_radii: vec![8.0],
             has_pill_radius: false,
@@ -936,11 +976,17 @@ mod tests {
 
     #[test]
     fn primary_font_and_normalization() {
-        assert_eq!(browser_primary_font("\"Inter\", system-ui, sans-serif"), "inter");
+        assert_eq!(
+            browser_primary_font("\"Inter\", system-ui, sans-serif"),
+            "inter"
+        );
         assert_eq!(browser_primary_font("system-ui, sans-serif"), "");
         assert_eq!(browser_primary_font("system-ui, Roboto"), "roboto");
         assert_eq!(browser_primary_font("var(--font)"), "");
-        assert_eq!(normalize_browser_font_name("  'Space+Grotesk'  "), "space grotesk");
+        assert_eq!(
+            normalize_browser_font_name("  'Space+Grotesk'  "),
+            "space grotesk"
+        );
     }
 
     #[test]
@@ -971,7 +1017,12 @@ mod tests {
         let types: Vec<&str> = f.iter().map(|x| x.type_.as_str()).collect();
         assert_eq!(
             types,
-            vec!["design-system-font", "design-system-color", "design-system-radius", "design-system-radius"]
+            vec![
+                "design-system-font",
+                "design-system-color",
+                "design-system-radius",
+                "design-system-radius"
+            ]
         );
         assert_eq!(
             f[0].detail,
@@ -982,7 +1033,10 @@ mod tests {
             f[1].detail,
             "text color rgb(255, 0, 0) on p \"Hello world\" is outside DESIGN.md colors"
         );
-        assert_eq!(f[2].detail, "border-radius 3px on p \"Hello world\" is outside the DESIGN.md rounded scale");
+        assert_eq!(
+            f[2].detail,
+            "border-radius 3px on p \"Hello world\" is outside the DESIGN.md rounded scale"
+        );
         assert_eq!(f[3].ignore_value.as_deref(), Some("2px"));
         // Second element with the same offenders adds nothing.
         let q = d.add(Some(body), "p");
@@ -1091,7 +1145,11 @@ mod tests {
         for target in targets {
             assert!(
                 result.groups.iter().any(|group| {
-                    group.el == target && group.findings.iter().any(|finding| finding.type_ == "oversized-h1")
+                    group.el == target
+                        && group
+                            .findings
+                            .iter()
+                            .any(|finding| finding.type_ == "oversized-h1")
                 }),
                 "former tool markup must not suppress element {target}"
             );
@@ -1174,7 +1232,10 @@ mod tests {
             d.el_mut(label).check_visibility = Some(true);
             let second = d.add(Some(panel), "span");
             d.add_text(second, "Status");
-            d.set_styles(second, &[("color", second_color), ("fontFamily", "Inter, sans-serif")]);
+            d.set_styles(
+                second,
+                &[("color", second_color), ("fontFamily", "Inter, sans-serif")],
+            );
             d.el_mut(second).check_visibility = Some(true);
             d
         };
@@ -1189,9 +1250,24 @@ mod tests {
             allowed_fonts: vec!["inter".to_string()],
             has_colors: true,
             allowed_colors: vec![
-                crate::color::Rgba { r: 15.0, g: 182.0, b: 172.0, a: None },
-                crate::color::Rgba { r: 168.0, g: 85.0, b: 247.0, a: None },
-                crate::color::Rgba { r: 58.0, g: 58.0, b: 58.0, a: None },
+                crate::color::Rgba {
+                    r: 15.0,
+                    g: 182.0,
+                    b: 172.0,
+                    a: None,
+                },
+                crate::color::Rgba {
+                    r: 168.0,
+                    g: 85.0,
+                    b: 247.0,
+                    a: None,
+                },
+                crate::color::Rgba {
+                    r: 58.0,
+                    g: 58.0,
+                    b: 58.0,
+                    a: None,
+                },
             ],
             ..Default::default()
         };
@@ -1201,23 +1277,55 @@ mod tests {
         let without_ds = BrowserConfig::default();
 
         // No DESIGN.md: two unexplained hues form a palette, not one accent.
-        let out = collect_browser_findings(&make_dom("rgb(15, 182, 172)", "rgb(168, 85, 247)"), &without_ds);
+        let out = collect_browser_findings(
+            &make_dom("rgb(15, 182, 172)", "rgb(168, 85, 247)"),
+            &without_ds,
+        );
         assert!(types(&out).contains(&"ai-color-palette".to_string()));
 
         // Declared token: neither the palette rule nor the drift rule fires.
-        let out = collect_browser_findings(&make_dom("rgb(15, 182, 172)", "rgb(168, 85, 247)"), &with_ds);
-        assert!(!types(&out).contains(&"ai-color-palette".to_string()), "{:?}", types(&out));
-        assert!(!types(&out).contains(&"design-system-color".to_string()), "{:?}", types(&out));
+        let out = collect_browser_findings(
+            &make_dom("rgb(15, 182, 172)", "rgb(168, 85, 247)"),
+            &with_ds,
+        );
+        assert!(
+            !types(&out).contains(&"ai-color-palette".to_string()),
+            "{:?}",
+            types(&out)
+        );
+        assert!(
+            !types(&out).contains(&"design-system-color".to_string()),
+            "{:?}",
+            types(&out)
+        );
 
         // A declared purple does not open the two-hue gate for undeclared cyan.
-        let out = collect_browser_findings(&make_dom("rgb(0, 229, 255)", "rgb(168, 85, 247)"), &with_ds);
-        assert!(!types(&out).contains(&"ai-color-palette".to_string()), "{:?}", types(&out));
-        assert!(types(&out).contains(&"design-system-color".to_string()), "{:?}", types(&out));
+        let out =
+            collect_browser_findings(&make_dom("rgb(0, 229, 255)", "rgb(168, 85, 247)"), &with_ds);
+        assert!(
+            !types(&out).contains(&"ai-color-palette".to_string()),
+            "{:?}",
+            types(&out)
+        );
+        assert!(
+            types(&out).contains(&"design-system-color".to_string()),
+            "{:?}",
+            types(&out)
+        );
 
         // Two undeclared hues still report both rules.
-        let out = collect_browser_findings(&make_dom("rgb(0, 229, 255)", "rgb(220, 0, 255)"), &with_ds);
-        assert!(types(&out).contains(&"ai-color-palette".to_string()), "{:?}", types(&out));
-        assert!(types(&out).contains(&"design-system-color".to_string()), "{:?}", types(&out));
+        let out =
+            collect_browser_findings(&make_dom("rgb(0, 229, 255)", "rgb(220, 0, 255)"), &with_ds);
+        assert!(
+            types(&out).contains(&"ai-color-palette".to_string()),
+            "{:?}",
+            types(&out)
+        );
+        assert!(
+            types(&out).contains(&"design-system-color".to_string()),
+            "{:?}",
+            types(&out)
+        );
     }
 
     /// An ignored subtree does not get to open the page-wide palette gate.

@@ -71,7 +71,7 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
         // has no page hostname, so it cannot apply the browser-only own-domain
         // brand exemption.
         let mut ranked: Vec<&(String, usize)> = font_usage.iter().collect();
-        ranked.sort_by(|a, b| b.1.cmp(&a.1));
+        ranked.sort_by_key(|entry| std::cmp::Reverse(entry.1));
         if let Some((font, count)) = ranked.first().map(|(font, count)| (font, *count)) {
             let tied = ranked.get(1).map(|entry| entry.1) == Some(count);
             if !tied && OVERUSED_FONTS.contains(&font.as_str()) {
@@ -100,7 +100,7 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
 /// `content-visibility` entry, so a declared `content-visibility: hidden`
 /// never reaches the static computed style.
 fn is_rendered_type_element(el: &StaticElement<'_>) -> bool {
-    let mut current = Some(el.clone());
+    let mut current = Some(*el);
     while let Some(node) = current {
         if node.get_attribute("hidden").is_some() {
             return false;
@@ -476,7 +476,10 @@ mod tests {
         ));
 
         let findings = check_static_page_typography(&doc);
-        let font = findings.iter().find(|hit| hit.id == "overused-font").unwrap();
+        let font = findings
+            .iter()
+            .find(|hit| hit.id == "overused-font")
+            .unwrap();
         assert_eq!(font.snippet, "Primary font: inter (40% of text)");
     }
 
@@ -491,7 +494,10 @@ mod tests {
         ));
 
         let findings = check_static_page_typography(&doc);
-        assert!(findings.iter().all(|hit| hit.id != "overused-font"), "{findings:?}");
+        assert!(
+            findings.iter().all(|hit| hit.id != "overused-font"),
+            "{findings:?}"
+        );
     }
 
     #[test]
@@ -510,7 +516,10 @@ mod tests {
         ));
 
         let findings = check_static_page_typography(&doc);
-        let font = findings.iter().find(|hit| hit.id == "overused-font").unwrap();
+        let font = findings
+            .iter()
+            .find(|hit| hit.id == "overused-font")
+            .unwrap();
         assert_eq!(font.snippet, "Primary font: inter (95% of text)");
     }
 
@@ -558,7 +567,14 @@ mod tests {
         );
 
         let findings = check_page_layout(&doc);
-        assert_eq!(findings.iter().filter(|hit| hit.id == "nested-cards").count(), 1, "{findings:?}");
+        assert_eq!(
+            findings
+                .iter()
+                .filter(|hit| hit.id == "nested-cards")
+                .count(),
+            1,
+            "{findings:?}"
+        );
     }
 
     #[test]
@@ -569,7 +585,10 @@ mod tests {
             ));
 
             let findings = check_page_layout(&doc);
-            assert!(findings.iter().all(|hit| hit.id != "nested-cards"), "{position}: {findings:?}");
+            assert!(
+                findings.iter().all(|hit| hit.id != "nested-cards"),
+                "{position}: {findings:?}"
+            );
         }
     }
 
@@ -581,7 +600,10 @@ mod tests {
             ));
 
             let findings = check_page_layout(&doc);
-            assert!(findings.iter().all(|hit| hit.id != "nested-cards"), "{background}: {findings:?}");
+            assert!(
+                findings.iter().all(|hit| hit.id != "nested-cards"),
+                "{background}: {findings:?}"
+            );
         }
     }
 
@@ -593,7 +615,10 @@ mod tests {
             ));
             let viewport = doc.query_selector(&format!(".{ident}")).unwrap();
 
-            assert!(check_element_clipped_overflow(&viewport, viewport.style()).is_empty(), "{ident}");
+            assert!(
+                check_element_clipped_overflow(&viewport, viewport.style()).is_empty(),
+                "{ident}"
+            );
         }
     }
 }

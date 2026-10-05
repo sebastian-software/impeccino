@@ -42,7 +42,6 @@ pub trait RulePack: Send + Sync + std::fmt::Debug {
         let _ = (content, file_path, ext);
         Vec::new()
     }
-
 }
 
 /// Register a pack's rows in the registry. Idempotent for the same pack, and

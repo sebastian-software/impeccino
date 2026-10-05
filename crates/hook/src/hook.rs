@@ -24,7 +24,9 @@ fn is_rendered_finding_line(line: &str) -> bool {
 }
 
 fn rendered_finding_count(text: &str) -> usize {
-    text.lines().filter(|line| is_rendered_finding_line(line)).count()
+    text.lines()
+        .filter(|line| is_rendered_finding_line(line))
+        .count()
 }
 
 fn limit_rendered_findings(text: &str, max_findings: usize) -> (String, usize) {
@@ -205,7 +207,10 @@ fn run_hook_inner(
         let mut project_groups: Vec<(String, Vec<String>)> = Vec::new();
         for file in &primary_files {
             let root = resolve_cache_cwd(rt, Some(file), &session_cwd);
-            if let Some((_, files)) = project_groups.iter_mut().find(|(existing, _)| *existing == root) {
+            if let Some((_, files)) = project_groups
+                .iter_mut()
+                .find(|(existing, _)| *existing == root)
+            {
                 files.push(file.clone());
             } else {
                 project_groups.push((root, vec![file.clone()]));
@@ -216,15 +221,17 @@ fn run_hook_inner(
             let mut messages = Vec::new();
             let mut message_findings = Vec::new();
             let mut omitted_findings = 0usize;
-            let aggregate_char_limit = (DEFAULT_MAX_CHARS as usize)
-                .saturating_sub(invocation_omission_reserve());
-            let total_primary_targets: usize = project_groups.iter().map(|(_, files)| files.len()).sum();
+            let aggregate_char_limit =
+                (DEFAULT_MAX_CHARS as usize).saturating_sub(invocation_omission_reserve());
+            let total_primary_targets: usize =
+                project_groups.iter().map(|(_, files)| files.len()).sum();
             let mut extra_targets = MAX_SCAN_TARGETS.saturating_sub(total_primary_targets);
             let mut remaining_findings = cap_of(&HookConfig::default());
             for (index, (root, files)) in project_groups.into_iter().enumerate() {
                 let target_limit = files.len() + extra_targets;
                 let targets = expand_scan_targets_with_limit(rt, &files, &root, target_limit);
-                extra_targets = extra_targets.saturating_sub(targets.len().saturating_sub(files.len()));
+                extra_targets =
+                    extra_targets.saturating_sub(targets.len().saturating_sub(files.len()));
                 let child = run_hook_inner(
                     rt,
                     stdin,
@@ -293,7 +300,10 @@ fn run_hook_inner(
             } else {
                 payload(&text, "PostToolUse", harness)
             };
-            return RunResult { stdout, audit: merged };
+            return RunResult {
+                stdout,
+                audit: merged,
+            };
         }
     }
     let project_cwd =
@@ -424,7 +434,14 @@ fn run_hook_inner(
         };
         if primary_files.contains(file_path) {
             if harness == "claude" {
-                stop_baseline::capture(rt, &event, &mut cache, &session_id, file_path, use_html_engine);
+                stop_baseline::capture(
+                    rt,
+                    &event,
+                    &mut cache,
+                    &session_id,
+                    file_path,
+                    use_html_engine,
+                );
             }
             let edit_count = bump_edit_count(&mut cache, &session_id, file_path);
             cache_dirty = true;
@@ -601,7 +618,14 @@ fn run_hook_inner(
                 let base = render_clean_ack(rt, c, &render_cwd);
                 let scan = &scans[c];
                 let text = if design_note_allowed {
-                    append_design_system_note_once(rt, &base, scan, &mut cache, &session_id, &config)
+                    append_design_system_note_once(
+                        rt,
+                        &base,
+                        scan,
+                        &mut cache,
+                        &session_id,
+                        &config,
+                    )
                 } else {
                     base
                 };
@@ -809,7 +833,13 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
         session_value.unwrap_or_else(|| Value::from("unknown")),
     );
     if stop_hook_active {
-        return result(&audit, vec![("skipped", Value::from("stop-hook-active")), ("durationMs", ms_since(started))]);
+        return result(
+            &audit,
+            vec![
+                ("skipped", Value::from("stop-hook-active")),
+                ("durationMs", ms_since(started)),
+            ],
+        );
     }
 
     // Edits are cached at the owning project root. The session-cwd cache is a
@@ -824,10 +854,8 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
             roots.push(root);
         }
     }
-    if !touched_files(&index, &session_id).is_empty() {
-        if !roots.contains(&session_cwd) {
-            roots.push(session_cwd.clone());
-        }
+    if !touched_files(&index, &session_id).is_empty() && !roots.contains(&session_cwd) {
+        roots.push(session_cwd.clone());
     }
     if roots.is_empty() {
         return result(
@@ -951,7 +979,8 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
             pre_existing_total += classified.pre_existing;
             new_findings_total += classified.new;
             unknown_total += classified.unknown;
-            let fresh = dedupe_against_cache(&classified.findings, &mut cache, &session_id, file_path);
+            let fresh =
+                dedupe_against_cache(&classified.findings, &mut cache, &session_id, file_path);
             // Sync the cache to the live scan, including an empty result, so
             // a later reintroduction can be reported again.
             remember_findings(&mut cache, &session_id, file_path, &filtered);
@@ -1060,9 +1089,7 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
         );
         let shown_findings = rendered_finding_count(&text);
         let next_chars = output_chars_used + separator_chars + utf16_len(&text);
-        if shown_findings <= output_findings_remaining
-            && next_chars <= output_char_limit
-        {
+        if shown_findings <= output_findings_remaining && next_chars <= output_char_limit {
             cache = display_cache;
             commit_footer_shown(rt, &mut cache, &session_id, &text);
             output_findings_remaining -= shown_findings;
@@ -1076,7 +1103,10 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
     }
 
     audit.insert("scannedFiles".into(), Value::from(scanned_total));
-    audit.insert("preExistingFindings".into(), Value::from(pre_existing_total));
+    audit.insert(
+        "preExistingFindings".into(),
+        Value::from(pre_existing_total),
+    );
     audit.insert("newFindings".into(), Value::from(new_findings_total));
     audit.insert("unknownFindings".into(), Value::from(unknown_total));
     if rendered_projects.is_empty() {
@@ -1085,7 +1115,10 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
                 &audit,
                 vec![
                     ("skipped", Value::from("native-platform")),
-                    ("platform", Value::String(native_platform_seen.unwrap_or_default())),
+                    (
+                        "platform",
+                        Value::String(native_platform_seen.unwrap_or_default()),
+                    ),
                     ("durationMs", ms_since(started)),
                 ],
             );
@@ -1126,9 +1159,36 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
     }
 }
 
+/// JS: hook.mjs#isStopEvent(stdinJson)
+fn is_stop_event(stdin: &str) -> bool {
+    // JS: hook.mjs#stdinIsStop routes on the raw stdin via hook-lib's
+    // isStopEvent, which matches Claude's `hook_event_name: "Stop"` and
+    // Grok Build's `hookEventName: "stop"`.
+    match serde_json::from_str::<Value>(stdin) {
+        Ok(Value::Object(o)) => crate::hook_lib::is_stop_event(&o),
+        _ => false,
+    }
+}
+
+/// `impeccino hook` (hook.mjs main). Returns the exit code (always 0).
+pub fn run(rt: &Runtime, stdin: &str, io: &mut impeccino_common::Io) -> i32 {
+    let result = if is_stop_event(stdin) {
+        run_stop_hook(rt, stdin)
+    } else {
+        run_hook(rt, stdin)
+    };
+    write_audit_log(rt, &result.audit, &rt.proc_cwd);
+    if !result.stdout.is_empty() {
+        io.out(&result.stdout);
+    }
+    0
+}
+
 #[cfg(test)]
 mod event_budget_tests {
-    use super::{join_messages_with_limit, limit_rendered_findings, rendered_finding_count, utf16_len};
+    use super::{
+        join_messages_with_limit, limit_rendered_findings, rendered_finding_count, utf16_len,
+    };
 
     #[test]
     fn renderer_finding_budget_does_not_count_footer_bullets() {
@@ -1154,29 +1214,4 @@ mod event_budget_tests {
         assert!(joined.contains("app one"));
         assert!(!joined.contains("app two"));
     }
-}
-
-/// JS: hook.mjs#isStopEvent(stdinJson)
-fn is_stop_event(stdin: &str) -> bool {
-    // JS: hook.mjs#stdinIsStop routes on the raw stdin via hook-lib's
-    // isStopEvent, which matches Claude's `hook_event_name: "Stop"` and
-    // Grok Build's `hookEventName: "stop"`.
-    match serde_json::from_str::<Value>(stdin) {
-        Ok(Value::Object(o)) => crate::hook_lib::is_stop_event(&o),
-        _ => false,
-    }
-}
-
-/// `impeccino hook` (hook.mjs main). Returns the exit code (always 0).
-pub fn run(rt: &Runtime, stdin: &str, io: &mut impeccino_common::Io) -> i32 {
-    let result = if is_stop_event(stdin) {
-        run_stop_hook(rt, stdin)
-    } else {
-        run_hook(rt, stdin)
-    };
-    write_audit_log(rt, &result.audit, &rt.proc_cwd);
-    if !result.stdout.is_empty() {
-        io.out(&result.stdout);
-    }
-    0
 }

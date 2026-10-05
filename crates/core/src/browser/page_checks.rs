@@ -6,8 +6,8 @@
 //! `checkFirstViewportColumnOverflowDOM`.
 
 use super::dom::{
-    ancestors_inclusive, class_attr, closest_or_none, direct_text, has_direct_text_longer_than, pf0,
-    style_px, tag_lower, Dom, ElId, ElStyle, Rect,
+    ancestors_inclusive, class_attr, closest_or_none, direct_text, has_direct_text_longer_than,
+    pf0, style_px, tag_lower, Dom, ElId, ElStyle, Rect,
 };
 use super::element_checks::{class_selector, effective_opacity_dom, is_rendered_for_browser_rule};
 use super::{BrowserFinding, ElFinding};
@@ -43,10 +43,19 @@ const D: &str = "[0-9]";
 re!(WS_RE, format!("{}+", js::WS));
 re!(QUOTE_EDGE_START, r#"^['"]"#);
 re!(QUOTE_EDGE_END, r#"['"]$"#);
-re!(SHADOW_CLASS_RE, format!(r"{B}shadow(?:-sm|-md|-lg|-xl|-2xl)?{B}"));
+re!(
+    SHADOW_CLASS_RE,
+    format!(r"{B}shadow(?:-sm|-md|-lg|-xl|-2xl)?{B}")
+);
 re!(BORDER_CLASS_RE, format!(r"{B}border{B}"));
-re!(ROUNDED_CLASS_RE, format!(r"{B}rounded(?:-sm|-md|-lg|-xl|-2xl|-full)?{B}"));
-re!(BG_CLASS_RE, format!(r"{B}bg-(?:white|gray-{D}+|slate-{D}+){B}"));
+re!(
+    ROUNDED_CLASS_RE,
+    format!(r"{B}rounded(?:-sm|-md|-lg|-xl|-2xl|-full)?{B}")
+);
+re!(
+    BG_CLASS_RE,
+    format!(r"{B}bg-(?:white|gray-{D}+|slate-{D}+){B}")
+);
 re!(
     POPOVER_CLASS_RE,
     format!(
@@ -72,7 +81,10 @@ re!(
     )
 );
 re!(MARQUEE_ANIM_RE, r"marquee|ticker|scroll");
-re!(GRADIENT_URL_RE, format!("({}|{})\\(", js::ci("gradient"), js::ci("url")));
+re!(
+    GRADIENT_URL_RE,
+    format!("({}|{})\\(", js::ci("gradient"), js::ci("url"))
+);
 re!(MULTI_COL_RE, r"(^|inline-)(grid|flex)$");
 
 /// JS `s.replace(/\s+/g, ' ')`.
@@ -235,12 +247,14 @@ pub fn is_card_like_dom(dom: &dyn Dom, el: ElId) -> bool {
     }
     let cls = class_attr(dom, el);
     let box_shadow = dom.style(el, "boxShadow");
-    let has_shadow = (!box_shadow.is_empty() && box_shadow != "none") || SHADOW_CLASS_RE.is_match(&cls);
+    let has_shadow =
+        (!box_shadow.is_empty() && box_shadow != "none") || SHADOW_CLASS_RE.is_match(&cls);
     let has_border = BORDER_CLASS_RE.is_match(&cls);
-    let has_radius = parse_float(&dom.style(el, "borderRadius")) > 0.0 || ROUNDED_CLASS_RE.is_match(&cls);
+    let has_radius =
+        parse_float(&dom.style(el, "borderRadius")) > 0.0 || ROUNDED_CLASS_RE.is_match(&cls);
     let bg = dom.style(el, "backgroundColor");
-    let has_bg = (!bg.is_empty() && !css_color_is_transparent(Some(&bg)))
-        || BG_CLASS_RE.is_match(&cls);
+    let has_bg =
+        (!bg.is_empty() && !css_color_is_transparent(Some(&bg))) || BG_CLASS_RE.is_match(&cls);
     is_card_like_from_props(has_shadow, has_border, has_radius, has_bg)
 }
 
@@ -350,7 +364,9 @@ pub fn check_heading_rhythm_dom(dom: &dyn Dom) -> Vec<ElFinding> {
         let mut top_el = h;
         let mut top = rect.top;
         for _ in 0..3 {
-            let Some(sib) = dom.previous_element_sibling(top_el) else { break };
+            let Some(sib) = dom.previous_element_sibling(top_el) else {
+                break;
+            };
             if !is_visible_flow(sib) {
                 break;
             }
@@ -390,8 +406,7 @@ pub fn check_heading_rhythm_dom(dom: &dyn Dom) -> Vec<ElFinding> {
                 }
                 sib = dom.previous_element_sibling(s);
             }
-            let parent = dom.parent(n);
-            let Some(p) = parent else { return None };
+            let p = dom.parent(n)?;
             if Some(p) == body {
                 return None;
             }
@@ -456,9 +471,13 @@ pub fn check_heading_rhythm_dom(dom: &dyn Dom) -> Vec<ElFinding> {
             continue;
         }
         let rect = dom.rect(h);
-        let Some(below_top) = edge_below(h, &rect) else { continue };
+        let Some(below_top) = edge_below(h, &rect) else {
+            continue;
+        };
         let (top_el, top) = cluster_top(h, &rect);
-        let Some(above_bottom) = edge_above(top_el, top, &rect) else { continue };
+        let Some(above_bottom) = edge_above(top_el, top, &rect) else {
+            continue;
+        };
         if inside_small_card(h) {
             continue;
         }
@@ -504,11 +523,13 @@ pub fn check_heading_rhythm_dom(dom: &dyn Dom) -> Vec<ElFinding> {
 /// JS: checks.mjs#checkCreamPalette(document) (browser path)
 pub fn check_cream_palette(dom: &dyn Dom) -> Vec<RuleHit> {
     let mut findings = Vec::new();
-    let Some(body) = dom.body() else { return findings };
+    let Some(body) = dom.body() else {
+        return findings;
+    };
     let html = dom.document_element();
 
     let mut bg = super::background::read_own_background_color(dom, body);
-    if bg.is_none() || bg.map_or(false, |c| c.a == Some(0.0)) {
+    if bg.is_none() || bg.is_some_and(|c| c.a == Some(0.0)) {
         if let Some(h) = html {
             bg = super::background::read_own_background_color(dom, h);
         }
@@ -565,7 +586,9 @@ pub fn measure_hidden_text_dom(dom: &dyn Dom) -> HiddenTextMeasure {
         cache: &mut std::collections::HashMap<ElId, HiddenState>,
         el: Option<ElId>,
     ) -> HiddenState {
-        let Some(el) = el else { return HiddenState::Visible };
+        let Some(el) = el else {
+            return HiddenState::Visible;
+        };
         if Some(el) == root {
             return HiddenState::Visible;
         }
@@ -637,7 +660,8 @@ pub fn measure_hidden_text_dom(dom: &dyn Dom) -> HiddenTextMeasure {
 
 /// JS `isScroller(s)` from checkEdgeFlushCardsDOM.
 fn is_scroller(dom: &dyn Dom, el: ElId) -> bool {
-    SCROLL_RE.is_match(&dom.style(el, "overflowX")) || SCROLL_RE.is_match(&dom.style(el, "overflow"))
+    SCROLL_RE.is_match(&dom.style(el, "overflowX"))
+        || SCROLL_RE.is_match(&dom.style(el, "overflow"))
 }
 
 /// JS: checks.mjs#checkEdgeFlushCardsDOM()
@@ -705,7 +729,7 @@ pub fn check_edge_flush_cards_dom(dom: &dyn Dom) -> Vec<ElFinding> {
                 continue;
             }
             let bg = parse_any_color(Some(&dom.style(card, "backgroundColor")));
-            let has_bg = bg.map_or(false, |c| c.alpha_or_one() > 0.5);
+            let has_bg = bg.is_some_and(|c| c.alpha_or_one() > 0.5);
             let border_sides = ["Top", "Right", "Bottom", "Left"]
                 .iter()
                 .filter(|s| style_px(dom, card, &format!("border{s}Width")) > 0.0)
@@ -763,7 +787,11 @@ pub fn is_layered_element(dom: &dyn Dom, el: ElId) -> bool {
             break;
         }
         let pos = dom.style(c, "position");
-        let pos = if pos.is_empty() { "static".to_string() } else { pos };
+        let pos = if pos.is_empty() {
+            "static".to_string()
+        } else {
+            pos
+        };
         if pos == "absolute" || pos == "fixed" || pos == "sticky" {
             return true;
         }
@@ -859,7 +887,11 @@ pub fn check_text_occlusion_dom(dom: &dyn Dom) -> Vec<ElFinding> {
                 break;
             }
             let pos = dom.style(c, "position");
-            let pos = if pos.is_empty() { "static".to_string() } else { pos };
+            let pos = if pos.is_empty() {
+                "static".to_string()
+            } else {
+                pos
+            };
             if pos == "fixed" || pos == "sticky" {
                 return true;
             }
@@ -1014,7 +1046,9 @@ pub fn check_text_occlusion_dom(dom: &dyn Dom) -> Vec<ElFinding> {
                     continue;
                 }
                 total += 1;
-                let Some(top) = dom.element_from_point(x, y) else { continue };
+                let Some(top) = dom.element_from_point(x, y) else {
+                    continue;
+                };
                 if top == el || dom.contains(el, top) || dom.contains(top, el) {
                     continue;
                 }
@@ -1075,7 +1109,11 @@ pub fn check_text_occlusion_dom(dom: &dyn Dom) -> Vec<ElFinding> {
                     class_selector(dom, el),
                     slice_utf16_prefix(text, 24),
                     number_to_string(math_round(occ_frac * 100.0)),
-                    if occluder_kind == "text" { "overlapping text" } else { "an opaque element" },
+                    if occluder_kind == "text" {
+                        "overlapping text"
+                    } else {
+                        "an opaque element"
+                    },
                     class_selector(dom, occ)
                 ),
             ),
@@ -1148,8 +1186,14 @@ pub fn check_text_occlusion_dom(dom: &dyn Dom) -> Vec<ElFinding> {
             if card.el == el || dom.contains(el, card.el) || dom.contains(card.el, el) {
                 continue;
             }
-            let ix = math_max(0.0, math_min(rect.right, card.rect.right) - math_max(rect.left, card.rect.left));
-            let iy = math_max(0.0, math_min(rect.bottom, card.rect.bottom) - math_max(rect.top, card.rect.top));
+            let ix = math_max(
+                0.0,
+                math_min(rect.right, card.rect.right) - math_max(rect.left, card.rect.left),
+            );
+            let iy = math_max(
+                0.0,
+                math_min(rect.bottom, card.rect.bottom) - math_max(rect.top, card.rect.top),
+            );
             if ix < 8.0 || iy < 0.5 * line_height {
                 continue;
             }
@@ -1188,7 +1232,9 @@ pub fn check_text_occlusion_dom(dom: &dyn Dom) -> Vec<ElFinding> {
         if dom.style(el, "display") != "inline" {
             continue;
         }
-        let Some(bg) = parse_any_color(Some(&dom.style(el, "backgroundColor"))) else { continue };
+        let Some(bg) = parse_any_color(Some(&dom.style(el, "backgroundColor"))) else {
+            continue;
+        };
         if bg.alpha_or_one() <= 0.6 {
             continue;
         }
@@ -1232,8 +1278,14 @@ pub fn check_text_occlusion_dom(dom: &dyn Dom) -> Vec<ElFinding> {
                 continue;
             }
             let o_rect = dom.rect(other);
-            let ix = math_max(0.0, math_min(rect.right, o_rect.right) - math_max(rect.left, o_rect.left));
-            let iy = math_max(0.0, math_min(rect.bottom, o_rect.bottom) - math_max(rect.top, o_rect.top));
+            let ix = math_max(
+                0.0,
+                math_min(rect.right, o_rect.right) - math_max(rect.left, o_rect.left),
+            );
+            let iy = math_max(
+                0.0,
+                math_min(rect.bottom, o_rect.bottom) - math_max(rect.top, o_rect.top),
+            );
             if ix > 4.0 && iy > 4.0 && !js::trim(&dom.text_content(other)).is_empty() {
                 overlaps = Some(other);
                 break;
@@ -1388,9 +1440,23 @@ mod tests {
     fn mark_body_descendants(d: &mut FakeDom) {
         let body = d.body.unwrap();
         // a real body paints
-        d.set_styles(body, &[("display", "block"), ("opacity", "1"), ("visibility", "visible")]);
+        d.set_styles(
+            body,
+            &[
+                ("display", "block"),
+                ("opacity", "1"),
+                ("visibility", "visible"),
+            ],
+        );
         let html = d.document_element.unwrap();
-        d.set_styles(html, &[("display", "block"), ("opacity", "1"), ("visibility", "visible")]);
+        d.set_styles(
+            html,
+            &[
+                ("display", "block"),
+                ("opacity", "1"),
+                ("visibility", "visible"),
+            ],
+        );
         let n = d.els.len() as ElId;
         for id in 1..n {
             if id != body && d.contains(body, id) {
@@ -1451,7 +1517,9 @@ mod tests {
 
         let findings = check_typography(&d);
         assert!(
-            findings.iter().all(|finding| finding.type_ != "overused-font"),
+            findings
+                .iter()
+                .all(|finding| finding.type_ != "overused-font"),
             "a secondary Inter face must not be reported as the page's primary font: {findings:?}"
         );
     }
@@ -1460,7 +1528,11 @@ mod tests {
     fn typography_reports_a_unique_leader_without_a_majority_threshold() {
         let mut d = FakeDom::new();
         let (_h, body) = d.with_page();
-        for (count, font) in [(40, "Inter, sans-serif"), (35, "Georgia, serif"), (25, "Lato, sans-serif")] {
+        for (count, font) in [
+            (40, "Inter, sans-serif"),
+            (35, "Georgia, serif"),
+            (25, "Lato, sans-serif"),
+        ] {
             for i in 0..count {
                 let p = d.add(Some(body), "p");
                 d.add_text(p, &format!("{font} copy {i}"));
@@ -1469,7 +1541,10 @@ mod tests {
         }
 
         let findings = check_typography(&d);
-        let font = findings.iter().find(|finding| finding.type_ == "overused-font").unwrap();
+        let font = findings
+            .iter()
+            .find(|finding| finding.type_ == "overused-font")
+            .unwrap();
         assert_eq!(font.detail, "Primary font: inter (40% of text)");
     }
 
@@ -1486,7 +1561,12 @@ mod tests {
         }
 
         let findings = check_typography(&d);
-        assert!(findings.iter().all(|finding| finding.type_ != "overused-font"), "{findings:?}");
+        assert!(
+            findings
+                .iter()
+                .all(|finding| finding.type_ != "overused-font"),
+            "{findings:?}"
+        );
     }
 
     #[test]
@@ -1511,7 +1591,10 @@ mod tests {
         }
 
         let findings = check_typography(&d);
-        let font = findings.iter().find(|finding| finding.type_ == "overused-font").unwrap();
+        let font = findings
+            .iter()
+            .find(|finding| finding.type_ == "overused-font")
+            .unwrap();
         assert_eq!(font.detail, "Primary font: inter (95% of text)");
     }
 
@@ -1609,10 +1692,24 @@ mod tests {
         let mut d = FakeDom::new();
         let (_h, body) = d.with_page();
         let outer = d.add(Some(body), "div");
-        d.set_styles(outer, &[("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"), ("backgroundColor", "rgb(255, 255, 255)"), ("position", "static")]);
+        d.set_styles(
+            outer,
+            &[
+                ("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"),
+                ("backgroundColor", "rgb(255, 255, 255)"),
+                ("position", "static"),
+            ],
+        );
         d.set_rect(outer, 0.0, 0.0, 400.0, 300.0);
         let inner = d.add(Some(outer), "div");
-        d.set_styles(inner, &[("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"), ("backgroundColor", "rgb(250, 250, 250)"), ("position", "static")]);
+        d.set_styles(
+            inner,
+            &[
+                ("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"),
+                ("backgroundColor", "rgb(250, 250, 250)"),
+                ("position", "static"),
+            ],
+        );
         d.set_rect(inner, 10.0, 10.0, 200.0, 100.0);
         d.add_text(inner, "Some card body text");
         d.add_text(outer, "Outer text longer than ten");
@@ -1629,10 +1726,24 @@ mod tests {
             let mut d = FakeDom::new();
             let (_h, body) = d.with_page();
             let outer = d.add(Some(body), "div");
-            d.set_styles(outer, &[("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"), ("backgroundColor", background), ("position", "static")]);
+            d.set_styles(
+                outer,
+                &[
+                    ("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"),
+                    ("backgroundColor", background),
+                    ("position", "static"),
+                ],
+            );
             d.set_rect(outer, 0.0, 0.0, 400.0, 300.0);
             let inner = d.add(Some(outer), "div");
-            d.set_styles(inner, &[("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"), ("backgroundColor", background), ("position", "static")]);
+            d.set_styles(
+                inner,
+                &[
+                    ("boxShadow", "0px 2px 8px rgba(0, 0, 0, 0.2)"),
+                    ("backgroundColor", background),
+                    ("position", "static"),
+                ],
+            );
             d.set_rect(inner, 10.0, 10.0, 200.0, 100.0);
             d.add_text(inner, "Some card body text");
             d.add_text(outer, "Outer text longer than ten");
@@ -1646,23 +1757,64 @@ mod tests {
         let mut d = FakeDom::new();
         let (_h, body) = d.with_page();
         let sec = d.add(Some(body), "section");
-        d.set_styles(sec, &[("display", "block"), ("visibility", "visible"), ("opacity", "1"), ("position", "static"), ("backgroundColor", "rgba(0, 0, 0, 0)"), ("borderTopWidth", "0px"), ("boxShadow", "none")]);
+        d.set_styles(
+            sec,
+            &[
+                ("display", "block"),
+                ("visibility", "visible"),
+                ("opacity", "1"),
+                ("position", "static"),
+                ("backgroundColor", "rgba(0, 0, 0, 0)"),
+                ("borderTopWidth", "0px"),
+                ("boxShadow", "none"),
+            ],
+        );
         d.set_rect(sec, 0.0, 0.0, 800.0, 1000.0);
         let mut y = 0.0;
         for i in 0..2 {
             let p0 = d.add(Some(sec), "p");
-            d.add_text(p0, "Intro paragraph text that runs well past forty characters");
-            d.set_styles(p0, &[("display", "block"), ("visibility", "visible"), ("opacity", "1"), ("position", "static"), ("fontSize", "20px")]);
+            d.add_text(
+                p0,
+                "Intro paragraph text that runs well past forty characters",
+            );
+            d.set_styles(
+                p0,
+                &[
+                    ("display", "block"),
+                    ("visibility", "visible"),
+                    ("opacity", "1"),
+                    ("position", "static"),
+                    ("fontSize", "20px"),
+                ],
+            );
             d.set_rect(p0, 0.0, y, 800.0, 20.0);
             y += 20.0 + 8.0; // 8px above the heading
             let h = d.add(Some(sec), "h2");
             d.add_text(h, &format!("Heading number {i}"));
-            d.set_styles(h, &[("display", "block"), ("visibility", "visible"), ("opacity", "1"), ("position", "static"), ("fontSize", "24px")]);
+            d.set_styles(
+                h,
+                &[
+                    ("display", "block"),
+                    ("visibility", "visible"),
+                    ("opacity", "1"),
+                    ("position", "static"),
+                    ("fontSize", "24px"),
+                ],
+            );
             d.set_rect(h, 0.0, y, 800.0, 30.0);
             y += 30.0 + 40.0; // 40px below
             let p1 = d.add(Some(sec), "p");
             d.add_text(p1, "Body paragraph");
-            d.set_styles(p1, &[("display", "block"), ("visibility", "visible"), ("opacity", "1"), ("position", "static"), ("fontSize", "16px")]);
+            d.set_styles(
+                p1,
+                &[
+                    ("display", "block"),
+                    ("visibility", "visible"),
+                    ("opacity", "1"),
+                    ("position", "static"),
+                    ("fontSize", "16px"),
+                ],
+            );
             d.set_rect(p1, 0.0, y, 800.0, 20.0);
             y += 60.0;
         }
@@ -1680,12 +1832,33 @@ mod tests {
         let (_h, body) = d.with_page();
         let vis = d.add(Some(body), "p");
         d.add_text(vis, "  visible   text ");
-        d.set_styles(vis, &[("display", "block"), ("opacity", "1"), ("visibility", "visible")]);
+        d.set_styles(
+            vis,
+            &[
+                ("display", "block"),
+                ("opacity", "1"),
+                ("visibility", "visible"),
+            ],
+        );
         let hid = d.add(Some(body), "div");
-        d.set_styles(hid, &[("display", "block"), ("opacity", "0"), ("visibility", "visible")]);
+        d.set_styles(
+            hid,
+            &[
+                ("display", "block"),
+                ("opacity", "0"),
+                ("visibility", "visible"),
+            ],
+        );
         let inner = d.add(Some(hid), "span");
         d.add_text(inner, "hidden words here");
-        d.set_styles(inner, &[("display", "inline"), ("opacity", "1"), ("visibility", "visible")]);
+        d.set_styles(
+            inner,
+            &[
+                ("display", "inline"),
+                ("opacity", "1"),
+                ("visibility", "visible"),
+            ],
+        );
         let scr = d.add(Some(body), "script");
         d.add_text(scr, "var x = 1;");
         mark_body_descendants(&mut d);
@@ -1712,7 +1885,18 @@ mod tests {
         }
         let card = d.add(Some(sc), "article");
         d.set_attr(card, "class", "card");
-        d.set_styles(card, &[("overflowX", "visible"), ("overflow", "visible"), ("backgroundColor", "rgb(255, 255, 255)"), ("borderTopWidth", "0px"), ("borderRightWidth", "0px"), ("borderBottomWidth", "0px"), ("borderLeftWidth", "0px")]);
+        d.set_styles(
+            card,
+            &[
+                ("overflowX", "visible"),
+                ("overflow", "visible"),
+                ("backgroundColor", "rgb(255, 255, 255)"),
+                ("borderTopWidth", "0px"),
+                ("borderRightWidth", "0px"),
+                ("borderBottomWidth", "0px"),
+                ("borderLeftWidth", "0px"),
+            ],
+        );
         d.set_rect(card, 24.0, 110.0, 574.0, 150.0); // right edge at 598 → gap 2
         let f = check_edge_flush_cards_dom(&d);
         assert_eq!(f.len(), 1, "{f:?}");
@@ -1733,17 +1917,41 @@ mod tests {
     fn text_occlusion_box_and_inline_leak() {
         let mut d = FakeDom::new();
         let (_h, body) = d.with_page();
-        let base = &[("display", "block"), ("visibility", "visible"), ("opacity", "1"), ("contentVisibility", "visible"), ("position", "static"), ("cssFloat", "none"), ("animationName", "none")][..];
+        let base = &[
+            ("display", "block"),
+            ("visibility", "visible"),
+            ("opacity", "1"),
+            ("contentVisibility", "visible"),
+            ("position", "static"),
+            ("cssFloat", "none"),
+            ("animationName", "none"),
+        ][..];
         let txt = d.add(Some(body), "p");
         d.set_attr(txt, "class", "victim");
         d.add_text(txt, "Readable headline");
         d.set_styles(txt, base);
-        d.set_styles(txt, &[("fontSize", "16px"), ("overflow", "visible"), ("overflowX", "visible"), ("overflowY", "visible"), ("clip", "auto"), ("clipPath", "none")]);
+        d.set_styles(
+            txt,
+            &[
+                ("fontSize", "16px"),
+                ("overflow", "visible"),
+                ("overflowX", "visible"),
+                ("overflowY", "visible"),
+                ("clip", "auto"),
+                ("clipPath", "none"),
+            ],
+        );
         d.set_rect(txt, 100.0, 100.0, 240.0, 28.0);
         let boxel = d.add(Some(body), "div");
         d.set_attr(boxel, "class", "cover");
         d.set_styles(boxel, base);
-        d.set_styles(boxel, &[("position", "absolute"), ("backgroundColor", "rgb(20, 20, 20)")]);
+        d.set_styles(
+            boxel,
+            &[
+                ("position", "absolute"),
+                ("backgroundColor", "rgb(20, 20, 20)"),
+            ],
+        );
         d.set_rect(boxel, 100.0, 100.0, 240.0, 28.0);
         // FakeDom's elementsFromPoint returns the last element in document
         // order whose rect contains the point → the box.
@@ -1769,7 +1977,17 @@ mod tests {
         let leak = d.add(Some(wrap), "span");
         d.set_attr(leak, "class", "marker");
         d.set_styles(leak, base);
-        d.set_styles(leak, &[("display", "inline"), ("backgroundColor", "rgb(255, 0, 0)"), ("paddingTop", "20px"), ("paddingBottom", "20px"), ("fontSize", "16px"), ("lineHeight", "20px")]);
+        d.set_styles(
+            leak,
+            &[
+                ("display", "inline"),
+                ("backgroundColor", "rgb(255, 0, 0)"),
+                ("paddingTop", "20px"),
+                ("paddingBottom", "20px"),
+                ("fontSize", "16px"),
+                ("lineHeight", "20px"),
+            ],
+        );
         d.set_rect(leak, 10.0, 10.0, 40.0, 60.0);
         let sib = d.add(Some(wrap), "p");
         d.add_text(sib, "neighbour");
@@ -1801,13 +2019,27 @@ mod tests {
         d.set_styles(a, &[("display", "block"), ("position", "static")]);
         d.set_rect(a, 0.0, 0.0, 640.0, 1400.0);
         let a_in = d.add(Some(a), "p");
-        d.set_styles(a_in, &[("display", "block"), ("position", "static"), ("visibility", "visible")]);
+        d.set_styles(
+            a_in,
+            &[
+                ("display", "block"),
+                ("position", "static"),
+                ("visibility", "visible"),
+            ],
+        );
         d.set_rect(a_in, 0.0, 0.0, 600.0, 1300.0);
         let b = d.add(Some(grid), "div");
         d.set_styles(b, &[("display", "block"), ("position", "static")]);
         d.set_rect(b, 640.0, 0.0, 640.0, 1400.0);
         let b_in = d.add(Some(b), "p");
-        d.set_styles(b_in, &[("display", "block"), ("position", "static"), ("visibility", "visible")]);
+        d.set_styles(
+            b_in,
+            &[
+                ("display", "block"),
+                ("position", "static"),
+                ("visibility", "visible"),
+            ],
+        );
         d.set_rect(b_in, 640.0, 0.0, 600.0, 300.0);
         mark_body_descendants(&mut d);
         let f = check_first_viewport_column_overflow_dom(&d);
@@ -1830,6 +2062,9 @@ mod tests {
         d.set_attr(body, "class", "bg-amber-50 text-black");
         let f = check_cream_palette(&d);
         assert_eq!(f.len(), 1);
-        assert_eq!(f[0].snippet, "cream/beige page background (Tailwind bg-amber-50)");
+        assert_eq!(
+            f[0].snippet,
+            "cream/beige page background (Tailwind bg-amber-50)"
+        );
     }
 }

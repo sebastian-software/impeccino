@@ -21,8 +21,9 @@ use regex::Regex;
 
 static WS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!("{}+", js::WS)).expect("WS_RE"));
 // JS `/url\(/i` in checkQuality's buried-raster branch.
-static RASTER_URL_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(&format!(r"{}\(", impeccino_core::js::ci("url"))).expect("RASTER_URL_RE"));
+static RASTER_URL_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(&format!(r"{}\(", impeccino_core::js::ci("url"))).expect("RASTER_URL_RE")
+});
 static CLIP_RECT_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(&format!(r"rect\({}*0", js::WS)).expect("CLIP_RECT_RE"));
 static CLIP_INSET_RE: Lazy<Regex> = Lazy::new(|| {
@@ -66,9 +67,9 @@ pub fn resolve_font_size_px(el: &StaticElement<'_>) -> f64 {
         } else if v.ends_with("rem") {
             px = num * 16.0;
         } else if v.ends_with("em") {
-            px = num * px;
+            px *= num;
         } else if v.ends_with('%') {
-            px = (num / 100.0) * px;
+            px *= num / 100.0;
         } else {
             px = num;
         }
@@ -196,7 +197,7 @@ pub fn check_quality(q: &QualityInput<'_, '_>) -> Vec<RuleHit> {
     // catches computed opacity on the element itself (both engines).
     {
         let op = parse_float(sv(style, "opacity"));
-        if op.is_finite() && op < 0.15 && op >= 0.0 {
+        if (0.0..0.15).contains(&op) {
             let bg = sv(style, "backgroundImage");
             if tag == "img" || RASTER_URL_RE.is_match(bg) {
                 let label = if tag == "img" {
@@ -208,7 +209,11 @@ pub fn check_quality(q: &QualityInput<'_, '_>) -> Vec<RuleHit> {
                     "buried-raster",
                     format!(
                         "{} at opacity {}{}",
-                        if tag == "img" { "<img>" } else { "raster background" },
+                        if tag == "img" {
+                            "<img>"
+                        } else {
+                            "raster background"
+                        },
                         number_to_string(op),
                         if label.is_empty() {
                             String::new()
