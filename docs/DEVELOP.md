@@ -55,6 +55,16 @@ The skill-behavior suite runs the models in `DEFAULT_MODELS` (`tests/skill-behav
 
 Impeccino itself runs nothing in a browser ([ADR 0011](adr/0011-no-own-browser-stack.md)). The skill-workflow suite uses Playwright Chromium only inside its test harness, standing in for the browser tool a real harness provides.
 
+## Upstream Tags
+
+If you keep an `upstream` remote, Git may follow tags from commits fetched from it. Those tags can affect local commands such as `git describe`. Stop future automatic tag following for that remote with:
+
+```bash
+git config remote.upstream.tagOpt --no-tags
+```
+
+This affects future fetches only. A direct `git fetch --tags upstream` still fetches tags.
+
 ## Skill authoring
 
 Follow [AGENTS.md](../AGENTS.md) for cross-harness writing rules, command conventions, and change-specific validation.

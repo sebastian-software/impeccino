@@ -26,6 +26,11 @@ assignees: ''
 - **Provider version**: 
 - **OS**: 
 
+## Impeccino versions
+
+- **Skill version** (`metadata.version` in the installed `SKILL.md`, if available):
+- **Engine version** (`impeccino --version`, if installed):
+
 ## Additional context
 
 <!-- Paste relevant command output, screenshots, or config snippets here. -->
