@@ -367,10 +367,13 @@ mod tests {
 
     #[test]
     fn design_coverage_describes_missing_guidance_without_a_live_panel() {
-        let findings = check_design_coverage(Some("## Colors\nPrimary: #222.\n"), Some("DESIGN.md"));
+        let findings =
+            check_design_coverage(Some("## Colors\nPrimary: #222.\n"), Some("DESIGN.md"));
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].id, "design-md-coverage");
-        assert!(findings[0].summary.contains("must infer those rules from the implementation"));
+        assert!(findings[0]
+            .summary
+            .contains("must infer those rules from the implementation"));
         assert!(!findings[0].summary.contains("live design panel"));
     }
 
