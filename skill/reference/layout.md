@@ -12,6 +12,8 @@ Preserve the established visual world. A layout command changes structure inside
 
 ## Two isolated assessments
 
+On web targets, run the assessment and mechanical scan below. For native targets (`ios`, `android`, or `adaptive` in `PRODUCT.md`), assess native device captures against the platform references and skip the web-only detector.
+
 When a sub-agent tool is available and permitted, run these independently; otherwise run them yourself in this order.
 
 1. **Layout assessment:** inspect representative states and viewports. Answer every question below with rendered or source evidence:
@@ -22,7 +24,7 @@ When a sub-agent tool is available and permitted, run these independently; other
    - **Density:** Does the amount of information per region fit use frequency, decision complexity, and visitor mode?
    - **Adaptation:** At narrow, intermediate, wide, zoomed, and localized states, what reorders, collapses, wraps, scrolls, or remains fixed? Does DOM and focus order still agree with the visual order?
    - **Extremes:** Do long content, empty states, overlays, sticky elements, safe areas, and small touch targets expose structural failures?
-2. **Mechanical scan:** run:
+2. **Mechanical scan (web only):** run:
 
 ```bash
 "<skill-base-dir>/scripts/impeccino" detect --json --scope layout [target files or dirs]
@@ -67,8 +69,8 @@ Variation is not a goal by itself. Repetition should support recognition; break 
 - Density matches use frequency and content complexity.
 - Long text, empty states, localization, zoom, and dynamic content do not break the structure.
 - Keyboard, touch, and assistive-technology order agree with the visual order.
-- The final mechanical scan has no unexplained findings.
+- On web targets, the final mechanical scan has no unexplained findings. On native targets, verify the device captures against the platform guidance; no detector runs.
 
-Answer each item with rendered or source evidence, then rerun the scan. Do not substitute a bare “yes” for verification.
+Answer each item with rendered or source evidence. On web targets, rerun the scan; on native targets, recheck the device captures. Do not substitute a bare “yes” for verification.
 
 When the structure holds, hand off to `/impeccino polish`.

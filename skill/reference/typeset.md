@@ -12,6 +12,8 @@ If typography replacement would create a new identity, route through [new-work.m
 
 ## Two isolated assessments
 
+On web targets, run the assessment and mechanical scan below. For native targets (`ios`, `android`, or `adaptive` in `PRODUCT.md`), assess typography in native device captures against the platform references and skip the web-only detector.
+
 When a sub-agent tool is available and permitted, run these independently; otherwise run them yourself in this order. Do not let detector findings anchor the design assessment.
 
 1. **Typographic assessment:** inspect representative pages and styles. Answer every question below with a file, selector, or computed value:
@@ -21,7 +23,7 @@ When a sub-agent tool is available and permitted, run these independently; other
    - **Reading:** Does body copy stay within a comfortable 45–75 character measure? Are line height, paragraph rhythm, contrast, and tracking tuned to the actual face, width, language, and surface?
    - **Stress:** What happens with long headings, localization expansion, zoom, narrow containers, missing weights, and font fallback?
    - **Delivery:** Are only used assets loaded? Do fallback metrics, loading strategy, and variable-font settings avoid invisible text and disruptive reflow?
-2. **Mechanical scan:** run:
+2. **Mechanical scan (web only):** run:
 
 ```bash
 "<skill-base-dir>/scripts/impeccino" detect --json --scope type [target files or dirs]
@@ -63,8 +65,8 @@ Do not make type decorative at the expense of comprehension, or introduce a seco
 - The typography belongs to the product and its established world.
 - Loading does not create disruptive reflow or invisible text.
 - Zoom, text scaling, focus, contrast, and reduced viewport paths remain usable.
-- The final mechanical scan has no unexplained findings.
+- On web targets, the final mechanical scan has no unexplained findings. On native targets, verify typography in device captures against the platform guidance; no detector runs.
 
-Answer each item with rendered or source evidence, then rerun the scan. Do not substitute a bare “yes” for verification.
+Answer each item with rendered or source evidence. On web targets, rerun the scan; on native targets, recheck the device captures. Do not substitute a bare “yes” for verification.
 
 When the hierarchy holds, hand off to `/impeccino polish`.

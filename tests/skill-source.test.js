@@ -100,3 +100,88 @@ describe('universal skill source', () => {
     expect(newWork).toMatch(/keep this disclosure outside the reviewer's contracted return/i);
   });
 });
+
+
+describe('cross-reference contracts', () => {
+  const skillDir = path.join(process.cwd(), 'skill');
+  const read = (name) => fs.readFileSync(path.join(skillDir, name), 'utf-8');
+
+  test('all commands follow the shared bounded inspection cycle', () => {
+    const overdrive = read('reference/overdrive.md');
+    expect(overdrive).toMatch(/bounded finish cycle/i);
+    expect(overdrive).toMatch(/at most one more round/i);
+    expect(overdrive).not.toMatch(/Expect multiple rounds of refinement/i);
+  });
+
+  test('review and documentation honor brief-earned craft-floor defaults', () => {
+    const craftFloor = read('reference/craft-floor.md');
+    const reviewer = read('agents/impeccino-finish-reviewer.md');
+    const documenter = read('agents/impeccino-documenter.md');
+
+    expect(craftFloor).toMatch(/defaults, not bans: the brief's own words can earn any/i);
+    expect(reviewer).toMatch(/keep a default the brief or world explicitly earns/i);
+    expect(reviewer).toMatch(/explicitly calls a ban/i);
+    expect(documenter).toMatch(/preserve one when the approved brief or world deliberately chooses it/i);
+    expect(documenter).toMatch(/explicitly labels a ban/i);
+  });
+
+  test('standalone document seed and post-build documentation have separate timing', () => {
+    const document = read('reference/document.md');
+    const newWork = read('reference/new-work.md');
+    const documenter = read('agents/impeccino-documenter.md');
+
+    expect(document).toContain('This is the explicit standalone');
+    expect(document).toContain('document --seed');
+    expect(document).toContain('workflow.');
+    expect(newWork).toContain('post-build handoff is separate from the standalone');
+    expect(newWork).toContain('document --seed');
+    expect(newWork).toMatch(/DESIGN\.md is written at finish from the built world/i);
+    expect(documenter).toContain('standalone questions, overwrite confirmation');
+    expect(documenter).toContain('do not run them or ask the user');
+  });
+
+  test('the documenter uses approved handoff authority and reports gaps to its caller', () => {
+    const documenter = read('agents/impeccino-documenter.md');
+
+    expect(documenter).toMatch(/no user-facing channel/i);
+    expect(documenter).toMatch(/report the missing authority to the caller/i);
+    expect(documenter).toMatch(/preserve incumbent decisions outside that approved scope and carry every existing waiver forward/i);
+    expect(documenter).not.toMatch(/ask the user to clarify/i);
+  });
+
+  test('concept-seed keys are required only for a roll that ran', () => {
+    const newWork = read('reference/new-work.md');
+    const reviewer = read('agents/impeccino-finish-reviewer.md');
+
+    expect(newWork).toMatch(/concept-seed.*ran, include the printed seed key/i);
+    expect(newWork).toMatch(/No roll: <reason>/);
+    expect(reviewer).toMatch(/When concept-seed ran, require the printed seed key/i);
+    expect(reviewer).toMatch(/when FORM records an allowed no-roll reason.*no key is required/i);
+    expect(reviewer).toMatch(/Missing key alone never proves a roll was skipped/i);
+  });
+
+  test('critique personas use PRODUCT.md audience truth', () => {
+    const critique = read('reference/critique.md');
+
+    expect(critique).toMatch(/PRODUCT\.md.*Users.*section/i);
+    expect(critique).toMatch(/PRODUCT\.md.*concrete information under.*Users/i);
+    expect(critique).not.toMatch(/Design Context.*impeccino init/i);
+  });
+
+  test('source and rendered URL detector passes stay distinct', () => {
+    const critique = read('reference/critique.md');
+
+    expect(critique).toMatch(/source pass scans local files and directories, not URLs/i);
+    expect(critique).toMatch(/rendered-page detector remains a separate required web pass on the URL/i);
+  });
+
+  test('native projects skip web-only detector instructions', () => {
+    for (const file of ['reference/critique.md', 'reference/layout.md', 'reference/typeset.md']) {
+      expect(read(file)).toMatch(/(?:native[\s\S]*skip[^.]*detect|skip[^.]*web-only detector)/i);
+    }
+    for (const file of ['reference/layout.md', 'reference/typeset.md']) {
+      expect(read(file)).toMatch(/Mechanical scan \(web only\)/i);
+      expect(read(file)).toMatch(/On web targets, rerun the scan; on native targets, recheck the device captures/i);
+    }
+  });
+});

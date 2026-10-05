@@ -15,7 +15,8 @@ describe('skill reference authoring contracts', () => {
     assert.match(recordDecision, /under `### Direction contract` in the relevant surface brief, that surface's section of the project's `SURFACES.md`/);
     assert.match(recordDecision, /replaces exactly this surface's section of `SURFACES.md`/);
     assert.match(recordDecision, /read the brief once more/i);
-    assert.match(recordDecision, /all six contract blocks and the seed key/);
+    assert.match(recordDecision, /all six contract blocks/);
+    assert.match(recordDecision, /printed seed key when a concept roll ran, or the permitted no-roll reason when it did not/);
 
     for (const block of ['THESIS', 'OWN-WORLD', 'STORY', 'FIRST VIEWPORT', 'FORM', 'FINISH']) {
       assert.match(recordDecision, new RegExp(`${block}:`));

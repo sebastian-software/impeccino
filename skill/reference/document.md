@@ -351,6 +351,8 @@ Your own write is the freshest source; subsequent commands in this session don't
 
 ## Seed mode
 
+This is the explicit standalone `/impeccino document --seed` workflow. The automatic documenter dispatched by `new-work.md` runs after implementation and records the built world in scan mode; it does not run this seed path.
+
 For projects with no visual system to extract yet. Produces a user-chosen visual-world scaffold, not a fabricated token spec.
 
 ### Step 1: Route through new-work's workshop
