@@ -83,7 +83,13 @@ describe('skill reference authoring contracts', () => {
     const document = readFileSync(join(ROOT, 'skill/reference/document.md'), 'utf-8').replace(/\r\n?/g, '\n');
     assert.match(document, /\*\*Preserve the waivers\.\*\*/);
     assert.match(document, /carry every such comment over verbatim and keep it next to the Named Rule or Do\/Don't that justifies it/);
-    assert.match(document, /The sidecar `DESIGN\.json`, in the same directory as DESIGN\.md/);
+    assert.match(document, /detector metadata only/);
+    assert.match(document, /extensions\.colorMeta\.<token>\.canonical/);
+    assert.match(document, /extensions\.colorMeta\.<token>\.tonalRamp/);
+    assert.match(document, /extensions\.roundedMeta\.<token>/);
+    assert.match(document, /extensions\.shadows\[\]\.value/);
+    assert.match(document, /do not generate component snippets, narrative, motion, breakpoints/i);
+    assert.doesNotMatch(document, /shadow DOM|5-10 components/i);
   });
 
   it('keeps touch-gesture verification in the adapt, audit, and harden references', () => {

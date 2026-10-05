@@ -151,7 +151,7 @@ For each issue, tag with **P0-P3 severity** (see [Issue Severity below](#issue-s
 - **[P?] What**: Name the problem clearly
 - **Why it matters**: How this hurts users or undermines goals
 - **Fix**: What to do about it (be concrete)
-- **Suggested command**: Which command could address this (from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset)
+- **Suggested command**: Which command could address this (from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino extract, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset)
 
 #### Persona Red Flags
 > *Consult the [Personas reference](#persona-based-design-testing) below.*
@@ -194,7 +194,7 @@ After the report, the response continues with the close below.
 
 ### Ask the User
 
-**After presenting findings**, use targeted questions based on what was actually found. STOP and ask the user to clarify, through the host's structured question tool when it has one (for example AskUserQuestion or request_user_input), otherwise directly in chat. These answers will shape the action plan.
+**After presenting findings**, use targeted questions based on what was actually found. STOP and ask the user to clarify, through the host's structured question tool when available, otherwise directly in chat. These answers will shape the action plan.
 
 Ask in the same message that carries the report, with the report written out first and the question last. Do not split the two across turns: a turn that ends on the report is a turn that ends, and the questions never arrive. Order within the message is what matters, because prose emitted after a structured question is withheld until the user answers.
 
@@ -231,7 +231,7 @@ List recommended commands in priority order, based on the user's answers:
 ...
 
 **Rules for recommendations**:
-- Only recommend commands from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset
+- Only recommend commands from: /impeccino adapt, /impeccino animate, /impeccino audit, /impeccino bolder, /impeccino clarify, /impeccino colorize, /impeccino critique, /impeccino delight, /impeccino distill, /impeccino document, /impeccino extract, /impeccino harden, /impeccino layout, /impeccino onboard, /impeccino optimize, /impeccino overdrive, /impeccino polish, /impeccino quieter, /impeccino shape, /impeccino typeset
 - Order by the user's stated priorities first, then by impact
 - Each item's description should carry enough context that the command knows what to focus on
 - Map each Priority Issue to the appropriate command

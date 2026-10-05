@@ -151,7 +151,7 @@ function scanProseFiles(rootDir, target, phraseRules) {
       }
       return;
     }
-    if (path.extname(absPath) !== '.md') return;
+    if (!['.md', '.json'].includes(path.extname(absPath))) return;
     fs.readFileSync(absPath, 'utf-8').split('\n')
       .forEach((line, index) => checkLine(line, rel, index + 1));
   };
@@ -210,7 +210,7 @@ function validateProse(rootDir) {
 }
 
 /**
- * Narrow prose check for the impeccino skill source.
+ * Narrow prose check for Markdown skill guidance and pinned command metadata.
  *
  * The full validateProse rules don't fit LLM-facing reference instructions:
  * the hardening repetition and triadic checklists those files use exist on

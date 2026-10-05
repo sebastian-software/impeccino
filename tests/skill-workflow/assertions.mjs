@@ -9,10 +9,8 @@ export function assertDocumentationArtifacts(design, sidecarText) {
   assert.match(frontmatter, /^typography:\s*\n[ \t]+\S/m, 'documentation must record typography tokens');
   const sidecar = JSON.parse(sidecarText);
   assert.equal(sidecar.schemaVersion, 2, 'documentation must write the v2 sidecar');
-  for (const key of ['extensions', 'narrative']) {
-    assert.ok(sidecar[key] && typeof sidecar[key] === 'object' && !Array.isArray(sidecar[key])
-      && Object.keys(sidecar[key]).length, `sidecar must contain ${key} metadata`);
-  }
+  assert.ok(sidecar.extensions && typeof sidecar.extensions === 'object' && !Array.isArray(sidecar.extensions),
+    'sidecar must contain an extensions object');
 }
 
 // For a resumed, already-reviewed ordinary extension only. New worlds and
