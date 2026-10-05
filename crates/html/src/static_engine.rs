@@ -578,6 +578,44 @@ mod tests {
     }
 
     #[test]
+    fn repeated_container_text_findings_match_across_static_and_rendered_dom() {
+        let html = "<section id=\"cards\" class=\"cards\" style=\"box-shadow:0 1px 3px rgba(0,0,0,.2); border-radius:8px\"><p class=\"item one\">Shared navigation</p><p class=\"item two\">Shared navigation</p><p class=\"item three\">Shared navigation</p></section>";
+        let mut doc = StaticDocument::parse(html);
+        crate::cascade::build_static_style_map(&mut doc, "");
+        let static_hits = crate::page::check_repeated_container_text_from_doc(&doc);
+
+        let mut dom = FakeDom::new();
+        let (_html, body) = dom.with_page();
+        let cards = dom.add(Some(body), "section");
+        dom.set_attr(cards, "id", "cards");
+        dom.set_attr(cards, "class", "cards");
+        dom.set_styles(
+            cards,
+            &[
+                ("boxShadow", "0 1px 3px rgba(0,0,0,.2)"),
+                ("borderRadius", "8px"),
+            ],
+        );
+        for class_name in ["item one", "item two", "item three"] {
+            let item = dom.add(Some(cards), "p");
+            dom.set_attr(item, "class", class_name);
+            dom.add_text(item, "Shared navigation");
+        }
+        let rendered_hits =
+            impeccino_core::browser::text_collectors::check_repeated_container_text_dom(&dom);
+
+        assert_eq!(static_hits, rendered_hits);
+        assert_eq!(
+            static_hits,
+            vec![impeccino_core::checks::rules::RuleHit::new(
+                "repeated-container-text",
+                "\"Shared navigation\" rendered 3× in distinct spots inside section.cards"
+                    .to_string(),
+            )]
+        );
+    }
+
+    #[test]
     fn em_dash_page_findings_match_for_shared_visible_text() {
         let html_source = "<html><body>a — b — c — d — e — f — g — h — i</body></html>";
         let static_hits =
