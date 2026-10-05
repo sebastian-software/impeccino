@@ -56,7 +56,11 @@ pub fn filter_detection_findings(findings: Vec<Finding>, config: &DetectionConfi
     if findings.is_empty() {
         return vec![];
     }
-    let ignore_rules: Vec<String> = config.ignore_rules.iter().map(|r| normalize_ignore_rule(r)).collect();
+    let ignore_rules: Vec<String> = config
+        .ignore_rules
+        .iter()
+        .map(|r| normalize_ignore_rule(r))
+        .collect();
     findings
         .into_iter()
         .filter(|f| {
@@ -77,7 +81,10 @@ fn is_ignored_finding_value(finding: &Finding, ignore_values: &[IgnoreValueEntry
         return false;
     }
     let value = extract_finding_ignore_value(finding);
-    !value.is_empty() && ignore_values.iter().any(|entry| entry.rule == rule && normalize_ignore_value(&entry.value) == value)
+    !value.is_empty()
+        && ignore_values
+            .iter()
+            .any(|entry| entry.rule == rule && normalize_ignore_value(&entry.value) == value)
 }
 
 const DIRECT_VALUE_RULES: &[&str] = &[
@@ -97,7 +104,6 @@ pub fn extract_finding_ignore_value(finding: &Finding) -> String {
     }
     normalize_ignore_value(&extract_finding_ignore_value_raw(finding, &rule))
 }
-
 
 fn extra_str<'a>(finding: &'a Finding, key: &str) -> Option<&'a str> {
     match finding.extras.get(key) {
@@ -167,10 +173,7 @@ pub fn decode_uri_component(s: &str) -> String {
     impeccino_core::browser::driver::decode_uri_component(s).unwrap_or_else(|| s.to_string())
 }
 
-re!(
-    ANIMATE_BOUNCE_RE,
-    format!("(?-u:\\b)(?i:animate-bounce)(?-u:\\b)")
-);
+re!(ANIMATE_BOUNCE_RE, "(?-u:\\b)(?i:animate-bounce)(?-u:\\b)");
 re!(BEZIER_RE, r"(?i:cubic-bezier)\([^)]+\)");
 re!(
     ANIMATION_RE,
@@ -204,7 +207,6 @@ fn clean_ignore_value_display(value: &str) -> String {
     let t = t.replace('+', " ");
     WS_RUN_RE.replace_all(&t, " ").into_owned()
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -37,6 +37,28 @@ describe('ci-test-plan', () => {
     assert.equal(outputs.skill_behavior, 'false');
   });
 
+  it('routes Rust lint and format configuration changes to the Rust lane', () => {
+    const rustInputs = [
+      'Cargo.toml',
+      '.cargo/config',
+      '.cargo/config.toml',
+      'clippy.toml',
+      '.clippy.toml',
+      'rust-toolchain',
+      'rust-toolchain.toml',
+      'rustfmt.toml',
+      '.rustfmt.toml',
+      '.github/workflows/ci.yml',
+    ];
+    for (const file of rustInputs) {
+      const outputs = runPlan({
+        GITHUB_EVENT_NAME: 'pull_request',
+        CI_CHANGED_FILES: file,
+      });
+      assert.equal(outputs.rust, 'true', file + ' should run the Rust gates');
+    }
+  });
+
   it('routes an engine version bump to the oracle lane', () => {
     const outputs = runPlan({
       GITHUB_EVENT_NAME: 'pull_request',

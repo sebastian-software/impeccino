@@ -172,7 +172,7 @@ static NAMED_COLOR_TOKENS: Lazy<String> = Lazy::new(|| {
         .chain(STATIC_NAMED_COLORS.iter().map(|(n, _)| *n))
         .collect();
     // JS Array.prototype.sort is stable; sort_by is stable too.
-    names.sort_by(|a, b| b.len().cmp(&a.len()));
+    names.sort_by_key(|name| std::cmp::Reverse(name.len()));
     names.join("|")
 });
 

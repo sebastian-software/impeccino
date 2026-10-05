@@ -83,11 +83,17 @@ fn provider_from_skill_dir(skill_dir: &str) -> Option<&'static str> {
 }
 
 pub fn detect(env: &Env, cwd: &str) -> Provider {
-    let skill_dir = match env.get("IMPECCINO_SKILL_DIR").filter(|v| !v.trim().is_empty()) {
+    let skill_dir = match env
+        .get("IMPECCINO_SKILL_DIR")
+        .filter(|v| !v.trim().is_empty())
+    {
         Some(v) => Some(jsp::resolve(cwd, &[v.trim()])),
         None => exe_path().and_then(|p| find_skill_dir_from(&jsp::dirname(&p))),
     };
-    let id = match env.get("IMPECCINO_PROVIDER_ID").filter(|v| !v.trim().is_empty()) {
+    let id = match env
+        .get("IMPECCINO_PROVIDER_ID")
+        .filter(|v| !v.trim().is_empty())
+    {
         Some(v) => v.trim().to_string(),
         None => skill_dir
             .as_deref()
@@ -101,13 +107,21 @@ pub fn detect(env: &Env, cwd: &str) -> Provider {
         Some(v) => v.to_string(),
         None => exe_path().unwrap_or_else(|| "impeccino".to_string()),
     };
-    Provider { id, command_prefix, command, skill_dir, self_cmd }
+    Provider {
+        id,
+        command_prefix,
+        command,
+        skill_dir,
+        self_cmd,
+    }
 }
 
 impl Provider {
     /// `<skill>/reference/<name>.md`
     pub fn reference_path(&self, name: &str) -> Option<String> {
-        self.skill_dir.as_ref().map(|d| jsp::join(&[d, "reference", &format!("{}.md", name)]))
+        self.skill_dir
+            .as_ref()
+            .map(|d| jsp::join(&[d, "reference", &format!("{}.md", name)]))
     }
     /// The command a directive should print for a sibling verb, in place of
     /// `node <scripts>/<verb>.mjs`.

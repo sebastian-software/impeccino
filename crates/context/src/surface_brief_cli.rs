@@ -11,9 +11,29 @@ use serde_json::{Map, Value};
 
 fn summary(brief: &SurfaceBrief, project_root: &str) -> Value {
     let mut m = Map::new();
-    m.insert("path".into(), Value::String(jsp::to_posix(&jsp::relative("/", project_root, &brief.path))));
-    m.insert("primaryTarget".into(), Value::String(brief.primary_target.clone()));
-    m.insert("relatedTargets".into(), Value::Array(brief.related_targets.iter().cloned().map(Value::String).collect()));
+    m.insert(
+        "path".into(),
+        Value::String(jsp::to_posix(&jsp::relative(
+            "/",
+            project_root,
+            &brief.path,
+        ))),
+    );
+    m.insert(
+        "primaryTarget".into(),
+        Value::String(brief.primary_target.clone()),
+    );
+    m.insert(
+        "relatedTargets".into(),
+        Value::Array(
+            brief
+                .related_targets
+                .iter()
+                .cloned()
+                .map(Value::String)
+                .collect(),
+        ),
+    );
     Value::Object(m)
 }
 
@@ -23,8 +43,14 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     let command = args.first().map(String::as_str);
     let target = args.get(1).map(String::as_str).filter(|s| !s.is_empty());
     let body_file = args.get(2).map(String::as_str).filter(|s| !s.is_empty());
-    let related: Vec<String> = if args.len() > 3 { args[3..].to_vec() } else { vec![] };
-    let opts = TargetOptions { target_path: target.map(|t| t.to_string()) };
+    let related: Vec<String> = if args.len() > 3 {
+        args[3..].to_vec()
+    } else {
+        vec![]
+    };
+    let opts = TargetOptions {
+        target_path: target.map(|t| t.to_string()),
+    };
     let project_root = resolve_project_root(&cwd, &opts, &env);
     let rel_out = |p: &str| -> String {
         let r = jsp::relative(&cwd, &cwd, p);
@@ -44,7 +70,10 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             0
         }
         Some("list") => {
-            let rows: Vec<Value> = list_surface_briefs(&project_root).iter().map(|b| summary(b, &project_root)).collect();
+            let rows: Vec<Value> = list_surface_briefs(&project_root)
+                .iter()
+                .map(|b| summary(b, &project_root))
+                .collect();
             io.out(&format!("{}\n", json_pretty(&Value::Array(rows))));
             0
         }
@@ -55,7 +84,11 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
                 return 0;
             }
             if !result.candidates.is_empty() {
-                let rows: Vec<Value> = result.candidates.iter().map(|b| summary(b, &project_root)).collect();
+                let rows: Vec<Value> = result
+                    .candidates
+                    .iter()
+                    .map(|b| summary(b, &project_root))
+                    .collect();
                 io.err(&format!("{}\n", json_pretty(&Value::Array(rows))));
             }
             2

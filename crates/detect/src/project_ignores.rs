@@ -50,7 +50,10 @@ fn build(dir: &str, lines: &[String]) -> Option<Gitignore> {
 
 fn read_lines(path: &str) -> Vec<String> {
     match std::fs::read_to_string(path) {
-        Ok(text) => text.lines().map(|l| l.trim_end_matches('\r').to_string()).collect(),
+        Ok(text) => text
+            .lines()
+            .map(|l| l.trim_end_matches('\r').to_string())
+            .collect(),
         Err(_) => Vec::new(),
     }
 }
@@ -116,7 +119,9 @@ fn attribute_lines(path: &str) -> (Vec<String>, Vec<String>) {
             continue;
         }
         let mut parts = t.split_whitespace();
-        let Some(pattern) = parts.next() else { continue };
+        let Some(pattern) = parts.next() else {
+            continue;
+        };
         if pattern.starts_with('!') || pattern.starts_with('"') {
             // Negative patterns are not allowed in .gitattributes; quoted
             // patterns are rare enough to leave out.
@@ -140,7 +145,10 @@ fn attribute_lines(path: &str) -> (Vec<String>, Vec<String>) {
                 vendored_state = Some(set);
             }
         }
-        for (state, lines) in [(generated_state, &mut generated), (vendored_state, &mut vendored)] {
+        for (state, lines) in [
+            (generated_state, &mut generated),
+            (vendored_state, &mut vendored),
+        ] {
             match state {
                 Some(true) => lines.push(pattern.to_string()),
                 Some(false) => lines.push(format!("!{pattern}")),
@@ -162,18 +170,23 @@ impl ProjectIgnores {
         }
         let ignore_lines = read_lines(&jsp::join(&[dir, ".gitignore"]));
         let exclude_lines = if is_root {
-            info_exclude_path(dir).map(|p| read_lines(&p)).unwrap_or_default()
+            info_exclude_path(dir)
+                .map(|p| read_lines(&p))
+                .unwrap_or_default()
         } else {
             Vec::new()
         };
-        let (generated_lines, vendored_lines) = attribute_lines(&jsp::join(&[dir, ".gitattributes"]));
+        let (generated_lines, vendored_lines) =
+            attribute_lines(&jsp::join(&[dir, ".gitattributes"]));
         let rules = Rc::new(DirRules {
             ignore: build(dir, &ignore_lines),
             exclude: build(dir, &exclude_lines),
             generated: build(dir, &generated_lines),
             vendored: build(dir, &vendored_lines),
         });
-        self.dirs.borrow_mut().insert(dir.to_string(), rules.clone());
+        self.dirs
+            .borrow_mut()
+            .insert(dir.to_string(), rules.clone());
         rules
     }
 
@@ -193,14 +206,18 @@ impl ProjectIgnores {
             }
             cur = parent;
         };
-        self.roots.borrow_mut().insert(dir.to_string(), found.clone());
+        self.roots
+            .borrow_mut()
+            .insert(dir.to_string(), found.clone());
         found
     }
 
     /// The directories whose rules apply to `path`, deepest first.
     fn chain(&self, path: &str) -> Vec<(String, bool)> {
         let dir = jsp::dirname(path);
-        let Some(root) = self.repo_root(&dir) else { return vec![] };
+        let Some(root) = self.repo_root(&dir) else {
+            return vec![];
+        };
         let mut out = Vec::new();
         let mut cur = dir;
         loop {
@@ -296,8 +313,14 @@ mod tests {
                 SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
             ));
             std::fs::create_dir_all(&base).unwrap();
-            let real = std::fs::canonicalize(&base).unwrap().to_string_lossy().into_owned();
-            Tmp(real.strip_prefix(r"\\?\").map(str::to_string).unwrap_or(real))
+            let real = std::fs::canonicalize(&base)
+                .unwrap()
+                .to_string_lossy()
+                .into_owned();
+            Tmp(real
+                .strip_prefix(r"\\?\")
+                .map(str::to_string)
+                .unwrap_or(real))
         }
         fn write(&self, rel: &str, body: &str) -> String {
             let abs = jsp::join(&[&self.0, rel]);
@@ -330,7 +353,10 @@ mod tests {
         assert!(!p.is_skipped(&t.path("src/keep.gen.css"), false));
         assert!(p.is_skipped(&t.path("scratch.html"), false));
         assert!(p.is_skipped(&t.path("src/local.css"), false));
-        assert!(!p.is_skipped(&t.path("local.css"), false), "a nested .gitignore only covers its own dir");
+        assert!(
+            !p.is_skipped(&t.path("local.css"), false),
+            "a nested .gitignore only covers its own dir"
+        );
         assert!(p.is_skipped(&t.path("src/vendor/lib.css"), false));
         assert!(!p.is_skipped(&t.path("src/vendor/own.css"), false));
         assert!(p.is_skipped(&t.path("src/api.css"), false));

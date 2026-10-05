@@ -354,7 +354,7 @@ pub fn scan_css_text_for_radial_halo(content: &str) -> Vec<IndexedHit> {
             let px_stop = stops.iter().any(|s| {
                 PX_STOP_RE
                     .captures(s)
-                    .map_or(false, |pm| parse_float(&pm[1]).abs() <= 24.0)
+                    .is_some_and(|pm| parse_float(&pm[1]).abs() <= 24.0)
             });
             if px_stop {
                 continue;
@@ -410,7 +410,7 @@ pub fn scan_css_text_for_radial_halo(content: &str) -> Vec<IndexedHit> {
     findings
 }
 
-re!(CSS_RULE_BLOCK_RE, CSS_RULE_BLOCK_SOURCE.to_string());
+re!(CSS_RULE_BLOCK_RE, CSS_RULE_BLOCK_SOURCE);
 
 /// JS `/(?:^|[<prefix>])(?:tok…)(?!<run class>)/i.test(s)`, evaluated as:
 /// at the start and after every prefix char, take the maximal run of
@@ -546,7 +546,7 @@ re!(
         hr = ci("hr")
     )
 );
-re!(FULL_PCT_RE, r"^100(?:\.0*)?%$".to_string());
+re!(FULL_PCT_RE, r"^100(?:\.0*)?%$");
 re!(
     NO_PAINT_BG_RE,
     format!(
@@ -642,8 +642,8 @@ pub fn scan_css_text_for_pseudo_stripe(raw_content: &str) -> Vec<PatternFinding>
             get_or(&decls, "height", "block-size"),
             &custom_props,
         ));
-        let vertical_candidate = width_px.map_or(false, |w| w >= 3.0 && w <= 12.0);
-        let horizontal_candidate = height_px.map_or(false, |h| h >= 3.0 && h <= 12.0)
+        let vertical_candidate = width_px.is_some_and(|w| (3.0..=12.0).contains(&w));
+        let horizontal_candidate = height_px.is_some_and(|h| (3.0..=12.0).contains(&h))
             && !selector_has_tag(
                 selector,
                 &["a", "button", "summary", "tr", "td", "th", "table", "li"],
@@ -831,7 +831,7 @@ pub fn scan_css_text_for_inset_stripe(content: &str) -> Vec<PatternFinding> {
             get_or(&decls, "width", "inline-size"),
             &custom_props,
         ));
-        if declared_width.map_or(false, |w| w <= 40.0) {
+        if declared_width.is_some_and(|w| w <= 40.0) {
             continue;
         }
         let value = resolve_var_refs(shadow, &custom_props);
@@ -870,8 +870,8 @@ pub fn scan_css_text_for_inset_stripe(content: &str) -> Vec<PatternFinding> {
             }
             let ax = x.abs();
             let ay = y.abs();
-            let is_stripe =
-                (ax >= 3.0 && ax <= 12.0 && ay == 0.0) || (ay >= 3.0 && ay <= 12.0 && ax == 0.0);
+            let is_stripe = ((3.0..=12.0).contains(&ax) && ay == 0.0)
+                || ((3.0..=12.0).contains(&ay) && ax == 0.0);
             if !is_stripe {
                 continue;
             }
@@ -924,8 +924,8 @@ re!(
         path = ci("path")
     )
 );
-re!(CURVE_CMD_RE, "[CSQTAcsqta]".to_string());
-re!(SIGNED_NUM_RE, r"-?[0-9.]+".to_string());
+re!(CURVE_CMD_RE, "[CSQTAcsqta]");
+re!(SIGNED_NUM_RE, r"-?[0-9.]+");
 
 /// JS: checks.mjs#scanCssTextForOrganicClipPath
 pub fn scan_css_text_for_organic_clip_path(style_text: &str) -> Vec<PatternFinding> {
@@ -1027,7 +1027,7 @@ re!(
         hsl = ci("hsl")
     )
 );
-re!(BURIED_HEX_RE, r"#([0-9a-fA-F]{3,8})(?-u:\b)".to_string());
+re!(BURIED_HEX_RE, r"#([0-9a-fA-F]{3,8})(?-u:\b)");
 re!(
     BURIED_NAMED_RE,
     format!(
@@ -1085,7 +1085,7 @@ fn blend_mode_declared_not_normal(rule: &str, re: &Regex) -> bool {
             }
         }
         for &k in &positions {
-            let probe = after_colon[k..].as_bytes();
+            let probe = &after_colon.as_bytes()[k..];
             let starts_normal = probe.len() >= 6 && probe[..6].eq_ignore_ascii_case(b"normal");
             if !starts_normal {
                 return true;
@@ -1243,7 +1243,7 @@ pub fn scan_css_text_for_marquee(content: &str, markup: Option<&str>) -> Vec<Pat
     findings
 }
 
-re!(PCT_VALUE_RE, r"^([0-9.]+)%$".to_string());
+re!(PCT_VALUE_RE, r"^([0-9.]+)%$");
 
 /// JS: checks.mjs#isRoundDotRadius
 pub fn is_round_dot_radius(radius_value: &str, w: f64, h: f64) -> bool {

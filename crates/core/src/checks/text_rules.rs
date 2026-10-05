@@ -158,7 +158,10 @@ pub fn is_kicker_candidate(o: &KickerCandidateInput) -> bool {
     if SLASH_PATH_RE.is_match(js::trim(&unquoted)) {
         return false;
     }
-    if !(o.heading_font_size >= 20.0) {
+    if matches!(
+        o.heading_font_size.partial_cmp(&20.0),
+        None | Some(std::cmp::Ordering::Less)
+    ) {
         return false;
     }
     if o.kicker_tag.is_empty() || HEADING_TAGS.contains(&o.kicker_tag) {
@@ -168,7 +171,7 @@ pub fn is_kicker_candidate(o: &KickerCandidateInput) -> bool {
         return false;
     }
     let kicker_len = utf16_len(o.kicker_text);
-    if o.kicker_text.is_empty() || kicker_len < 2 || kicker_len > 34 {
+    if o.kicker_text.is_empty() || !(2..=34).contains(&kicker_len) {
         return false;
     }
     if STEP_RE.is_match(o.kicker_text) || TWO_DIGITS_RE.is_match(o.kicker_text) {
@@ -193,7 +196,10 @@ pub fn is_kicker_candidate(o: &KickerCandidateInput) -> bool {
         return false;
     }
     let min_tracked_spacing = o.kicker_font_size * 0.06;
-    if !(o.kicker_letter_spacing >= min_tracked_spacing) {
+    if matches!(
+        o.kicker_letter_spacing.partial_cmp(&min_tracked_spacing),
+        None | Some(std::cmp::Ordering::Less)
+    ) {
         return false;
     }
     true

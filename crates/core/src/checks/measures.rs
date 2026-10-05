@@ -104,7 +104,7 @@ pub fn is_cream_color(rgb: Option<&Rgba>) -> bool {
         return false;
     }
     let warmth = r - b;
-    warmth >= 6.0 && warmth <= 48.0
+    (6.0..=48.0).contains(&warmth)
 }
 
 /// JS: checks.mjs#creamFromClassList. The Tailwind background token that

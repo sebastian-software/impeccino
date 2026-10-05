@@ -87,7 +87,7 @@ pub struct BorderOpts {
 // ─── isEmojiOnlyText ────────────────────────────────────────────────────────
 const EMOJI_CLASS: &str = r"[\x{1F1E6}-\x{1F1FF}\x{1F300}-\x{1F9FF}\x{1FA00}-\x{1FAFF}\x{2600}-\x{27BF}\x{2300}-\x{23FF}\x{FE0F}\x{200D}\x{1F3FB}-\x{1F3FF}]";
 
-re!(EMOJI_CHAR_RE, EMOJI_CLASS.to_string());
+re!(EMOJI_CHAR_RE, EMOJI_CLASS);
 
 /// JS: checks.mjs#isEmojiOnlyText
 pub fn is_emoji_only_text(text: &str) -> bool {
@@ -254,7 +254,7 @@ re!(
 
 re!(SHADOW_HEX, format!(r"#[0-9a-fA-F]{{3,8}}{B}"));
 
-re!(SHADOW_WORD, r"[a-zA-Z][a-zA-Z]*".to_string());
+re!(SHADOW_WORD, r"[a-zA-Z][a-zA-Z]*");
 
 /// JS: checks.mjs#findShadowColor
 pub fn find_shadow_color(layer: &str) -> Option<ShadowColor> {

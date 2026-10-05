@@ -272,9 +272,7 @@ pub fn resolve_gradient_stops(
         }
         if let Some(stops) = stops {
             let composited = composite_gradient_stops(&stops, &cur, custom_props);
-            let Some(composited) = composited else {
-                return None;
-            };
+            let composited = composited?;
             if overlays.is_empty() {
                 return Some(composited);
             }

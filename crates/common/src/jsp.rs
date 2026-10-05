@@ -214,13 +214,8 @@ pub mod posix {
         while i < f.len() && i < t.len() && f[i] == t[i] {
             i += 1;
         }
-        let mut out: Vec<&str> = Vec::new();
-        for _ in i..f.len() {
-            out.push("..");
-        }
-        for seg in &t[i..] {
-            out.push(seg);
-        }
+        let mut out: Vec<&str> = vec![".."; f.len() - i];
+        out.extend_from_slice(&t[i..]);
         out.join("/")
     }
 

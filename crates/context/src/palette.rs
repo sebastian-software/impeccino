@@ -13,7 +13,10 @@ fn hash_unit(key: &str) -> f64 {
 
 /// JS: Math.random() substitute; only used with no key.
 fn random_unit() -> f64 {
-    let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let t = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
     let mut x = (t as u64) ^ (std::process::id() as u64).wrapping_mul(0x9E3779B97F4A7C15);
     x ^= x >> 33;
     x = x.wrapping_mul(0xff51afd7ed558ccd);
@@ -33,7 +36,10 @@ fn weighted_pick(unit: f64) -> &'static Seed {
     for s in SEEDS {
         *counts.entry(bucket_of(s)).or_insert(0) += 1;
     }
-    let weights: Vec<f64> = SEEDS.iter().map(|s| 1.0 / counts[&bucket_of(s)] as f64).collect();
+    let weights: Vec<f64> = SEEDS
+        .iter()
+        .map(|s| 1.0 / counts[&bucket_of(s)] as f64)
+        .collect();
     // JS reduce((a,b)=>a+b, 0): sequential sum
     let mut total = 0.0;
     for w in &weights {
@@ -106,7 +112,11 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             }
         }
     } else {
-        let env_from = io.env.get("IMPECCINO_PALETTE_SEED").cloned().filter(|s| !s.is_empty());
+        let env_from = io
+            .env
+            .get("IMPECCINO_PALETTE_SEED")
+            .cloned()
+            .filter(|s| !s.is_empty());
         let key = from.filter(|s| !s.is_empty()).or(env_from);
         let unit = match key {
             Some(k) => hash_unit(&k),
@@ -114,9 +124,22 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         };
         weighted_pick(unit)
     };
-    let mood_hint = if seed.mood.is_empty() { String::new() } else { format!(" (one read: \"{}\")", seed.mood) };
-    let strategy_hint = if seed.strategy.is_empty() { String::new() } else { format!("\n  - one example strategy: {}", seed.strategy) };
-    let oklch = format!("oklch({} {} {})", to_fixed(seed.l, 3), to_fixed(seed.c, 3), to_fixed(seed.h, 1));
+    let mood_hint = if seed.mood.is_empty() {
+        String::new()
+    } else {
+        format!(" (one read: \"{}\")", seed.mood)
+    };
+    let strategy_hint = if seed.strategy.is_empty() {
+        String::new()
+    } else {
+        format!("\n  - one example strategy: {}", seed.strategy)
+    };
+    let oklch = format!(
+        "oklch({} {} {})",
+        to_fixed(seed.l, 3),
+        to_fixed(seed.c, 3),
+        to_fixed(seed.h, 1)
+    );
     let out = TEMPLATE
         .replacen("{ID}", seed.id, 1)
         .replacen("{OKLCH}", &oklch, 1)

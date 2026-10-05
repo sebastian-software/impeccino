@@ -93,7 +93,11 @@ pub fn js_number_to_string(v: f64) -> String {
         return "NaN".into();
     }
     if v.is_infinite() {
-        return if v > 0.0 { "Infinity".into() } else { "-Infinity".into() };
+        return if v > 0.0 {
+            "Infinity".into()
+        } else {
+            "-Infinity".into()
+        };
     }
     if v == 0.0 {
         return "0".into();
@@ -102,7 +106,7 @@ pub fn js_number_to_string(v: f64) -> String {
         return format!("{}", v as i128);
     }
     let a = v.abs();
-    if a >= 1e-6 && a < 1e21 {
+    if (1e-6..1e21).contains(&a) {
         let s = format!("{}", v);
         return s;
     }
@@ -138,7 +142,9 @@ pub fn is_file(p: &str) -> bool {
 
 /// `fs.readFileSync(p, 'utf-8')` or null.
 pub fn safe_read(p: &str) -> Option<String> {
-    std::fs::read(p).ok().map(|b| String::from_utf8_lossy(&b).into_owned())
+    std::fs::read(p)
+        .ok()
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
 }
 
 /// `JSON.parse(fs.readFileSync(p))` or null.
@@ -184,7 +190,11 @@ pub fn read_dir_entries(p: &str) -> Option<Vec<DirEntry>> {
                 Some(t) => (t.is_dir(), t.is_file()),
                 None => (false, false),
             };
-            DirEntry { name, is_dir, is_file }
+            DirEntry {
+                name,
+                is_dir,
+                is_file,
+            }
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -298,7 +308,10 @@ pub fn homedir(env: &Env) -> String {
 /// hook-lib `truthy()`: /^(1|true|yes|on)$/i on the trimmed value.
 pub fn truthy_env(env: &Env, key: &str) -> bool {
     match env.get(key) {
-        Some(v) => matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"),
+        Some(v) => matches!(
+            v.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
         None => false,
     }
 }
@@ -310,30 +323,11 @@ pub fn node_read_error(p: &str, err: &std::io::Error) -> String {
         std::io::ErrorKind::PermissionDenied => format!("EACCES: permission denied, open '{}'", p),
         _ => {
             if err.raw_os_error() == Some(21) {
-                format!("EISDIR: illegal operation on a directory, read")
+                "EISDIR: illegal operation on a directory, read".to_string()
             } else {
                 format!("{}", err)
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn fixed() {
-        assert_eq!(to_fixed(2.5, 0), "3");
-        assert_eq!(to_fixed(0.1234, 3), "0.123");
-        assert_eq!(to_fixed(1.0005, 3), "1.000"); // 1.0005 is below the tie in binary
-        assert_eq!(to_fixed(22.5, 0), "23");
-        assert_eq!(to_fixed(0.65, 3), "0.650");
-        assert_eq!(to_fixed(359.99, 1), "360.0");
-    }
-    #[test]
-    fn iso() {
-        assert_eq!(iso_from_ms(0.0), "1970-01-01T00:00:00.000Z");
-        assert_eq!(iso_from_ms(1778610600123.0), "2026-05-12T18:30:00.123Z");
     }
 }
 
@@ -359,10 +353,14 @@ pub fn js_number(s: &str) -> f64 {
         return f64::NEG_INFINITY;
     }
     if let Some(h) = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")) {
-        return i64::from_str_radix(h, 16).map(|v| v as f64).unwrap_or(f64::NAN);
+        return i64::from_str_radix(h, 16)
+            .map(|v| v as f64)
+            .unwrap_or(f64::NAN);
     }
     // Reject things Rust accepts but JS doesn't (e.g. "nan", "inf")
-    if t.chars().any(|c| c.is_ascii_alphabetic() && c != 'e' && c != 'E') {
+    if t.chars()
+        .any(|c| c.is_ascii_alphabetic() && c != 'e' && c != 'E')
+    {
         return f64::NAN;
     }
     t.parse::<f64>().unwrap_or(f64::NAN)
@@ -398,5 +396,24 @@ pub fn js_string_value(v: &Value) -> String {
         Value::Bool(b) => b.to_string(),
         Value::Number(n) => js_number_value_string(n),
         Value::Null => "null".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn fixed() {
+        assert_eq!(to_fixed(2.5, 0), "3");
+        assert_eq!(to_fixed(0.1234, 3), "0.123");
+        assert_eq!(to_fixed(1.0005, 3), "1.000"); // 1.0005 is below the tie in binary
+        assert_eq!(to_fixed(22.5, 0), "23");
+        assert_eq!(to_fixed(0.65, 3), "0.650");
+        assert_eq!(to_fixed(359.99, 1), "360.0");
+    }
+    #[test]
+    fn iso() {
+        assert_eq!(iso_from_ms(0.0), "1970-01-01T00:00:00.000Z");
+        assert_eq!(iso_from_ms(1778610600123.0), "2026-05-12T18:30:00.123Z");
     }
 }

@@ -6,6 +6,9 @@ edition = "2021"
 license.workspace = true
 publish.workspace = true
 
+[lints]
+workspace = true
+
 [features]
 default = []
 # Vector dispatcher for this crate's arms of the recorded JS call vectors.

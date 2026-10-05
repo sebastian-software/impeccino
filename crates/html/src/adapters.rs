@@ -473,7 +473,7 @@ pub fn check_element_colors(
     let mut eff_opacity = 1.0f64;
     let mut cur = Some(*el);
     while let Some(c) = cur {
-        if !(eff_opacity > 0.02) {
+        if eff_opacity.partial_cmp(&0.02) != Some(std::cmp::Ordering::Greater) {
             break;
         }
         let op = sv(c.style(), "opacity");
@@ -566,8 +566,16 @@ pub fn check_element_colors(
                 let t = js::to_lower_case(el.get_attribute("type").unwrap_or("text"));
                 matches!(
                     t.as_str(),
-                    "hidden" | "checkbox" | "radio" | "file" | "submit" | "button" | "image"
-                        | "reset" | "range" | "color"
+                    "hidden"
+                        | "checkbox"
+                        | "radio"
+                        | "file"
+                        | "submit"
+                        | "button"
+                        | "image"
+                        | "reset"
+                        | "range"
+                        | "color"
                 ) || el
                     .get_attribute("value")
                     .is_some_and(|v| !js::trim(v).is_empty())
@@ -721,7 +729,7 @@ pub fn check_element_italic_serif(
                 || matches!(sv(s, "visibility"), "hidden" | "collapse")
                 || sv(s, "contentVisibility") == "hidden"
                 || sv_opt(s, "opacity").is_some_and(|v| parse_float(v) <= 0.01)
-                || parent.get_attribute("aria-hidden").as_deref() == Some("true")
+                || parent.get_attribute("aria-hidden") == Some("true")
                 || parent.get_attribute("hidden").is_some()
             {
                 hidden = true;

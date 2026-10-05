@@ -62,7 +62,10 @@ fn normalize_hook_separators(command: &str) -> String {
 /// True when `command` invokes an Impeccino hook in either generation's spelling.
 pub fn is_impeccino_hook_command(command: &str) -> bool {
     let command = normalize_hook_separators(command);
-    LEGACY_HOOK_SCRIPT_MARKERS.iter().any(|m| command.contains(m)) || LAUNCHER_HOOK_MARKER.is_match(&command)
+    LEGACY_HOOK_SCRIPT_MARKERS
+        .iter()
+        .any(|m| command.contains(m))
+        || LAUNCHER_HOOK_MARKER.is_match(&command)
 }
 
 /// True when `command` invokes an Impeccino hook in the launcher generation
@@ -136,11 +139,19 @@ mod tests {
 
     #[test]
     fn recognizes_legacy_script_forms() {
-        assert!(is_impeccino_hook_command("node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\""));
+        assert!(is_impeccino_hook_command(
+            "node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\""
+        ));
         assert!(is_impeccino_hook_command("[ ! -f '/x/.cursor/skills/impeccino/scripts/hook-before-edit.mjs' ] || node '/x/.cursor/skills/impeccino/scripts/hook-before-edit.mjs'"));
-        assert!(is_impeccino_hook_command("node .agents/skills/impeccino/scripts/hook-probe.mjs"));
-        assert!(is_design_hook_command("node \".agents/skills/impeccino/scripts/hook.mjs\""));
-        assert!(!is_design_hook_command("node .agents/skills/impeccino/scripts/hook-probe.mjs"));
+        assert!(is_impeccino_hook_command(
+            "node .agents/skills/impeccino/scripts/hook-probe.mjs"
+        ));
+        assert!(is_design_hook_command(
+            "node \".agents/skills/impeccino/scripts/hook.mjs\""
+        ));
+        assert!(!is_design_hook_command(
+            "node .agents/skills/impeccino/scripts/hook-probe.mjs"
+        ));
     }
 
     #[test]
@@ -197,22 +208,32 @@ mod tests {
     #[test]
     fn extracts_program_token() {
         assert_eq!(
-            hook_program_token("node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\"").as_deref(),
+            hook_program_token(
+                "node \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs\""
+            )
+            .as_deref(),
             Some("${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/hook.mjs")
         );
         assert_eq!(
-            hook_program_token("\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook").as_deref(),
+            hook_program_token(
+                "\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook"
+            )
+            .as_deref(),
             Some("${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino")
         );
         assert_eq!(
-            hook_program_token("'/x/.cursor/skills/impeccino/scripts/impeccino' hook-before-edit").as_deref(),
+            hook_program_token("'/x/.cursor/skills/impeccino/scripts/impeccino' hook-before-edit")
+                .as_deref(),
             Some("/x/.cursor/skills/impeccino/scripts/impeccino")
         );
         assert_eq!(
             hook_program_token(".agents/skills/impeccino/scripts/impeccino hook").as_deref(),
             Some(".agents/skills/impeccino/scripts/impeccino")
         );
-        assert_eq!(hook_program_token("'/x/it'\\''s/.claude/skills/impeccino/scripts/impeccino' hook"), None);
+        assert_eq!(
+            hook_program_token("'/x/it'\\''s/.claude/skills/impeccino/scripts/impeccino' hook"),
+            None
+        );
         assert_eq!(hook_program_token("echo hi"), None);
     }
 
@@ -269,20 +290,39 @@ pub fn strip_json_comments(text: &str) -> (String, bool) {
     while let Some(ch) = chars.next() {
         if in_string {
             out.push(ch);
-            if escaped { escaped = false } else if ch == '\\' { escaped = true } else if ch == '"' { in_string = false }
+            if escaped {
+                escaped = false
+            } else if ch == '\\' {
+                escaped = true
+            } else if ch == '"' {
+                in_string = false
+            }
             continue;
         }
         match (ch, chars.peek()) {
-            ('"', _) => { in_string = true; out.push(ch); }
+            ('"', _) => {
+                in_string = true;
+                out.push(ch);
+            }
             ('/', Some('/')) => {
                 stripped = true;
-                while let Some(&c) = chars.peek() { if c == '\n' { break } chars.next(); }
+                while let Some(&c) = chars.peek() {
+                    if c == '\n' {
+                        break;
+                    }
+                    chars.next();
+                }
             }
             ('/', Some('*')) => {
                 stripped = true;
                 chars.next();
                 let mut prev = '\0';
-                for c in chars.by_ref() { if prev == '*' && c == '/' { break } prev = c; }
+                for c in chars.by_ref() {
+                    if prev == '*' && c == '/' {
+                        break;
+                    }
+                    prev = c;
+                }
                 out.push(' ');
             }
             _ => out.push(ch),
@@ -295,7 +335,9 @@ pub fn strip_json_comments(text: &str) -> (String, bool) {
 /// even after the comments are removed.
 pub fn parse_manifest_jsonc(text: &str) -> Option<(serde_json::Value, bool)> {
     let (stripped, had_comments) = strip_json_comments(text);
-    serde_json::from_str(&stripped).ok().map(|v| (v, had_comments))
+    serde_json::from_str(&stripped)
+        .ok()
+        .map(|v| (v, had_comments))
 }
 
 #[cfg(test)]
@@ -304,11 +346,14 @@ mod jsonc_tests {
 
     #[test]
     fn strips_comments_outside_strings_only() {
-        let (v, had) = parse_manifest_jsonc("{\n // a\n \"u\": \"http://x//y\", /* b */ \"s\": \"/* no */\\\"//\"\n}").unwrap();
+        let (v, had) = parse_manifest_jsonc(
+            "{\n // a\n \"u\": \"http://x//y\", /* b */ \"s\": \"/* no */\\\"//\"\n}",
+        )
+        .unwrap();
         assert!(had);
         assert_eq!(v["u"], "http://x//y");
         assert_eq!(v["s"], "/* no */\"//");
-        assert_eq!(parse_manifest_jsonc("{\"a\": 1}").unwrap().1, false);
+        assert!(!parse_manifest_jsonc("{\"a\": 1}").unwrap().1);
         assert!(parse_manifest_jsonc("{ \"a\": ").is_none());
     }
 }

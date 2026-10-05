@@ -24,7 +24,10 @@ impl Finding {
         let mut m = Map::new();
         m.insert("id".into(), Value::String(self.id.clone()));
         m.insert("artifact".into(), Value::String(self.artifact.clone()));
-        m.insert("path".into(), self.path.clone().map(Value::String).unwrap_or(Value::Null));
+        m.insert(
+            "path".into(),
+            self.path.clone().map(Value::String).unwrap_or(Value::Null),
+        );
         m.insert("severity".into(), Value::String(self.severity.to_string()));
         m.insert("summary".into(), Value::String(self.summary.clone()));
         m.insert("fix".into(), Value::String(self.fix.clone()));
@@ -32,8 +35,22 @@ impl Finding {
     }
 }
 
-pub fn finding(id: &str, artifact: &str, path: Option<String>, severity: &'static str, summary: String, fix: String) -> Finding {
-    Finding { id: id.to_string(), artifact: artifact.to_string(), path, severity, summary, fix }
+pub fn finding(
+    id: &str,
+    artifact: &str,
+    path: Option<String>,
+    severity: &'static str,
+    summary: String,
+    fix: String,
+) -> Finding {
+    Finding {
+        id: id.to_string(),
+        artifact: artifact.to_string(),
+        path,
+        severity,
+        summary,
+        fix,
+    }
 }
 
 struct NativeEvidence {
@@ -44,13 +61,21 @@ const NATIVE_EVIDENCE_PATHS: [(&str, &str, &str); 5] = [
     ("pubspec.yaml", "adaptive", "a Flutter pubspec.yaml"),
     ("ios/Podfile", "ios", "an ios/Podfile"),
     ("android/build.gradle", "android", "an android/build.gradle"),
-    ("android/build.gradle.kts", "android", "an android/build.gradle.kts"),
+    (
+        "android/build.gradle.kts",
+        "android",
+        "an android/build.gradle.kts",
+    ),
     ("ios/Runner.xcodeproj", "ios", "an ios/Runner.xcodeproj"),
 ];
 const NATIVE_EVIDENCE_DEPENDENCIES: [(&str, &str, &str); 3] = [
     ("react-native", "adaptive", "a react-native dependency"),
     ("expo", "adaptive", "an expo dependency"),
-    ("@react-native/metro-config", "adaptive", "a React Native metro config dependency"),
+    (
+        "@react-native/metro-config",
+        "adaptive",
+        "a React Native metro config dependency",
+    ),
 ];
 
 /// The DESIGN.md sidecar: `DESIGN.json` next to DESIGN.md, or at the project
@@ -60,7 +85,9 @@ pub fn design_sidecar_path_for(project_root: &str, design_dir: Option<&str>) -> 
 }
 
 fn has_section(markdown: &str, heading: &str) -> bool {
-    Regex::new(&format!(r"(?im)^##\s+{}\s*$", regex::escape(heading))).map(|r| r.is_match(markdown)).unwrap_or(false)
+    Regex::new(&format!(r"(?im)^##\s+{}\s*$", regex::escape(heading)))
+        .map(|r| r.is_match(markdown))
+        .unwrap_or(false)
 }
 
 pub fn to_relative(file_path: Option<&str>, root: &str) -> Option<String> {
@@ -75,7 +102,9 @@ pub fn to_relative(file_path: Option<&str>, root: &str) -> Option<String> {
 
 /// JS: checkProduct
 pub fn check_product(product: Option<&str>, product_path: &str) -> Vec<Finding> {
-    let Some(product) = product.filter(|p| !p.is_empty()) else { return vec![] };
+    let Some(product) = product.filter(|p| !p.is_empty()) else {
+        return vec![];
+    };
     let mut out = Vec::new();
     for (heading, reason) in PRODUCT_DEPRECATED_SECTIONS {
         if !has_section(product, heading) {
@@ -113,8 +142,12 @@ pub fn check_product(product: Option<&str>, product_path: &str) -> Vec<Finding> 
                 "PRODUCT.md",
                 Some(product_path.to_string()),
                 "route",
-                format!("PRODUCT.md is stamped product-schema {}; the current record is {}.", v, PRODUCT_SCHEMA_VERSION),
-                "Offer `init` to bring the record current, preserving confirmed answers.".to_string(),
+                format!(
+                    "PRODUCT.md is stamped product-schema {}; the current record is {}.",
+                    v, PRODUCT_SCHEMA_VERSION
+                ),
+                "Offer `init` to bring the record current, preserving confirmed answers."
+                    .to_string(),
             ));
         }
     }
@@ -178,7 +211,11 @@ pub fn check_native_platform_evidence(
             platforms.push(e.platform);
         }
     }
-    let suggested = if platforms.len() > 1 || platforms.contains(&"adaptive") { "adaptive" } else { platforms[0] };
+    let suggested = if platforms.len() > 1 || platforms.contains(&"adaptive") {
+        "adaptive"
+    } else {
+        platforms[0]
+    };
     let declared = if platform == Some("web") {
         "PRODUCT.md declares `## Platform: web`"
     } else if product.map(|p| !p.is_empty()).unwrap_or(false) {
@@ -214,7 +251,11 @@ pub fn js_truthy(v: &Value) -> bool {
 }
 
 /// JS: checkDesignSidecar
-pub fn check_design_sidecar(design_path: Option<&str>, sidecar_path: &str, project_root: &str) -> Vec<Finding> {
+pub fn check_design_sidecar(
+    design_path: Option<&str>,
+    sidecar_path: &str,
+    project_root: &str,
+) -> Vec<Finding> {
     let mut out = Vec::new();
     if !exists(sidecar_path) {
         return out;
@@ -223,7 +264,9 @@ pub fn check_design_sidecar(design_path: Option<&str>, sidecar_path: &str, proje
     let sidecar = read_json(sidecar_path);
     let schema_version = read_sidecar_schema_version(sidecar.as_ref());
     if let Some(sc) = &sidecar {
-        if js_truthy(sc) && (schema_version.is_none() || schema_version.unwrap() < DESIGN_SIDECAR_SCHEMA_VERSION) {
+        if js_truthy(sc)
+            && (schema_version.is_none() || schema_version.unwrap() < DESIGN_SIDECAR_SCHEMA_VERSION)
+        {
             out.push(finding(
                 "design-sidecar-schema-outdated",
                 DESIGN_SIDECAR_FILE,
@@ -312,7 +355,8 @@ pub fn check_surface_briefs(candidates: &[BriefSummary], project_root: &str) -> 
             continue;
         }
         let lower = t.to_ascii_lowercase();
-        if lower.starts_with("http://") || lower.starts_with("https://") || t.starts_with("route:") {
+        if lower.starts_with("http://") || lower.starts_with("https://") || t.starts_with("route:")
+        {
             continue;
         }
         if !exists(&jsp::join(&[project_root, t])) {
@@ -322,7 +366,10 @@ pub fn check_surface_briefs(candidates: &[BriefSummary], project_root: &str) -> 
     if orphaned.is_empty() {
         return vec![];
     }
-    let path = orphaned.first().map(|b| b.path.clone()).filter(|p| !p.is_empty());
+    let path = orphaned
+        .first()
+        .map(|b| b.path.clone())
+        .filter(|p| !p.is_empty());
     vec![finding(
         "surface-brief-orphaned",
         SURFACES_FILE,
@@ -361,14 +408,26 @@ pub struct BootFindingGroups {
 }
 
 pub fn collect_boot_finding_groups(ctx: &Ctx, cwd: &str, extras: &BootExtras) -> BootFindingGroups {
-    let project_root = if ctx.project_root.is_empty() { cwd.to_string() } else { ctx.project_root.clone() };
+    let project_root = if ctx.project_root.is_empty() {
+        cwd.to_string()
+    } else {
+        ctx.project_root.clone()
+    };
     BootFindingGroups {
         legacy_state: check_legacy_state_dir(&project_root, extras.home.as_deref()),
-        product: check_product(ctx.product.as_deref(), ctx.product_path.as_deref().unwrap_or("PRODUCT.md")),
+        product: check_product(
+            ctx.product.as_deref(),
+            ctx.product_path.as_deref().unwrap_or("PRODUCT.md"),
+        ),
         // Only checked once a PRODUCT.md exists. Without one the boot already
         // emits NO_PRODUCT_MD and routes into init, which asks for the
         // platform directly; a second signal saying the same thing is noise.
-        native_platform: if ctx.product.as_deref().map(|p| !p.is_empty()).unwrap_or(false) {
+        native_platform: if ctx
+            .product
+            .as_deref()
+            .map(|p| !p.is_empty())
+            .unwrap_or(false)
+        {
             check_native_platform_evidence(
                 &project_root,
                 ctx.platform.as_deref(),
@@ -378,7 +437,11 @@ pub fn collect_boot_finding_groups(ctx: &Ctx, cwd: &str, extras: &BootExtras) ->
         } else {
             Vec::new()
         },
-        design_sidecar: check_design_sidecar(extras.abs_design_path.as_deref(), &extras.sidecar_path, &project_root),
+        design_sidecar: check_design_sidecar(
+            extras.abs_design_path.as_deref(),
+            &extras.sidecar_path,
+            &project_root,
+        ),
         surface_briefs: check_surface_briefs(&ctx.surface_brief_candidates, &project_root),
     }
 }

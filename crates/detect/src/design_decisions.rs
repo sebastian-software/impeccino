@@ -38,10 +38,18 @@ impl DesignDecisions {
     /// Decisions recorded in the DESIGN.md that lives in `dir` (or its
     /// `.agents/context` / `docs` fallbacks).
     pub fn load_for_dir(dir: &str) -> DesignDecisions {
-        let Some(md) = resolve_design_md_path(dir) else { return DesignDecisions::default() };
+        let Some(md) = resolve_design_md_path(dir) else {
+            return DesignDecisions::default();
+        };
         let text = read_text(&md.path).unwrap_or_default();
-        let declared_fonts = load_design_system_for_cwd(dir).map(|ds| ds.allowed_fonts.clone()).unwrap_or_default();
-        DesignDecisions { source: Some(md.path), waived_rules: parse_design_waivers(&text), declared_fonts }
+        let declared_fonts = load_design_system_for_cwd(dir)
+            .map(|ds| ds.allowed_fonts.clone())
+            .unwrap_or_default();
+        DesignDecisions {
+            source: Some(md.path),
+            waived_rules: parse_design_waivers(&text),
+            declared_fonts,
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -55,9 +63,11 @@ impl DesignDecisions {
             ignore_values: self
                 .declared_fonts
                 .iter()
-                .map(|font| IgnoreValueEntry { rule: "overused-font".to_string(), value: font.clone(), ..Default::default() })
+                .map(|font| IgnoreValueEntry {
+                    rule: "overused-font".to_string(),
+                    value: font.clone(),
+                })
                 .collect(),
-            ..DetectionConfig::raw()
         }
     }
 
@@ -88,6 +98,9 @@ impl DesignDecisionsCache {
             Some(root) if root.has_design => root.dir,
             _ => return Rc::new(DesignDecisions::default()),
         };
-        self.by_root.entry(key.clone()).or_insert_with(|| Rc::new(DesignDecisions::load_for_dir(&key))).clone()
+        self.by_root
+            .entry(key.clone())
+            .or_insert_with(|| Rc::new(DesignDecisions::load_for_dir(&key)))
+            .clone()
     }
 }

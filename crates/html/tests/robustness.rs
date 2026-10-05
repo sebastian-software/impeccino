@@ -96,11 +96,7 @@ fn garbage_and_edge_inputs_do_not_panic() {
 
 #[test]
 fn deeply_nested_css_is_rejected_before_recursive_parsing() {
-    let calc = format!(
-        "a{{width:{}1px{}}}",
-        "calc(".repeat(300),
-        ")".repeat(300)
-    );
+    let calc = format!("a{{width:{}1px{}}}", "calc(".repeat(300), ")".repeat(300));
     let media = format!(
         "{}a{{color:red}}{}",
         "@media all{".repeat(300),
@@ -108,16 +104,8 @@ fn deeply_nested_css_is_rejected_before_recursive_parsing() {
     );
     // The outer rule block contributes one level, so 63 calc() calls reach
     // the exact accepted depth of 64.
-    let at_limit = format!(
-        "a{{width:{}1px{}}}",
-        "calc(".repeat(63),
-        ")".repeat(63)
-    );
-    let over_limit = format!(
-        "a{{width:{}1px{}}}",
-        "calc(".repeat(64),
-        ")".repeat(64)
-    );
+    let at_limit = format!("a{{width:{}1px{}}}", "calc(".repeat(63), ")".repeat(63));
+    let over_limit = format!("a{{width:{}1px{}}}", "calc(".repeat(64), ")".repeat(64));
     let escaped = format!("a{}{{color:red;}}", r"\(".repeat(300));
 
     assert!(parse_stylesheet(&calc).is_err());
@@ -158,12 +146,9 @@ fn bad_string_newline_does_not_hide_deep_css_from_the_guard() {
 #[test]
 fn nesting_in_css_comments_and_strings_does_not_consume_the_depth_limit() {
     let inert = "([{".repeat(300);
-    let css = format!(
-        "/*{inert}*/ a::before {{ content: \"{inert}\"; color: red; }}"
-    );
-    let continued_string = format!(
-        "a::before {{ content: \"continued\\\n{inert}\"; color: red; }}"
-    );
+    let css = format!("/*{inert}*/ a::before {{ content: \"{inert}\"; color: red; }}");
+    let continued_string =
+        format!("a::before {{ content: \"continued\\\n{inert}\"; color: red; }}");
 
     assert!(parse_stylesheet(&css).is_ok());
     assert!(parse_stylesheet(&continued_string).is_ok());
@@ -171,11 +156,7 @@ fn nesting_in_css_comments_and_strings_does_not_consume_the_depth_limit() {
 
 #[test]
 fn deeply_nested_selector_is_rejected_before_selector_parsing() {
-    let selector = format!(
-        "{}x{}",
-        ":not(".repeat(300),
-        ")".repeat(300)
-    );
+    let selector = format!("{}x{}", ":not(".repeat(300), ")".repeat(300));
 
     assert!(Selector::parse(&selector).is_err());
 

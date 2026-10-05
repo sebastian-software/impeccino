@@ -141,7 +141,7 @@ pnpm run test:skill-behavior   # Opt-in: LLM-backed checks that the skill text a
 pnpm run test:skill-workflow   # Opt-in: provider-backed completed workflows (full build, finish handoff)
 ```
 
-Every JavaScript test runs on Vitest (`vitest.config.mjs`), grouped into suites by `scripts/run-tests.mjs`. The oracle replay (`tests/oracle.test.mjs`), which spawns the engine binary, skips cleanly when no binary is found (`pnpm run fetch:engine` or `IMPECCINO_BIN`). CI runs the core suite on Node 22, 24, and 26. Runtime unit and integration tests live under `crates/` and run with `cargo test --workspace`; the oracle goldens pin observable verb behavior across the same workspace.
+Every JavaScript test runs on Vitest (`vitest.config.mjs`), grouped into suites by `scripts/run-tests.mjs`. The oracle replay (`tests/oracle.test.mjs`), which spawns the engine binary, skips cleanly when no binary is found (`pnpm run fetch:engine` or `IMPECCINO_BIN`). CI runs the core suite on Node 22, 24, and 26. Its Linux Rust lane checks `cargo fmt --all --check` and `cargo clippy --workspace --all-targets -- -D warnings`, then builds and tests the workspace. Runtime unit and integration tests live under `crates/`; the oracle goldens pin observable verb behavior across the same workspace.
 
 ### The runner ends what it starts
 

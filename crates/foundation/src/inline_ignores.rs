@@ -121,7 +121,9 @@ pub fn markdown_fenced_code_line_mask(markdown: &str) -> Vec<bool> {
         if let Some((open_marker, open_len)) = fence {
             let closes = fence_delimiter(line)
                 .map(|(marker, len, tail)| {
-                    marker == open_marker && len >= open_len && tail.chars().all(char::is_whitespace)
+                    marker == open_marker
+                        && len >= open_len
+                        && tail.chars().all(char::is_whitespace)
                 })
                 .unwrap_or(false);
             outside.push(false);
@@ -178,7 +180,7 @@ fn set_matches(set: Option<&RuleSet>, rule: &str) -> bool {
     }
 }
 
-fn map_get<'a>(map: &'a [(usize, RuleSet)], key: usize) -> Option<&'a RuleSet> {
+fn map_get(map: &[(usize, RuleSet)], key: usize) -> Option<&RuleSet> {
     map.iter().find(|(k, _)| *k == key).map(|(_, s)| s)
 }
 
@@ -305,7 +307,10 @@ mod tests {
     #[test]
     fn design_waivers_come_from_comments_outside_fences() {
         let md = "# Design\n\n## Named Rules\n\n**The Ink Rule.** Hairlines carry the grid. <!-- impeccino-disable side-tab, GRADIENT-TEXT -- the ledger rule -->\n\nWrite `impeccino-disable overused-font` to waive a rule.\n\n```md\n<!-- impeccino-disable bounce-easing -->\n```\n\n<!-- impeccino-disable -->\n<!--\nimpeccino-disable line-length: long legal copy\n-->\n";
-        assert_eq!(parse_design_waivers(md), vec!["side-tab", "gradient-text", "line-length"]);
+        assert_eq!(
+            parse_design_waivers(md),
+            vec!["side-tab", "gradient-text", "line-length"]
+        );
     }
 
     #[test]

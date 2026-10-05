@@ -179,9 +179,16 @@ impl FakeDom {
         if !rects.is_empty() {
             let left = rects.iter().map(|r| r.left).fold(f64::INFINITY, f64::min);
             let top = rects.iter().map(|r| r.top).fold(f64::INFINITY, f64::min);
-            let right = rects.iter().map(|r| r.right).fold(f64::NEG_INFINITY, f64::max);
-            let bottom = rects.iter().map(|r| r.bottom).fold(f64::NEG_INFINITY, f64::max);
-            self.el_mut(id).direct_text_rect = Some(Rect::from_xywh(left, top, right - left, bottom - top));
+            let right = rects
+                .iter()
+                .map(|r| r.right)
+                .fold(f64::NEG_INFINITY, f64::max);
+            let bottom = rects
+                .iter()
+                .map(|r| r.bottom)
+                .fold(f64::NEG_INFINITY, f64::max);
+            self.el_mut(id).direct_text_rect =
+                Some(Rect::from_xywh(left, top, right - left, bottom - top));
         }
         self.el_mut(id).text_line_rects = Some(rects);
         self

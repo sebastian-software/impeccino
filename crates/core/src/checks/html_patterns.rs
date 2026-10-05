@@ -161,12 +161,12 @@ pub fn scan_html_for_shape_assembled_illustration(html: &str) -> Vec<RuleHit> {
 
 // ─── buildHtmlPatternCorpora ────────────────────────────────────────────────
 
-re!(HAS_MARKUP_RE, r"<[a-zA-Z!/]".to_string());
+re!(HAS_MARKUP_RE, r"<[a-zA-Z!/]");
 re!(
     STYLE_BLOCK_RE,
     format!(r"<{style}{B}[^>]*>({ANY}*?)</{style}>", style = ci("style"))
 );
-re!(TAG_RE, r"<[a-zA-Z][^>]*>".to_string());
+re!(TAG_RE, r"<[a-zA-Z][^>]*>");
 re!(
     STYLE_ATTR_RE,
     format!(
@@ -350,7 +350,7 @@ re!(
     STYLE_BLOCK_STRIP_RE,
     format!(r"<{style}{B}[^>]*>{ANY}*?</{style}>", style = ci("style"))
 );
-re!(ANY_TAG_RE, r"<[^>]+>".to_string());
+re!(ANY_TAG_RE, r"<[^>]+>");
 re!(
     THEATER_RE,
     format!(r"{B}({W}+){WS}+{theater}{B}", theater = ci("theater"))

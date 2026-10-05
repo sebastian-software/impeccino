@@ -1,6 +1,13 @@
 //! Generated from skill/scripts/palette.mjs SEEDS by scratchpad/gen-palette.mjs. Do not edit.
 
-pub struct Seed { pub id: &'static str, pub l: f64, pub c: f64, pub h: f64, pub mood: &'static str, pub strategy: &'static str }
+pub struct Seed {
+    pub id: &'static str,
+    pub l: f64,
+    pub c: f64,
+    pub h: f64,
+    pub mood: &'static str,
+    pub strategy: &'static str,
+}
 
 pub const SEEDS: &[Seed] = &[
     Seed { id: "seed-200", l: 0.36, c: 0.137, h: 0.0, mood: "Aesop apothecary shelf — oxblood bottle glass against linen, considered and unhurried", strategy: "Seed is a deep desaturated red-brown that reads as brand ink itself; I push primary darker toward bottle-glass oxblood, pair with a pure white surface so the red does the work, and use a clear pale-blush accent that can carry dark text in pills." },

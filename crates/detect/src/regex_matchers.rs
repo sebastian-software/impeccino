@@ -4,14 +4,12 @@
 use impeccino_core::checks::css_scan::{
     scan_css_text_for_glow, scan_css_text_for_marquee, scan_css_text_for_radial_halo,
 };
+use impeccino_core::checks::rules::find_solid_chromatic_bg;
 use impeccino_core::color::is_neutral_color;
 use impeccino_core::constants::{EM_DASH_CHARS_PER_DASH, EM_DASH_FLOOR, OVERUSED_FONTS};
-use impeccino_core::checks::rules::find_solid_chromatic_bg;
 use impeccino_core::findings::{finding, Finding};
 use impeccino_core::fonts::extract_google_font_families;
-use impeccino_core::js::{
-    self, ci, math_round, number_to_string, parse_float, string_to_number,
-};
+use impeccino_core::js::{self, ci, math_round, number_to_string, parse_float, string_to_number};
 use impeccino_core::js_ext_a::{advance_utf16, slice_utf16_start, utf16_index, utf16_length};
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -151,10 +149,16 @@ fn containing_markup_tag(line: &str) -> impl Fn(usize) -> String + '_ {
     move |index: usize| {
         let mut i = 0usize;
         while i < line.len() {
-            let Some(rel) = line[i..].find('<') else { break };
+            let Some(rel) = line[i..].find('<') else {
+                break;
+            };
             let tag_start = i + rel;
             let after = &line[tag_start + 1..];
-            if !after.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) {
+            if !after
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic())
+            {
                 i = tag_start + 1;
                 continue;
             }
@@ -870,9 +874,7 @@ pub static REGEX_MATCHERS: Lazy<Vec<Matcher>> = Lazy::new(|| {
             find_all: |l| all(&BORDER_ACCENT_TW_RE, l),
             test: |m, line| {
                 let scope = containing_markup_tag(line)(m.index);
-                has_rounded(&scope)
-                    && num(m.g(1)) >= 1.0
-                    && !ANIMATE_SPIN_RE.is_match(&scope)
+                has_rounded(&scope) && num(m.g(1)) >= 1.0 && !ANIMATE_SPIN_RE.is_match(&scope)
             },
             fmt: |m, _| m.whole().to_string(),
         },
@@ -1041,7 +1043,6 @@ fn set_add(set: &mut Vec<f64>, v: f64) {
         set.push(v);
     }
 }
-
 
 re!(
     SPACING_PX_RE,
@@ -1412,7 +1413,9 @@ mod tests {
         let g = |line: &str| run("gray-on-color", line);
         // A `/10` opacity tint is not a solid fill.
         assert!(g(r#"<button className="text-slate-300 hover:bg-red-500/10 hover:text-red-400">Log out</button>"#).is_empty());
-        assert!(g(r#"<button className="text-slate-300 bg-red-500/10">Log out</button>"#).is_empty());
+        assert!(
+            g(r#"<button className="text-slate-300 bg-red-500/10">Log out</button>"#).is_empty()
+        );
         assert_eq!(
             g(r#"<button className="text-slate-300 bg-red-500">Log out</button>"#),
             vec!["text-slate-300 on bg-red-500"]
@@ -1420,8 +1423,14 @@ mod tests {
         // Exclusive ternary arms never pair with each other.
         assert!(g(r#"<button className={`px-4 py-2 text-sm rounded-lg transition-colors ${mode === "a" ? "bg-amber-600 text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"}`}>Mode</button>"#).is_empty());
         assert!(g(r#"<button className={mode > 0 ? "bg-amber-600 text-white" : "text-slate-400"}>Mode</button>"#).is_empty());
-        assert!(g(r#"<div className={a ? "bg-red-500" : b ? "text-slate-400" : "bg-blue-600"} />"#).is_empty());
-        assert!(g(r#"<div className={value ?? fallback ? "bg-red-500" : "text-slate-400"} />"#).is_empty());
+        assert!(g(
+            r#"<div className={a ? "bg-red-500" : b ? "text-slate-400" : "bg-blue-600"} />"#
+        )
+        .is_empty());
+        assert!(
+            g(r#"<div className={value ?? fallback ? "bg-red-500" : "text-slate-400"} />"#)
+                .is_empty()
+        );
         // Sibling tags on one line are separate scopes.
         assert!(g(r#"<div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-500" /><span className="text-slate-400">Vital few</span></div>"#).is_empty());
         // Simultaneous arguments, a common prefix, and a shared suffix pair.
@@ -1430,7 +1439,9 @@ mod tests {
             vec!["text-slate-400 on bg-blue-600"]
         );
         assert_eq!(
-            g(r#"<button className={cn("text-slate-400", mode === "a" ? "bg-amber-600" : "bg-white")}>Go</button>"#),
+            g(
+                r#"<button className={cn("text-slate-400", mode === "a" ? "bg-amber-600" : "bg-white")}>Go</button>"#
+            ),
             vec!["text-slate-400 on bg-amber-600"]
         );
         assert_eq!(
@@ -1474,11 +1485,20 @@ mod tests {
             g(r#"<div className="rounded-full border-b-2" />"#),
             vec!["border-b-2"]
         );
-        assert!(g(r#"<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />"#).is_empty());
-        assert!(g(r#"<div className="sm:animate-spin rounded-full h-8 w-8 border-t-2" />"#).is_empty());
-        assert!(g(r#"<div className="motion-safe:animate-spin rounded-full border-b-2" />"#).is_empty());
+        assert!(g(
+            r#"<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />"#
+        )
+        .is_empty());
+        assert!(
+            g(r#"<div className="sm:animate-spin rounded-full h-8 w-8 border-t-2" />"#).is_empty()
+        );
+        assert!(
+            g(r#"<div className="motion-safe:animate-spin rounded-full border-b-2" />"#).is_empty()
+        );
         assert_eq!(
-            g(r#"<div className="animate-spin rounded-full h-12 w-12 border-b-2" /><div className="rounded-lg border-t-4" />"#),
+            g(
+                r#"<div className="animate-spin rounded-full h-12 w-12 border-b-2" /><div className="rounded-lg border-t-4" />"#
+            ),
             vec!["border-t-4"]
         );
         assert!(g(r#"<div className="animate-spin rounded-full h-12 w-12 border-b-2" /><div className="border-t-4" />"#).is_empty());

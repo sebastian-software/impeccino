@@ -99,10 +99,7 @@ pub fn enclosing_css_selector(css_text: &str, index: usize) -> Option<String> {
     let before_open = SELECTOR_COMMENT_RE.replace_all(&css_text[..open], |c: &regex::Captures| {
         " ".repeat(c[0].len())
     });
-    let prev_close = match (
-        before_open.rfind('}'),
-        before_open.rfind(';'),
-    ) {
+    let prev_close = match (before_open.rfind('}'), before_open.rfind(';')) {
         (Some(a), Some(b)) => Some(a.max(b)),
         (Some(a), None) => Some(a),
         (None, Some(b)) => Some(b),
@@ -175,7 +172,7 @@ pub fn css_length_to_px(value: &str) -> Option<f64> {
     }
 }
 
-re!(ZERO_OFFSET_RE, r"^-?0(?:px|%|rem|em)?$".to_string());
+re!(ZERO_OFFSET_RE, r"^-?0(?:px|%|rem|em)?$");
 
 /// JS: checks.mjs#isZeroOffset
 pub fn is_zero_offset(value: Option<&str>) -> bool {
@@ -351,7 +348,7 @@ pub const ANIMATION_VALUE_KEYWORDS: &[&str] = &[
 
 re!(INFINITE_RE, format!(r"{B}{}{B}", ci("infinite")));
 
-re!(IDENT_RE, r"^[a-zA-Z_-][A-Za-z0-9_-]*$".to_string());
+re!(IDENT_RE, r"^[a-zA-Z_-][A-Za-z0-9_-]*$");
 
 /// JS: checks.mjs#infiniteAnimationNames
 pub fn infinite_animation_names(decls: &DeclMap) -> Vec<String> {
@@ -440,9 +437,9 @@ pub fn index_in_source_ranges(index: usize, ranges: &[(usize, usize)]) -> bool {
 
 re!(SELECTOR_COMBINATOR_RE, format!(r"[{WS_CHARS}>+~]+"));
 
-re!(ID_TOKEN_RE, r"#([A-Za-z_][A-Za-z0-9_-]*)".to_string());
+re!(ID_TOKEN_RE, r"#([A-Za-z_][A-Za-z0-9_-]*)");
 
-re!(CLASS_TOKEN_RE, r"\.([A-Za-z_][A-Za-z0-9_-]*)".to_string());
+re!(CLASS_TOKEN_RE, r"\.([A-Za-z_][A-Za-z0-9_-]*)");
 
 /// Iterate JS `/<[a-zA-Z][^>]*\b<attr>\s*=\s*["']…["']/gi` matches. With
 /// `exact` the value must equal `needle` (ASCII case-insensitive); otherwise
@@ -484,7 +481,7 @@ fn attr_tag_match_starts(content: &str, attr: &str, needle: &str, exact: bool) -
             }
             k += 1;
             k += content.len() - k - js::trim_start(&content[k..]).len();
-            if !u8_at(content, k).map_or(false, is_quote) {
+            if !u8_at(content, k).is_some_and(is_quote) {
                 continue;
             }
             k += 1;
