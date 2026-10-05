@@ -566,7 +566,7 @@ fn finding_signature(findings: &[Finding]) -> String {
             } else {
                 f.antipattern.as_str()
             };
-            let line = if f.line > 0.0 || f.line < 0.0 {
+            let line = if f.line.abs() > 0.0 {
                 js::number_to_string(f.line)
             } else {
                 "0".to_string()
@@ -767,17 +767,6 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
     }
     if content.len() as u64 > MAX_SCANNED_BYTES {
         return skip(&audit, "content-too-large");
-    }
-    // A live variant session owns files carrying preview scaffolding. Check
-    // the proposed content AND the file on disk: the very first variants
-    // write introduces the markers, and later fragment edits (variant CSS
-    // tweaks) touch a file that already carries them.
-    if crate::hook_lib::has_live_preview_markers(&content)
-        || read_existing_project_file(rt, &file_path, &cwd)
-            .map(|on_disk| crate::hook_lib::has_live_preview_markers(&on_disk))
-            .unwrap_or(false)
-    {
-        return skip(&audit, "live-preview");
     }
     let platform = resolve_project_platform_for_target(rt, &cwd, &file_path);
     if is_native_platform(platform.as_deref()) {

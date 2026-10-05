@@ -11,12 +11,16 @@ use std::rc::Rc;
 
 use impeccino_core::findings::Finding;
 use impeccino_core::js;
-use impeccino_detect::config::{extract_finding_ignore_value, normalize_ignore_rule, normalize_ignore_value};
+use impeccino_detect::config::{
+    extract_finding_ignore_value, normalize_ignore_rule, normalize_ignore_value,
+};
 use impeccino_detect::design_decisions::DesignDecisions;
-use impeccino_detect::project_ignores::ProjectIgnores;
-use impeccino_detect::design_system::{load_design_system_for_cwd, resolve_design_md_path, DesignSystem};
+use impeccino_detect::design_system::{
+    load_design_system_for_cwd, resolve_design_md_path, DesignSystem,
+};
 use impeccino_detect::detect_text::{detect_text, TextOptions};
 use impeccino_detect::engines::{HtmlEngine, ScanOptions};
+use impeccino_detect::project_ignores::ProjectIgnores;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -85,21 +89,7 @@ pub fn truthy(value: Option<&str>) -> bool {
     )
 }
 
-/// JS: depthIsSet(value)
-pub fn depth_is_set(value: Option<&str>) -> bool {
-    let Some(v) = value else { return false };
-    let text = js::trim(v);
-    if text.is_empty() {
-        return false;
-    }
-    if truthy(Some(text)) {
-        return true;
-    }
-    !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) && text.bytes().any(|b| b != b'0')
-}
-
-/// The immediate tier, owned by the registry so wasm consumers can read the
-/// same list without linking this native-only crate.
+/// The immediate tier defined by the shared registry.
 pub use impeccino_core::registry::IMMEDIATE_TIER_RULES;
 
 /// A legacy id fallback that keeps older detector findings recognizable when
@@ -125,8 +115,8 @@ const STEER_LINE: &str = "That does not mean the design is good: keep following 
 
 // ── paths ─────────────────────────────────────────────────────────────────
 
-/// JS: hook-lib.mjs#hookStateDir (issue #422) — where mutable hook state
-/// (cache + pending) lives: a per-project directory under the user cache,
+/// JS: hook-lib.mjs#hookStateDir (issue #422) — where the mutable hook cache
+/// lives: a per-project directory under the user cache,
 /// `<cache>/impeccino/projects/<slug>-<hash>` (docs/adr/0020), so the project
 /// itself carries no tool state. IMPECCINO_CACHE_ROOT replaces
 /// `<cache>/impeccino/projects` with a root of its own.
@@ -170,7 +160,13 @@ fn hook_state_dir(cwd: &str) -> String {
     let resolved = jsp::resolve(&proc_cwd, &[cwd]);
     let slug: String = resolved
         .chars()
-        .map(|c| if matches!(c, ':' | '\\' | '/' | '.') { '-' } else { c })
+        .map(|c| {
+            if matches!(c, ':' | '\\' | '/' | '.') {
+                '-'
+            } else {
+                c
+            }
+        })
         .collect();
     let digest = {
         use sha2::Digest;
@@ -178,7 +174,10 @@ fn hook_state_dir(cwd: &str) -> String {
         h.update(resolved.as_bytes());
         format!("{:x}", h.finalize())[..8].to_string()
     };
-    jsp::join(&[&jsp::resolve(&proc_cwd, &[&root]), &format!("{}-{}", slug, digest)])
+    jsp::join(&[
+        &jsp::resolve(&proc_cwd, &[&root]),
+        &format!("{}-{}", slug, digest),
+    ])
 }
 
 /// `<user cache>/impeccino/projects`, read from the process environment like
@@ -193,10 +192,6 @@ fn user_projects_cache_root() -> String {
 pub fn get_cache_path(cwd: &str) -> String {
     jsp::join(&[&hook_state_dir(cwd), "hook.cache.json"])
 }
-pub fn get_pending_path(cwd: &str) -> String {
-    jsp::join(&[&hook_state_dir(cwd), "hook.pending.json"])
-}
-
 // ── runtime handle ────────────────────────────────────────────────────────
 
 /// What the JS reached through `process.*`, `import.meta.url` and
@@ -416,12 +411,22 @@ pub const DEFAULT_MAX_CHARS: f64 = 8000.0;
 
 /// Server-side template extensions the hook scans with the static HTML
 /// engine by default.
-pub const TEMPLATE_EXTENSIONS: &[&str] = &[".blade.php", ".twig", ".html.erb", ".erb", ".hbs", ".handlebars"];
+pub const TEMPLATE_EXTENSIONS: &[&str] = &[
+    ".blade.php",
+    ".twig",
+    ".html.erb",
+    ".erb",
+    ".hbs",
+    ".handlebars",
+];
 
 fn default_template_extensions() -> Vec<ExtensionEntry> {
     TEMPLATE_EXTENSIONS
         .iter()
-        .map(|ext| ExtensionEntry { ext: ext.to_string(), engine: "html".to_string() })
+        .map(|ext| ExtensionEntry {
+            ext: ext.to_string(),
+            engine: "html".to_string(),
+        })
         .collect()
 }
 
@@ -605,7 +610,10 @@ fn preserve_current_project_roots(destination: &mut Cache, current: &Cache) {
                     *session = Value::Object(repaired);
                 }
                 if let Some(session) = session.as_object_mut() {
-                    session.insert("projectRoots".into(), Value::Array(bounded_project_roots(roots)));
+                    session.insert(
+                        "projectRoots".into(),
+                        Value::Array(bounded_project_roots(roots)),
+                    );
                 }
             }
             None => {
@@ -654,7 +662,10 @@ fn preserve_current_project_roots(destination: &mut Cache, current: &Cache) {
             *destination_session = Value::Object(repaired);
         }
         if let Some(session) = destination_session.as_object_mut() {
-            session.insert("projectRoots".into(), Value::Array(bounded_project_roots(roots)));
+            session.insert(
+                "projectRoots".into(),
+                Value::Array(bounded_project_roots(roots)),
+            );
         }
     }
 }
@@ -662,7 +673,10 @@ fn preserve_current_project_roots(destination: &mut Cache, current: &Cache) {
 fn bounded_project_roots(roots: &[Value]) -> Vec<Value> {
     let mut bounded = Vec::new();
     for root in roots.iter().filter_map(Value::as_str) {
-        if bounded.iter().any(|seen: &Value| seen.as_str() == Some(root)) {
+        if bounded
+            .iter()
+            .any(|seen: &Value| seen.as_str() == Some(root))
+        {
             continue;
         }
         bounded.push(Value::String(root.to_string()));
@@ -875,7 +889,11 @@ pub fn filter_findings(findings: Vec<Finding>, config: &HookConfig) -> Vec<Findi
 
 /// `filter_findings`, then the decisions the file's DESIGN.md records
 /// (project-wide waivers and declared fonts).
-pub fn filter_findings_for(findings: Vec<Finding>, config: &HookConfig, scan: &HookScanOptions) -> Vec<Finding> {
+pub fn filter_findings_for(
+    findings: Vec<Finding>,
+    config: &HookConfig,
+    scan: &HookScanOptions,
+) -> Vec<Finding> {
     scan.decisions.apply(filter_findings(findings, config))
 }
 
@@ -1522,7 +1540,6 @@ impl HookScanOptions {
             inline_ignores: true,
             design_system: self.design_system.clone(),
             viewport: None,
-            profile: None,
             rule_pack: None,
         }
     }
@@ -1531,7 +1548,10 @@ impl HookScanOptions {
 /// JS: designSystemOptions(config, detector, projectCwd)
 pub fn design_system_options(config: &HookConfig, project_cwd: &str) -> HookScanOptions {
     if !config.design_system_enabled {
-        return HookScanOptions { decisions: Rc::new(DesignDecisions::load_for_dir(project_cwd)), ..HookScanOptions::default() };
+        return HookScanOptions {
+            decisions: Rc::new(DesignDecisions::load_for_dir(project_cwd)),
+            ..HookScanOptions::default()
+        };
     }
     HookScanOptions {
         design_system: load_design_system_for_cwd(project_cwd).map(Rc::new),
@@ -1561,7 +1581,10 @@ pub fn design_system_options_for_file(
         &project.repo_root
     };
     let decisions = Rc::new(DesignDecisions::load_for_dir(root));
-    HookScanOptions { decisions, ..design_system_options(config, root) }
+    HookScanOptions {
+        decisions,
+        ..design_system_options(config, root)
+    }
 }
 
 /// The detector the hook drives: the regex engine from `impeccino-detect`
@@ -1572,7 +1595,6 @@ pub fn detector_detect_text(
     scan: &HookScanOptions,
 ) -> Vec<Finding> {
     let opts = TextOptions {
-        profile: None,
         design_system: scan.design_system.as_deref(),
         inline_ignores: true,
         rule_pack: None,
@@ -1687,15 +1709,14 @@ pub fn payload(text: &str, event_name: &str, harness: &str) -> String {
         out.insert("additional_context".into(), Value::String(text.to_string()));
     } else if harness == "github" {
         out.insert("additionalContext".into(), Value::String(text.to_string()));
-    } else if matches!(harness, "codex" | "gemini") && event_name == "Stop" {
-        // Codex shares Claude Code's PostToolUse additional-context shape,
-        // but its Stop schema rejects unknown fields. Findings that should
-        // continue the turn must be a top-level blocking decision (#603).
+    } else if harness == "codex" && event_name == "Stop" {
+        // Codex's Stop schema rejects unknown fields, so findings that should
+        // continue the turn use a top-level blocking decision (#603).
         // https://developers.openai.com/codex/hooks#stop
         if js::trim(text).is_empty() {
             return String::new();
         }
-        out.insert("decision".into(), Value::String(if harness == "gemini" { "deny" } else { "block" }.to_string()));
+        out.insert("decision".into(), Value::String("block".to_string()));
         out.insert("reason".into(), Value::String(text.to_string()));
     } else {
         let mut inner = Map::new();
@@ -1777,13 +1798,9 @@ pub fn resolve_harness(rt: &Runtime, event: Option<&Map<String, Value>>) -> &'st
         Some("grok") => return "grok",
         Some("claude") => return "claude",
         Some("codex") => return "codex",
-        Some("gemini") => return "gemini",
         _ => {}
     }
     if let Some(ev) = event {
-        if matches!(str_field(ev, "hook_event_name"), Some("BeforeTool" | "AfterAgent")) {
-            return "gemini";
-        }
         // Grok Build sends camelCase `toolName`/`toolInput`/`hookEventName`
         // and no snake_case pair. GitHub Copilot sends camelCase
         // `toolName`/`toolArgs`. Check Grok first: the old GitHub heuristic
@@ -1870,10 +1887,10 @@ fn looks_like_apply_patch(raw: Option<&Value>) -> bool {
     if !APPLY_PATCH_MARKER_RE.is_match(s) {
         return false;
     }
-    match serde_json::from_str::<Value>(s) {
-        Ok(Value::Object(_)) | Ok(Value::Array(_)) => false,
-        _ => true,
-    }
+    !matches!(
+        serde_json::from_str::<Value>(s),
+        Ok(Value::Object(_)) | Ok(Value::Array(_))
+    )
 }
 
 /// JS: applyPatchText(rawArgs)
@@ -1963,7 +1980,12 @@ fn normalize_grok_event(
         .get("cwd")
         .filter(|v| truthy_value(Some(v)))
         .cloned()
-        .or_else(|| event.get("workspaceRoot").filter(|v| truthy_value(Some(v))).cloned())
+        .or_else(|| {
+            event
+                .get("workspaceRoot")
+                .filter(|v| truthy_value(Some(v)))
+                .cloned()
+        })
         .or_else(|| {
             rt.env("CURSOR_PROJECT_DIR")
                 .filter(|v| !v.is_empty())
@@ -1997,7 +2019,10 @@ fn normalize_grok_event(
     out.insert("tool_name".into(), tool_name);
     out.insert("tool_input".into(), Value::Object(tool_input));
     if event.contains_key("stopHookActive") && !event.contains_key("stop_hook_active") {
-        out.insert("stop_hook_active".into(), event.get("stopHookActive").cloned().unwrap_or(Value::Null));
+        out.insert(
+            "stop_hook_active".into(),
+            event.get("stopHookActive").cloned().unwrap_or(Value::Null),
+        );
     }
     out
 }
@@ -2090,8 +2115,7 @@ re!(
 
 /// JS: hasPathTraversal(filePath)
 pub fn has_path_traversal(p: &str) -> bool {
-    p.split(|character| matches!(character, '/' | '\\'))
-        .any(|segment| segment == "..")
+    p.split(['/', '\\']).any(|segment| segment == "..")
 }
 
 /// JS: isInsideProject(filePath, projectCwd)
@@ -2313,7 +2337,11 @@ pub fn expand_scan_targets_with_limit(
 /// JS: writeAuditLog(env, entry, cwd)
 pub fn write_audit_log(rt: &Runtime, entry: &Map<String, Value>, cwd: &str) -> bool {
     let base_cwd = str_field(entry, "cwd").unwrap_or(cwd).to_string();
-    let Some(target) = rt.env("IMPECCINO_HOOK_LOG").filter(|v| !v.is_empty()).map(str::to_string) else {
+    let Some(target) = rt
+        .env("IMPECCINO_HOOK_LOG")
+        .filter(|v| !v.is_empty())
+        .map(str::to_string)
+    else {
         return false;
     };
     let expanded = if let Some(rest) = target.strip_prefix("~/") {
@@ -2356,19 +2384,9 @@ pub fn normalize_ignore_value_str(v: &str) -> String {
     normalize_ignore_value(v)
 }
 
-/// A live variant session owns files carrying preview scaffolding: the
-/// wrapper a generate publishes and the carbonize block an accept leaves
-/// until cleanup. Findings on those files are noise (variants are meant to
-/// be tried, not audited) and acting on them derails the session mid-cycle,
-/// so every hook entry stands down on the markers; `live-complete` verifies
-/// the file once the accepted variant is permanent.
-pub fn has_live_preview_markers(content: &str) -> bool {
-    content.contains("data-impeccino-variants=") || content.contains("impeccino-carbonize-start")
-}
-
 #[cfg(test)]
 mod project_roots_lock_tests {
-    use super::{preserve_current_project_roots, ProjectRootsLock, Cache};
+    use super::{preserve_current_project_roots, Cache, ProjectRootsLock};
     use serde_json::{json, Value};
     use std::sync::mpsc;
     use std::time::Duration;

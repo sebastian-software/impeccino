@@ -1,12 +1,8 @@
-//! [`Dom`] over a serialized page snapshot.
+//! [`Dom`] over the rendered-page snapshot captured by the CLI.
 //!
-//! The in-page bundle measures the live DOM through the JS probe
-//! (`10-probe.js` → `crates/wasm/src/js_dom.rs`). Where WebAssembly cannot
-//! run next to the page — the Chrome extension on a strict-CSP site — the
-//! measurement happens in the content-script world (`15-snapshot.js`,
-//! measurement only), travels as JSON to wherever the wasm core does run
-//! (the extension's offscreen document), and this type answers every
-//! [`Dom`] question from it. Same rules, same core, one more probe.
+//! `agent-browser` runs the page measurement in
+//! `crates/cli/assets/page-snapshot.js`; its serialized result is read here
+//! so the browser rules can answer DOM questions without another page call.
 //!
 //! What the snapshot carries is exactly what the probe surface reads: the
 //! element tree in document order (child nodes with their text, so
@@ -52,10 +48,22 @@ pub const NS_SVG: &str = "http://www.w3.org/2000/svg";
 
 pub const NS_MATHML: &str = "http://www.w3.org/1998/Math/MathML";
 
+/// `[property, value]` declarations within one CSS keyframe rule.
+pub type KeyframeDeclarations = Vec<(String, String)>;
+/// The ordered keyframe rules belonging to one animation name.
+pub type KeyframeSteps = Vec<KeyframeDeclarations>;
+/// Animation names and their ordered keyframe rules as captured from CSS.
+pub type SnapshotKeyframes = Vec<(String, KeyframeSteps)>;
+
+type HitKey = (u64, u64);
+type HitResult = (Option<ElId>, Vec<ElId>);
+type HitCache = RefCell<HashMap<HitKey, HitResult>>;
+type ClosestCache = RefCell<HashMap<(ElId, String), Result<Option<ElId>, SelectorError>>>;
+
 /// The computed-style properties the browser rules read (`getComputedStyle`
 /// spellings as the rules pass them). The capture reads exactly this list
 /// per element; the order is the column order of `SnapNode::style`. Keep in
-/// sync with `STYLE_PROPS` in `browser-bundle/15-snapshot.js` (the build
+/// sync with `STYLE_PROPS` in `crates/cli/assets/page-snapshot.js` (a test
 /// checks the two lists agree).
 pub const STYLE_PROPS: &[&str] = &[
     "animationIterationCount",
@@ -263,8 +271,7 @@ pub struct SnapNode {
     #[serde(rename = "r", default)]
     pub rect: Option<[f64; 4]>,
     /// `[clientWidth, clientHeight, clientLeft, scrollWidth, scrollLeft,
-    /// offsetWidth, offsetHeight]` (`null` → NaN, as `undefined` crosses
-    /// into a wasm f64).
+    /// offsetWidth, offsetHeight]` (`null` becomes NaN when metrics are missing).
     #[serde(rename = "m", default)]
     pub metrics: Vec<Option<f64>>,
     /// `checkVisibility`: 1 / 0, `-1` when the method is missing.
@@ -361,7 +368,7 @@ pub struct Snapshot {
     pub html: String,
     /// `[name, frames]` in stylesheet order (first rule per name wins).
     #[serde(default)]
-    pub keyframes: Vec<(String, Vec<Vec<(String, String)>>)>,
+    pub keyframes: SnapshotKeyframes,
     /// `__snapLinkedStylesheetText()`: the readable linked-stylesheet corpus
     /// (#709). Absent in captures older than that change.
     #[serde(rename = "linkedCss", default)]
@@ -542,11 +549,11 @@ fn rect4(v: &[f64; 4]) -> Rect {
 /// hit tests, and the record of what the run could not answer.
 pub struct SnapshotDom {
     pub snap: Snapshot,
-    hits: RefCell<HashMap<(u64, u64), (Option<ElId>, Vec<ElId>)>>,
+    hits: HitCache,
     misses: RefCell<Vec<[f64; 2]>>,
     missed_keys: RefCell<HashSet<(u64, u64)>>,
     selectors: RefCell<HashMap<String, Option<Selector>>>,
-    closest_cache: RefCell<HashMap<(ElId, String), Result<Option<ElId>, SelectorError>>>,
+    closest_cache: ClosestCache,
     text_cache: RefCell<HashMap<ElId, String>>,
     unknown_props: RefCell<Vec<String>>,
 }
@@ -608,11 +615,6 @@ impl SnapshotDom {
     /// record (distinct, in first-read order).
     pub fn unknown_style_props(&self) -> Vec<String> {
         self.unknown_props.borrow().clone()
-    }
-
-    /// Forget per-run memo tables (selectors, closest, text) but keep facts.
-    pub fn reset_memo(&self) {
-        self.closest_cache.borrow_mut().clear();
     }
 
     fn hit(&self, x: f64, y: f64) -> Option<(Option<ElId>, Vec<ElId>)> {
@@ -879,7 +881,7 @@ impl Dom for SnapshotDom {
                     None => {
                         let mut u = self.unknown_props.borrow_mut();
                         let key = format!("{pseudo}{prop}");
-                        if !u.iter().any(|p| *p == key) {
+                        if !u.contains(&key) {
                             u.push(key);
                         }
                         Some(String::new())
@@ -952,8 +954,8 @@ impl Dom for SnapshotDom {
     }
 }
 
-/// `undefined` read into a wasm f64 is NaN (`offsetWidth` on an SVG
-/// element); a missing column reads the same way.
+/// Missing metrics and style columns read as NaN, matching the rules' numeric
+/// handling of an unavailable browser measurement.
 fn metric(m: &[Option<f64>], i: usize) -> f64 {
     match m.get(i) {
         Some(Some(v)) => *v,
@@ -969,11 +971,10 @@ pub fn css_escape(s: &str) -> String {
         let code = c as u32;
         if code == 0 {
             out.push('\u{FFFD}');
-        } else if (0x1..=0x1F).contains(&code) || code == 0x7F {
-            out.push_str(&format!("\\{:x} ", code));
-        } else if i == 0 && c.is_ascii_digit() {
-            out.push_str(&format!("\\{:x} ", code));
-        } else if i == 1 && c.is_ascii_digit() && chars[0] == '-' {
+        } else if (0x1..=0x1F).contains(&code)
+            || code == 0x7F
+            || (c.is_ascii_digit() && (i == 0 || (i == 1 && chars[0] == '-')))
+        {
             out.push_str(&format!("\\{:x} ", code));
         } else if i == 0 && c == '-' && chars.len() == 1 {
             out.push('\\');
@@ -1087,7 +1088,7 @@ mod tests {
         assert!(!d.matches(4, "div:hover").unwrap());
         assert!(d.matches(6, "svg").unwrap());
         assert!(
-            d.matches(6, "SVG").unwrap() == false,
+            !d.matches(6, "SVG").unwrap(),
             "svg type selectors are case-sensitive"
         );
         assert!(d.matches(4, "DIV").unwrap());
@@ -1097,7 +1098,7 @@ mod tests {
         assert!(d.matches(3, "body:has(> div)").unwrap());
         assert!(d.matches(2, ":empty").unwrap());
         assert!(!d.matches(4, ":empty").unwrap());
-        assert!(d.matches(4, "div::before").unwrap() == false);
+        assert!(!d.matches(4, "div::before").unwrap());
         assert!(d.matches(4, "div:foo").is_err());
         assert!(d.query_all(None, ".x)").is_err());
         assert_eq!(

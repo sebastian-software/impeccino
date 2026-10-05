@@ -9,15 +9,17 @@ use impeccino_core::registry::{filter_by_scopes, rule_scopes};
 use serde_json::Value;
 
 use crate::design_decisions::DesignDecisionsCache;
-use crate::design_system::{design_system_start_dir, load_design_system_for_target, DesignSystemCache};
+use crate::design_system::{
+    design_system_start_dir, load_design_system_for_target, DesignSystemCache,
+};
 use crate::detect_text::{detect_text, TextOptions};
 use crate::engines::{EngineError, Engines, ScanOptions};
 use crate::file_system::{
     build_import_graph_reporting, detect_framework_config, is_html_path, is_port_listening,
     walk_dir_skipping,
 };
-use crate::project_ignores::ProjectIgnores;
 use crate::jsp;
+use crate::project_ignores::ProjectIgnores;
 use crate::util::{exists, re, D};
 
 pub const USAGE: &str = "Usage: impeccino detect [options] [file-or-dir...]
@@ -181,10 +183,7 @@ fn format_findings_body(findings: &[&Finding]) -> Vec<String> {
         out.push(format!("\n{file}{import_note}"));
         for item in items {
             let line = if item.line != 0.0 && !item.line.is_nan() {
-                format!(
-                    "line {}: ",
-                    impeccino_core::js::number_to_string(item.line)
-                )
+                format!("line {}: ", impeccino_core::js::number_to_string(item.line))
             } else {
                 String::new()
             };
@@ -261,12 +260,17 @@ impl<'a> Ctx<'a> {
     /// JS: main.mjs#reportLocalScanFailure
     fn report_local_scan_failure(&mut self, target: &str, message: &str) {
         self.had_operational_failure = true;
-        self.io.err(&format!("Error: cannot scan {target}: {message}\n"));
+        self.io
+            .err(&format!("Error: cannot scan {target}: {message}\n"));
     }
 
     /// Drop the findings DESIGN.md settles for the file (or, with no local
     /// path, for the scan's cwd): project-wide waivers and declared fonts.
-    fn apply_decisions(&mut self, local_path: Option<&str>, findings: Vec<Finding>) -> Vec<Finding> {
+    fn apply_decisions(
+        &mut self,
+        local_path: Option<&str>,
+        findings: Vec<Finding>,
+    ) -> Vec<Finding> {
         if !self.decisions_enabled || findings.is_empty() {
             return findings;
         }
@@ -275,12 +279,16 @@ impl<'a> Ctx<'a> {
                 let start = design_system_start_dir(p, &self.cwd);
                 self.decisions.for_dir(&start, &self.cwd, &self.home)
             }
-            None => self.decisions.for_dir(&self.cwd.clone(), &self.cwd, &self.home),
+            None => self
+                .decisions
+                .for_dir(&self.cwd.clone(), &self.cwd, &self.home),
         };
         // A file no DESIGN.md governs (a fixture or page outside the
         // project) takes the decisions of the directory the scan runs in.
         if decisions.source.is_none() && local_path.is_some() {
-            decisions = self.decisions.for_dir(&self.cwd.clone(), &self.cwd, &self.home);
+            decisions = self
+                .decisions
+                .for_dir(&self.cwd.clone(), &self.cwd, &self.home);
         }
         decisions.apply(findings)
     }
@@ -330,7 +338,6 @@ impl<'a> Ctx<'a> {
             &content,
             file_path,
             &TextOptions {
-                profile: options.profile.as_deref(),
                 design_system: options.design_system.as_deref(),
                 inline_ignores: options.inline_ignores,
                 rule_pack: options.rule_pack,
@@ -359,7 +366,6 @@ impl<'a> Ctx<'a> {
             &input,
             "<stdin>",
             &TextOptions {
-                profile: opts.profile.as_deref(),
                 design_system: opts.design_system.as_deref(),
                 inline_ignores: opts.inline_ignores,
                 rule_pack: opts.rule_pack,
@@ -371,7 +377,7 @@ impl<'a> Ctx<'a> {
 
 re!(VIEWPORT_RE, format!("^({D}{{2,5}})[xX]({D}{{2,5}})$"));
 re!(URL_RE, "^(?i:https?|file)://");
-re!(WHITESPACE_RE, impeccino_core::js::WS.to_string());
+re!(WHITESPACE_RE, impeccino_core::js::WS);
 re!(WS_RUN_RE, format!("{}+", impeccino_core::js::WS));
 re!(FILE_URL_RE, "^(?i:file):");
 
@@ -529,7 +535,6 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
         inline_ignores: inline_ignores_enabled,
         design_system: None,
         viewport,
-        profile: None,
         // The `impeccino` binary installs no rule pack; a library caller that
         // does sets this before handing the options to an engine.
         rule_pack: None,
@@ -705,7 +710,11 @@ fn scan_targets(
             if browser_setup_failed {
                 continue;
             }
-            let local = if FILE_URL_RE.is_match(target) { file_url_to_local_path(target) } else { None };
+            let local = if FILE_URL_RE.is_match(target) {
+                file_url_to_local_path(target)
+            } else {
+                None
+            };
             let url_options = if FILE_URL_RE.is_match(target) {
                 ctx.scan_options_for(local.as_deref())
             } else {
@@ -745,8 +754,7 @@ fn scan_targets(
                     .env("IMPECCINO_SELF")
                     .filter(|v| !v.trim().is_empty())
                     .unwrap_or("impeccino");
-                let launcher_cmd =
-                    impeccino_common::quote_executable_path(self_cmd, cfg!(windows));
+                let launcher_cmd = impeccino_common::quote_executable_path(self_cmd, cfg!(windows));
                 let powershell_note = if cfg!(windows) {
                     "In PowerShell, prefix the quoted launcher path with `&`.\n"
                 } else {

@@ -41,7 +41,10 @@ impl Tmp {
         // Like Node's `realpathSync`, without the `\\?\` verbatim prefix Windows
         // adds: the kernel takes a verbatim path literally, so a `/` joined
         // under it would not resolve.
-        let real = std::fs::canonicalize(&base).unwrap().to_string_lossy().into_owned();
+        let real = std::fs::canonicalize(&base)
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
         Tmp(PathBuf::from(real.strip_prefix(r"\\?\").unwrap_or(&real)))
     }
     fn path(&self) -> String {
@@ -112,7 +115,10 @@ fn env(pairs: &[(&str, &str)]) -> HashMap<String, String> {
 }
 
 fn install_test_skill(t: &Tmp, skill_rel: &str) {
-    let launcher = t.write(&format!("{skill_rel}/scripts/impeccino"), "#!/bin/sh\nexit 0\n");
+    let launcher = t.write(
+        &format!("{skill_rel}/scripts/impeccino"),
+        "#!/bin/sh\nexit 0\n",
+    );
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -120,7 +126,10 @@ fn install_test_skill(t: &Tmp, skill_rel: &str) {
     }
     #[cfg(not(unix))]
     let _ = launcher;
-    t.write(&format!("{skill_rel}/scripts/impeccino.cmd"), "@echo off\r\nexit /b 0\r\n");
+    t.write(
+        &format!("{skill_rel}/scripts/impeccino.cmd"),
+        "@echo off\r\nexit /b 0\r\n",
+    );
 }
 
 fn init_test_git(repo_root: &str) {
@@ -129,7 +138,10 @@ fn init_test_git(repo_root: &str) {
         .current_dir(repo_root)
         .status()
         .unwrap();
-    assert!(status.success(), "could not initialize test repository at {repo_root}");
+    assert!(
+        status.success(),
+        "could not initialize test repository at {repo_root}"
+    );
 }
 
 fn f(id: &str, line: f64, name: &str, description: &str, snippet: &str) -> Finding {
@@ -184,7 +196,10 @@ fn monorepo_design_fixture(root_design: bool) -> Tmp {
     t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
     t.write("apps/a/package.json", "{}");
     t.write("apps/b/package.json", "{}");
-    t.write("apps/a/DESIGN.md", "---\ncolors:\n  primary: '#112233'\ntypography:\n  body:\n    fontFamily: Inter\n---\n");
+    t.write(
+        "apps/a/DESIGN.md",
+        "---\ncolors:\n  primary: '#112233'\ntypography:\n  body:\n    fontFamily: Inter\n---\n",
+    );
     if root_design {
         t.write("DESIGN.md", "---\ncolors:\n  primary: '#224466'\ntypography:\n  body:\n    fontFamily: Roboto\n---\n");
     }
@@ -215,9 +230,17 @@ fn check_monorepo_design_hook(mode: &str) {
             "before" => {
                 // A proposed new file must resolve its owning app too.
                 std::fs::remove_file(&file).unwrap();
-                hbe(&r, &cursor(&cwd, "Write", json!({
-                    "file_path": file, "content": source,
-                }))).0
+                hbe(
+                    &r,
+                    &cursor(
+                        &cwd,
+                        "Write",
+                        json!({
+                            "file_path": file, "content": source,
+                        }),
+                    ),
+                )
+                .0
             }
             "stop" => {
                 let mut cache = read_cache(&cache_cwd);
@@ -227,21 +250,30 @@ fn check_monorepo_design_hook(mode: &str) {
             }
             _ => unreachable!(),
         };
-        assert_eq!(out.contains("overused-font"), expected,
-            "{mode}: root_design={root_design}, app={app}, font={font}: {out}");
+        assert_eq!(
+            out.contains("overused-font"),
+            expected,
+            "{mode}: root_design={root_design}, app={app}, font={font}: {out}"
+        );
         let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&cache_cwd)));
         let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&cwd)));
     }
 }
 
 #[test]
-fn monorepo_design_post_edit() { check_monorepo_design_hook("post"); }
+fn monorepo_design_post_edit() {
+    check_monorepo_design_hook("post");
+}
 
 #[test]
-fn monorepo_design_before_edit() { check_monorepo_design_hook("before"); }
+fn monorepo_design_before_edit() {
+    check_monorepo_design_hook("before");
+}
 
 #[test]
-fn monorepo_design_stop() { check_monorepo_design_hook("stop"); }
+fn monorepo_design_stop() {
+    check_monorepo_design_hook("stop");
+}
 
 #[test]
 fn cache_root_prefers_nearest_nested_project() {
@@ -267,20 +299,44 @@ fn stop_finds_every_project_touched_by_its_session_cwd() {
         t.write(&format!("apps/{app}/package.json"), "{}");
         let file = t.write(&format!("apps/{app}/src/{app}.css"), GRADIENT_CSS);
         let post = hook::run_hook(&rt(&root), &edit_event(&root, &file, session));
-        assert!(post.stdout.contains("[gradient-text]"), "{app}: {}", post.stdout);
+        assert!(
+            post.stdout.contains("[gradient-text]"),
+            "{app}: {}",
+            post.stdout
+        );
         std::fs::write(&file, format!("{GRADIENT_CSS}{SIDE_TAB_CSS}")).unwrap();
     }
 
     let shared = hook::run_stop_hook(&rt(&root), &stop_event(&root, "shared"));
     assert_eq!(shared.audit["freshFiles"], json!(2), "{}", shared.stdout);
-    assert!(shared.stdout.contains("apps/a/src/a.css"), "{}", shared.stdout);
-    assert!(shared.stdout.contains("apps/b/src/b.css"), "{}", shared.stdout);
-    assert!(!shared.stdout.contains("apps/c/src/c.css"), "{}", shared.stdout);
+    assert!(
+        shared.stdout.contains("apps/a/src/a.css"),
+        "{}",
+        shared.stdout
+    );
+    assert!(
+        shared.stdout.contains("apps/b/src/b.css"),
+        "{}",
+        shared.stdout
+    );
+    assert!(
+        !shared.stdout.contains("apps/c/src/c.css"),
+        "{}",
+        shared.stdout
+    );
 
     let other = hook::run_stop_hook(&rt(&root), &stop_event(&root, "other"));
     assert_eq!(other.audit["freshFiles"], json!(1), "{}", other.stdout);
-    assert!(other.stdout.contains("apps/c/src/c.css"), "{}", other.stdout);
-    assert!(!other.stdout.contains("apps/a/src/a.css"), "{}", other.stdout);
+    assert!(
+        other.stdout.contains("apps/c/src/c.css"),
+        "{}",
+        other.stdout
+    );
+    assert!(
+        !other.stdout.contains("apps/a/src/a.css"),
+        "{}",
+        other.stdout
+    );
 
     for app in ["a", "b", "c"] {
         let app_root = jsp::join(&[&root, "apps", app]);
@@ -298,14 +354,24 @@ fn stop_index_finds_nested_project_when_session_cwd_is_a_child_project() {
     t.write("apps/editor/packages/preview/package.json", "{}");
     let file = t.write("apps/editor/packages/preview/src/preview.css", GRADIENT_CSS);
 
-    let post = hook::run_hook(&rt(&session_cwd), &edit_event(&session_cwd, &file, "nested"));
+    let post = hook::run_hook(
+        &rt(&session_cwd),
+        &edit_event(&session_cwd, &file, "nested"),
+    );
     assert!(post.stdout.contains("[gradient-text]"), "{}", post.stdout);
     std::fs::write(&file, format!("{GRADIENT_CSS}{SIDE_TAB_CSS}")).unwrap();
     let stop = hook::run_stop_hook(&rt(&session_cwd), &stop_event(&session_cwd, "nested"));
     assert_eq!(stop.audit["freshFiles"], json!(1), "{}", stop.stdout);
-    assert!(stop.stdout.contains("packages/preview/src/preview.css"), "{}", stop.stdout);
+    assert!(
+        stop.stdout.contains("packages/preview/src/preview.css"),
+        "{}",
+        stop.stdout
+    );
 
-    for root in [&session_cwd, &jsp::join(&[&session_cwd, "packages", "preview"])] {
+    for root in [
+        &session_cwd,
+        &jsp::join(&[&session_cwd, "packages", "preview"]),
+    ] {
         let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(root)));
     }
 }
@@ -317,7 +383,10 @@ fn stop_applies_native_platform_per_registered_project() {
     let native_root = jsp::join(&[&root, "apps", "native"]);
     let web_root = jsp::join(&[&root, "apps", "web"]);
     t.write("apps/native/package.json", "{}");
-    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    t.write(
+        "apps/native/PRODUCT.md",
+        "# Product\n\n## Platform\nios and android\n",
+    );
     t.write("apps/web/package.json", "{}");
     let native_file = t.write("apps/native/src/native.css", SIDE_TAB_CSS);
     let web_file = t.write("apps/web/src/web.css", SIDE_TAB_CSS);
@@ -330,8 +399,16 @@ fn stop_applies_native_platform_per_registered_project() {
 
     let stop = hook::run_stop_hook(&r, &stop_event(&root, "mixed"));
     assert_eq!(stop.audit["scannedFiles"], json!(1), "{}", stop.stdout);
-    assert!(stop.stdout.contains("apps/web/src/web.css"), "{}", stop.stdout);
-    assert!(!stop.stdout.contains("apps/native/src/native.css"), "{}", stop.stdout);
+    assert!(
+        stop.stdout.contains("apps/web/src/web.css"),
+        "{}",
+        stop.stdout
+    );
+    assert!(
+        !stop.stdout.contains("apps/native/src/native.css"),
+        "{}",
+        stop.stdout
+    );
 
     for project in [&native_root, &web_root] {
         let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(project)));
@@ -377,7 +454,10 @@ fn session_project_root_index_is_bounded_even_when_read_from_old_data() {
         register_project_root(&mut next, "s", &format!("/project/{i}"));
     }
     assert_eq!(registered_project_roots(&next, "s").len(), 16);
-    assert_eq!(registered_project_roots(&next, "s").first().unwrap(), "/project/84");
+    assert_eq!(
+        registered_project_roots(&next, "s").first().unwrap(),
+        "/project/84"
+    );
 }
 
 #[test]
@@ -417,7 +497,11 @@ fn concurrent_project_registrations_keep_all_roots_in_the_session_index() {
     }
 
     let roots = registered_project_roots(&read_cache(&root), "parallel-registration");
-    assert_eq!(roots.len(), PROJECTS, "concurrent registrations were lost: {roots:?}");
+    assert_eq!(
+        roots.len(),
+        PROJECTS,
+        "concurrent registrations were lost: {roots:?}"
+    );
     for index in 0..PROJECTS {
         let expected = jsp::join(&[&root, &format!("apps/app-{index}")]);
         assert!(roots.contains(&expected), "missing {expected} in {roots:?}");
@@ -469,19 +553,37 @@ fn monorepo_design_document_locations_and_sidecars() {
         let file = t.write("apps/b/src/probe.css", ".probe {}\n");
         let md = t.write(&format!("apps/b/{location}"),
             "---\ntypography:\n  body:\n    fontFamily: Georgia\nrounded:\n  md: 8px\ncolors:\n  primary: '#abcdef'\n---\n");
-        let sidecar = t.write(&format!("apps/b/{}", location.replace("DESIGN.md", "DESIGN.json")), "{}");
+        let sidecar = t.write(
+            &format!("apps/b/{}", location.replace("DESIGN.md", "DESIGN.json")),
+            "{}",
+        );
         let scan = design_system_options_for_file(&rt(&cwd), &read_config(&cwd), &cwd, &file);
         let ds = scan.design_system.as_ref().unwrap();
         assert_eq!(ds.source_path.as_deref(), Some(md.as_str()));
         assert_eq!(ds.sidecar_path.as_deref(), Some(sidecar.as_str()));
         let findings = detector_detect_text(
-            ".probe { color: #ff0000; font-family: Verdana; border-radius: 19px; }", &file, &scan);
-        for rule in ["design-system-color", "design-system-font", "design-system-radius"] {
-            assert!(findings.iter().any(|f| f.antipattern == rule), "{location}: {rule}");
+            ".probe { color: #ff0000; font-family: Verdana; border-radius: 19px; }",
+            &file,
+            &scan,
+        );
+        for rule in [
+            "design-system-color",
+            "design-system-font",
+            "design-system-radius",
+        ] {
+            assert!(
+                findings.iter().any(|f| f.antipattern == rule),
+                "{location}: {rule}"
+            );
         }
         let allowed = detector_detect_text(
-            ".probe { color: #abcdef; font-family: Georgia; border-radius: 8px; }", &file, &scan);
-        assert!(allowed.iter().all(|f| !f.antipattern.starts_with("design-system-")));
+            ".probe { color: #abcdef; font-family: Georgia; border-radius: 8px; }",
+            &file,
+            &scan,
+        );
+        assert!(allowed
+            .iter()
+            .all(|f| !f.antipattern.starts_with("design-system-")));
     }
 }
 
@@ -490,13 +592,20 @@ fn monorepo_design_local_document_and_disabled_config_do_not_inherit() {
     let t = monorepo_design_fixture(true);
     let cwd = t.path();
     let file = t.write("apps/a/src/probe.css", ".probe {}\n");
-    t.write("apps/a/DESIGN.md", "# App-specific prose, with no machine-readable tokens\n");
+    t.write(
+        "apps/a/DESIGN.md",
+        "# App-specific prose, with no machine-readable tokens\n",
+    );
     let r = rt(&cwd);
     let mut config = read_config(&cwd);
-    assert!(design_system_options_for_file(&r, &config, &cwd, &file).design_system.is_none());
+    assert!(design_system_options_for_file(&r, &config, &cwd, &file)
+        .design_system
+        .is_none());
     config.design_system_enabled = false;
     let sibling = t.write("apps/b/src/probe.css", ".probe {}\n");
-    assert!(design_system_options_for_file(&r, &config, &cwd, &sibling).design_system.is_none());
+    assert!(design_system_options_for_file(&r, &config, &cwd, &sibling)
+        .design_system
+        .is_none());
 }
 
 #[test]
@@ -505,18 +614,31 @@ fn monorepo_design_batch_notes_follow_the_displayed_file() {
         for stale_app in ["a", "b"] {
             let t = monorepo_design_fixture(true);
             let cwd = t.path();
-            let source = if mode == "post-clean" { ".probe { color: #112233; }" }
-                else { ".probe { font-family: Lato, sans-serif; }" };
+            let source = if mode == "post-clean" {
+                ".probe { color: #112233; }"
+            } else {
+                ".probe { font-family: Lato, sans-serif; }"
+            };
             let a = t.write("apps/a/src/probe.css", source);
             let b = t.write("apps/b/src/probe.css", ".probe { color: #224466; }");
             let r = rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "github")]));
             if mode == "post-pending" {
                 hook::run_hook(&r, &edit_event(&cwd, &a, "s1"));
             }
-            let sidecar = t.write(if stale_app == "a" { "apps/a/DESIGN.json" }
-                else { "DESIGN.json" }, "{}");
-            std::fs::File::options().write(true).open(sidecar).unwrap()
-                .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000)).unwrap();
+            let sidecar = t.write(
+                if stale_app == "a" {
+                    "apps/a/DESIGN.json"
+                } else {
+                    "DESIGN.json"
+                },
+                "{}",
+            );
+            std::fs::File::options()
+                .write(true)
+                .open(sidecar)
+                .unwrap()
+                .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000))
+                .unwrap();
             let out = if mode == "stop" {
                 let a_root = resolve_cache_cwd(&r, Some(&a), &cwd);
                 let mut a_cache = read_cache(&a_root);
@@ -534,7 +656,11 @@ fn monorepo_design_batch_notes_follow_the_displayed_file() {
                 hook::run_hook(&r, &event.to_string()).stdout
             };
             assert!(out.contains("apps/a/src/probe.css"), "{mode}: {out}");
-            assert_eq!(out.contains("DESIGN.md is newer"), stale_app == "a", "{mode}: {out}");
+            assert_eq!(
+                out.contains("DESIGN.md is newer"),
+                stale_app == "a",
+                "{mode}: {out}"
+            );
             for project in ["apps/a", "apps/b"] {
                 let project_root = jsp::join(&[&cwd, project]);
                 let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&project_root)));
@@ -544,7 +670,14 @@ fn monorepo_design_batch_notes_follow_the_displayed_file() {
     }
 }
 
-fn edit_with_original(cwd: &str, file: &str, session: &str, before: &str, old: &str, new: &str) -> String {
+fn edit_with_original(
+    cwd: &str,
+    file: &str,
+    session: &str,
+    before: &str,
+    old: &str,
+    new: &str,
+) -> String {
     json!({
         "session_id": session, "cwd": cwd, "hook_event_name": "PostToolUse",
         "tool_name": "Edit", "tool_input": {"file_path": file, "old_string": old, "new_string": new},
@@ -563,14 +696,34 @@ fn stop_baseline_import_only_edit_does_not_blame_existing_font() {
     let after = before.replacen("import dead from 'dead';\n", "", 1);
     let file = t.write("query.ts", &after);
     let r = rt(&cwd);
-    assert!(detector_detect_text(before, &file, &HookScanOptions::default()).iter().any(|f| f.antipattern == "overused-font"));
-    hook::run_hook(&r, &edit_with_original(&cwd, &file, "s1", before, "import dead from 'dead';\n", ""));
+    assert!(
+        detector_detect_text(before, &file, &HookScanOptions::default())
+            .iter()
+            .any(|f| f.antipattern == "overused-font")
+    );
+    hook::run_hook(
+        &r,
+        &edit_with_original(&cwd, &file, "s1", before, "import dead from 'dead';\n", ""),
+    );
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
     assert!(stop.stdout.is_empty(), "{}", stop.stdout);
     assert_eq!(stop.audit["preExistingFindings"], json!(1));
-    assert!(!std::fs::read_to_string(t.cache_path()).unwrap().contains("const report"), "do not persist source contents");
-    assert!(!t.exists("DESIGN.md") && !t.exists(".impeccino"), "baseline is not a waiver");
-    assert!(detector_detect_text(&after, &file, &HookScanOptions::default()).iter().any(|f| f.antipattern == "overused-font"), "explicit scans stay unchanged");
+    assert!(
+        !std::fs::read_to_string(t.cache_path())
+            .unwrap()
+            .contains("const report"),
+        "do not persist source contents"
+    );
+    assert!(
+        !t.exists("DESIGN.md") && !t.exists(".impeccino"),
+        "baseline is not a waiver"
+    );
+    assert!(
+        detector_detect_text(&after, &file, &HookScanOptions::default())
+            .iter()
+            .any(|f| f.antipattern == "overused-font"),
+        "explicit scans stay unchanged"
+    );
 }
 
 #[test]
@@ -580,10 +733,16 @@ fn stop_baseline_reports_new_findings_and_keeps_first_preimage() {
     t.write("package.json", "{}");
     let file = t.write("card.css", SIDE_TAB_CSS);
     let r = rt(&cwd);
-    hook::run_hook(&r, &edit_with_original(&cwd, &file, "s1", ".card {}\n", ".card {}\n", SIDE_TAB_CSS));
+    hook::run_hook(
+        &r,
+        &edit_with_original(&cwd, &file, "s1", ".card {}\n", ".card {}\n", SIDE_TAB_CSS),
+    );
     let second = format!("/* later */\n{SIDE_TAB_CSS}");
     t.write("card.css", &second);
-    hook::run_hook(&r, &edit_with_original(&cwd, &file, "s1", SIDE_TAB_CSS, SIDE_TAB_CSS, &second));
+    hook::run_hook(
+        &r,
+        &edit_with_original(&cwd, &file, "s1", SIDE_TAB_CSS, SIDE_TAB_CSS, &second),
+    );
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
     assert!(stop.stdout.contains("[side-tab]"));
     assert!(stop.stdout.contains("[new]"), "{}", stop.stdout);
@@ -598,11 +757,16 @@ fn stop_baseline_missing_or_mismatched_preimage_stays_unknown() {
         t.write("package.json", "{}");
         let file = t.write("card.css", SIDE_TAB_CSS);
         let r = rt(&cwd);
-        let event = original.map(|before| edit_with_original(&cwd, &file, "s1", before, ".card {}", SIDE_TAB_CSS))
+        let event = original
+            .map(|before| edit_with_original(&cwd, &file, "s1", before, ".card {}", SIDE_TAB_CSS))
             .unwrap_or_else(|| edit_event(&cwd, &file, "s1"));
         hook::run_hook(&r, &event);
         let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
-        assert!(stop.stdout.contains("[attribution unknown]"), "{}", stop.stdout);
+        assert!(
+            stop.stdout.contains("[attribution unknown]"),
+            "{}",
+            stop.stdout
+        );
         assert!(stop.stdout.contains("may predate this session"));
         assert_eq!(stop.audit["unknownFindings"], json!(1));
     }
@@ -616,9 +780,15 @@ fn stop_baseline_existing_debt_fixed_then_reintroduced_is_new() {
     let clean = ".card {}\n";
     let file = t.write("card.css", clean);
     let r = rt(&cwd);
-    hook::run_hook(&r, &edit_with_original(&cwd, &file, "s1", SIDE_TAB_CSS, SIDE_TAB_CSS, clean));
+    hook::run_hook(
+        &r,
+        &edit_with_original(&cwd, &file, "s1", SIDE_TAB_CSS, SIDE_TAB_CSS, clean),
+    );
     t.write("card.css", SIDE_TAB_CSS);
-    hook::run_hook(&r, &edit_with_original(&cwd, &file, "s1", clean, clean, SIDE_TAB_CSS));
+    hook::run_hook(
+        &r,
+        &edit_with_original(&cwd, &file, "s1", clean, clean, SIDE_TAB_CSS),
+    );
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
     assert!(stop.stdout.contains("[new]"), "{}", stop.stdout);
     assert_eq!(stop.audit["preExistingFindings"], json!(0));
@@ -634,7 +804,10 @@ fn stop_baseline_late_preimage_does_not_relabel_unknown_debt() {
     hook::run_hook(&r, &edit_event(&cwd, &file, "s1"));
     let second = format!("/* later */\n{SIDE_TAB_CSS}");
     t.write("card.css", &second);
-    hook::run_hook(&r, &edit_with_original(&cwd, &file, "s1", SIDE_TAB_CSS, SIDE_TAB_CSS, &second));
+    hook::run_hook(
+        &r,
+        &edit_with_original(&cwd, &file, "s1", SIDE_TAB_CSS, SIDE_TAB_CSS, &second),
+    );
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
     assert_eq!(stop.audit["unknownFindings"], json!(1));
     assert_eq!(stop.audit["preExistingFindings"], json!(0));
@@ -650,7 +823,10 @@ fn stop_baseline_keeps_indirect_stylesheet_findings_unknown() {
     let after = before.replace("Before", "After");
     let file = t.write("src/Card.tsx", &after);
     let r = rt(&cwd);
-    hook::run_hook(&r, &edit_with_original(&cwd, &file, "s1", before, "Before", "After"));
+    hook::run_hook(
+        &r,
+        &edit_with_original(&cwd, &file, "s1", before, "Before", "After"),
+    );
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
     assert!(stop.stdout.contains("[side-tab]"), "{}", stop.stdout);
     assert_eq!(stop.audit["unknownFindings"], json!(1));
@@ -666,7 +842,10 @@ fn stop_baseline_extra_identical_occurrence_is_not_suppressed() {
     let after = format!("{SIDE_TAB_CSS}\n\n\n{SIDE_TAB_CSS}");
     let file = t.write("card.css", &after);
     let r = rt(&cwd);
-    hook::run_hook(&r, &edit_with_original(&cwd, &file, "s1", SIDE_TAB_CSS, SIDE_TAB_CSS, &after));
+    hook::run_hook(
+        &r,
+        &edit_with_original(&cwd, &file, "s1", SIDE_TAB_CSS, SIDE_TAB_CSS, &after),
+    );
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
     assert_eq!(stop.audit["preExistingFindings"], json!(1));
     assert_eq!(stop.audit["newFindings"], json!(1));
@@ -703,13 +882,19 @@ fn stop_baseline_unknown_notice_respects_small_output_budget() {
             // Make the notice eligible only at Stop; no sleeps or clock races.
             t.write("DESIGN.md", "---\nname: Test\n---\n");
             let sidecar = t.write("DESIGN.json", "{}");
-            std::fs::File::options().write(true).open(sidecar).unwrap()
-                .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000)).unwrap();
+            std::fs::File::options()
+                .write(true)
+                .open(sidecar)
+                .unwrap()
+                .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_000))
+                .unwrap();
             assert!(design_system_options(&read_config(&cwd), &cwd).md_newer_than_json());
         }
         let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
         let output: Value = serde_json::from_str(&stop.stdout).unwrap();
-        let text = output["hookSpecificOutput"]["additionalContext"].as_str().unwrap();
+        let text = output["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap();
         assert!(text.encode_utf16().count() <= budget, "{text}");
         assert!(text.contains("may predate this session"));
         assert!(text.contains("[side-tab]"), "{text}");
@@ -717,8 +902,12 @@ fn stop_baseline_unknown_notice_respects_small_output_budget() {
         assert!(text.contains("card.css"), "{text}");
         if stale {
             assert_eq!(text.contains("DESIGN.md is newer"), budget > 500, "{text}");
-            let cache: Value = serde_json::from_str(&std::fs::read_to_string(t.cache_path()).unwrap()).unwrap();
-            assert_eq!(cache["sessions"]["s1"]["designNoteShown"] == json!(true), budget > 500);
+            let cache: Value =
+                serde_json::from_str(&std::fs::read_to_string(t.cache_path()).unwrap()).unwrap();
+            assert_eq!(
+                cache["sessions"]["s1"]["designNoteShown"] == json!(true),
+                budget > 500
+            );
         }
     }
 }
@@ -731,7 +920,9 @@ fn stop_baseline_deduplicated_unknown_does_not_add_notice_to_new_finding() {
     let r = rt(&cwd);
     let old = t.write("old/card.css", SIDE_TAB_CSS);
     hook::run_hook(&r, &edit_event(&cwd, &old, "s1"));
-    assert!(hook::run_stop_hook(&r, &stop_event(&cwd, "s1")).stdout.contains("[attribution unknown]"));
+    assert!(hook::run_stop_hook(&r, &stop_event(&cwd, "s1"))
+        .stdout
+        .contains("[attribution unknown]"));
     let new = t.write("new/card.css", SIDE_TAB_CSS);
     // Use a verified create event (an empty Edit preimage is not trusted).
     let create = json!({"cwd": cwd, "session_id": "s1", "tool_name": "Write",
@@ -739,9 +930,17 @@ fn stop_baseline_deduplicated_unknown_does_not_add_notice_to_new_finding() {
         "tool_response": {"type": "create", "filePath": new, "content": SIDE_TAB_CSS, "originalFile": null}}).to_string();
     hook::run_hook(&r, &create);
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
-    assert_eq!(stop.audit["unknownFindings"], json!(1), "audit retains the full scan");
+    assert_eq!(
+        stop.audit["unknownFindings"],
+        json!(1),
+        "audit retains the full scan"
+    );
     assert!(stop.stdout.contains("[new]"), "{}", stop.stdout);
-    assert!(!stop.stdout.contains("may predate this session"), "{}", stop.stdout);
+    assert!(
+        !stop.stdout.contains("may predate this session"),
+        "{}",
+        stop.stdout
+    );
 }
 
 #[test]
@@ -753,11 +952,26 @@ fn stop_baseline_uses_dirty_worktree_not_git_head() {
     std::fs::create_dir(t.0.join("empty-hooks")).unwrap();
     let hooks = format!("core.hooksPath={}/empty-hooks", cwd);
     let git = |args: &[&str]| {
-        let result = std::process::Command::new("git").current_dir(&t.0)
-            .args(["-c", "user.name=Test", "-c", "user.email=test@example.invalid",
-                "-c", "commit.gpgsign=false", "-c", &hooks])
-            .args(args).output().unwrap();
-        assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
+        let result = std::process::Command::new("git")
+            .current_dir(&t.0)
+            .args([
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                &hooks,
+            ])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
     };
     git(&["init", "--quiet"]);
     git(&["add", "card.css", "package.json"]);
@@ -766,7 +980,10 @@ fn stop_baseline_uses_dirty_worktree_not_git_head() {
     let before = format!("/* unrelated */\n{SIDE_TAB_CSS}");
     let file = t.write("card.css", SIDE_TAB_CSS);
     let r = rt(&cwd);
-    hook::run_hook(&r, &edit_with_original(&cwd, &file, "s1", &before, "/* unrelated */\n", ""));
+    hook::run_hook(
+        &r,
+        &edit_with_original(&cwd, &file, "s1", &before, "/* unrelated */\n", ""),
+    );
     let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "s1"));
     assert_eq!(stop.audit["preExistingFindings"], json!(1));
     assert!(stop.stdout.is_empty());
@@ -774,29 +991,58 @@ fn stop_baseline_uses_dirty_worktree_not_git_head() {
 
 #[test]
 fn stop_baseline_untrusted_shapes_do_not_suppress_findings() {
-    for variant in ["modified", "wrong-path", "no-session", "oversized", "ambiguous", "other-provider"] {
+    for variant in [
+        "modified",
+        "wrong-path",
+        "no-session",
+        "oversized",
+        "ambiguous",
+        "other-provider",
+    ] {
         let t = Tmp::new();
         let cwd = t.path();
         t.write("package.json", "{}");
         let file = t.write("card.css", SIDE_TAB_CSS);
-        let mut event: Value = serde_json::from_str(&edit_with_original(&cwd, &file, "s1", SIDE_TAB_CSS, SIDE_TAB_CSS, SIDE_TAB_CSS)).unwrap();
+        let mut event: Value = serde_json::from_str(&edit_with_original(
+            &cwd,
+            &file,
+            "s1",
+            SIDE_TAB_CSS,
+            SIDE_TAB_CSS,
+            SIDE_TAB_CSS,
+        ))
+        .unwrap();
         match variant {
             "modified" => event["tool_response"]["userModified"] = json!(true),
             "wrong-path" => event["tool_response"]["filePath"] = json!("another.css"),
             "no-session" => event["session_id"] = Value::Null,
-            "oversized" => event["tool_response"]["originalFile"] = json!("x".repeat(512 * 1024 + 1)),
+            "oversized" => {
+                event["tool_response"]["originalFile"] = json!("x".repeat(512 * 1024 + 1))
+            }
             "ambiguous" => {
                 let repeated = SIDE_TAB_CSS.repeat(2);
                 t.write("card.css", &repeated);
                 event["tool_response"]["originalFile"] = json!(repeated);
             }
-            _ => {},
+            _ => {}
         }
-        let r = if variant == "other-provider" { rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "codex")])) } else { rt(&cwd) };
+        let r = if variant == "other-provider" {
+            rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "codex")]))
+        } else {
+            rt(&cwd)
+        };
         hook::run_hook(&r, &event.to_string());
-        let session = if variant == "no-session" { "unknown" } else { "s1" };
+        let session = if variant == "no-session" {
+            "unknown"
+        } else {
+            "s1"
+        };
         let stop = hook::run_stop_hook(&r, &stop_event(&cwd, session));
-        assert!(stop.stdout.contains("[attribution unknown]"), "{variant}: {}", stop.stdout);
+        assert!(
+            stop.stdout.contains("[attribution unknown]"),
+            "{variant}: {}",
+            stop.stdout
+        );
         assert_eq!(stop.audit["preExistingFindings"], json!(0), "{variant}");
     }
 }
@@ -824,7 +1070,7 @@ fn audit_str<'a>(a: &'a Map<String, Value>, k: &str) -> Option<&'a str> {
 // ── classifiers ───────────────────────────────────────────────────────────
 
 #[test]
-fn truthy_and_depth() {
+fn truthy_values() {
     for v in ["1", "true", "TRUE", "yes", "YES", "on", "On"] {
         assert!(truthy(Some(v)), "{v}");
     }
@@ -832,11 +1078,6 @@ fn truthy_and_depth() {
         assert!(!truthy(Some(v)), "{v}");
     }
     assert!(!truthy(None));
-    assert!(depth_is_set(Some("2")));
-    assert!(depth_is_set(Some(" 1 ")));
-    assert!(!depth_is_set(Some("0")));
-    assert!(!depth_is_set(Some("")));
-    assert!(!depth_is_set(None));
 }
 
 #[test]
@@ -961,7 +1202,14 @@ fn design_md_decisions_reach_the_hook_per_file() {
     assert_eq!(d, HookConfig::default());
     assert_eq!(d.per_edit_rules, "immediate");
     assert_eq!(d.advisory_rules, "exclude");
-    assert_eq!((d.limits.max_findings, d.limits.max_chars, d.limits.max_file_bytes), (5.0, 8000.0, 131072.0));
+    assert_eq!(
+        (
+            d.limits.max_findings,
+            d.limits.max_chars,
+            d.limits.max_file_bytes
+        ),
+        (5.0, 8000.0, 131072.0)
+    );
     t.write(
         "DESIGN.md",
         "---\ntypography:\n  body:\n    fontFamily: \"'Inter', sans-serif\"\n---\n# Design\n\n**The Ledger Rule.** Accent rails mark the active row. <!-- impeccino-disable Side-Tab -- the ledger rule -->\n\n```md\n<!-- impeccino-disable gradient-text -->\n```\n",
@@ -970,12 +1218,23 @@ fn design_md_decisions_reach_the_hook_per_file() {
     let scan = design_system_options_for_file(&rt(&cwd), &d, &cwd, &file);
     assert_eq!(scan.decisions.waived_rules, vec!["side-tab"]);
     assert_eq!(scan.decisions.declared_fonts, vec!["inter"]);
-    let mut font = f("overused-font", 2.0, "O", "d", "body { font-family: \"Inter\", sans-serif; }");
+    let mut font = f(
+        "overused-font",
+        2.0,
+        "O",
+        "d",
+        "body { font-family: \"Inter\", sans-serif; }",
+    );
     font.file = file.clone();
     let side = f("side-tab", 1.0, "S", "d", "s");
     let gradient = f("gradient-text", 1.0, "G", "d", "s");
     let kept = filter_findings_for(vec![font, side, gradient], &d, &scan);
-    assert_eq!(kept.iter().map(|x| x.antipattern.as_str()).collect::<Vec<_>>(), vec!["gradient-text"]);
+    assert_eq!(
+        kept.iter()
+            .map(|x| x.antipattern.as_str())
+            .collect::<Vec<_>>(),
+        vec!["gradient-text"]
+    );
 }
 
 #[test]
@@ -983,13 +1242,37 @@ fn configured_extensions_match_suffixes() {
     let exts = HookConfig::default().extensions;
     assert_eq!(
         exts.iter().map(|e| e.ext.as_str()).collect::<Vec<_>>(),
-        vec![".blade.php", ".twig", ".html.erb", ".erb", ".hbs", ".handlebars"]
+        vec![
+            ".blade.php",
+            ".twig",
+            ".html.erb",
+            ".erb",
+            ".hbs",
+            ".handlebars"
+        ]
     );
     assert!(exts.iter().all(|e| e.engine == "html"));
-    assert_eq!(match_configured_extension("/x/show.blade.php", &exts).unwrap().ext, ".blade.php");
-    assert_eq!(match_configured_extension("/x/SHOW.HTML.ERB", &exts).unwrap().ext, ".html.erb", "the longest suffix wins");
-    assert_eq!(match_configured_extension("/x/a.erb", &exts).unwrap().ext, ".erb");
-    assert!(match_configured_extension("/x/.hbs", &exts).is_none(), "bare dotfile name is not a template");
+    assert_eq!(
+        match_configured_extension("/x/show.blade.php", &exts)
+            .unwrap()
+            .ext,
+        ".blade.php"
+    );
+    assert_eq!(
+        match_configured_extension("/x/SHOW.HTML.ERB", &exts)
+            .unwrap()
+            .ext,
+        ".html.erb",
+        "the longest suffix wins"
+    );
+    assert_eq!(
+        match_configured_extension("/x/a.erb", &exts).unwrap().ext,
+        ".erb"
+    );
+    assert!(
+        match_configured_extension("/x/.hbs", &exts).is_none(),
+        "bare dotfile name is not a template"
+    );
     assert!(match_configured_extension("/x/a.tsx", &exts).is_none());
     assert!(match_configured_extension("/x/a.hbs", &[]).is_none());
 }
@@ -1004,14 +1287,16 @@ fn cache_round_trip_and_gc() {
     assert_eq!(bump_edit_count(&mut cache, "s", "/x/a.tsx"), 1.0);
     assert_eq!(bump_edit_count(&mut cache, "s", "/x/a.tsx"), 2.0);
     let g = f("gradient-text", 3.0, "G", "d", "s");
-    remember_findings(&mut cache, "s", "/x/a.tsx", &[g.clone()]);
+    remember_findings(&mut cache, "s", "/x/a.tsx", std::slice::from_ref(&g));
     assert!(persist_cache(&r, &cwd, &cache));
     let back = read_cache(&cwd);
     let entry = &back["sessions"]["s"]["files"]["/x/a.tsx"];
     assert_eq!(entry["editCount"], json!(2));
     assert_eq!(entry["findings"], json!(["gradient-text:3"]));
     let mut cache2 = back.clone();
-    assert!(dedupe_against_cache(&[g.clone()], &mut cache2, "s", "/x/a.tsx").is_empty());
+    assert!(
+        dedupe_against_cache(std::slice::from_ref(&g), &mut cache2, "s", "/x/a.tsx").is_empty()
+    );
     // same-line value-specific findings stay distinct
     let mut a = f("overused-font", 1.0, "O", "d", "font-family: Inter");
     a.extras.insert("ignoreValue".into(), json!("Inter"));
@@ -1057,18 +1342,27 @@ fn filter_findings_rules_advisory_and_values() {
     );
     c.advisory_rules = "include".into();
     assert_eq!(filter_findings(vec![em.clone(), side.clone()], &c).len(), 2);
-    let mut scan = HookScanOptions::default();
-    scan.decisions = std::rc::Rc::new(impeccino_detect::design_decisions::DesignDecisions {
-        source: None,
-        waived_rules: vec!["side-tab".into()],
-        declared_fonts: vec!["inter".into()],
-    });
-    assert!(filter_findings_for(vec![side.clone(), font.clone()], &c, &scan).is_empty());
-    scan.decisions = std::rc::Rc::new(impeccino_detect::design_decisions::DesignDecisions {
-        declared_fonts: vec!["roboto".into()],
+    let scan = HookScanOptions {
+        decisions: std::rc::Rc::new(impeccino_detect::design_decisions::DesignDecisions {
+            source: None,
+            waived_rules: vec!["side-tab".into()],
+            declared_fonts: vec!["inter".into()],
+        }),
         ..Default::default()
-    });
-    assert_eq!(filter_findings_for(vec![font.clone()], &c, &scan).len(), 1, "a different declared font does not waive Inter");
+    };
+    assert!(filter_findings_for(vec![side.clone(), font.clone()], &c, &scan).is_empty());
+    let scan = HookScanOptions {
+        decisions: std::rc::Rc::new(impeccino_detect::design_decisions::DesignDecisions {
+            declared_fonts: vec!["roboto".into()],
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    assert_eq!(
+        filter_findings_for(vec![font.clone()], &c, &scan).len(),
+        1,
+        "a different declared font does not waive Inter"
+    );
     let (imm, def) =
         split_findings_by_tier(vec![f("gradient-text", 1.0, "G", "d", "s"), side.clone()]);
     assert_eq!(imm[0].antipattern, "gradient-text");
@@ -1076,8 +1370,10 @@ fn filter_findings_rules_advisory_and_values() {
     assert!(per_edit_tiering_active(&HookConfig::default(), "claude"));
     assert!(!per_edit_tiering_active(&HookConfig::default(), "cursor"));
     assert!(!per_edit_tiering_active(&HookConfig::default(), "github"));
-    let mut all = HookConfig::default();
-    all.per_edit_rules = "all".into();
+    let all = HookConfig {
+        per_edit_rules: "all".into(),
+        ..Default::default()
+    };
     assert!(!per_edit_tiering_active(&all, "claude"));
 }
 
@@ -1104,7 +1400,9 @@ fn render_template_caps_and_footers() {
     ));
     assert!(text.contains("... and 7 more (see /impeccino audit)."));
     assert_eq!(text.lines().filter(|l| l.starts_with("- L")).count(), 5);
-    assert!(text.contains("`impeccino-disable-line <rule>: <who decided, and the evidence>` comment"));
+    assert!(
+        text.contains("`impeccino-disable-line <rule>: <who decided, and the evidence>` comment")
+    );
     assert!(text.contains("Self-serve ends at the in-file waiver."));
     assert!(text.contains("`<!-- impeccino-disable <rule>: reason -->`"));
     let short = render_template(
@@ -1175,7 +1473,9 @@ fn render_template_dedupes_descriptions_and_quotes_hints() {
         &c,
         &opts("/x"),
     );
-    assert!(bounce.contains("If deliberate, waive the line: `impeccino-disable-line bounce-easing: <reason>`."));
+    assert!(bounce.contains(
+        "If deliberate, waive the line: `impeccino-disable-line bounce-easing: <reason>`."
+    ));
     let hostile = render_template(
         &r,
         &[f(
@@ -1189,7 +1489,10 @@ fn render_template_dedupes_descriptions_and_quotes_hints() {
         &c,
         &opts("/x"),
     );
-    assert!(hostile.contains("declare `$(touch pwned)` in DESIGN.md."), "a hint, never a command line: {hostile}");
+    assert!(
+        hostile.contains("declare `$(touch pwned)` in DESIGN.md."),
+        "a hint, never a command line: {hostile}"
+    );
     let no_hint = {
         let mut x = f("side-tab", 1.0, "Side tab", "d", "s");
         x.extras.insert("ignoreValue".into(), json!("Inter"));
@@ -1361,7 +1664,7 @@ fn expand_scan_targets_follows_styles() {
     t.write("src/index.sass", "a{}");
     t.write("src/theme.scss", "a{}");
     t.write("src/App.module.less", "a{}");
-    let out = expand_scan_targets(&r, &[app.clone()], &cwd);
+    let out = expand_scan_targets(&r, std::slice::from_ref(&app), &cwd);
     assert_eq!(out[0], app);
     for name in [
         "src/theme.scss",
@@ -1383,7 +1686,10 @@ fn expand_scan_targets_follows_styles() {
         "traversal-looking primaries are not expanded"
     );
     let css = t.write("src/main.css", "a{}");
-    assert_eq!(expand_scan_targets(&r, &[css.clone()], &cwd), vec![css]);
+    assert_eq!(
+        expand_scan_targets(&r, std::slice::from_ref(&css), &cwd),
+        vec![css]
+    );
     assert!(expand_scan_targets(&r, &[], &cwd).is_empty());
     let capped: Vec<String> = (0..9).map(|i| format!("{cwd}/f{i}.css")).collect();
     assert_eq!(
@@ -1413,7 +1719,10 @@ fn run_hook_fresh_then_pending_then_stop() {
     assert_eq!(one.audit["deferred"], json!(1));
     assert_eq!(one.audit["freshFindings"], json!(1));
     assert!(t.has_cache());
-    assert!(!t.exists(".impeccino"), "hook state never lands in the project");
+    assert!(
+        !t.exists(".impeccino"),
+        "hook state never lands in the project"
+    );
     let two = hook::run_hook(&r, &ev);
     assert!(two
         .stdout
@@ -1469,7 +1778,12 @@ fn run_hook_scans_catch_all_route_files() {
     let (_t, cwd, route) = catch_all_route_fixture();
     let r = rt(&cwd);
     let res = hook::run_hook(&r, &edit_event(&cwd, &route, "s1"));
-    assert_ne!(audit_str(&res.audit, "skipped"), Some("sensitive"), "{}", res.stdout);
+    assert_ne!(
+        audit_str(&res.audit, "skipped"),
+        Some("sensitive"),
+        "{}",
+        res.stdout
+    );
     assert!(res.stdout.contains("[gradient-text]"), "{}", res.stdout);
 }
 
@@ -1519,8 +1833,14 @@ fn run_hook_acks_and_quiet_modes() {
     let q = hook::run_hook(&quiet, &edit_event(&cwd, &clean, "s2"));
     assert_eq!(q.audit["quiet"], json!(true));
     assert!(q.stdout.is_empty());
-    let re = rt_with(&cwd, env(&[("CLAUDE_HOOK_DEPTH", "2")]));
-    assert_eq!(hook::run_hook(&re, &ev).audit["reentrant"], json!(true));
+    let nested = rt_with(&cwd, env(&[("CLAUDE_HOOK_DEPTH", "2")]));
+    let nested_css = t.write("src/nested.css", GRADIENT_CSS);
+    let nested_scan = hook::run_hook(&nested, &edit_event(&cwd, &nested_css, "s3"));
+    assert!(
+        nested_scan.stdout.contains("[gradient-text]"),
+        "{}",
+        nested_scan.stdout
+    );
     let off = rt_with(&cwd, env(&[("IMPECCINO_HOOK_DISABLED", "yes")]));
     assert_eq!(
         audit_str(&hook::run_hook(&off, &ev).audit, "skipped"),
@@ -1580,10 +1900,17 @@ fn run_hook_skips_unsafe_and_foreign_targets() {
     // .gitattributes linguist-generated / linguist-vendored
     std::fs::create_dir_all(t.0.join(".git")).unwrap();
     t.write(".gitignore", "scratch/\n");
-    t.write(".gitattributes", "src/api.css linguist-generated\nthird_party/** linguist-vendored\n");
+    t.write(
+        ".gitattributes",
+        "src/api.css linguist-generated\nthird_party/** linguist-vendored\n",
+    );
     for rel in ["scratch/a.css", "src/api.css", "third_party/lib/a.css"] {
         let file = t.write(rel, GRADIENT_CSS);
-        assert_eq!(audit_str(&go(&file).audit, "skipped"), Some("git-ignored"), "{rel}");
+        assert_eq!(
+            audit_str(&go(&file).audit, "skipped"),
+            Some("git-ignored"),
+            "{rel}"
+        );
     }
     let own = t.write("src/own.css", GRADIENT_CSS);
     assert!(go(&own).stdout.contains("[gradient-text]"));
@@ -1618,7 +1945,10 @@ fn run_hook_symlinked_cwd_and_umbrella_launch() {
     );
     let app_cache = get_cache_path(&format!("{root}/app"));
     assert!(std::path::Path::new(&app_cache).exists());
-    assert_eq!(registered_project_roots(&read_cache(&root), "u1"), vec![format!("{root}/app")]);
+    assert_eq!(
+        registered_project_roots(&read_cache(&root), "u1"),
+        vec![format!("{root}/app")]
+    );
     let _ = std::fs::remove_dir_all(jsp::dirname(&app_cache));
 }
 
@@ -1696,7 +2026,10 @@ fn run_hook_co_located_styles_and_tiering_config() {
     let res = hook::run_hook(&r, &edit_event(&cwd, &app, "s4"));
     assert_eq!(audit_str(&res.audit, "skipped"), Some("git-ignored"));
     std::fs::remove_file(t.0.join(".gitignore")).unwrap();
-    t.write("DESIGN.md", "# Design\n\n<!-- impeccino-disable gradient-text -- the brand mark is a gradient -->\n");
+    t.write(
+        "DESIGN.md",
+        "# Design\n\n<!-- impeccino-disable gradient-text -- the brand mark is a gradient -->\n",
+    );
     let res = hook::run_hook(&r, &edit_event(&cwd, &app, "s5"));
     assert!(
         res.stdout
@@ -1734,7 +2067,10 @@ fn write_audit_log_targets() {
         !write_audit_log(&r2, &entry, "/elsewhere"),
         "no target, no-op"
     );
-    let r3 = rt_with("/elsewhere", env(&[("IMPECCINO_HOOK_LOG", "~/h.ndjson"), ("HOME", &cwd)]));
+    let r3 = rt_with(
+        "/elsewhere",
+        env(&[("IMPECCINO_HOOK_LOG", "~/h.ndjson"), ("HOME", &cwd)]),
+    );
     assert!(write_audit_log(&r3, &entry, "/elsewhere"));
     assert!(t.exists("h.ndjson"));
 }
@@ -1760,7 +2096,10 @@ fn before_edit_uses_the_touched_apps_platform_inside_a_workspace() {
     let root = t.path();
     t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
     t.write("apps/native/package.json", "{}");
-    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    t.write(
+        "apps/native/PRODUCT.md",
+        "# Product\n\n## Platform\nios and android\n",
+    );
     t.write("apps/web/package.json", "{}");
     let r = rt(&root);
     let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
@@ -1799,11 +2138,16 @@ fn post_edit_applies_native_platform_per_project_in_one_patch() {
     let root = t.path();
     t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
     t.write("apps/native/package.json", "{}");
-    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    t.write(
+        "apps/native/PRODUCT.md",
+        "# Product\n\n## Platform\nios and android\n",
+    );
     t.write("apps/web/package.json", "{}");
     let native = t.write("apps/native/src/native.css", GRADIENT_CSS);
     let web = t.write("apps/web/src/web.css", GRADIENT_CSS);
-    let patch = format!("*** Begin Patch\n*** Update File: {native}\n*** Update File: {web}\n*** End Patch\n");
+    let patch = format!(
+        "*** Begin Patch\n*** Update File: {native}\n*** Update File: {web}\n*** End Patch\n"
+    );
     let event = json!({
         "session_id": "mixed",
         "cwd": root,
@@ -1814,11 +2158,22 @@ fn post_edit_applies_native_platform_per_project_in_one_patch() {
     .to_string();
 
     let out = hook::run_hook(&rt(&root), &event);
-    assert!(out.stdout.contains("apps/web/src/web.css"), "{}", out.stdout);
-    assert!(!out.stdout.contains("apps/native/src/native.css"), "{}", out.stdout);
+    assert!(
+        out.stdout.contains("apps/web/src/web.css"),
+        "{}",
+        out.stdout
+    );
+    assert!(
+        !out.stdout.contains("apps/native/src/native.css"),
+        "{}",
+        out.stdout
+    );
     assert!(out.stdout.contains("[gradient-text]"), "{}", out.stdout);
     assert_eq!(audit_str(&out.audit, "skipped"), None);
-    assert_eq!(audit_str(&out.audit, "cwd"), Some(jsp::join(&[&root, "apps", "web"]).as_str()));
+    assert_eq!(
+        audit_str(&out.audit, "cwd"),
+        Some(jsp::join(&[&root, "apps", "web"]).as_str())
+    );
     assert_eq!(
         registered_project_roots(&read_cache(&root), "mixed"),
         vec![jsp::join(&[&root, "apps", "web"])]
@@ -1832,10 +2187,15 @@ fn post_edit_resolves_native_platform_per_target_without_package_marker() {
     let t = Tmp::new();
     let root = t.path();
     t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
-    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    t.write(
+        "apps/native/PRODUCT.md",
+        "# Product\n\n## Platform\nios and android\n",
+    );
     let native = t.write("apps/native/src/native.css", GRADIENT_CSS);
     let web = t.write("apps/web/src/web.css", GRADIENT_CSS);
-    let patch = format!("*** Begin Patch\n*** Update File: {native}\n*** Update File: {web}\n*** End Patch\n");
+    let patch = format!(
+        "*** Begin Patch\n*** Update File: {native}\n*** Update File: {web}\n*** End Patch\n"
+    );
     let event = json!({
         "session_id": "mixed-target-platform",
         "cwd": root,
@@ -1846,8 +2206,16 @@ fn post_edit_resolves_native_platform_per_target_without_package_marker() {
     .to_string();
 
     let out = hook::run_hook(&rt(&root), &event);
-    assert!(out.stdout.contains("apps/web/src/web.css"), "{}", out.stdout);
-    assert!(!out.stdout.contains("apps/native/src/native.css"), "{}", out.stdout);
+    assert!(
+        out.stdout.contains("apps/web/src/web.css"),
+        "{}",
+        out.stdout
+    );
+    assert!(
+        !out.stdout.contains("apps/native/src/native.css"),
+        "{}",
+        out.stdout
+    );
     assert_eq!(audit_str(&out.audit, "skipped"), None);
 }
 
@@ -1866,10 +2234,7 @@ fn multi_project_post_edit_shares_target_expansion_budget() {
                 &format!("import './{page}-theme.css';\nexport default 1;\n"),
             );
             primaries.push(primary.clone());
-            styles.push(t.write(
-                &format!("apps/{app}/src/{page}-theme.css"),
-                GRADIENT_CSS,
-            ));
+            styles.push(t.write(&format!("apps/{app}/src/{page}-theme.css"), GRADIENT_CSS));
         }
     }
     let patch = format!(
@@ -1890,10 +2255,26 @@ fn multi_project_post_edit_shares_target_expansion_budget() {
 
     let out = hook::run_hook(&rt(&root), &event);
     assert_eq!(out.audit["freshFiles"], json!(2), "{}", out.stdout);
-    assert!(out.stdout.contains("apps/a/src/One-theme.css"), "{}", out.stdout);
-    assert!(out.stdout.contains("apps/a/src/Two-theme.css"), "{}", out.stdout);
-    assert!(!out.stdout.contains("apps/b/src/One-theme.css"), "{}", out.stdout);
-    assert!(!out.stdout.contains("apps/b/src/Two-theme.css"), "{}", out.stdout);
+    assert!(
+        out.stdout.contains("apps/a/src/One-theme.css"),
+        "{}",
+        out.stdout
+    );
+    assert!(
+        out.stdout.contains("apps/a/src/Two-theme.css"),
+        "{}",
+        out.stdout
+    );
+    assert!(
+        !out.stdout.contains("apps/b/src/One-theme.css"),
+        "{}",
+        out.stdout
+    );
+    assert!(
+        !out.stdout.contains("apps/b/src/Two-theme.css"),
+        "{}",
+        out.stdout
+    );
 }
 
 #[test]
@@ -1933,7 +2314,10 @@ fn multi_project_post_edit_shares_rendered_finding_budget() {
         .count();
     assert_eq!(visible_findings, 5, "{message}");
     assert!(message.contains("- Real design problem:"), "{message}");
-    assert!(message.contains("More touched-project findings were omitted"), "{message}");
+    assert!(
+        message.contains("More touched-project findings were omitted"),
+        "{message}"
+    );
     assert!(message.contains("Triage each finding"), "{message}");
     assert!(!message.contains("apps/b/src/app.css"), "{message}");
 }
@@ -1983,10 +2367,17 @@ fn multi_project_post_edit_caps_actual_payload_at_8000_utf16_chars() {
     let message = hook_message(&out.stdout);
     assert_eq!(out.audit["freshFindings"], json!(3), "{}", out.stdout);
     assert!(message.contains("DESIGN.md is newer"), "{message}");
-    assert!(message.encode_utf16().count() <= 8_000, "{} chars", message.encode_utf16().count());
+    assert!(
+        message.encode_utf16().count() <= 8_000,
+        "{} chars",
+        message.encode_utf16().count()
+    );
     assert!(message.contains("apps/app-0/src/app.css"), "{message}");
     assert!(!message.contains("apps/app-1/src/app.css"), "{message}");
-    assert!(message.contains("More touched-project findings were omitted"), "{message}");
+    assert!(
+        message.contains("More touched-project findings were omitted"),
+        "{message}"
+    );
     assert!(message.contains("Triage each finding"), "{message}");
     for index in 0..3 {
         let app_root = jsp::join(&[&root, &format!("apps/app-{index}")]);
@@ -1999,7 +2390,10 @@ fn stop_resolves_native_platform_per_target_without_package_marker() {
     let t = Tmp::new();
     let root = t.path();
     t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
-    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    t.write(
+        "apps/native/PRODUCT.md",
+        "# Product\n\n## Platform\nios and android\n",
+    );
     let native = t.write("apps/native/src/native.css", GRADIENT_CSS);
     let web = t.write("apps/web/src/web.css", GRADIENT_CSS);
     let mut cache = read_cache(&root);
@@ -2008,8 +2402,16 @@ fn stop_resolves_native_platform_per_target_without_package_marker() {
     persist_cache(&rt(&root), &root, &cache);
 
     let stop = hook::run_stop_hook(&rt(&root), &stop_event(&root, "mixed-target-platform"));
-    assert!(stop.stdout.contains("apps/web/src/web.css"), "{}", stop.stdout);
-    assert!(!stop.stdout.contains("apps/native/src/native.css"), "{}", stop.stdout);
+    assert!(
+        stop.stdout.contains("apps/web/src/web.css"),
+        "{}",
+        stop.stdout
+    );
+    assert!(
+        !stop.stdout.contains("apps/native/src/native.css"),
+        "{}",
+        stop.stdout
+    );
     assert_eq!(stop.audit["scannedFiles"], json!(1), "{}", stop.stdout);
 }
 
@@ -2109,10 +2511,17 @@ fn stop_caps_actual_payload_at_8000_utf16_chars_across_project_roots() {
     let message = hook_message(&stop.stdout);
     assert_eq!(stop.audit["freshFindings"], json!(3), "{}", stop.stdout);
     assert!(message.contains("DESIGN.md is newer"), "{message}");
-    assert!(message.encode_utf16().count() <= 8_000, "{} chars", message.encode_utf16().count());
+    assert!(
+        message.encode_utf16().count() <= 8_000,
+        "{} chars",
+        message.encode_utf16().count()
+    );
     assert!(message.contains("apps/app-0/src/app.css"), "{message}");
     assert!(!message.contains("apps/app-2/src/app.css"), "{message}");
-    assert!(message.contains("More touched-project findings were omitted"), "{message}");
+    assert!(
+        message.contains("More touched-project findings were omitted"),
+        "{message}"
+    );
     assert!(message.contains("Triage each finding"), "{message}");
     for index in 0..3 {
         let app_root = jsp::join(&[&root, &format!("apps/app-{index}")]);
@@ -2125,7 +2534,10 @@ fn before_edit_resolves_native_platform_per_target_without_package_marker() {
     let t = Tmp::new();
     let root = t.path();
     t.write("package.json", r#"{"workspaces":["apps/*"]}"#);
-    t.write("apps/native/PRODUCT.md", "# Product\n\n## Platform\nios and android\n");
+    t.write(
+        "apps/native/PRODUCT.md",
+        "# Product\n\n## Platform\nios and android\n",
+    );
     let r = rt(&root);
     let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
 
@@ -2166,13 +2578,24 @@ fn before_edit_skips_oversized_proposed_content() {
     let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
     let (small_out, _) = hbe(
         &r,
-        &cursor(&cwd, "Write", json!({"file_path": "src/x.css", "content": slop})),
+        &cursor(
+            &cwd,
+            "Write",
+            json!({"file_path": "src/x.css", "content": slop}),
+        ),
     );
-    assert!(small_out.starts_with("{\"permission\":\"deny\""), "{small_out}");
+    assert!(
+        small_out.starts_with("{\"permission\":\"deny\""),
+        "{small_out}"
+    );
     let big = format!("{slop}/*{}*/\n", "a".repeat(2 * 1024 * 1024));
     let (out, code) = hbe(
         &r,
-        &cursor(&cwd, "Write", json!({"file_path": "src/x.css", "content": big})),
+        &cursor(
+            &cwd,
+            "Write",
+            json!({"file_path": "src/x.css", "content": big}),
+        ),
     );
     assert_eq!(code, 0);
     assert_eq!(out, "{\"permission\":\"allow\"}");
@@ -2342,7 +2765,10 @@ fn assert_claude_launcher_entry(entry: &Value, unix_command: &str, launcher_suff
         let script = args[2].as_str().unwrap();
         assert!(script.contains(launcher_suffix), "{script}");
         assert!(script.contains("Test-Path -LiteralPath"), "{script}");
-        assert!(impeccino_context::hook_markers::is_launcher_design_hook_command(script), "{script}");
+        assert!(
+            impeccino_context::hook_markers::is_launcher_design_hook_command(script),
+            "{script}"
+        );
     } else {
         assert_eq!(entry["command"], json!(unix_command));
         assert!(entry.get("args").is_none());
@@ -2358,12 +2784,23 @@ fn admin_retired_ignore_actions_point_at_design_md() {
         let (out, err, code) = admin_run(&r, &[action, "overused-font", "Inter"]);
         assert_eq!(code, 1);
         assert!(out.is_empty());
-        assert!(err.starts_with(&format!("\"{action}\" was removed: Impeccino keeps no config file.")), "{err}");
-        assert!(err.contains("<!-- impeccino-disable <rule>: reason --> in DESIGN.md"), "{err}");
+        assert!(
+            err.starts_with(&format!(
+                "\"{action}\" was removed: Impeccino keeps no config file."
+            )),
+            "{err}"
+        );
+        assert!(
+            err.contains("<!-- impeccino-disable <rule>: reason --> in DESIGN.md"),
+            "{err}"
+        );
     }
     let (_, err, code) = admin_run(&r, &["bogus"]);
     assert_eq!(code, 1);
-    assert_eq!(err, "Unknown action: bogus\nValid: status, on, off, reset\n");
+    assert_eq!(
+        err,
+        "Unknown action: bogus\nValid: status, on, off, reset\n"
+    );
     let (out, _, _) = admin_run(&r, &["reset"]);
     assert_eq!(out, "No hook entries or cache to remove.\n");
     assert!(!t.exists(".impeccino"), "admin writes no config");
@@ -2375,8 +2812,14 @@ fn admin_on_off_status_and_reset_follow_the_manifests() {
     let r = rt(&cwd);
     t.write(".git/keep", "");
     let (out, _, _) = admin_run(&r, &["status"]);
-    assert!(out.contains("installed:    no (run /impeccino hooks on to install)\n"), "{out}");
-    assert!(out.contains("DESIGN.md:    not present (no project waivers)\n"), "{out}");
+    assert!(
+        out.contains("installed:    no (run /impeccino hooks on to install)\n"),
+        "{out}"
+    );
+    assert!(
+        out.contains("DESIGN.md:    not present (no project waivers)\n"),
+        "{out}"
+    );
     install_test_skill(&t, ".github/skills/impeccino");
     let (out, _, _) = admin_run(&r, &["on"]);
     assert_eq!(out, "Installed or repaired hook manifests for: .github.\n");
@@ -2385,10 +2828,16 @@ fn admin_on_off_status_and_reset_follow_the_manifests() {
         .contains("\"matcher\": \"edit|create|apply_patch\""));
     let (out, _, _) = admin_run(&r, &["on"]);
     assert_eq!(out, "Hook manifests already installed for: .github.\n");
-    t.write("DESIGN.md", "# D\n\n<!-- impeccino-disable side-tab -- ledger rails -->\n");
+    t.write(
+        "DESIGN.md",
+        "# D\n\n<!-- impeccino-disable side-tab -- ledger rails -->\n",
+    );
     let (out, _, _) = admin_run(&r, &["status"]);
     assert!(out.contains(".github/hooks/impeccino.json"), "{out}");
-    assert!(out.contains("DESIGN.md:    DESIGN.md (waived rules: side-tab; declared fonts: none)\n"), "{out}");
+    assert!(
+        out.contains("DESIGN.md:    DESIGN.md (waived rules: side-tab; declared fonts: none)\n"),
+        "{out}"
+    );
     assert!(!t.exists(".impeccino"), "no config, no consent record");
     let (out, _, _) = admin_run(&r, &["off"]);
     assert_eq!(out, "Removed hook entries from: .github.\n");
@@ -2400,7 +2849,10 @@ fn admin_on_off_status_and_reset_follow_the_manifests() {
     assert!(persist_cache(&r, &cwd, &read_cache(&cwd)));
     assert!(t.has_cache());
     let (out, _, _) = admin_run(&r, &["reset"]);
-    assert!(out.starts_with("Removed hook entries from: .github. Cleared the hook's session cache ("), "{out}");
+    assert!(
+        out.starts_with("Removed hook entries from: .github. Cleared the hook's session cache ("),
+        "{out}"
+    );
     assert!(!t.has_cache());
     // a hook in the team-shared Claude settings is named, never edited
     t.write(
@@ -2408,7 +2860,10 @@ fn admin_on_off_status_and_reset_follow_the_manifests() {
         r#"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"\"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook"}]}]}}"#,
     );
     let (out, _, _) = admin_run(&r, &["off"]);
-    assert!(out.contains("Still installed in .claude/settings.json, which the team shares"), "{out}");
+    assert!(
+        out.contains("Still installed in .claude/settings.json, which the team shares"),
+        "{out}"
+    );
     assert!(t.read(".claude/settings.json").contains("impeccino"));
 }
 #[test]
@@ -2461,7 +2916,12 @@ fn admin_on_writes_launcher_manifests_for_every_harness() {
     }
     let (out, _, code) = admin_run(&r, &["on"]);
     assert_eq!(code, 0, "{out}");
-    assert!(out.ends_with("Installed or repaired hook manifests for: .claude, .agents, .cursor, .github.\n"), "{out}");
+    assert!(
+        out.ends_with(
+            "Installed or repaired hook manifests for: .claude, .agents, .cursor, .github.\n"
+        ),
+        "{out}"
+    );
 
     let claude: Value = serde_json::from_str(&t.read(".claude/settings.local.json")).unwrap();
     let cmd = "if [ -x \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" ]; then \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccino/scripts/impeccino\" hook; fi";
@@ -2475,7 +2935,9 @@ fn admin_on_writes_launcher_manifests_for_every_harness() {
         cmd,
         ".claude/skills/impeccino/scripts/impeccino.cmd",
     );
-    assert!(claude["hooks"]["PostToolUse"][0]["hooks"][0].get("commandWindows").is_none());
+    assert!(claude["hooks"]["PostToolUse"][0]["hooks"][0]
+        .get("commandWindows")
+        .is_none());
     assert!(!t.read(".claude/settings.local.json").contains("node "));
 
     let codex: Value = serde_json::from_str(&t.read(".codex/hooks.json")).unwrap();
@@ -2483,8 +2945,19 @@ fn admin_on_writes_launcher_manifests_for_every_harness() {
     assert_eq!(entry["command"], json!("if [ -x \"$(git rev-parse --show-toplevel)/.agents/skills/impeccino/scripts/impeccino\" ]; then \"$(git rev-parse --show-toplevel)/.agents/skills/impeccino/scripts/impeccino\" hook; fi"));
     assert_eq!(entry["commandWindows"], json!("for /f \"delims=\" %i in ('git rev-parse --show-toplevel') do if exist \"%i\\.agents\\skills\\impeccino\\scripts\\impeccino.cmd\" \"%i\\.agents\\skills\\impeccino\\scripts\\impeccino.cmd\" hook"));
     assert_eq!(
-        entry.as_object().unwrap().keys().cloned().collect::<Vec<_>>(),
-        vec!["type", "command", "commandWindows", "timeout", "statusMessage"]
+        entry
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>(),
+        vec![
+            "type",
+            "command",
+            "commandWindows",
+            "timeout",
+            "statusMessage"
+        ]
     );
     let stop = &codex["hooks"]["Stop"][0]["hooks"][0];
     assert_eq!(stop["command"], json!("if [ -x \"$(git rev-parse --show-toplevel)/.agents/skills/impeccino/scripts/impeccino\" ]; then \"$(git rev-parse --show-toplevel)/.agents/skills/impeccino/scripts/impeccino\" hook; fi"));
@@ -2504,7 +2977,12 @@ fn admin_on_writes_launcher_manifests_for_every_harness() {
 
     // A second `on` is a no-op against the manifests it just wrote.
     let (out, _, _) = admin_run(&r, &["on"]);
-    assert!(out.ends_with("Hook manifests already installed for: .claude, .agents, .cursor, .github.\n"), "{out}");
+    assert!(
+        out.ends_with(
+            "Hook manifests already installed for: .claude, .agents, .cursor, .github.\n"
+        ),
+        "{out}"
+    );
 }
 
 #[test]
@@ -2527,14 +3005,24 @@ fn admin_on_repairs_legacy_mjs_manifests_to_the_launcher_form() {
     );
     let (out, _, code) = admin_run(&r, &["on"]);
     assert_eq!(code, 0, "{out}");
-    assert!(out.ends_with("Installed or repaired hook manifests for: .claude, .agents.\n"), "{out}");
+    assert!(
+        out.ends_with("Installed or repaired hook manifests for: .claude, .agents.\n"),
+        "{out}"
+    );
 
     let claude = t.read(".claude/settings.local.json");
-    assert!(!claude.contains(".mjs"), "legacy entries replaced: {claude}");
+    assert!(
+        !claude.contains(".mjs"),
+        "legacy entries replaced: {claude}"
+    );
     let claude: Value = serde_json::from_str(&claude).unwrap();
     assert_eq!(claude["permissions"]["allow"], json!(["Bash(ls)"]));
     let post = claude["hooks"]["PostToolUse"].as_array().unwrap();
-    assert_eq!(post.len(), 2, "foreign entry kept, impeccino entry replaced once: {post:?}");
+    assert_eq!(
+        post.len(),
+        2,
+        "foreign entry kept, impeccino entry replaced once: {post:?}"
+    );
     assert_eq!(post[0]["hooks"][0]["command"], json!("echo other"));
     assert_claude_launcher_entry(
         &post[1]["hooks"][0],
@@ -2569,9 +3057,15 @@ fn admin_on_repairs_legacy_mjs_manifests_to_the_launcher_form() {
     let (out, _, _) = admin_run(&r, &["on"]);
     assert!(out.contains("already installed for: .claude"), "{out}");
     let local = t.read(".claude/settings.local.json");
-    assert!(!local.contains("skills/impeccino"), "launcher-form entries pruned: {local}");
+    assert!(
+        !local.contains("skills/impeccino"),
+        "launcher-form entries pruned: {local}"
+    );
     let local: Value = serde_json::from_str(&local).unwrap();
-    assert_eq!(local["hooks"]["PostToolUse"][0]["hooks"][0]["command"], json!("echo other"));
+    assert_eq!(
+        local["hooks"]["PostToolUse"][0]["hooks"][0]["command"],
+        json!("echo other")
+    );
     assert!(local["hooks"].get("Stop").is_none());
     assert_eq!(local["permissions"]["allow"], json!(["Bash(ls)"]));
 }
@@ -2586,7 +3080,10 @@ fn admin_on_without_a_supported_project_launcher_fails_actionably() {
 
     assert_eq!(code, 1);
     assert!(out.is_empty());
-    assert!(err.contains("No supported project-local Impeccino launcher"), "{err}");
+    assert!(
+        err.contains("No supported project-local Impeccino launcher"),
+        "{err}"
+    );
     assert!(!t.exists(".claude/settings.local.json"));
     assert!(!t.exists(".codex/hooks.json"));
 }
@@ -2596,7 +3093,10 @@ fn admin_rejects_percent_workspace_paths_only_when_codex_windows_command_is_need
     let t = Tmp::new();
     let repo_marker = t.write("repo/.git/keep", "");
     let _repo_root = jsp::dirname(&repo_marker);
-    t.write("repo/%workspace%/package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write(
+        "repo/%workspace%/package.json",
+        r#"{"workspaces":["apps/*"]}"#,
+    );
     let app = t.write("repo/%workspace%/apps/site/package.json", "{}");
     install_test_skill(&t, "repo/%workspace%/.agents/skills/impeccino");
     let r = rt(&jsp::dirname(&app));
@@ -2608,7 +3108,10 @@ fn admin_rejects_percent_workspace_paths_only_when_codex_windows_command_is_need
     assert!(err.contains("path contains `%`"), "{err}");
     assert!(!t.exists("repo/%workspace%/.codex/hooks.json"));
 
-    t.write("repo/%cursor-workspace%/package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write(
+        "repo/%cursor-workspace%/package.json",
+        r#"{"workspaces":["apps/*"]}"#,
+    );
     let cursor_app = t.write("repo/%cursor-workspace%/apps/site/package.json", "{}");
     install_test_skill(&t, "repo/%cursor-workspace%/.cursor/skills/impeccino");
     let r = rt(&jsp::dirname(&cursor_app));
@@ -2628,7 +3131,10 @@ fn admin_on_rejects_a_skill_folder_without_its_launcher() {
 
     assert_eq!(code, 1);
     assert!(out.is_empty());
-    assert!(err.contains("launcher") && err.contains(".github/skills/impeccino/scripts/impeccino"), "{err}");
+    assert!(
+        err.contains("launcher") && err.contains(".github/skills/impeccino/scripts/impeccino"),
+        "{err}"
+    );
     assert!(!t.exists(".github/hooks/impeccino.json"));
 }
 
@@ -2645,9 +3151,15 @@ fn admin_on_skips_malformed_claude_settings_without_replacing_them_or_their_back
 
     assert_eq!(code, 1);
     assert!(out.is_empty());
-    assert!(err.contains(".claude/settings.local.json") && err.contains("valid JSON"), "{err}");
+    assert!(
+        err.contains(".claude/settings.local.json") && err.contains("valid JSON"),
+        "{err}"
+    );
     assert_eq!(t.read(".claude/settings.local.json"), "{ broken");
-    assert_eq!(t.read(".claude/settings.local.json.bak"), "keep this older backup");
+    assert_eq!(
+        t.read(".claude/settings.local.json.bak"),
+        "keep this older backup"
+    );
 }
 
 #[test]
@@ -2662,7 +3174,10 @@ fn admin_on_preserves_non_object_claude_settings() {
 
     assert_eq!(code, 1);
     assert!(out.is_empty());
-    assert!(err.contains(".claude/settings.local.json") && err.contains("JSON object"), "{err}");
+    assert!(
+        err.contains(".claude/settings.local.json") && err.contains("JSON object"),
+        "{err}"
+    );
     assert_eq!(t.read(".claude/settings.local.json"), "[]");
     assert!(!t.exists(".claude/settings.local.json.bak"));
 }
@@ -2700,7 +3215,10 @@ fn admin_off_does_not_claim_success_for_a_malformed_manifest_with_an_impeccino_e
 
     assert_eq!(code, 1);
     assert!(out.is_empty());
-    assert!(err.contains("malformed") && err.contains(".cursor/hooks.json"), "{err}");
+    assert!(
+        err.contains("malformed") && err.contains(".cursor/hooks.json"),
+        "{err}"
+    );
     assert_eq!(t.read(".cursor/hooks.json"), malformed);
 }
 
@@ -2741,7 +3259,12 @@ fn admin_on_refuses_to_replace_a_symlink_manifest() {
     assert_eq!(code, 1);
     assert!(out.is_empty());
     assert!(err.contains("symlink"), "{err}");
-    assert!(std::fs::symlink_metadata(t.0.join(".github/hooks/impeccino.json")).unwrap().file_type().is_symlink());
+    assert!(
+        std::fs::symlink_metadata(t.0.join(".github/hooks/impeccino.json"))
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
     assert_eq!(t.read("outside.json"), "{\"hooks\":{}}\n");
 }
 
@@ -2753,14 +3276,22 @@ fn admin_on_with_global_claude_skill_writes_only_the_current_projects_local_sett
     let home = jsp::join(&[&t.path(), "home with spaces"]);
     let skill_dir = jsp::join(&[&home, ".claude/skills/impeccino"]);
     install_test_skill(&t, "home with spaces/.claude/skills/impeccino");
-    let r = rt_with(&repo_root, env(&[("HOME", &home), ("USERPROFILE", &home), ("IMPECCINO_SKILL_DIR", &skill_dir)]));
+    let r = rt_with(
+        &repo_root,
+        env(&[
+            ("HOME", &home),
+            ("USERPROFILE", &home),
+            ("IMPECCINO_SKILL_DIR", &skill_dir),
+        ]),
+    );
 
     let (out, err, code) = admin_run(&r, &["on"]);
 
     assert_eq!(code, 0, "{err}");
     assert!(out.contains(".claude"), "{out}");
     assert!(t.exists("repo/.claude/settings.local.json"), "{out} {err}");
-    let manifest: Value = serde_json::from_str(&t.read("repo/.claude/settings.local.json")).unwrap();
+    let manifest: Value =
+        serde_json::from_str(&t.read("repo/.claude/settings.local.json")).unwrap();
     let entry = &manifest["hooks"]["PostToolUse"][0]["hooks"][0];
     if cfg!(windows) {
         assert_eq!(entry["command"], json!("powershell.exe"));
@@ -2771,15 +3302,26 @@ fn admin_on_with_global_claude_skill_writes_only_the_current_projects_local_sett
         let launcher = PathBuf::from(&skill_dir).join("scripts/impeccino.cmd");
         let launcher = launcher.to_string_lossy().replace('\\', "/");
         assert!(script.contains(&launcher), "{script}");
-        assert!(!script.contains("\\\\?\\"), "extended path leaked into command: {script}");
+        assert!(
+            !script.contains("\\\\?\\"),
+            "extended path leaked into command: {script}"
+        );
         assert!(script.contains("Test-Path -LiteralPath"), "{script}");
         assert!(script.contains("hook"), "{script}");
         assert!(impeccino_context::hook_markers::is_launcher_design_hook_command(script));
     } else {
         let command = entry["command"].as_str().unwrap();
-        let canonical_skill_dir = std::fs::canonicalize(&skill_dir).unwrap().to_string_lossy().replace('\\', "/");
-        let canonical_skill_dir = canonical_skill_dir.strip_prefix("//?/").unwrap_or(&canonical_skill_dir);
-        assert!(command.replace('\\', "/").contains(canonical_skill_dir), "{command}");
+        let canonical_skill_dir = std::fs::canonicalize(&skill_dir)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let canonical_skill_dir = canonical_skill_dir
+            .strip_prefix("//?/")
+            .unwrap_or(&canonical_skill_dir);
+        assert!(
+            command.replace('\\', "/").contains(canonical_skill_dir),
+            "{command}"
+        );
     }
     assert!(!t.exists("home with spaces/.claude/settings.json"));
 
@@ -2806,13 +3348,23 @@ fn admin_on_does_not_guess_a_harness_for_a_global_agents_skill() {
     let home = jsp::join(&[&t.path(), "home"]);
     let skill_dir = jsp::join(&[&home, ".agents/skills/impeccino"]);
     install_test_skill(&t, "home/.agents/skills/impeccino");
-    let r = rt_with(&repo_root, env(&[("HOME", &home), ("USERPROFILE", &home), ("IMPECCINO_SKILL_DIR", &skill_dir)]));
+    let r = rt_with(
+        &repo_root,
+        env(&[
+            ("HOME", &home),
+            ("USERPROFILE", &home),
+            ("IMPECCINO_SKILL_DIR", &skill_dir),
+        ]),
+    );
 
     let (out, err, code) = admin_run(&r, &["on"]);
 
     assert_eq!(code, 1);
     assert!(out.is_empty());
-    assert!(err.contains("supported project-local") || err.contains("ambiguous"), "{err}");
+    assert!(
+        err.contains("supported project-local") || err.contains("ambiguous"),
+        "{err}"
+    );
     assert!(!t.exists("repo/.claude/settings.local.json"));
     assert!(!t.exists("repo/.codex/hooks.json"));
     assert!(!t.exists("home/.codex/hooks.json"));
@@ -2823,7 +3375,10 @@ fn admin_actions_from_a_nested_directory_use_the_repository_manifests() {
     let t = Tmp::new();
     let repo_marker = t.write("repo/keep", "");
     init_test_git(&jsp::dirname(&repo_marker));
-    t.write("repo/workspace/package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write(
+        "repo/workspace/package.json",
+        r#"{"workspaces":["apps/*"]}"#,
+    );
     t.write("repo/workspace/apps/site/package.json", "{}");
     install_test_skill(&t, "repo/workspace/.agents/skills/impeccino");
     install_test_skill(&t, "repo/workspace/.cursor/skills/impeccino");
@@ -2838,7 +3393,10 @@ fn admin_actions_from_a_nested_directory_use_the_repository_manifests() {
         "repo/workspace/.agents/skills/impeccino/scripts/impeccino",
         "repo/workspace/.cursor/skills/impeccino/scripts/impeccino",
     ] {
-        t.write(launcher, "#!/bin/sh\nprintf '%s' \"$1\" > \"$HOOK_TEST_MARKER\"\n");
+        t.write(
+            launcher,
+            "#!/bin/sh\nprintf '%s' \"$1\" > \"$HOOK_TEST_MARKER\"\n",
+        );
     }
 
     let (out, err, code) = admin_run(&r, &["on"]);
@@ -2850,12 +3408,19 @@ fn admin_actions_from_a_nested_directory_use_the_repository_manifests() {
 
     let (out, err, code) = admin_run(&workspace, &["on"]);
     assert_eq!(code, 0, "{err} {out}");
-    assert!(out.contains("Hook manifests already installed for:"), "{out}");
+    assert!(
+        out.contains("Hook manifests already installed for:"),
+        "{out}"
+    );
     let (workspace_status, _, workspace_code) = admin_run(&workspace, &["status"]);
     let (nested_status, _, nested_code) = admin_run(&r, &["status"]);
     assert_eq!(workspace_code, 0);
     assert_eq!(nested_code, 0);
-    for manifest in [".github/hooks/impeccino.json", ".codex/hooks.json", ".cursor/hooks.json"] {
+    for manifest in [
+        ".github/hooks/impeccino.json",
+        ".codex/hooks.json",
+        ".cursor/hooks.json",
+    ] {
         assert!(workspace_status.contains(manifest), "{workspace_status}");
         assert!(nested_status.contains(manifest), "{nested_status}");
     }
@@ -2864,14 +3429,28 @@ fn admin_actions_from_a_nested_directory_use_the_repository_manifests() {
     {
         use std::process::Command;
         for (manifest, command_field, marker_name, expected) in [
-            ("repo/workspace/.codex/hooks.json", "command", "codex-hook-ran", "hook"),
-            ("repo/workspace/.cursor/hooks.json", "command", "cursor-hook-ran", "hook-before-edit"),
+            (
+                "repo/workspace/.codex/hooks.json",
+                "command",
+                "codex-hook-ran",
+                "hook",
+            ),
+            (
+                "repo/workspace/.cursor/hooks.json",
+                "command",
+                "cursor-hook-ran",
+                "hook-before-edit",
+            ),
         ] {
             let parsed: Value = serde_json::from_str(&t.read(manifest)).unwrap();
             let command = if manifest.contains("codex") {
-                parsed["hooks"]["PostToolUse"][0]["hooks"][0][command_field].as_str().unwrap()
+                parsed["hooks"]["PostToolUse"][0]["hooks"][0][command_field]
+                    .as_str()
+                    .unwrap()
             } else {
-                parsed["hooks"]["preToolUse"][0][command_field].as_str().unwrap()
+                parsed["hooks"]["preToolUse"][0][command_field]
+                    .as_str()
+                    .unwrap()
             };
             let marker = jsp::join(&[&t.path(), marker_name]);
             let status = Command::new("sh")
@@ -2882,7 +3461,11 @@ fn admin_actions_from_a_nested_directory_use_the_repository_manifests() {
                 .status()
                 .unwrap();
             assert!(status.success(), "{command}");
-            assert_eq!(std::fs::read_to_string(marker).unwrap(), expected, "{command}");
+            assert_eq!(
+                std::fs::read_to_string(marker).unwrap(),
+                expected,
+                "{command}"
+            );
 
             let launcher = if manifest.contains("codex") {
                 "repo/workspace/.agents/skills/impeccino/scripts/impeccino"
@@ -2899,8 +3482,14 @@ fn admin_actions_from_a_nested_directory_use_the_repository_manifests() {
                 .env("HOOK_TEST_MARKER", &marker)
                 .status()
                 .unwrap();
-            assert!(skipped.success(), "missing launcher should be a silent no-op: {command}");
-            assert!(!Path::new(&marker).exists(), "missing launcher should not run: {command}");
+            assert!(
+                skipped.success(),
+                "missing launcher should be a silent no-op: {command}"
+            );
+            assert!(
+                !Path::new(&marker).exists(),
+                "missing launcher should not run: {command}"
+            );
         }
     }
 
@@ -2913,8 +3502,14 @@ fn admin_actions_from_a_nested_directory_use_the_repository_manifests() {
     let (nested_status, _, nested_code) = admin_run(&r, &["status"]);
     assert_eq!(workspace_code, 0);
     assert_eq!(nested_code, 0);
-    assert!(workspace_status.contains("installed:    no"), "{workspace_status}");
-    assert!(nested_status.contains("installed:    no"), "{nested_status}");
+    assert!(
+        workspace_status.contains("installed:    no"),
+        "{workspace_status}"
+    );
+    assert!(
+        nested_status.contains("installed:    no"),
+        "{nested_status}"
+    );
     let (out, _, code) = admin_run(&r, &["off"]);
     assert_eq!(code, 0, "{out}");
     assert_eq!(out, "No local hook entries to remove.\n");
@@ -2965,7 +3560,10 @@ fn admin_codex_command_windows_executes_from_nested_cwd_and_skips_missing_launch
         .env("HOOK_TEST_MARKER", &marker)
         .status()
         .unwrap();
-    assert!(status.success(), "missing launcher should be a silent no-op: {command}");
+    assert!(
+        status.success(),
+        "missing launcher should be a silent no-op: {command}"
+    );
     assert!(!Path::new(&marker).exists());
 }
 
@@ -2992,11 +3590,15 @@ fn admin_global_claude_exec_form_is_detected_and_runs_with_powershell_args() {
     let runtime = rt_with(&repo_root, test_env.clone());
     let (out, err, code) = admin_run(&runtime, &["on"]);
     assert_eq!(code, 0, "{err} {out}");
-    let manifest: Value = serde_json::from_str(&t.read("repo/.claude/settings.local.json")).unwrap();
+    let manifest: Value =
+        serde_json::from_str(&t.read("repo/.claude/settings.local.json")).unwrap();
     let entry = &manifest["hooks"]["PostToolUse"][0]["hooks"][0];
     assert_eq!(entry["command"], json!("powershell.exe"));
     let args = entry["args"].as_array().unwrap();
-    let args = args.iter().map(|value| value.as_str().unwrap()).collect::<Vec<_>>();
+    let args = args
+        .iter()
+        .map(|value| value.as_str().unwrap())
+        .collect::<Vec<_>>();
     let marker = jsp::join(&[&t.path(), "claude-hook-ran"]);
     let status = Command::new("powershell.exe")
         .args(&args)
@@ -3013,7 +3615,9 @@ fn admin_global_claude_exec_form_is_detected_and_runs_with_powershell_args() {
     );
     let provider = impeccino_context::provider::detect(&test_env, &repo_root);
     assert_eq!(
-        impeccino_context::context_cli::automatic_hook_mode(&context, &repo_root, &test_env, &provider),
+        impeccino_context::context_cli::automatic_hook_mode(
+            &context, &repo_root, &test_env, &provider
+        ),
         "stop",
         "context must recognize the exec-form launcher in args",
     );
@@ -3035,7 +3639,10 @@ fn admin_off_from_child_finds_workspace_manifest_after_skill_removal() {
     let repo_marker = t.write("repo/keep", "");
     let repo_root = jsp::dirname(&repo_marker);
     init_test_git(&repo_root);
-    t.write("repo/workspace/package.json", r#"{"workspaces":["apps/*"]}"#);
+    t.write(
+        "repo/workspace/package.json",
+        r#"{"workspaces":["apps/*"]}"#,
+    );
     t.write("repo/workspace/apps/site/package.json", "{}");
     install_test_skill(&t, "repo/workspace/.github/skills/impeccino");
     let workspace_root = jsp::join(&[&t.path(), "repo/workspace"]);
@@ -3065,8 +3672,14 @@ fn admin_off_from_child_finds_workspace_manifest_after_skill_removal() {
     let (nested_status, _, nested_code) = admin_run(&nested, &["status"]);
     assert_eq!(workspace_code, 0);
     assert_eq!(nested_code, 0);
-    assert!(workspace_status.contains("installed:    no"), "{workspace_status}");
-    assert!(nested_status.contains("installed:    no"), "{nested_status}");
+    assert!(
+        workspace_status.contains("installed:    no"),
+        "{workspace_status}"
+    );
+    assert!(
+        nested_status.contains("installed:    no"),
+        "{nested_status}"
+    );
 }
 
 #[test]
@@ -3074,15 +3687,15 @@ fn admin_reset_reports_state_file_delete_errors() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
-    let pending = get_pending_path(&cwd);
-    std::fs::create_dir_all(&pending).unwrap();
+    let cache = get_cache_path(&cwd);
+    std::fs::create_dir_all(&cache).unwrap();
 
     let (out, err, code) = admin_run(&r, &["reset"]);
 
     assert_eq!(code, 1);
     assert!(out.is_empty());
     assert!(err.contains("could not remove hook state file"), "{err}");
-    assert!(err.contains(&pending), "{err}");
+    assert!(err.contains(&cache), "{err}");
 }
 
 // ── Grok Build + Codex (#646, #603, upstream 35ae0733/bfe634e2/3c442af7/c9e7cd8a) ──
@@ -3102,15 +3715,27 @@ fn grok_and_codex_harness_detection() {
     .unwrap();
     assert_eq!(resolve_harness(&r, Some(&grok)), "grok");
     // GitHub Copilot still classifies by toolArgs.
-    let gh = json!({ "toolName": "str_replace_editor", "toolArgs": "{}" }).as_object().cloned().unwrap();
+    let gh = json!({ "toolName": "str_replace_editor", "toolArgs": "{}" })
+        .as_object()
+        .cloned()
+        .unwrap();
     assert_eq!(resolve_harness(&r, Some(&gh)), "github");
     // A Stop envelope with only hookEventName is Grok too.
-    let grok_stop = json!({ "hookEventName": "stop", "sessionId": "g1", "cwd": "/w" }).as_object().cloned().unwrap();
+    let grok_stop = json!({ "hookEventName": "stop", "sessionId": "g1", "cwd": "/w" })
+        .as_object()
+        .cloned()
+        .unwrap();
     assert_eq!(resolve_harness(&r, Some(&grok_stop)), "grok");
     // Codex turn-scoped events carry turn_id; Claude Code does not.
-    let codex = json!({ "hook_event_name": "Stop", "session_id": "s", "turn_id": "t-1" }).as_object().cloned().unwrap();
+    let codex = json!({ "hook_event_name": "Stop", "session_id": "s", "turn_id": "t-1" })
+        .as_object()
+        .cloned()
+        .unwrap();
     assert_eq!(resolve_harness(&r, Some(&codex)), "codex");
-    let claude = json!({ "hook_event_name": "Stop", "session_id": "s" }).as_object().cloned().unwrap();
+    let claude = json!({ "hook_event_name": "Stop", "session_id": "s" })
+        .as_object()
+        .cloned()
+        .unwrap();
     assert_eq!(resolve_harness(&r, Some(&claude)), "claude");
     // Explicit env overrides.
     let forced = rt_with("/p", env(&[("IMPECCINO_HOOK_HARNESS", "grok")]));
@@ -3141,23 +3766,32 @@ fn grok_post_tool_use_scans_and_stop_reports_everything() {
     // Grok discards PostToolUse stdout, so Stop must re-report the immediate
     // tier alongside the deferred one: the per-edit pass only touched the
     // file, remembering nothing.
-    let stop = json!({ "hookEventName": "stop", "sessionId": "g1", "cwd": cwd, "reason": "end_turn" }).to_string();
+    let stop =
+        json!({ "hookEventName": "stop", "sessionId": "g1", "cwd": cwd, "reason": "end_turn" })
+            .to_string();
     let deep = hook::run_stop_hook(&r, &stop);
     assert!(
         deep.stdout.contains("[gradient-text]") && deep.stdout.contains("[side-tab]"),
         "{}",
         deep.stdout
     );
-    assert!(deep.stdout.contains("\"hookEventName\":\"Stop\""), "Grok takes the Claude Stop payload shape");
+    assert!(
+        deep.stdout.contains("\"hookEventName\":\"Stop\""),
+        "Grok takes the Claude Stop payload shape"
+    );
 
     // The observe-only shutdown fire never re-emits.
-    let shutdown = json!({ "hookEventName": "stop", "sessionId": "g1", "cwd": cwd, "reason": "shutdown" }).to_string();
+    let shutdown =
+        json!({ "hookEventName": "stop", "sessionId": "g1", "cwd": cwd, "reason": "shutdown" })
+            .to_string();
     let second = hook::run_stop_hook(&r, &shutdown);
     assert_eq!(second.stdout, "");
     assert_eq!(audit_str(&second.audit, "skipped"), Some("stop-reason"));
 
     // stopHookActive (camelCase) guards re-entry like stop_hook_active.
-    let active = json!({ "hookEventName": "stop", "sessionId": "g1", "cwd": cwd, "stopHookActive": true }).to_string();
+    let active =
+        json!({ "hookEventName": "stop", "sessionId": "g1", "cwd": cwd, "stopHookActive": true })
+            .to_string();
     let re = hook::run_stop_hook(&r, &active);
     assert_eq!(audit_str(&re.audit, "skipped"), Some("stop-hook-active"));
 }
@@ -3187,7 +3821,10 @@ fn stop_cache_syncs_after_clean_scan_so_reintroductions_fire() {
 fn codex_stop_emits_decision_block() {
     // #603: Codex Stop rejects Claude's hookSpecificOutput shape; findings
     // that should continue the turn are a top-level blocking decision.
-    assert_eq!(payload("findings", "Stop", "codex"), r#"{"decision":"block","reason":"findings"}"#);
+    assert_eq!(
+        payload("findings", "Stop", "codex"),
+        r#"{"decision":"block","reason":"findings"}"#
+    );
     assert_eq!(payload("  ", "Stop", "codex"), "");
     // PostToolUse keeps the shared additional-context shape.
     assert_eq!(
@@ -3200,7 +3837,9 @@ fn codex_stop_emits_decision_block() {
     let r = rt(&cwd);
     let css = t.write("src/a.css", SIDE_TAB_CSS);
     hook::run_hook(&r, &edit_event(&cwd, &css, "s1"));
-    let stop = json!({ "session_id": "s1", "cwd": cwd, "hook_event_name": "Stop", "turn_id": "t-9" }).to_string();
+    let stop =
+        json!({ "session_id": "s1", "cwd": cwd, "hook_event_name": "Stop", "turn_id": "t-9" })
+            .to_string();
     let deep = hook::run_stop_hook(&r, &stop);
     let out: Value = serde_json::from_str(&deep.stdout).unwrap();
     assert_eq!(out["decision"], json!("block"));
@@ -3208,107 +3847,136 @@ fn codex_stop_emits_decision_block() {
     assert!(out.get("hookSpecificOutput").is_none());
 }
 
-// ── live-preview stand-down ───────────────────────────────────────────────
-//
-// A live variant session owns files carrying preview scaffolding
-// (`data-impeccino-variants=` wrappers, `impeccino-carbonize-start`
-// blocks). Every hook entry stands down on them: findings there are noise
-// and acting on them derails the session; live-complete verifies the file
-// once the accepted variant is permanent.
+// ── removed live-preview stand-down ────────────────────────────────────────
 
 #[test]
-fn run_hook_stands_down_on_live_preview_markers() {
+fn run_hook_scans_files_with_live_preview_markers() {
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
     // Control: the same slop without markers is reported.
     let plain = t.write("src/plain.css", GRADIENT_CSS);
     let reported = hook::run_hook(&r, &edit_event(&cwd, &plain, "s1"));
-    assert!(reported.stdout.contains("[gradient-text]"), "{}", reported.stdout);
-    // A carbonize block in flight: skipped, nothing emitted.
+    assert!(
+        reported.stdout.contains("[gradient-text]"),
+        "output={} audit={:?}",
+        reported.stdout,
+        reported.audit
+    );
+    // The old preview wrapper no longer exempts the source from normal checks.
     let carbonized = t.write(
         "src/carbonized.css",
         &format!("/* impeccino-carbonize-start ab12cd34 */\n{GRADIENT_CSS}/* impeccino-carbonize-end ab12cd34 */\n"),
     );
-    let skipped = hook::run_hook(&r, &edit_event(&cwd, &carbonized, "s1"));
-    assert_eq!(skipped.stdout, "", "no findings while live markers are in the file");
-    assert_eq!(skipped.audit["skipped"], json!("live-preview"));
-    // A published variants wrapper, same stand-down.
-    let wrapped = t.write(
-        "src/wrapped.html",
-        "<!-- impeccino-variants-start ab12cd34 --><div data-impeccino-variants=\"ab12cd34\" data-impeccino-variant-count=\"3\"></div>\n",
+    let checked = hook::run_hook(&r, &edit_event(&cwd, &carbonized, "s1"));
+    assert!(
+        checked.stdout.contains("[gradient-text]"),
+        "{}",
+        checked.stdout
     );
-    let skipped = hook::run_hook(&r, &edit_event(&cwd, &wrapped, "s1"));
-    assert_eq!(skipped.stdout, "");
-    assert_eq!(skipped.audit["skipped"], json!("live-preview"));
 }
 
 #[test]
-fn before_edit_stands_down_on_live_preview_markers() {
+fn before_edit_scans_proposed_and_existing_files_with_live_preview_markers() {
     let t = Tmp::new();
     let cwd = t.path();
     t.write("package.json", "{}");
     let r = rt(&cwd);
     let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
     // Control: denied at normal size without markers.
-    let (out, _) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/x.css", "content": slop})));
+    let (out, _) = hbe(
+        &r,
+        &cursor(
+            &cwd,
+            "Write",
+            json!({"file_path": "src/x.css", "content": slop}),
+        ),
+    );
     assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
     // The very first variants write introduces the markers in the proposed
-    // content itself.
+    // content itself, and it still gets checked.
     let proposed = format!("/* impeccino-carbonize-start ab12cd34 */\n{slop}");
-    let (out, code) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/x.css", "content": proposed})));
+    let (out, code) = hbe(
+        &r,
+        &cursor(
+            &cwd,
+            "Write",
+            json!({"file_path": "src/y.css", "content": proposed}),
+        ),
+    );
     assert_eq!(code, 0);
-    assert_eq!(out, "{\"permission\":\"allow\"}");
+    assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
     // Later fragment edits touch a file that already carries them on disk:
     // the proposed content alone looks like plain slop.
-    t.write("src/y.css", "/* impeccino-carbonize-start ab12cd34 */\n.v { color: red; }\n");
-    let (out, code) = hbe(&r, &cursor(&cwd, "Write", json!({"file_path": "src/y.css", "content": slop})));
+    t.write(
+        "src/z.css",
+        "/* impeccino-carbonize-start ab12cd34 */\n.v { color: red; }\n",
+    );
+    let (out, code) = hbe(
+        &r,
+        &cursor(
+            &cwd,
+            "Write",
+            json!({"file_path": "src/z.css", "content": slop}),
+        ),
+    );
     assert_eq!(code, 0);
-    assert_eq!(out, "{\"permission\":\"allow\"}");
+    assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
 }
 
 #[test]
-fn run_hook_stands_down_for_the_whole_edit_when_the_primary_carries_live_markers() {
+fn run_hook_scans_companion_files_when_the_primary_carries_live_markers() {
     // The edited JSX carries the wrapper; the stylesheet it imports does not.
-    // Co-scanning would still speak up about the stylesheet mid-session, so
-    // the whole event stands down. The same files without markers prove the
-    // co-scan is otherwise live.
+    // Both files remain subject to the normal scan, so the co-scanned
+    // stylesheet finding still surfaces.
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
     t.write("src/styles.css", GRADIENT_CSS);
     let plain = t.write("src/Plain.jsx", "import './styles.css';\nexport default function Plain() { return <h1 className=\"hero-title\">Hi</h1>; }\n");
     let reported = hook::run_hook(&r, &edit_event(&cwd, &plain, "s1"));
-    assert!(reported.stdout.contains("[gradient-text]"), "co-scanned stylesheet is reported without markers: {}", reported.stdout);
+    assert!(
+        reported.stdout.contains("[gradient-text]"),
+        "co-scanned stylesheet is reported without markers: {}",
+        reported.stdout
+    );
     let wrapped = t.write(
         "src/App.jsx",
         "import './styles.css';\n{/* impeccino-variants-start ab12cd34 */}<div data-impeccino-variants=\"ab12cd34\" data-impeccino-variant-count=\"3\"></div>\n",
     );
-    let skipped = hook::run_hook(&r, &edit_event(&cwd, &wrapped, "s2"));
-    assert_eq!(skipped.stdout, "", "nothing is emitted while the edited file is in a live session");
-    assert_eq!(skipped.audit["skipped"], json!("live-preview"));
-    let audited = audit_str(&skipped.audit, "file").unwrap_or("").replace('\\', "/");
-    assert!(audited.ends_with("src/App.jsx"), "the audit names the edited file, not the companion: {audited}");
+    let checked = hook::run_hook(&r, &edit_event(&cwd, &wrapped, "s2"));
+    assert!(
+        checked.stdout.contains("[gradient-text]"),
+        "{}",
+        checked.stdout
+    );
 }
 
 #[test]
-fn run_hook_stands_down_before_the_edit_cap_can_suppress_a_live_file() {
-    // A file edited past the per-session cap would be skipped as
-    // "suppressed" (with the notice) before its content is read. A live
-    // wrap on such a file must stand down instead, every time.
+fn run_hook_keeps_the_edit_cap_for_files_with_live_preview_markers() {
+    // Preview markers do not change the per-session edit cap or its notice.
     let t = Tmp::new();
     let cwd = t.path();
     let r = rt(&cwd);
+    // The first clean session cache is created by earlier runs in a real
+    // project; seed it so this test exercises the persisted edit counter.
+    assert!(persist_cache(&r, &cwd, &read_cache(&cwd)));
     // Seven plain edits cross the cap: the 7th carries the notice.
     let css = t.write("src/b.css", GRADIENT_CSS);
     let mut outputs = Vec::new();
     for _ in 0..7 {
         outputs.push(hook::run_hook(&r, &edit_event(&cwd, &css, "cap")));
     }
-    assert_eq!(outputs[6].audit["suppressed"], json!(true));
-    assert!(outputs[6].stdout.contains("Suppressing further design hints"));
-    // Now a live session carbonizes into that same file: stand down, never
-    // suppress.
+    assert_eq!(
+        outputs[6].audit.get("suppressed"),
+        Some(&json!(true)),
+        "{:?}",
+        outputs[6].audit
+    );
+    assert!(outputs[6]
+        .stdout
+        .contains("Suppressing further design hints"));
+    // Adding preview scaffolding does not bypass the existing edit cap.
     t.write(
         "src/b.css",
         &format!("/* impeccino-carbonize-start ab12cd34 */\n{GRADIENT_CSS}/* impeccino-carbonize-end ab12cd34 */\n"),
@@ -3316,8 +3984,30 @@ fn run_hook_stands_down_before_the_edit_cap_can_suppress_a_live_file() {
     for i in 0..3 {
         let out = hook::run_hook(&r, &edit_event(&cwd, &css, "cap"));
         assert_eq!(out.stdout, "", "edit {i}: nothing emitted");
-        assert_eq!(out.audit["skipped"], json!("live-preview"), "edit {i}");
-        assert!(out.audit.get("suppressed").is_none(), "edit {i}: {:?}", out.audit);
-        assert!(out.audit.get("editCount").is_none(), "edit {i}: the cap is not bumped for a live wrap");
+        assert_eq!(out.audit["suppressed"], json!(true), "edit {i}");
+        assert_eq!(out.audit["editCount"], json!(8 + i), "edit {i}");
     }
+}
+
+#[test]
+fn stop_scans_touched_files_with_live_preview_markers() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    let css = t.write(
+        "src/preview.css",
+        &format!("/* impeccino-carbonize-start ab12cd34 */\n{GRADIENT_CSS}"),
+    );
+    let mut cache = read_cache(&cwd);
+    touch_file(&mut cache, "preview-stop", &css);
+    assert!(persist_cache(&r, &cwd, &cache));
+
+    let stop = hook::run_stop_hook(&r, &stop_event(&cwd, "preview-stop"));
+    assert!(
+        stop.stdout.contains("[gradient-text]"),
+        "audit={:?} output={}",
+        stop.audit,
+        stop.stdout
+    );
+    assert_eq!(stop.audit.get("skipped"), None);
 }

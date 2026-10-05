@@ -9,7 +9,6 @@ use impeccino_core::findings::Finding;
 use impeccino_core::rule_pack::RulePack;
 
 use crate::design_system::DesignSystem;
-use crate::profiler::DetectorProfile;
 
 /// The per-target scan options `detectCli` builds (`baseScanOptions` plus the
 /// target's own design system).
@@ -21,8 +20,6 @@ pub struct ScanOptions {
     pub design_system: Option<Rc<DesignSystem>>,
     /// JS `options.viewport` (browser scans only).
     pub viewport: Option<(u32, u32)>,
-    /// JS `options.profile` (library callers only; no CLI flag).
-    pub profile: Option<Rc<DetectorProfile>>,
     /// The installed rule pack (`impeccino_core::rule_pack`), passed through
     /// to the text engine and on to the HTML engine. `None` in the `impeccino`
     /// binary, which ships the built-in rules only.

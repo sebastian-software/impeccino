@@ -549,9 +549,7 @@ const __impeccinoSnapshot = {
   STATE_PSEUDOS: __SNAP_STATE_PSEUDOS,
 
   // Serialize the page. `options.maxElements` / `options.maxBytes` are the
-  // guards (defaults 30k elements / 48 MB); `options.exclude(el)` skips a
-  // subtree (the extension passes its own overlay nodes, exactly the nodes
-  // the rules skip through their `.impeccino-*` selectors anyway).
+  // guards (defaults 30k elements / 48 MB).
   capture(options = {}) {
     const t0 = performance.now();
     const maxElements = options.maxElements || __SNAP_DEFAULT_MAX_ELEMENTS;
@@ -565,7 +563,6 @@ const __impeccinoSnapshot = {
     const stack = [root];
     while (stack.length) {
       const el = stack.pop();
-      if (options.exclude && options.exclude(el)) continue;
       const id = elements.length;
       elements.push(el);
       ids.set(el, id);
@@ -666,8 +663,6 @@ const __impeccinoSnapshot = {
     }
 
     // 3. Document-level facts.
-    const docClone = root.cloneNode(true);
-    for (const node of docClone.querySelectorAll('[id^="impeccino-live-"]')) node.remove();
     const body = document.body;
     let bodyInnerText = null;
     if (body) {
@@ -683,7 +678,7 @@ const __impeccinoSnapshot = {
       innerHeight: window.innerHeight,
       scrollX: window.scrollX,
       scrollY: window.scrollY,
-      html: docClone.outerHTML,
+      html: root.outerHTML,
       keyframes: __snapKeyframes(),
       linkedCss: __snapLinkedStylesheetText(),
       styleProps: __SNAP_STYLE_PROPS,

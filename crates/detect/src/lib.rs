@@ -1,6 +1,6 @@
 //! impeccino-detect: `impeccino detect` orchestration and the non-DOM
 //! engines, ported from the detector CLI, file walker, design-decision reader,
-//! text engine, design-system engine, and profiler.
+//! text engine and design-system engine.
 //!
 //! Engine seams: [`engines::HtmlEngine`] (static HTML, crates/html) and
 //! [`engines::UrlEngine`] (browser, crates/browser). This crate never depends
@@ -16,7 +16,6 @@ pub mod detect_text;
 pub mod engines;
 pub mod file_system;
 pub mod jsp;
-pub mod profiler;
 pub mod project_ignores;
 pub mod regex_matchers;
 pub mod util;

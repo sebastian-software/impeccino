@@ -42,12 +42,6 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
     for el in doc.query_selector_all(
         "p, h1, h2, h3, h4, h5, h6, li, td, th, dd, blockquote, figcaption, a, button, label, span",
     ) {
-        if el
-            .closest(".impeccino-overlay, .impeccino-label, .impeccino-banner, .impeccino-tooltip")
-            .is_some()
-        {
-            continue;
-        }
         if !has_nonblank_direct_text(&el) {
             continue;
         }
@@ -77,7 +71,7 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
         // has no page hostname, so it cannot apply the browser-only own-domain
         // brand exemption.
         let mut ranked: Vec<&(String, usize)> = font_usage.iter().collect();
-        ranked.sort_by(|a, b| b.1.cmp(&a.1));
+        ranked.sort_by_key(|entry| std::cmp::Reverse(entry.1));
         if let Some((font, count)) = ranked.first().map(|(font, count)| (font, *count)) {
             let tied = ranked.get(1).map(|entry| entry.1) == Some(count);
             if !tied && OVERUSED_FONTS.contains(&font.as_str()) {
@@ -106,7 +100,7 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
 /// `content-visibility` entry, so a declared `content-visibility: hidden`
 /// never reaches the static computed style.
 fn is_rendered_type_element(el: &StaticElement<'_>) -> bool {
-    let mut current = Some(el.clone());
+    let mut current = Some(*el);
     while let Some(node) = current {
         if node.get_attribute("hidden").is_some() {
             return false;
@@ -442,8 +436,8 @@ mod tests {
 
     fn styled_document(source: &str) -> StaticDocument {
         let mut doc = StaticDocument::parse(source);
-        let css = collect_static_css_text(&doc, Path::new("."), None, "fixture.html", None);
-        build_static_style_map(&mut doc, &css, None, "fixture.html");
+        let css = collect_static_css_text(&doc, Path::new("."), None);
+        build_static_style_map(&mut doc, &css);
         doc
     }
 
@@ -482,7 +476,10 @@ mod tests {
         ));
 
         let findings = check_static_page_typography(&doc);
-        let font = findings.iter().find(|hit| hit.id == "overused-font").unwrap();
+        let font = findings
+            .iter()
+            .find(|hit| hit.id == "overused-font")
+            .unwrap();
         assert_eq!(font.snippet, "Primary font: inter (40% of text)");
     }
 
@@ -497,11 +494,14 @@ mod tests {
         ));
 
         let findings = check_static_page_typography(&doc);
-        assert!(findings.iter().all(|hit| hit.id != "overused-font"), "{findings:?}");
+        assert!(
+            findings.iter().all(|hit| hit.id != "overused-font"),
+            "{findings:?}"
+        );
     }
 
     #[test]
-    fn overused_font_excludes_direct_text_in_divs_and_own_tool_nodes() {
+    fn overused_font_counts_text_under_former_overlay_nodes() {
         let divs = (0..19)
             .map(|i| format!("<div class='inter'>Inter div {i}</div>"))
             .collect::<String>();
@@ -516,7 +516,11 @@ mod tests {
         ));
 
         let findings = check_static_page_typography(&doc);
-        assert!(findings.iter().all(|hit| hit.id != "overused-font"), "{findings:?}");
+        let font = findings
+            .iter()
+            .find(|hit| hit.id == "overused-font")
+            .unwrap();
+        assert_eq!(font.snippet, "Primary font: inter (95% of text)");
     }
 
     #[test]
@@ -563,7 +567,14 @@ mod tests {
         );
 
         let findings = check_page_layout(&doc);
-        assert_eq!(findings.iter().filter(|hit| hit.id == "nested-cards").count(), 1, "{findings:?}");
+        assert_eq!(
+            findings
+                .iter()
+                .filter(|hit| hit.id == "nested-cards")
+                .count(),
+            1,
+            "{findings:?}"
+        );
     }
 
     #[test]
@@ -574,7 +585,10 @@ mod tests {
             ));
 
             let findings = check_page_layout(&doc);
-            assert!(findings.iter().all(|hit| hit.id != "nested-cards"), "{position}: {findings:?}");
+            assert!(
+                findings.iter().all(|hit| hit.id != "nested-cards"),
+                "{position}: {findings:?}"
+            );
         }
     }
 
@@ -586,7 +600,10 @@ mod tests {
             ));
 
             let findings = check_page_layout(&doc);
-            assert!(findings.iter().all(|hit| hit.id != "nested-cards"), "{background}: {findings:?}");
+            assert!(
+                findings.iter().all(|hit| hit.id != "nested-cards"),
+                "{background}: {findings:?}"
+            );
         }
     }
 
@@ -598,7 +615,10 @@ mod tests {
             ));
             let viewport = doc.query_selector(&format!(".{ident}")).unwrap();
 
-            assert!(check_element_clipped_overflow(&viewport, viewport.style()).is_empty(), "{ident}");
+            assert!(
+                check_element_clipped_overflow(&viewport, viewport.style()).is_empty(),
+                "{ident}"
+            );
         }
     }
 }

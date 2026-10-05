@@ -6,10 +6,10 @@
 //! `checkPageQualityFromDoc`, `checkPageQualityDOM`.
 
 use super::dom::{
-    closest_or_none, direct_text, has_direct_text_longer_than, matches_or_false, pf0, safe_id,
-    style_px, tag_lower, Dom, ElId, Rect,
+    closest_or_none, direct_text, has_direct_text_longer_than, matches_or_false, pf0, style_px,
+    tag_lower, Dom, ElId, Rect,
 };
-use super::{BrowserConfig, BrowserFinding};
+use super::BrowserFinding;
 use crate::checks::measures::{colors_nearly_match, css_color_is_transparent, resolve_length_px};
 use crate::checks::rules::RuleHit;
 use crate::checks::text_rules::{
@@ -30,10 +30,7 @@ re!(WS_RE, format!("{}+", js::WS));
 // JS `/url\(/i` in checkQuality's buried-raster branch.
 re!(QUALITY_RASTER_URL_RE, format!(r"{}\(", js::ci("url")));
 re!(CLIP_RECT_RE, format!(r"rect\({}*0", js::WS));
-re!(
-    CLIP_INSET_RE,
-    format!(r"inset\({}*(?:50%|99|100%)", js::WS)
-);
+re!(CLIP_INSET_RE, format!(r"inset\({}*(?:50%|99|100%)", js::WS));
 re!(OUTLINE_W_RE, r"([0-9]+(?:\.[0-9]+)?)\s*px");
 re!(
     OUTLINE_STYLE_RE,
@@ -41,7 +38,10 @@ re!(
 );
 re!(
     OUTLINE_COLOR_RE,
-    format!(r"(rgba?\([^)]+\)|#[0-9a-fA-F]{{3,8}}|[a-zA-Z]+){}*$", js::WS)
+    format!(
+        r"(rgba?\([^)]+\)|#[0-9a-fA-F]{{3,8}}|[a-zA-Z]+){}*$",
+        js::WS
+    )
 );
 
 /// JS `s.replace(/\s+/g, ' ')`.
@@ -128,7 +128,11 @@ pub fn text_descendants_flush_sides(dom: &dyn Dom, el: ElId, rect: &Rect) -> [bo
         if nr.width <= 0.0 || nr.height <= 0.0 {
             continue;
         }
-        if nr.bottom < rect.top || nr.top > rect.bottom || nr.right < rect.left || nr.left > rect.right {
+        if nr.bottom < rect.top
+            || nr.top > rect.bottom
+            || nr.right < rect.left
+            || nr.left > rect.right
+        {
             continue;
         }
         if nr.top - rect.top <= TEXT_EDGE_THRESHOLD {
@@ -227,11 +231,6 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
     let has_direct_text = q.has_direct_text;
     let mut findings: Vec<RuleHit> = Vec::new();
 
-    let el_id = safe_id(dom, el);
-    if el_id.starts_with("claude-") || el_id.starts_with("cic-") {
-        return findings;
-    }
-
     let st = |k: &str| dom.style(el, k);
     let spx = |k: &str| style_px(dom, el, k);
 
@@ -241,7 +240,7 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
     // catches computed opacity on the element itself (both engines).
     {
         let op = parse_float(&st("opacity"));
-        if op.is_finite() && op < 0.15 && op >= 0.0 {
+        if (0.0..0.15).contains(&op) {
             let bg = st("backgroundImage");
             if tag == "img" || QUALITY_RASTER_URL_RE.is_match(&bg) {
                 let label = if tag == "img" {
@@ -253,7 +252,11 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
                     "buried-raster",
                     format!(
                         "{} at opacity {}{}",
-                        if tag == "img" { "<img>" } else { "raster background" },
+                        if tag == "img" {
+                            "<img>"
+                        } else {
+                            "raster background"
+                        },
                         number_to_string(op),
                         if label.is_empty() {
                             String::new()
@@ -321,7 +324,12 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
 
     // --- Cramped padding ---
     let is_inline_code = tag == "code" && closest_or_none(dom, el, "pre").is_none();
-    if !is_inline_code && has_direct_text && text_len > 20 && rect.width > 100.0 && rect.height > 30.0 {
+    if !is_inline_code
+        && has_direct_text
+        && text_len > 20
+        && rect.width > 100.0
+        && rect.height > 30.0
+    {
         let borders = [
             spx("borderTopWidth"),
             spx("borderRightWidth"),
@@ -550,7 +558,8 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
                         if border_sides_visible.len() == 4 {
                             boundary_parts.push("border".to_string());
                         } else if !border_sides_visible.is_empty() {
-                            boundary_parts.push(format!("border-{}", border_sides_visible.join("/")));
+                            boundary_parts
+                                .push(format!("border-{}", border_sides_visible.join("/")));
                         }
                         if outline_visible {
                             boundary_parts.push("outline".to_string());
@@ -590,8 +599,8 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
         && matches!(js::to_upper_case(tag).as_str(), "P" | "LI")
         && viewport_width > 0.0
     {
-        let in_nav_header =
-            closest_or_none(dom, el, "nav").is_some() || closest_or_none(dom, el, "header").is_some();
+        let in_nav_header = closest_or_none(dom, el, "nav").is_some()
+            || closest_or_none(dom, el, "header").is_some();
         let bg = st("backgroundColor");
         let has_own_bg = !bg.is_empty() && bg != "rgba(0, 0, 0, 0)" && bg != "transparent";
         let pos = st("position");
@@ -599,7 +608,12 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
         let width_ratio = rect.width / viewport_width;
         let left_close = rect.left < 16.0;
         let right_close = rect.right > viewport_width - 16.0;
-        if !in_nav_header && !has_own_bg && !is_positioned && width_ratio > 0.5 && (left_close || right_close) {
+        if !in_nav_header
+            && !has_own_bg
+            && !is_positioned
+            && width_ratio > 0.5
+            && (left_close || right_close)
+        {
             let l = number_to_string(math_round(rect.left));
             let r = number_to_string(math_round(viewport_width - rect.right));
             let which = if left_close && right_close {
@@ -658,7 +672,16 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
 
     // --- Tiny body text ---
     if has_direct_text && text_len > 20 && font_size < 12.0 {
-        let skip_tags = ["sub", "sup", "code", "kbd", "samp", "var", "caption", "figcaption"];
+        let skip_tags = [
+            "sub",
+            "sup",
+            "code",
+            "kbd",
+            "samp",
+            "var",
+            "caption",
+            "figcaption",
+        ];
         let in_ui_context = closest_or_none(dom, el, TINY_TEXT_UI_CONTEXT).is_some();
         let is_uppercase = st("textTransform") == "uppercase";
         if !skip_tags.contains(&tag)
@@ -689,7 +712,11 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
                 let is_interactive = matches_or_closest(dom, el, INTERACTIVE);
                 let is_furniture = matches_or_closest(dom, el, FURNITURE);
                 let is_smallprint = matches_or_closest(dom, el, SMALLPRINT);
-                let floor = if !is_interactive && is_smallprint { 10.0 } else { 11.0 };
+                let floor = if !is_interactive && is_smallprint {
+                    10.0
+                } else {
+                    11.0
+                };
                 if font_size < floor && (is_interactive || is_furniture || dt_len <= 20) {
                     let excerpt = slice_utf16_prefix(&dt, 40);
                     findings.push(RuleHit::new(
@@ -710,7 +737,10 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
     if has_direct_text && text_len > 30 && st("textTransform") == "uppercase" && !is_heading {
         findings.push(RuleHit::new(
             "all-caps-body",
-            format!("text-transform: uppercase on {} chars of body text", text_len),
+            format!(
+                "text-transform: uppercase on {} chars of body text",
+                text_len
+            ),
         ));
     }
 
@@ -722,7 +752,10 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
                 if tracking_em > 0.05 {
                     findings.push(RuleHit::new(
                         "wide-tracking",
-                        format!("letter-spacing: {}em on body text", to_fixed(tracking_em, 2)),
+                        format!(
+                            "letter-spacing: {}em on body text",
+                            to_fixed(tracking_em, 2)
+                        ),
                     ));
                 }
             }
@@ -735,13 +768,15 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
             if ls < 0.0 {
                 let tracking_em = ls / font_size;
                 if tracking_em <= -0.05 {
-                    let excerpt = slice_utf16_prefix(
-                        &collapse_ws(js::trim(&dom.text_content(el))),
-                        40,
-                    );
+                    let excerpt =
+                        slice_utf16_prefix(&collapse_ws(js::trim(&dom.text_content(el))), 40);
                     findings.push(RuleHit::new(
                         "extreme-negative-tracking",
-                        format!("letter-spacing: {}em — \"{}\"", to_fixed(tracking_em, 2), excerpt),
+                        format!(
+                            "letter-spacing: {}em — \"{}\"",
+                            to_fixed(tracking_em, 2),
+                            excerpt
+                        ),
                     ));
                 }
             }
@@ -752,7 +787,7 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
 }
 
 /// JS: checks.mjs#checkElementQualityDOM(el)
-pub fn check_element_quality_dom(dom: &dyn Dom, el: ElId, config: &BrowserConfig) -> Vec<RuleHit> {
+pub fn check_element_quality_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     let has_direct_text = has_direct_text_longer_than(dom, el, 10);
     let text_len = utf16_len(js::trim(&dom.text_content(el)));
@@ -767,7 +802,7 @@ pub fn check_element_quality_dom(dom: &dyn Dom, el: ElId, config: &BrowserConfig
     let line_height_px = resolve_length_px(Some(&dom.style(el, "lineHeight")), font_size);
     let letter_spacing_px = resolve_length_px(Some(&dom.style(el, "letterSpacing")), font_size);
     let rect = dom.rect(el);
-    let line_max = config.line_max();
+    let line_max = 80.0;
     let viewport_width = {
         let w = dom.inner_width();
         if crate::js_ext_a::num_truthy(w) {
@@ -798,10 +833,19 @@ pub fn check_page_quality_from_doc(dom: &dyn Dom) -> Vec<RuleHit> {
     let mut findings = Vec::new();
     let mut prev_level: i64 = 0;
     let mut prev_text = String::new();
-    for h in dom.query_all(None, "h1, h2, h3, h4, h5, h6").unwrap_or_default() {
+    for h in dom
+        .query_all(None, "h1, h2, h3, h4, h5, h6")
+        .unwrap_or_default()
+    {
         let tag = dom.tag_name(h);
         // JS `parseInt(h.tagName[1])`
-        let level = js::parse_int(&tag.chars().nth(1).map(|c| c.to_string()).unwrap_or_default(), 10);
+        let level = js::parse_int(
+            &tag.chars()
+                .nth(1)
+                .map(|c| c.to_string())
+                .unwrap_or_default(),
+            10,
+        );
         let level = if level.is_nan() { 0 } else { level as i64 };
         let text = slice_utf16_prefix(&collapse_ws(js::trim(&dom.text_content(h))), 60);
         if prev_level > 0 && level > prev_level + 1 {
@@ -862,18 +906,41 @@ mod tests {
         let p = text_el(&mut d, body, "p", &long, "16px");
         d.set_rect(p, 0.0, 100.0, 1200.0, 72.0);
         // Three rendered lines: two full ones and a tail.
-        d.set_text_lines(p, &[(0.0, 100.0, 1180.0, 19.0), (0.0, 124.0, 1180.0, 19.0), (0.0, 148.0, 400.0, 19.0)]);
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
+        d.set_text_lines(
+            p,
+            &[
+                (0.0, 100.0, 1180.0, 19.0),
+                (0.0, 124.0, 1180.0, 19.0),
+                (0.0, 148.0, 400.0, 19.0),
+            ],
+        );
+        let hits = check_element_quality_dom(&d, p);
         let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
         assert!(ids.contains(&"line-length"), "{ids:?}");
-        assert_eq!(hits[0].snippet, "~103 chars on 2 of 3 rendered lines (aim for <80)");
+        assert_eq!(
+            hits[0].snippet,
+            "~103 chars on 2 of 3 rendered lines (aim for <80)"
+        );
         assert!(ids.contains(&"body-text-viewport-edge"));
-        let edge = hits.iter().find(|h| h.id == "body-text-viewport-edge").unwrap();
-        assert_eq!(edge.snippet, "<p> with 240-char body bleeds to viewport edge (left 0px)");
+        let edge = hits
+            .iter()
+            .find(|h| h.id == "body-text-viewport-edge")
+            .unwrap();
+        assert_eq!(
+            edge.snippet,
+            "<p> with 240-char body bleeds to viewport edge (left 0px)"
+        );
         // narrower, inset paragraph: neither fires
         d.set_rect(p, 40.0, 100.0, 600.0, 72.0);
-        d.set_text_lines(p, &[(40.0, 100.0, 580.0, 19.0), (40.0, 124.0, 580.0, 19.0), (40.0, 148.0, 580.0, 19.0)]);
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
+        d.set_text_lines(
+            p,
+            &[
+                (40.0, 100.0, 580.0, 19.0),
+                (40.0, 124.0, 580.0, 19.0),
+                (40.0, 148.0, 580.0, 19.0),
+            ],
+        );
+        let hits = check_element_quality_dom(&d, p);
         assert!(hits.is_empty(), "{hits:?}");
     }
 
@@ -892,15 +959,18 @@ mod tests {
         d.set_style(p, "lineHeight", "24px");
         d.set_rect(p, 200.0, 971.0, 1022.0, 48.0);
         // One long line and a 13-character tail: the eye tracks back once.
-        d.set_text_lines(p, &[(200.0, 974.0, 995.4, 18.0), (200.0, 998.0, 85.5, 18.0)]);
-        assert_eq!(check_element_quality_dom(&d, p, &BrowserConfig::default()), vec![]);
+        d.set_text_lines(
+            p,
+            &[(200.0, 974.0, 995.4, 18.0), (200.0, 998.0, 85.5, 18.0)],
+        );
+        assert_eq!(check_element_quality_dom(&d, p), vec![]);
 
         // The same box, text that stops at 571px: 89 characters on one line.
         let meta = text_el(&mut d, body, "p", &"y".repeat(89), "14px");
         d.set_style(meta, "lineHeight", "21.7px");
         d.set_rect(meta, 200.0, 122.0, 992.0, 21.7);
         d.set_text_lines(meta, &[(200.0, 124.2, 571.4, 17.0)]);
-        assert_eq!(check_element_quality_dom(&d, meta, &BrowserConfig::default()), vec![]);
+        assert_eq!(check_element_quality_dom(&d, meta), vec![]);
 
         // A column of long lines is the defect the rule is named for.
         let wall = text_el(&mut d, body, "p", &"z".repeat(500), "15px");
@@ -915,9 +985,12 @@ mod tests {
                 (200.0, 172.0, 600.0, 18.0),
             ],
         );
-        let hits = check_element_quality_dom(&d, wall, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, wall);
         assert_eq!(hits.len(), 1, "{hits:?}");
-        assert_eq!(hits[0].snippet, "~139 chars on 3 of 4 rendered lines (aim for <80)");
+        assert_eq!(
+            hits[0].snippet,
+            "~139 chars on 3 of 4 rendered lines (aim for <80)"
+        );
     }
 
     /// A line box split across text nodes is still one line. An inline
@@ -944,11 +1017,17 @@ mod tests {
                 (505.0, 148.0, 495.0, 19.0),
             ],
         );
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
-        let line = hits.iter().find(|h| h.id == "line-length").expect("charged");
+        let hits = check_element_quality_dom(&d, p);
+        let line = hits
+            .iter()
+            .find(|h| h.id == "line-length")
+            .expect("charged");
         // Three lines of 1000px, not six of ~500: six would have put 50
         // characters on each and charged nothing at all.
-        assert_eq!(line.snippet, "~100 chars on 3 of 3 rendered lines (aim for <80)");
+        assert_eq!(
+            line.snippet,
+            "~100 chars on 3 of 3 rendered lines (aim for <80)"
+        );
 
         // The same merge the other way: one long line in two fragments plus a
         // short tail is two lines, and one long line is a sentence that
@@ -963,7 +1042,7 @@ mod tests {
                 (0.0, 324.0, 120.0, 19.0),
             ],
         );
-        let hits = check_element_quality_dom(&d, q, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, q);
         assert!(!hits.iter().any(|h| h.id == "line-length"), "{hits:?}");
     }
 
@@ -989,7 +1068,7 @@ mod tests {
                 (400.0, 148.0, 300.0, 19.0),
             ],
         );
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, p);
         // Six short lines of 40 characters each, not three of 700px.
         assert!(!hits.iter().any(|h| h.id == "line-length"), "{hits:?}");
     }
@@ -1007,7 +1086,7 @@ mod tests {
         d.set_style(p, "lineHeight", "10px");
         d.set_rect(p, 0.0, 100.0, 1020.0, 19.0);
         d.set_text_lines(p, &[(0.0, 100.0, 1000.0, 19.0)]);
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, p);
         assert!(!hits.iter().any(|h| h.id == "line-length"), "{hits:?}");
     }
 
@@ -1024,7 +1103,7 @@ mod tests {
         d.set_rect(p, 0.0, 100.0, 1020.0, 72.0);
         // The same paragraph the merge test charges, measured once.
         d.set_text_rect(p, 0.0, 100.0, 1000.0, 67.0);
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, p);
         assert!(!hits.iter().any(|h| h.id == "line-length"), "{hits:?}");
     }
 
@@ -1052,7 +1131,7 @@ mod tests {
         // The text lands 2px under the top edge, which is what the reader sees
         // and what the declared padding happens to say here.
         d.set_text_lines(p, &[(52.0, 102.0, 276.0, 19.0)]);
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, p);
         assert_eq!(hits.len(), 1, "{hits:?}");
         assert_eq!(
             hits[0].snippet,
@@ -1087,11 +1166,11 @@ mod tests {
             ],
         );
         d.set_text_lines(btn, &[(68.0, 791.2, 160.0, 18.0)]);
-        assert_eq!(check_element_quality_dom(&d, btn, &BrowserConfig::default()), vec![]);
+        assert_eq!(check_element_quality_dom(&d, btn), vec![]);
 
         // The same control with the label actually against the edge: charged.
         d.set_text_lines(btn, &[(68.0, 780.2, 160.0, 18.0)]);
-        let hits = check_element_quality_dom(&d, btn, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, btn);
         assert_eq!(hits.len(), 1, "{hits:?}");
         assert_eq!(
             hits[0].snippet,
@@ -1129,8 +1208,20 @@ mod tests {
         );
         let p = text_el(&mut d, card, "p", "Hello there friend", "16px");
         d.set_rect(p, 0.0, 28.0, 400.0, 20.0);
-        d.set_styles(p, &[("paddingTop", "0px"), ("paddingRight", "0px"), ("paddingBottom", "0px"), ("paddingLeft", "0px"), ("marginTop", "0px"), ("marginRight", "0px"), ("marginBottom", "0px"), ("marginLeft", "0px")]);
-        let hits = check_element_quality_dom(&d, card, &BrowserConfig::default());
+        d.set_styles(
+            p,
+            &[
+                ("paddingTop", "0px"),
+                ("paddingRight", "0px"),
+                ("paddingBottom", "0px"),
+                ("paddingLeft", "0px"),
+                ("marginTop", "0px"),
+                ("marginRight", "0px"),
+                ("marginBottom", "0px"),
+                ("marginLeft", "0px"),
+            ],
+        );
+        let hits = check_element_quality_dom(&d, card);
         assert_eq!(hits.len(), 1, "{hits:?}");
         assert_eq!(
             hits[0].snippet,
@@ -1184,14 +1275,14 @@ mod tests {
             d.set_text_lines(cell, &[(x + 16.0, y + 10.0, w - 32.0, 17.0)]);
             let _ = i;
         }
-        assert_eq!(check_element_quality_dom(&d, frame, &BrowserConfig::default()), vec![]);
+        assert_eq!(check_element_quality_dom(&d, frame), vec![]);
 
         // A cell that really does put its text on the frame line is charged.
         let tight = d.add(Some(table), "td");
         d.add_text(tight, "Wednesday afternoon");
         d.set_rect(tight, 0.0, 140.0, 860.0, 20.0);
         d.set_text_lines(tight, &[(1.0, 140.0, 858.0, 17.0)]);
-        let hits = check_element_quality_dom(&d, frame, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, frame);
         assert_eq!(hits.len(), 1, "{hits:?}");
         assert_eq!(
             hits[0].snippet,
@@ -1202,7 +1293,7 @@ mod tests {
         // frame hides what does not fit: the right side is clipped, not snug,
         // and that is `clipped-overflow-container`'s business (REN-403).
         d.set_rect(table, 0.0, 0.0, 1400.0, 300.0);
-        let hits = check_element_quality_dom(&d, frame, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, frame);
         assert_eq!(hits.len(), 1, "{hits:?}");
         assert_eq!(
             hits[0].snippet,
@@ -1217,17 +1308,44 @@ mod tests {
         let text = "a".repeat(60);
         let p = text_el(&mut d, body, "p", &text, "16px");
         d.set_rect(p, 40.0, 100.0, 300.0, 40.0);
-        d.set_styles(p, &[("lineHeight", "16px"), ("textAlign", "justify"), ("hyphens", "manual"), ("letterSpacing", "2px")]);
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
+        d.set_styles(
+            p,
+            &[
+                ("lineHeight", "16px"),
+                ("textAlign", "justify"),
+                ("hyphens", "manual"),
+                ("letterSpacing", "2px"),
+            ],
+        );
+        let hits = check_element_quality_dom(&d, p);
         let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
-        assert_eq!(ids, vec!["tight-leading", "justified-text", "wide-tracking"], "{hits:?}");
+        assert_eq!(
+            ids,
+            vec!["tight-leading", "justified-text", "wide-tracking"],
+            "{hits:?}"
+        );
         assert_eq!(hits[0].snippet, "line-height 1.00x (need >=1.3)");
         assert_eq!(hits[2].snippet, "letter-spacing: 0.13em on body text");
-        d.set_styles(p, &[("lineHeight", "24px"), ("textAlign", "left"), ("letterSpacing", "-1px"), ("textTransform", "uppercase")]);
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
+        d.set_styles(
+            p,
+            &[
+                ("lineHeight", "24px"),
+                ("textAlign", "left"),
+                ("letterSpacing", "-1px"),
+                ("textTransform", "uppercase"),
+            ],
+        );
+        let hits = check_element_quality_dom(&d, p);
         let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
-        assert_eq!(ids, vec!["all-caps-body", "extreme-negative-tracking"], "{hits:?}");
-        assert_eq!(hits[1].snippet, format!("letter-spacing: -0.06em — \"{}\"", "a".repeat(40)));
+        assert_eq!(
+            ids,
+            vec!["all-caps-body", "extreme-negative-tracking"],
+            "{hits:?}"
+        );
+        assert_eq!(
+            hits[1].snippet,
+            format!("letter-spacing: -0.06em — \"{}\"", "a".repeat(40))
+        );
     }
 
     #[test]
@@ -1236,24 +1354,27 @@ mod tests {
         let (_h, body) = d.with_page();
         let p = text_el(&mut d, body, "p", "This is small body copy text", "10px");
         d.set_rect(p, 40.0, 100.0, 300.0, 40.0);
-        let hits = check_element_quality_dom(&d, p, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, p);
         let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
         assert_eq!(ids, vec!["tiny-text"], "{hits:?}");
         assert_eq!(hits[0].snippet, "10px body text");
         // short functional label under 11px
         let s = text_el(&mut d, body, "span", "Meta 12:00", "9px");
         d.set_rect(s, 40.0, 100.0, 60.0, 12.0);
-        let hits = check_element_quality_dom(&d, s, &BrowserConfig::default());
+        let hits = check_element_quality_dom(&d, s);
         assert_eq!(hits.len(), 1, "{hits:?}");
-        assert_eq!(hits[0].snippet, "9px functional text \"Meta 12:00\" (below 11px floor)");
+        assert_eq!(
+            hits[0].snippet,
+            "9px functional text \"Meta 12:00\" (below 11px floor)"
+        );
         // smallprint context softens the floor to 10px
         d.add_selector(s, SMALLPRINT);
         d.set_style(s, "fontSize", "10px");
-        assert!(check_element_quality_dom(&d, s, &BrowserConfig::default()).is_empty());
+        assert!(check_element_quality_dom(&d, s).is_empty());
         // sr-only exempts
         d.set_style(s, "fontSize", "9px");
         d.add_selector(s, SR_ONLY_SELECTOR);
-        assert!(check_element_quality_dom(&d, s, &BrowserConfig::default()).is_empty());
+        assert!(check_element_quality_dom(&d, s).is_empty());
     }
 
     #[test]
@@ -1267,7 +1388,10 @@ mod tests {
         let f = check_page_quality_dom(&d);
         assert_eq!(f.len(), 1);
         assert_eq!(f[0].type_, "skipped-heading");
-        assert_eq!(f[0].detail, "<h1> \"Title here\" followed by <h3> \"Sub\" (missing h2)");
+        assert_eq!(
+            f[0].detail,
+            "<h1> \"Title here\" followed by <h3> \"Sub\" (missing h2)"
+        );
     }
 
     #[test]
@@ -1275,9 +1399,23 @@ mod tests {
         let mut d = FakeDom::new();
         let (_h, body) = d.with_page();
         let s = d.add(Some(body), "span");
-        d.set_styles(s, &[("position", "absolute"), ("clip", "rect(0px, 0px, 0px, 0px)")]);
+        d.set_styles(
+            s,
+            &[
+                ("position", "absolute"),
+                ("clip", "rect(0px, 0px, 0px, 0px)"),
+            ],
+        );
         assert!(is_visually_hidden(&d, s));
-        d.set_styles(s, &[("clip", "auto"), ("width", "1px"), ("height", "20px"), ("overflow", "hidden")]);
+        d.set_styles(
+            s,
+            &[
+                ("clip", "auto"),
+                ("width", "1px"),
+                ("height", "20px"),
+                ("overflow", "hidden"),
+            ],
+        );
         assert!(is_visually_hidden(&d, s));
         d.set_style(s, "overflow", "visible");
         assert!(!is_visually_hidden(&d, s));

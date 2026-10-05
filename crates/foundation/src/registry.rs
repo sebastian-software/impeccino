@@ -647,11 +647,8 @@ pub static ANTIPATTERNS: &[Antipattern] = &[
 /// mechanical slop, and design-system drift. Every one of them is mechanical,
 /// unambiguous, and cheap to correct at the edit site.
 ///
-/// It lives here rather than in `impeccino-hook` because the hook crate is
-/// native-only (it reaches for the filesystem and the process environment)
-/// while downstream consumers want the same list from wasm. `hook_lib`
-/// re-exports it; the `detect` feature of `impeccino-wasm` exports it as
-/// JSON.
+/// It lives with the shared registry so the hook can consume it without
+/// duplicating its rule list. `hook_lib` re-exports it.
 pub const IMMEDIATE_TIER_RULES: &[&str] = &[
     // Broken output.
     "broken-image",
@@ -869,7 +866,7 @@ mod tests {
             category: "quality",
             scopes: None,
             severity: Some("warning"),
-                name: "Test pack rule one",
+            name: "Test pack rule one",
             description: "First row of the registry-extension test pack.",
             skill_section: None,
             skill_guideline: None,
@@ -879,7 +876,7 @@ mod tests {
             category: "testpack-only",
             scopes: None,
             severity: Some("error"),
-                name: "Test pack rule two",
+            name: "Test pack rule two",
             description: "Second row of the registry-extension test pack.",
             skill_section: None,
             skill_guideline: None,

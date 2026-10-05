@@ -16,7 +16,7 @@
 //! - `::-webkit-*` pseudo-elements parse (Chrome accepts unknown vendor ones);
 //! - user-action and form-state pseudo-classes (`:hover`, `:checked`,
 //!   `:disabled`, ...) match through the state list the snapshot recorded for
-//!   the element (`captureStates` in `browser-bundle/15-snapshot.js`);
+//!   the element (`captureStates` in `crates/cli/assets/page-snapshot.js`);
 //!   `:link` / `:any-link` come from tag + `href`; `:visited` never matches
 //!   (Chrome hides it from scripts too);
 //! - type and attribute-name matching is ASCII-case-insensitive for HTML
@@ -38,6 +38,7 @@ use selectors::parser::{
 use selectors::{Element, OpaqueElement};
 use std::fmt;
 
+use super::dom::SelectorError;
 use super::snapshot::{Snapshot, NS_XHTML};
 
 /// A string atom for the selector types (attribute values, identifiers,
@@ -158,7 +159,7 @@ impl ToCss for PseudoClass {
 
 /// Pseudo-classes whose truth the snapshot records per element
 /// (`el.matches(':<name>')` at capture time). Keep in sync with
-/// `STATE_PSEUDOS` in `browser-bundle/15-snapshot.js`.
+/// `STATE_PSEUDOS` in `crates/cli/assets/page-snapshot.js`.
 pub const STATE_PSEUDOS: &[&str] = &[
     "hover",
     "active",
@@ -419,13 +420,13 @@ pub struct Selector {
 }
 
 impl Selector {
-    /// Parse a selector list; `Err(())` where Chrome would throw `SyntaxError`.
-    pub fn parse(text: &str) -> Result<Selector, ()> {
+    /// Parse a selector list; `Err(SelectorError)` where Chrome would throw `SyntaxError`.
+    pub fn parse(text: &str) -> Result<Selector, SelectorError> {
         let mut input = cssparser::ParserInput::new(text);
         let mut p = CssParser::new(&mut input);
         SelectorList::parse(&SelParser, &mut p, ParseRelative::No)
             .map(|list| Selector { list })
-            .map_err(|_| ())
+            .map_err(|_| SelectorError)
     }
 
     /// Whether `el` matches any selector in the list. `scope` is the
@@ -728,7 +729,7 @@ impl<'a> Element for SnapEl<'a> {
     fn has_class(&self, name: &Atom, case_sensitivity: CaseSensitivity) -> bool {
         match self.snap.attr(self.id, "class") {
             Some(v) => v
-                .split(|c: char| matches!(c, ' ' | '\t' | '\n' | '\x0C' | '\r'))
+                .split([' ', '\t', '\n', '\x0C', '\r'])
                 .any(|c| !c.is_empty() && case_sensitivity.eq(name.0.as_bytes(), c.as_bytes())),
             None => false,
         }

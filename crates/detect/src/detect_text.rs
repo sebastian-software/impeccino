@@ -13,17 +13,14 @@ use impeccino_core::page::is_full_page;
 use impeccino_core::rule_pack::RulePack;
 
 use crate::design_system::{check_source_design_system, DesignSystem};
-use crate::profiler::{profile_findings, profile_step, DetectorProfile, ProfileMeta};
 use crate::regex_matchers::{
-    analyzer_rule_id, is_neutral_authored_color, MatchCtx, REGEX_ANALYZERS, REGEX_MATCHERS,
-    TEXT_CONTENT_ANALYZER_IDS,
+    is_neutral_authored_color, MatchCtx, REGEX_ANALYZERS, REGEX_MATCHERS, TEXT_CONTENT_ANALYZER_IDS,
 };
 use crate::util::{line_of_offset, re, ANY, B, D, W, WS, WS_CHARS};
 
 /// Options for `detect_text` (the JS `options` object).
 #[derive(Default)]
 pub struct TextOptions<'a> {
-    pub profile: Option<&'a DetectorProfile>,
     pub design_system: Option<&'a DesignSystem>,
     /// JS `options.inlineIgnores === false` disables the waivers.
     pub inline_ignores: bool,
@@ -468,11 +465,14 @@ pub fn strip_js_comments(content: &str, jsx: bool) -> String {
         }
         if state == State::Regex {
             output.push(ch);
-            if ch == '\\' && next.is_some() {
-                output.push(next.unwrap());
-                i += 2;
-                continue;
-            } else if ch == '[' {
+            if ch == '\\' {
+                if let Some(next_char) = next {
+                    output.push(next_char);
+                    i += 2;
+                    continue;
+                }
+            }
+            if ch == '[' {
                 regex_char_class = true;
             } else if ch == ']' {
                 regex_char_class = false;
@@ -498,11 +498,14 @@ pub fn strip_js_comments(content: &str, jsx: bool) -> String {
         }
         if state != State::Code {
             output.push(ch);
-            if ch == '\\' && next.is_some() {
-                output.push(next.unwrap());
-                i += 2;
-                continue;
-            } else if (state == State::SingleQuote && ch == '\'')
+            if ch == '\\' {
+                if let Some(next_char) = next {
+                    output.push(next_char);
+                    i += 2;
+                    continue;
+                }
+            }
+            if (state == State::SingleQuote && ch == '\'')
                 || (state == State::DoubleQuote && ch == '"')
                 || (state == State::Template && ch == '`')
             {
@@ -565,9 +568,7 @@ pub fn strip_js_comments(content: &str, jsx: bool) -> String {
             template_expression_depths[depth_index] =
                 template_expression_depths[depth_index].saturating_sub(1);
             last_closed_brace_kind = brace_kinds.pop().unwrap_or("");
-            if jsx_expression_depth > 0 {
-                jsx_expression_depth -= 1;
-            }
+            jsx_expression_depth = jsx_expression_depth.saturating_sub(1);
             sig.record(ch);
             if template_expression_depths[depth_index] == 0 {
                 template_expression_depths.pop();
@@ -694,10 +695,17 @@ fn blank_html_and_css_comments_outside_scripts(text: &str) -> String {
 }
 
 fn is_js_ws(c: char) -> bool {
-    matches!(c,
-        '\t' | '\n' | '\x0B' | '\x0C' | '\r' | ' ' | '\u{A0}' | '\u{1680}'
-        | '\u{2000}'..='\u{200A}' | '\u{2028}' | '\u{2029}' | '\u{202F}'
-        | '\u{205F}' | '\u{3000}' | '\u{FEFF}')
+    matches!(
+        c,
+        '\t' | '\n' | '\x0B' | '\x0C' | '\r' | ' ' | '\u{A0}' | '\u{1680}' | '\u{2000}'
+            ..='\u{200A}'
+                | '\u{2028}'
+                | '\u{2029}'
+                | '\u{202F}'
+                | '\u{205F}'
+                | '\u{3000}'
+                | '\u{FEFF}'
+    )
 }
 
 /// JS `blankCssLineComments`: a small state machine that blanks `//` line
@@ -1528,8 +1536,6 @@ pub fn run_regex_matchers(
     file_path: &str,
     line_offset: usize,
     block_context: bool,
-    profile: Option<&DetectorProfile>,
-    phase: &str,
 ) -> Vec<Finding> {
     let mut findings = Vec::new();
     for matcher in REGEX_MATCHERS.iter() {
@@ -1560,28 +1566,13 @@ pub fn run_regex_matchers(
             }
             matches
         };
-        let meta = ProfileMeta {
-            engine: "regex",
-            phase,
-            rule_id: matcher.id,
-            target: file_path,
-        };
-        findings.extend(profile_findings(
-            profile,
-            meta,
-            |f: &Finding| f.antipattern.as_str(),
-            run,
-        ));
+        findings.extend(run());
     }
     findings
 }
 
 /// JS: detect-text.mjs#runTextContentAnalyzers
-pub fn run_text_content_analyzers(
-    content: &str,
-    file_path: &str,
-    profile: Option<&DetectorProfile>,
-) -> Vec<Finding> {
+pub fn run_text_content_analyzers(content: &str, file_path: &str) -> Vec<Finding> {
     if !should_run_page_analyzers(content, file_path) {
         return vec![];
     }
@@ -1589,20 +1580,9 @@ pub fn run_text_content_analyzers(
     // JS: the 3 text-content analyzers sit at indices 1-3 of REGEX_ANALYZERS.
     // flat-type-hierarchy left this source-only path in #702 because it needs
     // rendered role and usage evidence.
-    for (i, rule_id) in TEXT_CONTENT_ANALYZER_IDS.iter().enumerate() {
+    for i in 0..TEXT_CONTENT_ANALYZER_IDS.len() {
         let analyzer = REGEX_ANALYZERS[1 + i];
-        let meta = ProfileMeta {
-            engine: "regex",
-            phase: "text-content",
-            rule_id,
-            target: file_path,
-        };
-        findings.extend(profile_findings(
-            profile,
-            meta,
-            |f: &Finding| f.antipattern.as_str(),
-            || analyzer(content, file_path),
-        ));
+        findings.extend(analyzer(content, file_path));
     }
     findings
 }
@@ -1619,7 +1599,6 @@ fn pseudo_stripe_findings(text: &str, file_path: &str, line_offset: usize) -> Ve
 
 /// JS: detect-text.mjs#detectText
 pub fn detect_text(content: &str, file_path: &str, options: &TextOptions) -> Vec<Finding> {
-    let profile = options.profile;
     let mut findings: Vec<Finding> = Vec::new();
     let ext = ext_from_file_path(file_path);
     let comment_stripped = if JS_SOURCE_EXTS.contains(&ext.as_str()) {
@@ -1631,50 +1610,27 @@ pub fn detect_text(content: &str, file_path: &str, options: &TextOptions) -> Vec
     let lines: Vec<&str> = source.split('\n').collect();
     let css_like = CSS_LIKE_EXTS.contains(&ext.as_str());
 
-    findings.extend(run_regex_matchers(
-        &lines, file_path, 0, css_like, profile, "source",
-    ));
+    findings.extend(run_regex_matchers(&lines, file_path, 0, css_like));
 
     if css_like {
         findings.extend(scan_inset_stripe_css(content, file_path, 0));
         findings.extend(pseudo_stripe_findings(content, file_path, 0));
     }
 
-    let grid_meta = ProfileMeta {
-        engine: "regex",
-        phase: "source",
-        rule_id: "codex-grid-background",
-        target: file_path,
-    };
-    findings.extend(profile_findings(
-        profile,
-        grid_meta,
-        |f: &Finding| f.antipattern.as_str(),
-        || {
-            scan_css_text_for_grid_background(&source)
-                .into_iter()
-                .map(|hit| {
-                    finding(
-                        "codex-grid-background",
-                        file_path,
-                        &hit.snippet,
-                        line_of_offset(&source, hit.index) as f64,
-                    )
-                })
-                .collect()
-        },
-    ));
-
-    let style_blocks = profile_step(
-        profile,
-        ProfileMeta {
-            engine: "regex",
-            phase: "extract",
-            rule_id: "style-blocks",
-            target: file_path,
-        },
-        || extract_style_blocks(content, &ext),
+    findings.extend(
+        scan_css_text_for_grid_background(&source)
+            .into_iter()
+            .map(|hit| {
+                finding(
+                    "codex-grid-background",
+                    file_path,
+                    &hit.snippet,
+                    line_of_offset(&source, hit.index) as f64,
+                )
+            }),
     );
+
+    let style_blocks = extract_style_blocks(content, &ext);
     for block in &style_blocks {
         let block_content = blank_css_line_comments(&strip_css_comments(&block.content));
         let block_lines: Vec<&str> = block_content.split('\n').collect();
@@ -1683,8 +1639,6 @@ pub fn detect_text(content: &str, file_path: &str, options: &TextOptions) -> Vec
             file_path,
             block.start_line - 1,
             true,
-            profile,
-            "style-block",
         ));
         findings.extend(scan_inset_stripe_css(
             &block_content,
@@ -1698,16 +1652,7 @@ pub fn detect_text(content: &str, file_path: &str, options: &TextOptions) -> Vec
         ));
     }
 
-    let css_js_blocks = profile_step(
-        profile,
-        ProfileMeta {
-            engine: "regex",
-            phase: "extract",
-            rule_id: "css-in-js",
-            target: file_path,
-        },
-        || extract_css_in_js(&source, &ext),
-    );
+    let css_js_blocks = extract_css_in_js(&source, &ext);
     for block in &css_js_blocks {
         let block_content = strip_css_comments(&block.content);
         let block_lines: Vec<&str> = block_content.split('\n').collect();
@@ -1716,8 +1661,6 @@ pub fn detect_text(content: &str, file_path: &str, options: &TextOptions) -> Vec
             file_path,
             block.start_line - 1,
             true,
-            profile,
-            "css-in-js",
         ));
         findings.extend(scan_inset_stripe_css(
             &block_content,
@@ -1732,18 +1675,7 @@ pub fn detect_text(content: &str, file_path: &str, options: &TextOptions) -> Vec
     }
 
     if let Some(ds) = options.design_system {
-        let meta = ProfileMeta {
-            engine: "regex",
-            phase: "source",
-            rule_id: "design-system",
-            target: file_path,
-        };
-        findings.extend(profile_findings(
-            profile,
-            meta,
-            |f: &Finding| f.antipattern.as_str(),
-            || check_source_design_system(content, file_path, Some(ds)),
-        ));
+        findings.extend(check_source_design_system(content, file_path, Some(ds)));
     }
 
     // Deduplicate (same antipattern + snippet within 2 lines).
@@ -1760,20 +1692,8 @@ pub fn detect_text(content: &str, file_path: &str, options: &TextOptions) -> Vec
     }
 
     if should_run_page_analyzers(content, file_path) {
-        for (i, analyzer) in REGEX_ANALYZERS.iter().enumerate() {
-            let rule_id = analyzer_rule_id(i);
-            let meta = ProfileMeta {
-                engine: "regex",
-                phase: "page-analyzer",
-                rule_id: &rule_id,
-                target: file_path,
-            };
-            deduped.extend(profile_findings(
-                profile,
-                meta,
-                |f: &Finding| f.antipattern.as_str(),
-                || analyzer(content, file_path),
-            ));
+        for analyzer in REGEX_ANALYZERS.iter() {
+            deduped.extend(analyzer(content, file_path));
         }
     }
 

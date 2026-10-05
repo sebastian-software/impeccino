@@ -16,14 +16,12 @@
 //!    `get_antipattern` (and therefore every finding's name, description,
 //!    category, and severity) resolve the pack's ids.
 //! 3. Pass the pack into the engine being run: `TextOptions.rule_pack` /
-//!    `ScanOptions.rule_pack` (text engine), `DetectHtmlOptions`
-//!    (`rule_pack` plus `impeccino_html::StaticRulePack`), or
-//!    `BrowserConfig.rule_pack` (the in-page / snapshot driver).
+//!    `ScanOptions.rule_pack` (text engine), or `DetectHtmlOptions`
+//!    (`rule_pack` plus `impeccino_html::StaticRulePack`).
 //!
 //! The trait is object-safe and every hook has a default that answers empty,
 //! so a pack implements only the engines it has rules for.
 
-use crate::browser::{BrowserFinding, Dom, ElFinding, ElId};
 use crate::findings::Finding;
 use crate::registry::Antipattern;
 
@@ -31,8 +29,7 @@ use crate::registry::Antipattern;
 ///
 /// `Send + Sync` because a pack is shared across whatever threads the host
 /// runs scans on; `Debug` because the option types that carry a pack
-/// reference (notably `BrowserConfig`) derive `Debug`. `#[derive(Debug)]` on a
-/// unit struct is enough.
+/// reference derive `Debug`. `#[derive(Debug)]` on a unit struct is enough.
 pub trait RulePack: Send + Sync + std::fmt::Debug {
     /// The pack's registry rows. [`install`] hands these to
     /// [`crate::registry::extend`].
@@ -43,23 +40,6 @@ pub trait RulePack: Send + Sync + std::fmt::Debug {
     /// extension with its dot (`".tsx"`), empty for a file without one.
     fn check_text(&self, content: &str, file_path: &str, ext: &str) -> Vec<Finding> {
         let _ = (content, file_path, ext);
-        Vec::new()
-    }
-
-    /// Browser rules over the DOM probe, once per element in the driver's
-    /// element loop (same skipped elements as the built-ins), after the
-    /// built-in element rules. Findings run through the same disabled-rule
-    /// filter and group under the same element.
-    fn check_element_dom(&self, dom: &dyn Dom, el: ElId) -> Vec<BrowserFinding> {
-        let _ = (dom, el);
-        Vec::new()
-    }
-
-    /// Browser page-level rules, after the built-in page passes. A finding
-    /// with `el: None` is attributed to `document.body`, like the built-in
-    /// page checks that name their own target.
-    fn check_page_dom(&self, dom: &dyn Dom) -> Vec<ElFinding> {
-        let _ = dom;
         Vec::new()
     }
 }
