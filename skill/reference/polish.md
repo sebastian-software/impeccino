@@ -2,13 +2,13 @@
 
 Polish is refinement, never concealed redesign. Preserve the incumbent visual world, content, behavior, and everything outside scope. If the concept itself is wrong, say so and recommend redesign or `bolder` instead of smuggling in a replacement.
 
-A detector result is defect evidence, not proof of quality. Inspect the rendered experience and real interaction path.
+A detector result is evidence to interpret against its role, the brief, and the rendered consequence. Fix observed functional and accessibility defects; preserve justified style choices rather than treating every pattern warning as a required redesign. Inspect the rendered experience and real interaction path.
 
 ## 1. Establish the system
 
 Read DESIGN.md and representative tokens, shared components, patterns, and neighboring flows. If no formal system exists, use coherent project conventions.
 
-Deliberate decisions are recorded, not inferred: PRODUCT.md (Brand Commitments, Product Principles), DESIGN.md (Named Rules, Do's and Don'ts, and `impeccino-disable` waivers), and the project's own ADRs when it keeps them (`docs/adr/`, `doc/adr/`, `adr/`). Something a recorded decision chose on purpose is not drift; leave it, even when a detector or your own taste flags it.
+Deliberate decisions are recorded, not inferred: PRODUCT.md (Brand Commitments, Product Principles), DESIGN.md (Named Rules, Do's and Don'ts, and `impeccino-disable` waivers), and the project's own ADRs when it keeps them (`docs/adr/`, `doc/adr/`, `adr/`). A style choice a recorded decision chose on purpose is not drift; leave it, even when a detector or your own taste flags it. Observed functional and accessibility defects remain reportable; name any recorded choice they conflict with.
 
 Classify each drift before fixing it:
 

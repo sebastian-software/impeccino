@@ -48,10 +48,10 @@ Systematically remove complexity across these dimensions:
 - **Remove redundancy**: If it's said elsewhere, don't repeat it here
 
 ### Visual Simplification
-- **Reduce color palette**: Use 1-2 colors plus neutrals, not 5-7 colors
-- **Limit typography**: One font family, 3-4 sizes maximum, 2-3 weights
+- **Reduce color palette**: Remove competing colours without erasing meaningful brand, data, or state roles
+- **Limit typography**: Consolidate redundant roles inside the accepted type system; preserve families and weights that serve a distinct purpose
 - **Remove decorations**: Eliminate borders, shadows, backgrounds that don't serve hierarchy or function
-- **Flatten structure**: Reduce nesting, remove unnecessary containers; never nest cards inside cards
+- **Flatten structure**: Remove redundant nested chrome; keep containers that represent distinct actionable entities or an accepted component relationship
 - **Remove unnecessary cards**: Cards aren't needed for basic layout; use spacing and alignment instead
 - **Consistent spacing**: Use one spacing scale, remove arbitrary gaps
 

@@ -9,18 +9,18 @@ metadata:
   version: 0.1.0
 ---
 
-This skill gives you the tools and permission to create design that earns to be called out-of-distribution craft: Whereas before, your design work would have been safe, timid and measured, you now approach every design task as an award-winning design director with impeccable understanding for what makes exceptional design work: production-grade code, peak creativity, a clear POV, deep understanding of the needs of the client and users, and exceptional craft.
+Build and improve interfaces around the user's task, product truth, and chosen visual direction. Match the ambition to the request: a new campaign may need expressive invention; a settings refinement needs clear behavior and a consistent system.
 
 Core principles:
 - Go all out. No hedging, no shortcuts. The deliverable must be complete (except assets the user must provide).
-- Dream big and bold. Distinct, beautiful, outstanding and highly inspiring work.
+- Make the work specific to its product and audience. Preserve an established identity during refinement and commit to the chosen direction when building a new one.
 - Verify in bounded passes, not a loop, and the ceiling covers the whole cycle: screenshots, defect scans, micro-edits, and rebuilds alike. Build fully, inspect once with a batched round (desktop and mobile together on the web; the shipped device classes on a native platform), fix everything it shows in one batch, confirm with at most one more round, and stop polishing. Open-ended self-QA burns the user's money doing worse what the finish handoffs do better.
 
 ## Setup
 
 1. Run `"<skill-base-dir>/scripts/impeccino" context` once per session, where `<skill-base-dir>` is the directory that contains this SKILL.md (the skill folder, not a plugin root two levels above it); keep cwd at the user's project. Every `"<skill-base-dir>/scripts/impeccino" <verb>` command in this skill and its references means the launcher in that folder; substitute the absolute directory before running it (`<skill-base-dir>` is not a shell variable), and keep the quotes, because install paths can contain spaces. If the host does not report the folder, locate this SKILL.md (usually `.claude/skills/impeccino` or `.agents/skills/impeccino`, in the project or under `~`). On a Windows shell without `sh`, call `"<skill-base-dir>/scripts/impeccino.cmd"` instead. The launcher runs a self-contained binary that ships next to it or is downloaded once on first run; no Node or other runtime is required. Pass a named source file or route as `--target <path>`. It loads PRODUCT.md, DESIGN.md, the matching surface brief, and native-platform guidance when applicable; follow its directives and do not rerun it.
 2. Load the request's playbook: its Commands-table reference for an explicit/implied sub-command, or [reference/new-work.md](reference/new-work.md) for a new surface or replacement visual world. Inspect target and incumbent visual truth before editing. When the app cannot run, start with committed visual-regression goldens or screenshot fixtures; verify target and freshness against current tokens, CSS, components, or assets, resolve conflicts, and compare theme/variant captures.
-3. After resolving analysis and direction, read [reference/craft-floor.md](reference/craft-floor.md) immediately before any UI edit, including small refinements. It carries the quality floor, the absolute bans, and the reflexes no detector catches. Do not load it for planning-only work.
+3. After resolving analysis and direction, read [reference/craft-floor.md](reference/craft-floor.md) immediately before any UI edit, including small refinements. It carries verification and how to interpret detector findings against the brief. Do not load it for planning-only work.
 
 **Rendered-page detector:** rules that need layout (line length, text overflow and occlusion, viewport edges, heading rhythm, rendered contrast, script errors) run on the rendered page, not the source. Run `"<skill-base-dir>/scripts/impeccino" detect --viewport <W>x<H> <url>` on a localhost or `file://` URL once motion has a chance to settle; it loads the page headlessly through agent-browser, and only findings come back. To scan a page that needs sign-in, set `AGENT_BROWSER_SESSION` to an agent-browser session that is signed in. The scan navigates that tab and clears its page-error log; if `--viewport` is supplied, it changes the viewport and does not restore the previous page or viewport. Without agent-browser the command says how to install it; tell the user and rely on the screenshots.
 
@@ -33,6 +33,7 @@ Two roles ship in [agents/](agents/) as Claude Code agent files: the finish revi
 ## How to design
 
 - **The brief wins.** Honor pinned aesthetics, eras, materials, fonts, and palettes even when they conflict with a saturated-pattern warning. Redirecting a clear brief toward your taste is failure.
+- **Explain the finding.** Separate observed functional or accessibility defects from context-dependent style warnings. Name the visible evidence, its consequence, and the owning decision to improve; a familiar pattern alone does not establish poor design or AI authorship. Use suitable design knowledge available to the host without requiring one external skill or catalogue.
 - **Refinement preserves; redesign replaces.** Refinement keeps the incumbent identity, behavior, copy, and everything outside scope. Ask before replacing factual copy or adding claims. Redesign keeps product truth, content, function, native affordances, and constraints, but treats the old look as evidence and anti-reference; choose a replacement world in new-work and replace DESIGN.md. Never split the difference into polish on the discarded look.
 - **Visual authority is evidence, not a filename.** Missing DESIGN.md alone does not make a project greenfield; new-work decides whether to preserve, expand, or replace the incumbent world.
 
