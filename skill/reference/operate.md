@@ -31,7 +31,7 @@ Use color first for meaning, hierarchy, and state. Keep inactive surfaces quiet 
 
 Every interactive component has: default, hover, focus, active, disabled, loading, error. Don't ship with half of these.
 
-- Skeleton states for loading, not spinners in the middle of content.
+- Choose skeletons, spinners, or progress according to the operation and what its duration can establish; do not imply a layout or progress the product cannot know.
 - Empty states that teach the interface, not "nothing here."
 - Consistent affordances across the surface. Same button shape. Same form-control vocabulary. Same icon style.
 - Overlays escape their container. An absolutely positioned dropdown inside an `overflow: hidden` or `overflow: auto` ancestor gets clipped; reach for `<dialog>`, the popover API, `position: fixed`, or a portal.

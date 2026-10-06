@@ -66,7 +66,8 @@ describe('skill reference authoring contracts', () => {
     assert.match(critique, /nothing is archived/);
     assert.match(critique, /PRODUCT\.md \(Brand Commitments, Product Principles\), DESIGN\.md \(Named Rules, Do's and Don'ts/);
     assert.match(critique, /`docs\/adr\/`, `doc\/adr\/`, `adr\/`/);
-    assert.match(critique, /A finding that contradicts a recorded decision is dropped/);
+    assert.match(critique, /A style warning that contradicts a recorded decision is dropped/);
+    assert.match(critique, /Still report observed accessibility or functional defects/);
     assert.match(critique, /When the user rejects a finding as deliberate/);
     assert.match(critique, /product or brand intent goes into PRODUCT\.md/);
     assert.match(critique, /a visual rule goes into DESIGN\.md/);

@@ -20,7 +20,7 @@ Resolve one stable target, run two independent assessments, synthesize a design 
    - "the homepage" -> `site/pages/index.astro` or `index.html`
    - "the settings modal" -> the primary component file
    - "this page" -> the current URL or source file
-2. **Read the recorded decisions**: PRODUCT.md (Brand Commitments, Product Principles), DESIGN.md (Named Rules, Do's and Don'ts, and any `<!-- impeccino-disable <rule> -->` waivers), and the project's own ADRs when it keeps them (`docs/adr/`, `doc/adr/`, `adr/`). A finding that contradicts a recorded decision is dropped; at most, mention once that the surface is consistent with that decision. These files are the only memory critique has: no earlier critique is read, because none is stored.
+2. **Read the recorded decisions**: PRODUCT.md (Brand Commitments, Product Principles), DESIGN.md (Named Rules, Do's and Don'ts, and any `<!-- impeccino-disable <rule> -->` waivers), and the project's own ADRs when it keeps them (`docs/adr/`, `doc/adr/`, `adr/`). A style warning that contradicts a recorded decision is dropped; at most, mention once that the surface is consistent with that decision. Still report observed accessibility or functional defects and name the decision they conflict with. These files are the only memory critique has: no earlier critique is read, because none is stored.
 
 ### Assessment Orchestration
 
@@ -49,6 +49,7 @@ Read relevant source files and visually inspect the rendered page when browser a
 
 Evaluate:
 - **Design specificity**: Is the composition, interaction, and visual language grounded in this product, or could an unrelated product use it unchanged? Make this judgment before seeing detector output.
+- **Pattern context**: Distinguish defects, individual style warnings, unjustified clusters, and accepted exceptions. Explain visible evidence, user or brand consequence, and the owning decision to improve. A familiar font, palette, card, label, or effect alone is not proof of bad design or AI authorship.
 - **Holistic design**: hierarchy, IA, emotional fit, discoverability, composition, typography, color, accessibility, states, copy, and edge cases.
 - **Cognitive load**: consult the [Cognitive Load Assessment](#cognitive-load-assessment) section below; report checklist failures and decision points with >4 visible options.
 - **Emotional journey**: peak-end rule, emotional valleys, reassurance at high-stakes moments.

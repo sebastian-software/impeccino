@@ -113,16 +113,17 @@ describe('cross-reference contracts', () => {
     expect(overdrive).not.toMatch(/Expect multiple rounds of refinement/i);
   });
 
-  test('review and documentation honor brief-earned craft-floor defaults', () => {
+  test('review and documentation distinguish style warnings from observed defects', () => {
     const craftFloor = read('reference/craft-floor.md');
     const reviewer = read('agents/impeccino-finish-reviewer.md');
     const documenter = read('agents/impeccino-documenter.md');
 
-    expect(craftFloor).toMatch(/defaults, not bans: the brief's own words can earn any/i);
-    expect(reviewer).toMatch(/keep a default the brief or world explicitly earns/i);
-    expect(reviewer).toMatch(/explicitly calls a ban/i);
-    expect(documenter).toMatch(/preserve one when the approved brief or world deliberately chooses it/i);
-    expect(documenter).toMatch(/explicitly marks that specific choice as a non-waivable ban/i);
+    expect(craftFloor).toMatch(/Style warnings are context-dependent/i);
+    expect(reviewer).toMatch(/A style warning alone is not a material fix/i);
+    expect(documenter).toMatch(/A style advisory alone is no reason to omit a reusable rule/i);
+    for (const text of [craftFloor, reviewer, documenter]) {
+      expect(text).not.toMatch(/non-waivable ban|explicitly calls a ban|no brief earns it back/i);
+    }
   });
 
   test('standalone document seed and post-build documentation have separate timing', () => {
@@ -240,19 +241,6 @@ describe('skill text contracts cleaned up in issue 33', () => {
     expect(sidecar).toMatch(/do not generate component snippets, narrative, motion, breakpoints/i);
   });
 
-  test('brief-earned floor defaults and non-waivable bans stay distinct for review and documentation', () => {
-    const floor = read('reference/craft-floor.md');
-    const reviewer = read('agents/impeccino-finish-reviewer.md');
-    const documenter = read('agents/impeccino-documenter.md');
-
-    expect(floor).toMatch(/defaults, not bans: the brief's own words can earn any/i);
-    expect(floor).toMatch(/This one is a ban, not a default: no brief earns it back/i);
-    expect(reviewer).toMatch(/keep a default the brief or world explicitly earns/i);
-    expect(documenter).toMatch(/only when the craft floor explicitly marks that specific choice as a non-waivable ban/i);
-    expect(documenter).toMatch(/preserve one when the approved brief or world deliberately chooses it/i);
-    expect(documenter).toMatch(/specifically labeled ban such as a kicker or eyebrow/i);
-  });
-
   test('hooks distinguish installed manifests from manually configured Grok', () => {
     const hooks = read('reference/hooks.md');
     expect(hooks).toMatch(/hooks on.{0,2} installs manifests for Claude Code.*Codex.*Cursor.*GitHub Copilot/i);
@@ -269,14 +257,12 @@ describe('skill text contracts cleaned up in issue 33', () => {
     expect(audit.indexOf('| 3 | Theming |')).toBeLessThan(audit.indexOf('| 4 | Responsive Design |'));
   });
 
-  test('body measure and detector guidance stay context-sensitive and distinct', () => {
-    const floor = read('reference/craft-floor.md');
+  test('focused body measure and detector guidance stay context-sensitive and distinct', () => {
     const operate = read('reference/operate.md');
     const typeset = read('reference/typeset.md');
-    expect(floor).toContain('body measure 45–75ch');
     expect(operate).toContain('45–75ch');
     expect(typeset).toContain('45–75ch');
-    expect([floor, operate, typeset].join('\n')).not.toContain('65–75ch');
+    expect([operate, typeset].join('\n')).not.toContain('65–75ch');
 
     const newWork = read('reference/new-work.md');
     const polish = read('reference/polish.md');
