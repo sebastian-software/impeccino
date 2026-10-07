@@ -233,3 +233,20 @@ Context's visual evidence probe reads at most 256 KiB from a candidate before ap
 Stop retains its 20-file invocation limit and rotates large file sets and project order between invocations. Cursor's repeated-denial signature is the set of rule IDs in one file, independent of line shifts or duplicate occurrences. Proposal scans create a new directory atomically and never reuse a directory owned by another proposal.
 
 Display snippets end at whole Unicode scalars within their UTF-16 limit. CSS color labels clamp and round channels to bytes; the inherited numeric `color_to_hex` helper remains available for frozen compatibility vectors. Invalid SVG dimensions do not produce a sized-scene finding. `.agents/skills/impeccino` defaults to Codex identity; an explicit provider override still takes precedence.
+
+## Production finding policy
+
+Raw matcher outputs and frozen function vectors preserve their compatibility
+contract. CLI reports and hooks apply `apply_reporting_policy` from foundation:
+measured broken images, script errors, contrast, occlusion, and overflow remain
+primary; built-in pattern, declared-value drift, and threshold/risk signals are
+advisory. External packs own their registered finding policy. This classification
+does not expand accessibility coverage or establish deeper conformance.
+
+Advisories remain visible in explicit reports and hook context, sort after
+primary hook findings within each file, do not deny Cursor writes, and do not produce finding
+exit status 2 alone. Codex Stop omits advisory-only context because its schema
+supports a blocking decision only. `--no-advisory`, operational failures,
+waivers, inline ignores, native exclusions, and target ownership still apply.
+See [Design rule curation](design-rule-curation.md) for the primary rule IDs,
+knowledge ownership, creative-tool limits, and retained native sources.

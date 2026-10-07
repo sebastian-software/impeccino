@@ -238,14 +238,14 @@ for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModel
         const { trace } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccino create a concise evidence-led case-study page. Leave it at index.html.',
+          userPrompt: '/impeccino create a concise evidence-led case-study page. Ask me for its real content first, record the agreed surface brief before code, and leave it at index.html. Complete the shipped finish review and documentation check, locally if the host has no subagent tool.',
           simulatedUser: { answer: () => CASE_STUDY_ANSWER },
           environment: 'This host has no subagent tool and no native Impeccino roles.',
         });
         const question = firstCall(trace, ({ name }) => name === 'ask_user_question');
         assert.ok(fileLoaded(trace, 'new-work.md'), `new-work.md was not loaded.\n${workflowTraceMessage(trace)}`);
         assert.ok(question >= 0, `task concept was never put to the user.\n${workflowTraceMessage(trace)}`);
-        assertNewWorkLifecycle(trace, { target: 'index.html' });
+        assertNewWorkLifecycle(trace, { target: 'index.html', requireDiscovery: true, persistBrief: true });
         assertFreshCaptures(trace, workspace, 'index.html');
         assert.ok(fileLoaded(trace, 'impeccino-finish-reviewer.md'), 'inline fallback must read the shipped finish-reviewer role');
         assert.ok(fileLoaded(trace, 'impeccino-documenter.md'), 'inline fallback must read the shipped documenter role');
@@ -267,7 +267,7 @@ for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModel
         const { trace } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccino create a concise evidence-led case-study page. Leave it at index.html.',
+          userPrompt: '/impeccino create a concise evidence-led case-study page. Ask me for its real content first, record the agreed surface brief before code, and leave it at index.html. Complete the shipped finish review and documentation check, locally if the host has no subagent tool.',
           simulatedUser: { answer: () => CASE_STUDY_ANSWER },
           environment: 'No named Impeccino roles are installed in .claude/agents. The host can spawn a fresh general-purpose subagent with role instructions, tool limits, and task inputs.',
           additionalTools: (trace) => genericRoleSpawnTool(trace, workspace),
@@ -275,7 +275,7 @@ for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModel
         const question = firstCall(trace, ({ name }) => name === 'ask_user_question');
         assert.ok(fileLoaded(trace, 'new-work.md'), `new-work.md was not loaded.\n${workflowTraceMessage(trace)}`);
         assert.ok(question >= 0, `task concept was never put to the user.\n${workflowTraceMessage(trace)}`);
-        assertNewWorkLifecycle(trace, { target: 'index.html' });
+        assertNewWorkLifecycle(trace, { target: 'index.html', requireDiscovery: true, persistBrief: true });
         assertFreshCaptures(trace, workspace, 'index.html');
         assertRoleLoadedBeforeGenericSpawn(trace, workspace, { id: 'finish-reviewer', filename: 'impeccino-finish-reviewer.md' });
         assertRoleLoadedBeforeGenericSpawn(trace, workspace, { id: 'documenter', filename: 'impeccino-documenter.md' });
@@ -297,12 +297,12 @@ for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModel
         const { trace } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccino redesign current.html for this product. Leave the result at current.html.',
+          userPrompt: '/impeccino redesign current.html for this product. Ask me to choose a replacement direction, record its surface brief before code, and leave the result at current.html. Complete the shipped finish review and record the built design system.',
         });
         const question = firstCall(trace, ({ name }) => name === 'ask_user_question');
         assert.ok(fileLoaded(trace, 'new-work.md'), `redesign did not route through new-work.\n${workflowTraceMessage(trace)}`);
         assert.ok(question >= 0, `replacement world was not put to the user.\n${workflowTraceMessage(trace)}`);
-        assertNewWorkLifecycle(trace, { target: 'current.html', redesign: true });
+        assertNewWorkLifecycle(trace, { target: 'current.html', requireDiscovery: true, persistBrief: true, recordSystem: true });
         assertFreshCaptures(trace, workspace, 'current.html');
         assert.ok(fileLoaded(trace, 'finish-reviewer.md'), 'redesign must run the shipped finish review');
         assert.ok(fileLoaded(trace, 'documenter.md'), 'redesign must run the shipped documentation pass');
@@ -345,12 +345,8 @@ for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModel
       }
     });
 
-    // Regression guard for the failure mode that shipped in PR #576: the report
-    // landed and the run then stopped, asking nothing and printing no skip
-    // line. The close is the deliverable's other half, so a critique that ends
-    // on the report is incomplete. Asserted on the trace rather than on prose
-    // because the model's own account of why it skipped is not evidence.
-    it('critique closes with the question or an explicit skip line', async () => {
+    // A settled read-only review does not owe an interview or skip ceremony.
+    it('critique returns evidence without a compulsory question', async () => {
       const workspace = prepareWorkspace({
         files: {
           'PRODUCT.md': PRODUCT_MD_SAMPLE,
@@ -362,34 +358,21 @@ for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModel
         const { trace, responseMessages } = await runTurn({
           workspace,
           model,
-          userPrompt: '/impeccino critique current.html',
+          userPrompt: '/impeccino critique current.html. Return the findings without a follow-up interview or edits.',
         });
         assert.ok(fileLoaded(trace, 'critique.md'), `critique.md was not loaded.\n${workflowTraceMessage(trace)}`);
         assertFreshCaptures(trace, workspace, 'current.html');
 
         const parts = assistantParts(responseMessages);
         const allText = parts.filter((p) => p.kind === 'text').map((p) => p.value).join('\n');
-        const reportPattern = /priority issue|heuristic|design health/i;
+        const reportPattern = /finding|contrast|accessibility|priority issue/i;
         assert.match(allText, reportPattern, `no report reached the user.\n${workflowTraceMessage(trace)}`);
 
-        const askIndex = parts.findIndex((p) => p.kind === 'tool' && p.value === 'ask_user_question');
-        const skipped = /Questions skipped:/i.test(allText);
-        assert.ok(
-          askIndex >= 0 || skipped,
-          `critique ended without the questions and without a "Questions skipped: <reason>" line.\n` +
-            `This is the PR #576 regression: the report is not the finish, the close is.\n${workflowTraceMessage(trace)}`,
-        );
+        assert.equal(trace.toolCalls.some(({ name }) => name === 'ask_user_question'), false,
+          'a settled critique must not force an interview');
+        assert.equal(trace.toolCalls.some(({ mutatedPaths = [] }) => mutatedPaths.length > 0), false,
+          'a critique request must remain read-only');
 
-        // The ordering invariant. Only meaningful when a question was actually
-        // asked; a skip-line close has nothing to order against.
-        if (askIndex >= 0) {
-          const reportIndex = parts.findIndex((p) => p.kind === 'text' && reportPattern.test(p.value));
-          assert.ok(
-            reportIndex >= 0 && reportIndex < askIndex,
-            `the question was emitted before the report text, so the report stays hidden until the user answers.\n` +
-              `${workflowTraceMessage(trace)}`,
-          );
-        }
       } finally {
         cleanupWorkspace(workspace);
       }

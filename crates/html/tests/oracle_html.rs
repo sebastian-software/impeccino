@@ -1,6 +1,6 @@
 //! Replays the JS `detect --no-config --json <fixture>` goldens
 //! (`tests/oracle/golden/detect-fixture-json-*.json` in this repository)
-//! through the static engine and diffs the finding arrays.
+//! through the static engine plus production reporting policy and diffs the finding arrays.
 //!
 //! The goldens' `stdout` is the JSON array for one fixture with the repo path
 //! masked as `<REPO>`; the comparison re-applies that mask. Only `.html`
@@ -129,7 +129,10 @@ fn html_fixture_goldens_match() {
             text_content_analyzers: Some(&analyzers),
             ..Default::default()
         };
-        let findings = detect_html_source(&source, &fixture, &opts);
+        let mut findings = detect_html_source(&source, &fixture, &opts);
+        for finding in &mut findings {
+            impeccino_core::findings::apply_reporting_policy(finding);
+        }
         let mut actual: Vec<Value> = serde_json::to_value(&findings)
             .unwrap()
             .as_array()
@@ -219,7 +222,10 @@ fn detect_config_workspace_no_config_matches() {
         text_content_analyzers: Some(&analyzers),
         ..Default::default()
     };
-    let findings = detect_html_source(&source, &page, &opts);
+    let mut findings = detect_html_source(&source, &page, &opts);
+    for finding in &mut findings {
+        impeccino_core::findings::apply_reporting_policy(finding);
+    }
     let mut actual: Vec<Value> = serde_json::to_value(&findings)
         .unwrap()
         .as_array()

@@ -1,3 +1,5 @@
+> Native knowledge curation is pending. This retained material remains available; apply it within the task and host instructions, and verify platform behavior with native evidence.
+
 # Android platform
 
 For native Android apps: Jetpack Compose, Android Views, React Native, Expo, Flutter shipping to Android hardware.

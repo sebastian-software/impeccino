@@ -385,6 +385,7 @@ dependencies = [
  "impeccino-context",
  "impeccino-core",
  "impeccino-detect",
+ "impeccino-html",
  "regex",
  "serde_json",
  "sha2",

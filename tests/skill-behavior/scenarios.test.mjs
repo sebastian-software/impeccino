@@ -120,7 +120,7 @@ for (const modelId of resolveModelList()) {
         );
         assert.ok(
           fileLoaded(trace, 'init.md'),
-          `craft should load init.md when no product or visual world exists; an automated harness is not a bypass.\n` +
+          `craft should load init.md when no product or visual world exists; missing durable context routes to its task contract.\n` +
             `Trace: ${JSON.stringify(summarizeTrace(trace), null, 2)}`,
         );
         assert.ok(

@@ -40,8 +40,8 @@ The runtime modules are [UI anti-patterns](https://github.com/sebastian-software
 [visual](https://github.com/sebastian-software/skills.sebastian-software.com/blob/main/skills/effective-web/references/ui-pattern-visual.md),
 [motion](https://github.com/sebastian-software/skills.sebastian-software.com/blob/main/skills/effective-web/references/ui-pattern-motion.md),
 and [copy](https://github.com/sebastian-software/skills.sebastian-software.com/blob/main/skills/effective-web/references/ui-pattern-copy.md).
-The links identify their maintained destination; additions become available on
-the default branch after integration.
+The links identify their maintained destinations, integrated in Skill Library
+PR 279 and refined in PR 280.
 
 ## Conflicts resolved in Impeccino
 
@@ -54,13 +54,12 @@ and type roles; loading feedback is selected for the actual operation.
 
 Observed accessibility and functional defects remain reportable, including
 when a recorded visual decision conflicts with the repair. Style warnings need
-context and evidence. The detector's matchers, severity metadata, hook policy,
-and exit statuses are unchanged by this knowledge change; measured-policy work
-belongs to the separate engine scope in issue 74.
+context and evidence. That initial knowledge change (PR 75) left the detector's matchers, severity
+metadata, hook policy, and exit statuses unchanged. The production reporting
+boundary below records the remaining engine scope in issue 74.
 
-Native-platform material and the remaining command-specific teaching guidance
-are not fully curated by this change. This record covers the accepted review
-points and conflicting instructions, not the whole migration in issue 74.
+Native-platform material remains pending curation. The task-contract migration
+below records the later disposition of command-specific web teaching.
 
 ## Source record
 
@@ -85,3 +84,79 @@ considered. The Impeccable design catalog is outside this rule curation.
 The Library baseline was commit `2c021db985bbdf44248c33a413e7ce1b37cafa18`.
 Existing local changes to its design-system rules, deep layout appendix, and
 design-review route were preserved.
+
+## Task-contract migration
+
+The remaining source was reviewed at Impeccino commit
+`5e1cccc6e32e062d6e0729f9870ee6eac0b2aeb6`. The command references below keep
+purpose, inputs, scope, evidence, and completion contracts. Their general web
+teaching is maintained in the existing `effective-web` references named here;
+the host can choose another suitable source. This disposition does not import
+the old prose or make those references a runtime dependency.
+
+| Impeccino source | Knowledge disposition | Impeccino contract retained |
+| --- | --- | --- |
+| `critique.md`, `polish.md` | `change-scoped-interface-review.md`, `cognitive-ux.md`, `ui-quality-gates.md`, and the four pattern modules | Target and recorded decisions; independent review when available; chat findings with evidence; no invented numerical score |
+| `adapt.md`, `layout.md` | `responsive-design.md`, `css-layout-responsive.md`, `layout-foundations.md`, `layout-spacing.md`, `print-web-layout.md` | Preserve the primary task across target contexts; verify real touch gestures and report missing input coverage |
+| `typeset.md`, `colorize.md` | `typography-system.md`, `typography-detail.md`, `colour-system.md`, `colour-accessibility.md` | Preserve incumbent tokens and roles; verify actual readability, states, themes, and fallback |
+| `animate.md`, `delight.md`, `overdrive.md` | `motion-interaction.md`, `animation-runtime-performance.md`, `ui-pattern-motion.md`, `interface-copy.md` | Identify the requested interaction; reduced-motion alternatives, interruption, usable fallback, performance evidence |
+| `bolder.md`, `quieter.md`, `distill.md`, `operate.md`, `new-work.md` | `design-planning-core.md`, `redesign-preservation.md`, `ui-pattern-layout.md`, `ui-pattern-visual.md` | Refinement scope versus identity replacement; per-surface mode; preserve content, function, and established identity |
+| `clarify.md`, `onboard.md` | `interface-copy.md`, `cognitive-ux.md`, `forms-and-state.md`, `loading-states.md`, `design-planning.md` | Real first-use tasks, recovery and relevant states; preserve factual claims and reachable capabilities |
+| `harden.md`, `audit.md` | `ui-quality-gates.md`, `html-accessibility.md`, `accessibility-testing.md`, `forms-and-state.md`, `i18n-ux.md`, `i18n-rtl.md` | Evidence-based findings, supported ranges, interrupted gestures, no screenshot-only interaction verdict |
+| `optimize.md` | `browser-performance.md`, `react-performance-priorities.md`, `animation-runtime-performance.md` | Comparable before/after evidence; actual bottleneck; preserve behavior and report measurement limits |
+| `extract.md`, `document.md` | `design-system-rules.md`, `component-api-design.md` | Extraction boundaries, consumers, actual reused tokens; DESIGN.md format, sidecar fields, and waiver preservation remain local integration contracts |
+| `init.md`, `shape.md` | `design-planning.md`, `design-planning-core.md` | Useful discovery for material gaps; supported product facts, explicit assumptions, smallest useful brief |
+
+The fixed interview rounds, compulsory confirmation, candidate tournaments,
+standing-exit ceremony, six-block brief requirement, unconditional reviewer
+handoffs, and fixed inspection ceilings are retired workflow prescriptions.
+They are not migrated as design knowledge. Existing answers and authorization
+remain effective. Host instructions control questions, delegation, autonomy,
+and verification budget. Fictional persona panels and heuristic score bands
+are retired as unevidenced assessment machinery; audience and task review
+remain useful. Framework recipes and universal numerical style thresholds are
+not copied into task contracts; their appropriate use belongs to the maintained
+specialist knowledge.
+
+The hook reference retains manifests, tiers, cache and waiver contracts while
+removing its former blanket approval gate; the host owns the write boundary.
+
+Existing PRODUCT.md headings and schema stamp, DESIGN.md tokens and waivers,
+DESIGN.json schema, SURFACES.md markers, and legacy direction blocks remain
+readable. A roll key is evidence only when a roll actually ran. Development
+briefs stay out of browser-delivered artifacts.
+
+### Creative source candidates and native material
+
+`concept-seed` keeps its local hash, supported scopes, 5–7 candidate count,
+three-index surface deal, re-rolls, and register behavior. Its lead excludes
+the first two entries; this is a selection bias, not a quality measure. The
+helper cannot see the candidate list. Repeatability requires retaining that
+ordered list and the key, count, scope, and flags. Using the helper is optional.
+
+The local palette catalog's color tuples, IDs, weighting, mood examples, and
+strategies remain source candidates. Its former mandatory color-space,
+background, dosage, and contrast recipes are retired; actual contrast and
+semantic roles need evaluation in the implemented surface. The remote
+Impeccable catalog was removed in ADR 0019 and is unavailable for this curation;
+no catalog content is imported or treated as reviewed knowledge.
+
+`ios.md`, `android.md`, `adapt.native.md`, and the native diagnostic material in
+`audit.native.md` remain available and explicitly marked as pending curation.
+They are retained candidates, not a completed native knowledge migration.
+
+### Production reporting boundary
+
+Raw matchers and frozen function-level oracle vectors retain their legacy
+contract. Production CLI and hook reports apply a shared interpretation policy:
+`broken-image`, `script-error`, `low-contrast`, `text-occlusion`, `text-overflow`,
+and `first-viewport-column-overflow` remain primary. The other built-in pattern,
+declared-value drift, and threshold/structural-risk findings are advisory. This
+phase does not claim deeper specification conformance or complete accessibility
+coverage. External rule packs retain ownership of their own finding policy.
+
+Advisories alone exit successfully and never deny a Cursor write. Hooks retain
+contextual advice; Codex Stop suppresses it because that event offers only a
+blocking result. `--no-advisory` hides contextual findings, while operational
+failures and primary diagnostics keep their existing exit semantics. Waivers,
+inline ignores, project boundaries, and native scan exclusions remain effective.

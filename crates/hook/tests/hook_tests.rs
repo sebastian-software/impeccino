@@ -19,6 +19,19 @@ use impeccino_hook::{admin, before_edit, hook};
 use serde_json::{json, Map, Value};
 
 static HTML: MissingHtmlEngine = MissingHtmlEngine;
+static REAL_HTML: impeccino_html::StaticHtmlEngine = impeccino_html::StaticHtmlEngine {
+    static_rule_pack: None,
+};
+const MEASURED_HTML: &str = "<p style=\"color:#777;background:#666\">Unreadable text</p>\n";
+fn rt_html(cwd: &str) -> Runtime<'static> {
+    Runtime::new(
+        cwd.into(),
+        HashMap::new(),
+        "/impeccino".into(),
+        "/opt/bin/impeccino",
+        &REAL_HTML,
+    )
+}
 
 struct Tmp(PathBuf);
 impl Tmp {
@@ -252,7 +265,7 @@ fn check_monorepo_design_hook(mode: &str) {
         };
         assert_eq!(
             out.contains("overused-font"),
-            expected,
+            expected && mode != "before",
             "{mode}: root_design={root_design}, app={app}, font={font}: {out}"
         );
         let _ = std::fs::remove_dir_all(jsp::dirname(&get_cache_path(&cache_cwd)));
@@ -1027,7 +1040,7 @@ fn stop_baseline_untrusted_shapes_do_not_suppress_findings() {
             _ => {}
         }
         let r = if variant == "other-provider" {
-            rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "codex")]))
+            rt_with(&cwd, env(&[("IMPECCINO_HOOK_HARNESS", "grok")]))
         } else {
             rt(&cwd)
         };
@@ -1228,7 +1241,11 @@ fn design_md_decisions_reach_the_hook_per_file() {
     font.file = file.clone();
     let side = f("side-tab", 1.0, "S", "d", "s");
     let gradient = f("gradient-text", 1.0, "G", "d", "s");
-    let kept = filter_findings_for(vec![font, side, gradient], &d, &scan);
+    let kept = filter_findings_for(
+        vec![font, side, gradient],
+        &read_reporting_config(&cwd),
+        &scan,
+    );
     assert_eq!(
         kept.iter()
             .map(|x| x.antipattern.as_str())
@@ -1403,7 +1420,7 @@ fn render_template_caps_and_footers() {
     assert!(
         text.contains("`impeccino-disable-line <rule>: <who decided, and the evidence>` comment")
     );
-    assert!(text.contains("Self-serve ends at the in-file waiver."));
+    assert!(text.contains("Follow the host’s authorization and task scope."));
     assert!(text.contains("`<!-- impeccino-disable <rule>: reason -->`"));
     let short = render_template(
         &r,
@@ -1541,7 +1558,7 @@ fn render_template_clamps_inside_budget_and_keeps_policy() {
         },
     );
     assert!(text.chars().count() <= 500, "{}", text.chars().count());
-    assert!(text.ends_with("unsure, ask in one line."));
+    assert!(text.ends_with("comment for an evidenced exception."));
     let huge: Vec<Finding> = (0..5)
         .map(|i| f("side-tab", (i + 1) as f64, "X", &"y".repeat(2000), "s"))
         .collect();
@@ -2124,7 +2141,7 @@ fn before_edit_uses_the_touched_apps_platform_inside_a_workspace() {
         ),
     );
     assert_eq!(code, 0);
-    assert!(web.starts_with("{\"permission\":\"deny\""), "{web}");
+    assert!(web.starts_with("{\"permission\":\"allow\""), "{web}");
 
     for app in ["native", "web"] {
         let app_root = jsp::join(&[&root, "apps", app]);
@@ -2538,15 +2555,15 @@ fn before_edit_resolves_native_platform_per_target_without_package_marker() {
         "apps/native/PRODUCT.md",
         "# Product\n\n## Platform\nios and android\n",
     );
-    let r = rt(&root);
-    let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
+    let r = rt_html(&root);
+    let slop = MEASURED_HTML;
 
     let (native, code) = hbe(
         &r,
         &cursor(
             &root,
             "Write",
-            json!({"file_path": "apps/native/src/new.css", "content": slop}),
+            json!({"file_path": "apps/native/src/new.html", "content": slop}),
         ),
     );
     assert_eq!(code, 0);
@@ -2557,7 +2574,7 @@ fn before_edit_resolves_native_platform_per_target_without_package_marker() {
         &cursor(
             &root,
             "Write",
-            json!({"file_path": "apps/web/src/new.css", "content": slop}),
+            json!({"file_path": "apps/web/src/new.html", "content": slop}),
         ),
     );
     assert_eq!(code, 0);
@@ -2574,14 +2591,14 @@ fn before_edit_skips_oversized_proposed_content() {
     let t = Tmp::new();
     let cwd = t.path();
     t.write("package.json", "{}");
-    let r = rt(&cwd);
-    let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
+    let r = rt_html(&cwd);
+    let slop = MEASURED_HTML;
     let (small_out, _) = hbe(
         &r,
         &cursor(
             &cwd,
             "Write",
-            json!({"file_path": "src/x.css", "content": slop}),
+            json!({"file_path": "src/x.html", "content": slop}),
         ),
     );
     assert!(
@@ -2594,7 +2611,7 @@ fn before_edit_skips_oversized_proposed_content() {
         &cursor(
             &cwd,
             "Write",
-            json!({"file_path": "src/x.css", "content": big}),
+            json!({"file_path": "src/x.html", "content": big}),
         ),
     );
     assert_eq!(code, 0);
@@ -2602,7 +2619,7 @@ fn before_edit_skips_oversized_proposed_content() {
 }
 
 #[test]
-fn before_edit_scans_catch_all_route_files() {
+fn before_edit_allows_advisory_catch_all_route_writes() {
     let (_t, cwd, route) = catch_all_route_fixture();
     let r = rt(&cwd);
     let (out, code) = hbe(
@@ -2614,8 +2631,7 @@ fn before_edit_scans_catch_all_route_files() {
         ),
     );
     assert_eq!(code, 0);
-    assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
-    assert!(out.contains("[gradient-text]"), "{out}");
+    assert!(out.starts_with("{\"permission\":\"allow\""), "{out}");
 }
 
 #[test]
@@ -2623,8 +2639,8 @@ fn before_edit_denies_shell_and_edit_shapes() {
     let t = Tmp::new();
     let cwd = t.path();
     t.write("package.json", "{}");
-    let r = rt(&cwd);
-    let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
+    let r = rt_html(&cwd);
+    let slop = MEASURED_HTML;
     let deny = |stdin: &str, label: &str| {
         let (out, code) = hbe(&r, stdin);
         assert_eq!(code, 0);
@@ -2639,7 +2655,7 @@ fn before_edit_denies_shell_and_edit_shapes() {
         &cursor(
             &cwd,
             "Shell",
-            json!({"command": format!("cat > src/x.css <<'EOF'\n{slop}EOF\n")}),
+            json!({"command": format!("cat > src/x.html <<'EOF'\n{slop}EOF\n")}),
         ),
         "heredoc",
     );
@@ -2647,7 +2663,7 @@ fn before_edit_denies_shell_and_edit_shapes() {
         &cursor(
             &cwd,
             "Shell",
-            json!({"command": format!("python3 - <<'PY'\nfrom pathlib import Path\nPath(\"src/y.css\").write_text(\"\"\"{slop}\"\"\")\nPY\n")}),
+            json!({"command": format!("python3 - <<'PY'\nfrom pathlib import Path\nPath(\"src/y.html\").write_text(\"\"\"{slop}\"\"\")\nPY\n")}),
         ),
         "python heredoc",
     );
@@ -2655,7 +2671,7 @@ fn before_edit_denies_shell_and_edit_shapes() {
         &cursor(
             &cwd,
             "Shell",
-            json!({"command": format!("cat >> src/z.css <<EOF\n{slop}EOF")}),
+            json!({"command": format!("cat >> src/z.html <<EOF\n{slop}EOF")}),
         ),
         "append redirect",
     );
@@ -2663,20 +2679,20 @@ fn before_edit_denies_shell_and_edit_shapes() {
         &cursor(
             &cwd,
             "Shell",
-            json!({"command": format!("cat <<'EOF' | tee src/t.css\n{slop}EOF\n")}),
+            json!({"command": format!("cat <<'EOF' | tee src/t.html\n{slop}EOF\n")}),
         ),
         "tee",
     );
-    t.write("src/src.css", slop);
+    t.write("src/src.html", slop);
     deny(
         &cursor(
             &cwd,
             "Shell",
-            json!({"command": "cp -f src/src.css src/copy.css"}),
+            json!({"command": "cp -f src/src.html src/copy.html"}),
         ),
         "cp",
     );
-    let orig = t.write("src/e.css", ".card { color: #111; }\n");
+    let orig = t.write("src/e.html", ".card { color: #111; }\n");
     deny(
         &cursor(
             &cwd,
@@ -2698,11 +2714,15 @@ fn before_edit_denies_shell_and_edit_shapes() {
         "old string missing",
     );
     allow(
-        &cursor(&cwd, "Shell", json!({"command": "echo hi > src/q.css"})),
+        &cursor(&cwd, "Shell", json!({"command": "echo hi > src/q.html"})),
         "redirect without content",
     );
     allow(
-        &cursor(&cwd, "Write", json!({"path": "src/new.css", "content": ""})),
+        &cursor(
+            &cwd,
+            "Write",
+            json!({"path": "src/new.html", "content": ""}),
+        ),
         "empty content",
     );
     allow(
@@ -2723,7 +2743,7 @@ fn before_edit_denies_shell_and_edit_shapes() {
     let write = cursor(
         &cwd,
         "Write",
-        json!({"path": "src/new.css", "content": slop}),
+        json!({"path": "src/new.html", "content": slop}),
     );
     let mut last = String::new();
     for _ in 0..7 {
@@ -2736,8 +2756,8 @@ fn before_edit_denies_shell_and_edit_shapes() {
     assert!(last.contains("This is the 7th repeated denial for the same file and finding signature, so Impeccino is allowing this write to avoid a loop."));
     let cache = read_cache(&cwd);
     assert_eq!(
-        cache["sessions"]["cv1"]["files"][jsp::join(&[&cwd, "src/new.css"])]["cursorDenials"]
-            ["gradient-text"],
+        cache["sessions"]["cv1"]["files"][jsp::join(&[&cwd, "src/new.html"])]["cursorDenials"]
+            ["low-contrast"],
         json!(7)
     );
     assert_eq!(cache["sessions"]["cv1"]["footerShown"], json!(true));
@@ -3834,16 +3854,18 @@ fn codex_stop_emits_decision_block() {
 
     let t = Tmp::new();
     let cwd = t.path();
-    let r = rt(&cwd);
-    let css = t.write("src/a.css", SIDE_TAB_CSS);
-    hook::run_hook(&r, &edit_event(&cwd, &css, "s1"));
+    let r = rt_html(&cwd);
+    let css = t.write("src/a.html", MEASURED_HTML);
+    let mut cache = read_cache(&cwd);
+    touch_file(&mut cache, "s1", &css);
+    persist_project_cache(&r, &cwd, &cwd, &mut cache, "s1");
     let stop =
         json!({ "session_id": "s1", "cwd": cwd, "hook_event_name": "Stop", "turn_id": "t-9" })
             .to_string();
     let deep = hook::run_stop_hook(&r, &stop);
     let out: Value = serde_json::from_str(&deep.stdout).unwrap();
     assert_eq!(out["decision"], json!("block"));
-    assert!(out["reason"].as_str().unwrap().contains("[side-tab]"));
+    assert!(out["reason"].as_str().unwrap().contains("[low-contrast]"));
     assert!(out.get("hookSpecificOutput").is_none());
 }
 
@@ -3881,15 +3903,15 @@ fn before_edit_scans_proposed_and_existing_files_with_live_preview_markers() {
     let t = Tmp::new();
     let cwd = t.path();
     t.write("package.json", "{}");
-    let r = rt(&cwd);
-    let slop = ".t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n";
+    let r = rt_html(&cwd);
+    let slop = MEASURED_HTML;
     // Control: denied at normal size without markers.
     let (out, _) = hbe(
         &r,
         &cursor(
             &cwd,
             "Write",
-            json!({"file_path": "src/x.css", "content": slop}),
+            json!({"file_path": "src/x.html", "content": slop}),
         ),
     );
     assert!(out.starts_with("{\"permission\":\"deny\""), "{out}");
@@ -3901,7 +3923,7 @@ fn before_edit_scans_proposed_and_existing_files_with_live_preview_markers() {
         &cursor(
             &cwd,
             "Write",
-            json!({"file_path": "src/y.css", "content": proposed}),
+            json!({"file_path": "src/y.html", "content": proposed}),
         ),
     );
     assert_eq!(code, 0);
@@ -3909,7 +3931,7 @@ fn before_edit_scans_proposed_and_existing_files_with_live_preview_markers() {
     // Later fragment edits touch a file that already carries them on disk:
     // the proposed content alone looks like plain slop.
     t.write(
-        "src/z.css",
+        "src/z.html",
         "/* impeccino-carbonize-start ab12cd34 */\n.v { color: red; }\n",
     );
     let (out, code) = hbe(
@@ -3917,7 +3939,7 @@ fn before_edit_scans_proposed_and_existing_files_with_live_preview_markers() {
         &cursor(
             &cwd,
             "Write",
-            json!({"file_path": "src/z.css", "content": slop}),
+            json!({"file_path": "src/z.html", "content": slop}),
         ),
     );
     assert_eq!(code, 0);
@@ -4039,10 +4061,10 @@ fn stop_eventually_scans_files_beyond_the_first_batch() {
 fn cursor_loop_breaker_survives_moving_a_finding_to_another_line() {
     let t = Tmp::new();
     let cwd = t.path();
-    let r = rt(&cwd);
+    let r = rt_html(&cwd);
     let mut last = String::new();
     for i in 0..7 {
-        let event = json!({"session_id":"moving-line", "cwd":cwd, "event":"preToolUse", "tool_name":"Write", "tool_input":{"path":"src/card.css", "content":format!("{}{}", "\n".repeat(i), GRADIENT_CSS)}}).to_string();
+        let event = json!({"session_id":"moving-line", "cwd":cwd, "event":"preToolUse", "tool_name":"Write", "tool_input":{"path":"src/card.html", "content":format!("{}{}", "\n".repeat(i), MEASURED_HTML)}}).to_string();
         last = hbe(&r, &event).0;
     }
     assert_eq!(

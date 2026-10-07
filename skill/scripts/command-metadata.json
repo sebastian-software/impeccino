@@ -8,7 +8,7 @@
     "argumentHint": ""
   },
   "document": {
-    "description": "Generate a DESIGN.md file that captures the current visual design system. Auto-extracts colors, typography, spacing, radii, and component patterns from the codebase, then asks the user to confirm descriptive language for atmosphere and color character. Follows the Google Stitch DESIGN.md format so the file is tool-compatible. Use when you need a visual design spec an AI agent can follow to stay on-brand.",
+    "description": "Record the actual reusable visual system in DESIGN.md and its detector sidecar. Preserve incumbent decisions, tokens, and waivers; ask only about material gaps. Seed mode records a provisional direction before implementation.",
     "argumentHint": ""
   },
   "extract": {
@@ -40,7 +40,7 @@
     "argumentHint": "[target]"
   },
   "critique": {
-    "description": "Evaluate design from a UX perspective, assessing visual hierarchy, information architecture, emotional resonance, cognitive load, and overall quality with quantitative scoring, persona-based testing, automated anti-pattern detection, and actionable feedback. Use when the user asks to review, critique, evaluate, or give feedback on a design or component.",
+    "description": "Review the requested UX and visual decisions with evidence. Honor product facts and recorded intent, separate measured defects from contextual advice, and return actionable findings without editing implementation.",
     "argumentHint": "[area (feature, page, component...)]"
   },
   "delight": {
@@ -80,7 +80,7 @@
     "argumentHint": "[target]"
   },
   "shape": {
-    "description": "Plan UX and UI before implementation. Runs one focused discovery round by default, adds a second only for material gaps, and produces a user-confirmed design brief without writing code.",
+    "description": "Plan UX and UI before implementation. Use one focused discovery round when material gaps remain, reuse existing answers, and return a useful brief without writing code.",
     "argumentHint": "[feature to shape]"
   },
   "typeset": {

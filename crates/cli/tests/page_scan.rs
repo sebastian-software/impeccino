@@ -159,3 +159,42 @@ fn screenshot_pixels_decide_what_the_analyses_cannot() {
     assert!(low[0].starts_with("pixel contrast "), "{}", low[0]);
     assert!(low[0].contains("Pale text"), "{}", low[0]);
 }
+
+#[test]
+fn rendered_style_advice_is_nonblocking_and_measured_contrast_stays_primary() {
+    if !has_agent_browser() {
+        return;
+    }
+    let project = temp_project("policy");
+    let page = project.join("policy.html");
+    let style = "<!doctype html><title>Policy</title><div style=\"border-left:4px solid #e00;border-radius:8px;padding:16px;color:#111;background:#fff\">Useful heading</div>";
+    std::fs::write(&page, style).unwrap();
+    let url = format!("file://{}", page.display());
+    let (out, advice) = detect(&project, &url);
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        advice
+            .iter()
+            .any(|f| f["antipattern"] == "side-tab" && f["advisory"] == true),
+        "{advice:?}"
+    );
+    assert!(advice.iter().all(|f| f["advisory"] == true));
+    std::fs::write(
+        &page,
+        format!("{style}<p style=\"color:#777;background:#666\">Unreadable text</p>"),
+    )
+    .unwrap();
+    let (out, mixed) = detect(&project, &url);
+    assert_eq!(out.status.code(), Some(2), "{mixed:?}");
+    assert!(
+        mixed
+            .iter()
+            .any(|f| f["antipattern"] == "low-contrast" && f["advisory"] != true),
+        "{mixed:?}"
+    );
+}

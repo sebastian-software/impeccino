@@ -141,7 +141,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         to_fixed(seed.h, 1)
     );
     let out = TEMPLATE
-        .replacen("{ID}", seed.id, 1)
+        .replace("{ID}", seed.id)
         .replacen("{OKLCH}", &oklch, 1)
         .replacen("{HUEWORD}", hue_word(seed.h), 1)
         .replacen("{MOOD}", &mood_hint, 1)

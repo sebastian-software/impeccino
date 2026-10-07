@@ -646,6 +646,9 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
 
     let scope_refs: Vec<&str> = scopes.iter().map(|s| s.as_str()).collect();
     all = filter_by_scopes(all, &scope_refs, |f: &Finding| f.antipattern.as_str());
+    for finding in &mut all {
+        impeccino_core::findings::apply_reporting_policy(finding);
+    }
     if no_advisory {
         all.retain(|f| !is_advisory(f));
     }
@@ -1038,7 +1041,7 @@ mod tests {
             html: &html,
             url: None,
         };
-        for (group, status) in [("apps", 0), ("tools", 2)] {
+        for (group, expected_signal) in [("apps", false), ("tools", true)] {
             let package = root.join(group).join("web");
             std::fs::create_dir_all(&package).unwrap();
             std::fs::write(package.join("package.json"), "{}").unwrap();
@@ -1057,8 +1060,8 @@ mod tests {
             let args = ["--json".into(), file.to_string_lossy().into_owned()];
             let actual = run_detect(&args, &mut io, &engines);
             let stdout = String::from_utf8(captured.stdout.borrow().clone()).unwrap();
-            assert_eq!(actual, status, "{group}: {stdout}");
-            assert_eq!(stdout.contains("side-tab"), status == 2, "{stdout}");
+            assert_eq!(actual, 0, "{group}: {stdout}");
+            assert_eq!(stdout.contains("side-tab"), expected_signal, "{stdout}");
         }
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -1136,7 +1139,7 @@ mod tests {
         let input = "<div style=\"border-left: 4px solid #ff0000\">x</div>\n";
         let (status, stdout, stderr) = run_with_stdin(&["--no-config", "--json", "-"], input);
 
-        assert_eq!(status, 2, "{stderr}");
+        assert_eq!(status, 0, "{stderr}");
         assert!(stdout.contains("\"file\": \"<stdin>\""), "{stdout}");
         assert!(stdout.contains("side-tab"), "{stdout}");
     }

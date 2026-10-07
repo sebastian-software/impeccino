@@ -1,5 +1,5 @@
 {
-  "stdout": "NO_PRODUCT_MD: the dice stay in the cup until product truth exists. Complete the init ask round and write PRODUCT.md first (reference/init.md), then re-run this exact command. Every candidate on your list takes its facts from PRODUCT.md; without it every direction is ungrounded.\n",
+  "stdout": "NO_PRODUCT_MD: this helper expects PRODUCT.md. Use reference/init.md to record supported product context within the host's authorization, asking only about material gaps, then rerun. A specified direction can proceed without this helper.\n",
   "stderr": "",
   "exit": 1,
   "signal": null,

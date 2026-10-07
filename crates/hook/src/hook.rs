@@ -335,7 +335,7 @@ fn run_hook_inner(
         );
     }
 
-    let mut config = read_config(&project_cwd);
+    let mut config = read_reporting_config(&project_cwd);
     if let Some(limit) = finding_limit.filter(|limit| *limit > 0) {
         config.limits.max_findings = limit as f64;
     }
@@ -925,7 +925,7 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
             0
         };
         touched.rotate_left(offset);
-        let project_config = read_config(&project_cwd);
+        let project_config = read_reporting_config(&project_cwd);
         let mut scans = HashMap::new();
         let mut fresh_groups: Vec<Group> = Vec::new();
         let mut cache_dirty = false;
@@ -988,7 +988,12 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
             if !use_html_engine {
                 stop_baseline::reconcile(&mut cache, &session_id, file_path, &findings);
             }
-            let filtered = filter_findings_for(findings, &project_config, scan);
+            let filtered: Vec<_> = filter_findings_for(findings, &project_config, scan)
+                .into_iter()
+                // Codex has no nonblocking Stop context field. Advisory context
+                // is delivered after edits and through explicit scans instead.
+                .filter(|finding| harness != "codex" || !is_advisory_finding(finding))
+                .collect();
             let classified = stop_baseline::classify(
                 &cache,
                 &session_id,

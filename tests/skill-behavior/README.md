@@ -65,8 +65,8 @@ The API harness is not the actual Claude Code host, nor is its shell sandboxed.
 Each workflow has a 50-step/840-second ceiling. Reaching a budget or output
 limit fails explicitly; routing checkpoints cannot satisfy completion. UI
 workflows require desktop and mobile captures matching the final local sources after
-its last edit. Approval/brief-before-code and redesign documentation-at-finish
-checks remain, as does exactly one context load across the completed turn.
+its last edit. Discovery/brief-before-code checks apply where the fixture explicitly requests
+them; requested system documentation follows implementation, as does exactly one context load across the completed turn.
 CI runs this lane only when its manual `skill_workflow` checkbox is enabled.
 The billed protocol suite is separate and runs only when its manual
 `skill_behavior` checkbox is enabled. That CI job requires at least one
@@ -78,7 +78,7 @@ routing.
 
 | # | Setup | Assertion |
 |---|---|---|
-| 1 | empty workspace | runs `impeccino context`; loads `reference/init.md` before implementation; automation is not an init bypass |
+| 1 | empty workspace | runs `impeccino context`; loads `reference/init.md` before implementation; records supported product context within host instructions |
 | 2 | PRODUCT.md only | runs `impeccino context` 1-3 times; loads `reference/new-work.md` to resolve visual authority, establish a world when needed, and develop the surface |
 | 3 | PRODUCT.md + DESIGN.md | runs `impeccino context` 1-3 times; receives the committed design system and loads `reference/new-work.md` for the task-scoped concept |
 | 4 | PRODUCT.md + DESIGN.md, context already loaded in turn 1 | turn 2 does **not** re-run `impeccino context` |

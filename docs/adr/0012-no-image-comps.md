@@ -10,12 +10,12 @@ In practice the comps looked good and repeatedly did not survive the translation
 
 ## Decision
 
-Impeccino does not generate comps. The code-led build, carried by the direction contract (thesis, own world, first viewport, signature interaction), is the only build path. When a brief needs real imagery, the agent uses its harness's image tool directly; Impeccino has no image pipeline of its own.
+Impeccino does not generate comps. The build works directly in the application code. A task can use a surface brief to retain design decisions; its legacy thesis, own world, first viewport, and signature interaction fields remain readable but are not mandatory rituals. When a brief needs real imagery, the agent uses its harness's image tool directly; Impeccino has no image pipeline of its own.
 
 Removed: the verbs above, `crates/comp` and `crates/comp-verbs`, the font index, the asset-producer agent, region maps and plates, decision comps, the `buildPath` setting and its directives, the image-tool probes in `context`, and the build-completion hook (including the Gemini hook manifest, which existed only for it).
 
 ## Consequences
 
-- The finish reviewer judges the build against the direction contract and the screenshots; its dispositions are recapture, fix, and ship.
+- When the task requests a finish review, the reviewer checks the requested scope against the brief and supplied captures. Its dispositions are recapture, fix, and ship within that review scope; the host owns authorization and delegation.
 - Gemini CLI no longer gets a hook manifest; Claude Code, Codex, Cursor, Copilot, and Grok keep theirs.
 - `buildPath` in an existing config is tolerated without a finding.

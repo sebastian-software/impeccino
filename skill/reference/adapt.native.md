@@ -1,3 +1,5 @@
+> Native knowledge curation is pending. This retained material remains available; apply it within the task and host instructions, and verify platform behavior with native evidence.
+
 > **Additional context needed**: target platforms/devices and usage contexts.
 
 Adapt an existing **native** design (`ios` / `android` / `adaptive`) to a different context: another device class, orientation, platform, or origin. The trap is treating adaptation as scaling. The job is rethinking the experience for the new context, inside the platform conventions of [ios.md](ios.md) / [android.md](android.md); read the target platform's reference before planning if Setup hasn't already.

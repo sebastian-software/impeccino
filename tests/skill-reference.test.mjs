@@ -9,17 +9,17 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 describe('skill reference authoring contracts', () => {
   it('keeps direction contracts in development-only surface briefs', () => {
     const newWork = readFileSync(join(ROOT, 'skill/reference/new-work.md'), 'utf-8').replace(/\r\n?/g, '\n');
-    const recordDecision = newWork.match(/## 5\. Record the decision\n([\s\S]*?)\n## 6\./)?.[1] ?? '';
+    const recordDecision = (newWork.match(/## 5\. Record the decision\n([\s\S]*?)\n## 6\./)?.[1] ?? '').replace(/\s+/g, ' ');
 
     assert.match(recordDecision, /development-only contract/);
     assert.match(recordDecision, /under `### Direction contract` in the relevant surface brief, that surface's section of the project's `SURFACES.md`/);
     assert.match(recordDecision, /replaces exactly this surface's section of `SURFACES.md`/);
     assert.match(recordDecision, /read the brief once more/i);
-    assert.match(recordDecision, /all six contract blocks/);
-    assert.match(recordDecision, /printed seed key when a concept roll ran, or the permitted no-roll reason when it did not/);
+    assert.match(recordDecision, /no six-block template is required/);
+    assert.match(recordDecision, /printed seed key.*only when a concept roll ran/s);
 
     for (const block of ['THESIS', 'OWN-WORLD', 'STORY', 'FIRST VIEWPORT', 'FORM', 'FINISH']) {
-      assert.match(recordDecision, new RegExp(`${block}:`));
+      assert.match(recordDecision, new RegExp(`\\b${block}\\b`));
     }
 
     for (const browserArtifact of [
@@ -57,8 +57,8 @@ describe('skill reference authoring contracts', () => {
 
   it('keeps critiques in the chat and honors recorded decisions instead of an archive', () => {
     const read = (name) => readFileSync(join(ROOT, `skill/reference/${name}`), 'utf-8').replace(/\r\n?/g, '\n');
-    const critique = read('critique.md');
-    const polish = read('polish.md');
+    const critique = read('critique.md').replace(/\s+/g, ' ');
+    const polish = read('polish.md').replace(/\s+/g, ' ');
 
     for (const text of [critique, polish]) {
       assert.doesNotMatch(text, /critique-storage|\.impeccino\//);
@@ -69,21 +69,21 @@ describe('skill reference authoring contracts', () => {
     assert.match(critique, /A style warning that contradicts a recorded decision is dropped/);
     assert.match(critique, /Still report observed accessibility or functional defects/);
     assert.match(critique, /When the user rejects a finding as deliberate/);
-    assert.match(critique, /product or brand intent goes into PRODUCT\.md/);
+    assert.match(critique, /product or brand intent goes\s+into PRODUCT\.md/);
     assert.match(critique, /a visual rule goes into DESIGN\.md/);
     assert.match(critique, /impeccino-disable <rule-id>/);
     assert.match(polish, /Critiques are not archived between runs/);
-    assert.match(polish, /Perform an independent pass either way/);
+    assert.match(polish, /Perform a fresh pass either way/);
     assert.match(polish, /is not drift; leave it/);
     for (const audit of ['audit.md', 'audit.native.md']) {
-      assert.match(read(audit), /A finding that contradicts a recorded decision is dropped/, audit);
+      assert.match(read(audit), /(?:report observed accessibility or functional defects|still report observed accessibility or functional defects)/, audit);
     }
   });
 
   it('keeps DESIGN.md waivers through a rewrite', () => {
     const document = readFileSync(join(ROOT, 'skill/reference/document.md'), 'utf-8').replace(/\r\n?/g, '\n');
     assert.match(document, /\*\*Preserve the waivers\.\*\*/);
-    assert.match(document, /carry every such comment over verbatim and keep it next to the Named Rule or Do\/Don't that justifies it/);
+    assert.match(document, /carry every such comment\s+over verbatim and keep it next to the Named Rule or Do\/Don't that justifies it/);
     assert.match(document, /detector metadata only/);
     assert.match(document, /extensions\.colorMeta\.<token>\.canonical/);
     assert.match(document, /extensions\.colorMeta\.<token>\.tonalRamp/);
@@ -105,13 +105,13 @@ describe('skill reference authoring contracts', () => {
     assert.match(verifyAdaptations, /\*\*Primary gesture\*\*/);
     assert.match(verifyAdaptations, /produced the evidence/);
     assert.match(verifyAdaptations, /verify layout, never a gesture/);
-    assert.match(verifyAdaptations, /reported gap, not a blocker/);
+    assert.match(verifyAdaptations, /reported\s+gap, not a blocker/);
     assert.match(verifyAdaptations, /\*\*Scroll across it\*\*[\s\S]*without activating it/);
     assert.match(responsive, /\*\*Broken touch interaction\*\*/);
-    assert.match(responsive, /what stayed untested/);
-    assert.match(responsive, /Exercise the gesture when a browser tool can synthesize touch/);
+    assert.match(responsive, /what stayed\s+untested/);
+    assert.match(responsive, /Exercise the gesture\s+when a browser tool can synthesize touch/);
     assert.match(edgeCases, /\*\*Interrupted gestures\*\*[\s\S]*works without a reload/);
-    assert.match(edgeCases, /clear the dragging state and release capture/);
+    assert.match(edgeCases, /clear the dragging\s+state and release capture/);
     assert.match(verifyHardening, /\*\*Interrupted gestures\*\*/);
   });
 });

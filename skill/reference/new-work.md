@@ -1,115 +1,101 @@
 # New visual work
 
-Use this flow for a new surface or a replacement visual identity. PRODUCT.md owns product truth. DESIGN.md owns durable visual decisions. A surface brief, one section of `SURFACES.md`, keeps strategy that belongs to one route or artifact. Complete [init.md](init.md) first when PRODUCT.md is missing; a missing DESIGN.md does not route back to init.
+Build a new surface or replace a visual identity within the requested scope.
+PRODUCT.md owns product facts; DESIGN.md owns durable visual decisions; each
+marked section of SURFACES.md owns one surface's mode and strategy. Select
+suitable design knowledge available to the host. No external skill is required.
 
 ## 1. Decide what is already true
 
-Read DESIGN.md, representative code, tokens, components, and assets.
+Read the resolved context, representative code, tokens, components, and assets.
+A missing DESIGN.md does not erase an established identity. A local extension
+inherits that identity and its surrounding behavior. A redesign preserves
+product truth, content, function, native affordances, and technical constraints
+while replacing the requested visual system. An incomplete brand preserves its
+confirmed assets. Where no incumbent visual authority exists, invent within the brief.
 
-- **Redesign:** preserve product truth, content, function, constraints, and explicit brand commitments; replace the old visual world rather than polishing it. The old look is evidence of what the subject is, not authority over what it becomes.
-- **Established world:** inherit it. A missing DESIGN.md does not erase a coherent identity already in code; document that identity instead of inventing a replacement.
-- **Incomplete brand:** preserve confirmed assets and recognizable traits, then expand the system with the user for this surface.
-- **No visual authority:** create a new world with the user.
+Use [init.md](init.md) for missing durable product context and [document.md](document.md)
+for an incumbent system that needs recording. Reuse available evidence and
+answers; a narrow task can proceed without first creating either file.
 
-A section, component, feature, or state inside an established surface inherits that surface. Never turn a local addition into a new identity exercise.
+## 2. Resolve material gaps
 
-## 2. Ask what will change the work
+Establish the audience, primary task or action, real content, relevant states,
+constraints, and untouched areas. Ask through the host's structured question
+tool only when a missing answer materially changes the work and cannot be
+inferred. A precise brief does not require confirmation or an interview.
+The host decides whether to ask, proceed with stated assumptions, or delegate.
 
-Before implementation, get the user's answer through the structured question tool when available. Ask two or three related questions; a precise request needs only a compact confirmation. Skip settled facts, not the confirmation: DESIGN.md settles the visual world, not this surface's purpose or concept.
+## 3. Choose the amount of invention
 
-- **Persuade:** who must act, what they should believe, which real proof, content, or assets earn that belief.
-- **Operate:** the task, information, important states, frequency, constraints.
-- **Read:** the reader's question, source material, structure, wayfinding.
-- **Experience:** what leads, how exploration unfolds, which interaction or transition matters.
+Refinement preserves the incumbent world; a new surface may need a composition;
+an explicit redesign may need a replacement identity. Use suitable knowledge
+for the actual job, including Operate and Read guidance in [operate.md](operate.md).
+Honor specified directions and existing answers. Offer alternatives when they
+help resolve a real choice; there is no fixed candidate count or choice ritual.
 
-Across modes, ask what success looks like, what must remain untouched, and what would make a polished result feel wrong. Never ask for CSS values or canned aesthetic lanes.
+The optional local helper accepts an ordered list of five to seven candidates:
 
-## 3. Choose the right amount of invention
+`"<skill-base-dir>/scripts/impeccino" concept-seed --scope <direction|surface> --mode <mode> --candidate-count <count>`
 
-### Extend an existing surface
+It returns a suggested index, or three dealt indices for surface scope. It
+cannot read the list or assess design quality, and its lead excludes the first
+two entries. Keep the same ordered list, count, key, scope, and flags to reproduce
+a roll with `--from <key>`. `--reroll <n>` changes selection; direction re-rolls
+also accept `--register safer|bolder`. Safer prints no assignment. These flags
+do not authorize implementation, demand new candidates, or override the brief.
 
-Inherit its world and composition. Resolve only the new purpose, content, hierarchy, states, interaction, and how the addition joins the surrounding experience. No concept tournament, and no DESIGN.md change unless the user approves a durable system change.
+## 4. Commit to the requested result
 
-### Create a whole surface inside an established world
-
-Keep the visual system fixed. Derive five to seven materially different structures from the content, task, and user behavior, ordered by resonance. For a genuinely open whole page, screen, or flow, run:
-
-`"<skill-base-dir>/scripts/impeccino" concept-seed --scope surface --mode <mode> --candidate-count <actual count>`
-
-Use the number of structures in your finalized list (five to seven) as `<actual count>`; keep that same `--candidate-count` on every re-roll so the assignment and dealt indexes refer to the list you actually made. The script deals three of your structures; the dice pick which three reach the user, breaking the ranking rut while the user keeps a real choice. Present them through the host's structured question tool as options of equal salience, each a name and a one-line composition, the dealt lead first under the label THE ROLL, with re-roll and an optional steer; the user locks one. No standing-exit option and no pick option at surface scope: the world is settled, so every option describes composition, not identity. Locking an option is the approval; its ambition travels into the build through the direction contract's FIRST VIEWPORT block. Never run the script for a local extension or a precisely specified narrow request; shape those directly.
-
-### Create or replace the visual world
-
-1. Name the product's unique mechanism in one sentence, the audience's real scene, its cultural home, and what this first surface must prove. Note the page this category always ships and its predictable opposite; both are the rut, kept out of the seven-candidate list. A brief that paints its own picture, a product name, a titled artifact, a governing metaphor, adds its literal reading to the rut: spend at most one candidate on it and derive the rest from elsewhere in the audience's world.
-2. From that cultural world, list seven concrete visual systems, artifacts, places, or rituals the audience knows by heart, each with one line on why it resonates and can carry the mechanism, ordered by resonance. The audience's world includes its graphic and screen traditions, not only its physical objects: the notation, publications, identity programs, data graphics, and interfaces it reads daily. On an Operate or Read surface, the seven still come from anywhere in that world (its graphic traditions, places, rituals, and artifacts), never from the tools and instruments the audience operates: a terminal, a scope, or a control panel handed to a working screen comes back as a costume of that tool. A nameable abstract system (a school of poster, a documentation standard) is as concrete a candidate as any artifact. On a Persuade or Experience surface, also ask what this thing would look like as a physical object and what its world looked like before the web. Near-duplicates count once. When more than three of the seven share one material family, the derivation stopped at the subject's most obvious artifact; dig until the list spans at least three families.
-3. Turn that material into complete directions: each joins a reusable visual world to a concrete first-surface experience.
-4. Run `"<skill-base-dir>/scripts/impeccino" concept-seed --scope direction --mode <mode>` and follow what it prints. No substitute, no skip: on a new or replacement world, writing artifact code before this script has run and its assignment is acknowledged is a contract violation, whatever the harness, the model, or the time pressure; the roll is what keeps every run from converging on the category default. The script runs offline and assigns which of your seven directions gets built; it never sees the list, so ordering it honestly is your job, done before the run. Fix the list first, then roll; reordering after seeing the index is choosing by taste with extra steps.
-5. Present one direction, fully committed: world, first viewport, visitor path, signature interaction, cross-surface reach, honest risk. Add one option for your own top-ranked grounded candidate when it is not the assigned direction, labeled IMPECCINO’S PICK, same anatomy as every option, with an honest risk line naming its familiarity when true: the strongest grounded direction is often where most runs in this category land, and the user deciding that trade is the point of showing it. Familiar and effective is a legitimate destination, not a failure of nerve; the pick and the standing exit serve it at two depths. One pick, never two, never a ranked list: a lineup of your candidates hands selection back to a taste function and invites the safest option. The pick never takes the lead position; when the dice assign your top candidate there is no pick, and the assigned option notes it topped your list. Add re-roll with an optional one-line steer, in three registers: plain (a fresh list, same spread), safer (your remaining conventional grounded candidates plus the canon against named competitors), bolder (a fresh list from the unfamiliar end of the audience's world, at full commitment). The register is the user's steering on the familiar-to-bold axis, never yours to pre-select; every re-roll passes `--reroll <n>`. For safer or bolder, also pass `--register safer` or `--register bolder`; for plain, omit `--register`. Keep `--candidate-count` the same when re-rolling a surface-scope list. Follow the seed's output. A user saying "bolder" or "safer" while a direction round is open means these registers, never the bolder or harden commands. Deliver the round through the host's structured question tool, each option a name plus a short description in one shared anatomy (thesis, palette, materials, first viewport, honest risk): the assigned direction first, then the pick, re-roll with its registers, and the standing exit last. Without a structured question tool, present the same list in chat and wait for the answer.
-
-The standing exit: every direction round offers one quiet, permanent alternative, the category standard, played straight. It is the user's door, never yours: never recommend it, never weigh it against the roll, never let it soften the dealt directions; the counterweights bind the unchosen default, not the chosen one. Author it as one honest option in the same anatomy, kept last and quiet. When the user takes it (that option, a safer steer, or plain words asking for the familiar or competitor-like path), convention becomes the commitment: ask once for two or three products this should sit alongside, make their craft level the bar, and execute the canon at full fidelity, without irony or smuggled quirk. Record a standing preference as a brand commitment in PRODUCT.md. Re-roll eliminates every direction already shown; after two consecutive re-rolls, ask what quality is missing. Re-roll on your own only on named factual grounds, when the assigned direction cannot carry the product's truth or task; taste is never grounds. The user may re-roll freely, and a user- or brief-pinned direction beats the roll, always. Resolve collisions field by field: preserve every user- or brief-pinned constraint. In dimensions the brief leaves open, the assignment still binds through its topology, controls, state vocabulary, and ritual; when only its materials conflict with a pinned visual direction or PRODUCT.md brand commitment, translate that material expression and name the translation in the presented direction. A look mismatch is not grounds to re-roll. On a re-roll answer, rerun concept-seed with the same `--scope` and `--mode` plus `--from <seed-key> --reroll <n>` (1 on the first re-roll, counting up) and present the next round the same way. When nobody answers, proceed unattended with the assigned direction and state the assumptions.
-
-The chosen direction is a working system, not a mood reference. Carry its palette and material, type and composition, topology, controls and state, and responsive rules into the product, as far as the surface's mode allows. When the source is itself an interface language, a Persuade or Experience surface may carry its native grammar across navigation, content, controls, and states, within the platform conventions a native app keeps; on an Operate or Read surface it lends type, density, palette, material accents, and one signature move, while navigation and controls stay the standard ones for the platform, web components on the web and native controls in an app. The craft bar is the world's own best work: the finish, commitment, and art direction its finest real artifacts reach, never their composition; your surface serves this product.
-
-Every direction the roll can land on must already be viable: every relationship and claim it visualizes true, a real palette and component family, a distinctive composition with one product-specific experience, workable at full-surface scale within the available assets, tools, and performance budget. A candidate that fails on truth is replaced before the roll, never rescued by it. Truth binds claims, not demonstrations: in greenfield work, author whatever illustrative material the concept needs at full fidelity, label it synthetic wherever a visitor could mistake it for the real thing, and hand the user the list of what to replace with real material. What stays uninventable are commercial and factual claims: prices, customers, benchmarks, endpoints, capabilities the product does not have. Refusing a bold direction because its demonstration data does not exist yet is the timidity reflex wearing honesty's clothes.
-
-For **Persuade**, the opening must make the offer intelligible and desirable, expose a clear action, and demonstrate something only this product can prove. Conversion lives inside the form's own vocabulary: a hook that lands in one line, a visible primary action, a legible reading order. A committed form that hides the offer or the action has not finished translating. For **Operate**, expression may never obscure the task, state, or familiar affordance. For **Read**, comprehension and wayfinding remain intact. For **Experience**, the work itself leads from the first viewport.
-
-## 4. Commit the world
-
-Resolve the palette, type roles, materials, component vocabulary, and responsive behavior from the approved direction, product constraints, and suitable design knowledge available to the host. Record the resulting choices clearly enough to build and review them. Impeccino supplies the task contract; reusable design guidelines belong to the knowledge source selected for that task.
-
-Check that the proposed surface actually serves this product and audience before recording the contract. If a pattern warning exposes an unexamined choice, name the missing product relationship and revise the owning decision. Preserve a justified familiar direction; a font name, palette, or effect alone does not invalidate it.
+Keep product facts supported and demonstration data labeled synthetic. Build
+with the project's conventions and the selected direction, preserving behavior,
+semantics, accessibility, responsiveness, and performance. A seed or catalog
+sample supplies neither facts nor permission to replace an incumbent system.
 
 ## 5. Record the decision
 
-Before code, record the chosen direction as a development-only contract under `### Direction contract` in the relevant surface brief, that surface's section of the project's `SURFACES.md`. A direction contract is durable route or artifact strategy, so create or update the brief even when no other surface strategy needs persistence. Use six short blocks, roughly 150 words; do not spend tool calls counting words. THESIS: the one idea this surface owns and the category-default arrangement it refuses. OWN-WORLD: the palette and component language, specific enough to be recognizable with all content removed. STORY: what the visitor understands, believes, and does. FIRST VIEWPORT: the exact composition, what is where and at what scale, and where the primary action sits. FORM: the chosen form; when an ordered list was used, include its position. If `concept-seed` ran, include the printed seed key. If no roll was used because the request is a local extension or precisely specified narrow task, record `No roll: <reason>`. Close with one more line, FINISH: the run's exit condition, verbatim "unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md". The surface brief is the reminder later agents reload across edits and sessions: a page that looks complete with the FINISH line undischarged is not done, it is abandoned at the finish line. If a block reads like a mood, the direction is not decided yet; the finishing review audits the render against this contract.
-
-Never copy the direction contract into implementation source or any browser-delivered artifact. This includes HTML or framework comments, hidden DOM, `<template>` elements, `data-*` attributes, rendered JSX or TSX output, serialized props or state, React Server Component payloads, client bundles, metadata or JSON-LD, accessibility-only text, and files served beside the artifact. A compiler or optimizer removing development metadata is not a safety boundary. Reviewers and documenters receive the contract from the surface brief.
-
-In the standard new-work build, DESIGN.md is written at finish from the built world by the shipped documenter (section 7); a rulebook written before implementation gets defended against reality instead of describing it, and hands the design-system detector an unstable target. A new world shipped with no DESIGN.md is still an incomplete run. An ordinary extension does not rewrite DESIGN.md. This post-build handoff is separate from the standalone `/impeccino document --seed` workflow, which deliberately writes a provisional direction seed before implementation and reruns in scan mode once code exists.
-
-Read the existing surface brief before updating it:
+When persistence is useful and within scope, keep the development-only contract
+under `### Direction contract` in the relevant surface brief, that surface's
+section of the project's `SURFACES.md`. Record scope, visitor mode, decisions,
+constraints, and unresolved facts without duplicating global tokens or product
+truth. Existing THESIS, OWN-WORLD, STORY, FIRST VIEWPORT, FORM, and FINISH blocks
+remain readable; no six-block template is required for new work. Record the
+printed seed key and ordered candidate list only when a concept roll ran.
 
 `"<skill-base-dir>/scripts/impeccino" surface-brief read <primary-target>`
 
 `"<skill-base-dir>/scripts/impeccino" surface-brief write <primary-target> <body-file> [related-target ...]`
 
-`write` replaces exactly this surface's section of `SURFACES.md` (or adds it) and leaves every other surface's section untouched. The body file holds the section body only: no heading and no marker line, which the helper writes, and sub-headings at `###` or deeper.
+The body file contains section prose only, with subheadings at `###` or deeper.
+The helper writes the heading and marker, replaces exactly this surface's
+section of `SURFACES.md`, and leaves other sections untouched. After writing,
+read the brief once more to verify scope and retained decisions. Shape returns
+a brief without persisting or implementing unless separately requested.
 
-After writing, read the brief once more and verify all six contract blocks. In FORM, confirm the printed seed key when a concept roll ran, or the permitted no-roll reason when it did not.
+Never copy the direction contract into implementation source or any browser-delivered artifact:
+HTML or framework comments, hidden DOM, `<template>` content, `data-*` attributes,
+serialized props or state, React Server Component payloads, client bundles,
+metadata or JSON-LD, or accessibility-only text. It belongs in development context.
 
-Keep the brief small: scope and visitor mode; audience, job, action/task, proof/content, and constraints; chosen direction and memorable moment; unresolved decisions. Do not copy global product truth or DESIGN.md tokens into it.
+## 6. Verify and finish
 
-For `shape`, return the selected direction to [shape.md](shape.md) and stop before persistence or implementation.
+Inspect the changed task or reading path at relevant sizes, states, and input
+methods. For web layouts, distinguish source scans from rendered URL evidence:
+use `detect --json <changed files>` when hooks have not already supplied that
+source evidence, and `detect --viewport <W>x<H> <url>` for layout-dependent
+checks. Native platforms skip this HTML/CSS detector; use platform captures and
+input tools. Validate captures before drawing conclusions and report gaps.
 
-## 6. Build with full commitment
+When a finish review is part of the requested workflow, use the shipped reviewer
+under SKILL.md's host-permitted role routing. Supply the original request,
+existing answers, artifact and context paths, any surface brief, detector results,
+and valid captures with their exact paths and required viewport set. Review is
+read-only; a local review is not independent. Repair supported material findings
+within scope, verify the repairs, and report the actual verdict and its limits.
 
-Build the assigned direction, not a safer interpretation of it. The form supplies structure, reading order, component conventions, and native motion; the product supplies every fact. Commit every atom: nav, buttons, inputs, and links are rebuilt in the form's vocabulary, and a stock component inside a committed form is a lapse. Land the first build fully committed; the passes that follow exist to make the committed thing clear and effective, never to dilute it. In unattended work, the safe rendition is the known risk.
-
-There is one build path, code-led: the ambition lives in the direction contract's FIRST VIEWPORT block plus a named signature interaction and motion grammar, which the finish reviewer audits in behavior, and the world's own best work calibrates finish. Code-led is not a discount on commitment.
-
-- **The first viewport is a thesis, not a header.** Demonstrate the mechanism immediately, at the scale the form has in life; do not trap the concept inside a standard hero or card shell. The memory test: if someone left after one viewport, what would they describe an hour later? If the honest answer is a mood, the concept has not committed yet.
-- **Prove, don't claim.** Show the subject doing its job: the interface at work, the mechanism dramatized, specifics a competitor could not copy-paste. Demonstration data is design material: author it at full fidelity and label it synthetic; claims stay uninventable.
-- **Author the assets; never substitute chrome.** Great surfaces live on carefully made content: names, entries, copy, covers, thumbnails, textures. In greenfield work every blank the ask round left open is yours to author at production fidelity; content is authorable, claims are labelable, no section is omittable. Gradients, glass, generic icon tiles, and many-vertex `clip-path` polygons where an authored asset belongs are the gap wearing chrome; the detector flags the last two.
-- **Build the form's web leverage.** When the chosen world names a technique (canvas, WebGL, view transitions, generative motion), build the technique itself, not a static imitation of it.
-- **Pace the scroll like a studio.** Vary density, scale, image, motion, and quiet inside one grammar; a dense passage earns a quiet one, and the page ends anchored by a real close. One spacing rhythm throughout, with more space above a heading than below it.
-- **Use real, verified imagery when the brief implies it.** Search for the subject's physical object rather than the category; one decisive photo beats five mediocre ones. Verify stock URLs resolve.
-- **Author motion as material.** Give the page the form's native motion once, orchestrated, rather than scattered hover effects. Bound expensive effects and keep content visible by default.
-
-Preserve semantics, accessibility, performance, responsiveness, project conventions, and working behavior.
-
-## 7. Inspect and finish
-
-Inspect the surface's target sizes in one batched screenshot round, captured with agent-browser or the host's own browser tool (Claude in Chrome, Playwright MCP, Codex Browser, or the equivalent): desktop and mobile on the web; on a native platform (`ios` / `android` / `adaptive`), the shipped device classes per OS, captured from the simulator or emulator the way the platform reference's Verifying the build section describes. A host with no browser asks the user for the captures rather than shipping uninspected. When the harness reports the user's actual viewport (an in-app browser's size, a named resolution), add that width to the set: the width that breaks is the one the user sees first. On the web, run the rendered-page detector (SKILL.md, Rendered-page detector) once per inspected width (`--viewport`) in the same round. Critique the render and those findings against the user's request and the direction contract, fix material gaps, and confirm with one final round; two rounds is the ceiling, and fixes batch between them rather than earning per-tweak screenshots. Never judge the render from one full-page thumbnail; it hides exactly the failures that matter. On a Persuade surface, verify the mode did its job: a first-time visitor should know what this is, why it matters, and what to do within seconds, in the form's own vocabulary.
-
-A capture is evidence only when it is valid, and you validate before you send. Settle or disable entrance motion first: an element hidden by animation timing reads as a missing element and gets fixed into a regression. Capture full-page shots from the document top. Then open every file once and confirm it shows what its name claims: no black or blank regions, no wrong section behind a right filename, no half-loaded state. A malformed capture sent onward costs the whole round; the reviewer answers it with `disposition: recapture` and nothing it reviewed binds.
-
-After the second inspection round the build thread's polishing is over: no further defect hunts, micro-edit scripts, or rebuilds here; whatever remains ships through the handoffs, where a fresh context does the finding better and cheaper. On the web, where this harness runs no design hook, run `"<skill-base-dir>/scripts/impeccino" detect --json <changed files>` once here against the changed source files; this final changed-source pass takes local files and directories, while rendered URL scans belong to the per-width inspection round above. Fix what is mechanical, and pass the remaining findings to the reviewer; a hookless web build that skips this ships every tell the hook exists to catch. A native platform skips the detector entirely: it reads HTML and CSS and has no verdict on native code, so the reviewer's floor check is the only slop gate and the input packet says so. Capture the screenshots into a fresh review directory outside the project (a temporary directory such as `mktemp -d` makes, or the harness's scratch directory), one file per captured viewport (on the web, `desktop.png` and `mobile.png`, plus `user-<width>.png` whenever the user's viewport joined the inspected set; on native, one per device class, such as `phone.png` and `tablet.png`, suffixed per OS on adaptive). Screenshots are throwaway evidence and never land in the project. The paths you pass the reviewer are its spec, every viewport you inspected is named required in the packet, and the review directory you pass is where it looks when a passed path is missing.
-
-Then hand off to the finish reviewer. Use the installed role definition when the host exposes it, without reading its source file again. If the role is not installed but the host can spawn subagents, read `<skill-base-dir>/agents/impeccino-finish-reviewer.md` in full and pass its full Markdown body as instructions to a fresh general-purpose subagent with no inherited conversation history. Apply the role file's `tools` frontmatter as child tool limits where supported, and state in the task that the reviewer is read-only and has no browser. Include the original request, confirmed answers, the artifact path, the screenshot paths, the direction contract, the PRODUCT.md path, existing hook or detector findings, the craft-floor reference path, and on a native platform the platform reference path(s), [ios.md](ios.md) / [android.md](android.md), both on adaptive, plus one line saying no detector ran, so the reviewer judges in the platform's conventions rather than the web's. Screenshots you fail to pass are checks it cannot run. Wait on a spawned agent with one long timeout rather than a loop of short polls, and spend the wait on the next independent step. Verify the return carries the five contract sections (a recapture return carries one, its recapture list); on an empty or thrashed return, respawn once with the same inputs. A spawned review must not inherit the build conversation. If the host has no subagent tool, read the same role file and complete its full five-section review locally before acting on its disposition after stepping out of build context. In the user-facing report, disclose that the parent performed the review locally and that it was not independent; keep this disclosure outside the reviewer's contracted return.
-
-Act on the disposition word; there are exactly three. **recapture**: the evidence failed, not the build. Recapture what the return names under the capture-validity rules, then run a full review over the new evidence. A review conducted on invalid evidence binds nothing, and a verdict pass may never follow it. **ship**: nothing is owed; report the verdict at its scope and continue to the documenter. **fix**: apply the material fixes in one batch, rebuild once, and recapture the same viewports over the same files. A recapture measures positions, loading, and overflow; it cannot measure whether a fix reached the quality the finding named, so send the recaptured screenshots back to the same reviewer for a verdict scoring every material fix resolved, partial, or unresolved (through the harness's agent continuation; without one, run the scoring fresh from [agents/impeccino-finish-reviewer.md](../agents/impeccino-finish-reviewer.md)'s Verdict Pass). Fixes scored partial or unresolved get another batch, recapture, and verdict. Two rounds is the budget an unattended run ends at; an attended session's ceiling belongs to the user, so when the second verdict still lists open items, put the table in front of them and let them choose between shipping as it stands and funding another round. Whoever decides, stop the moment a round resolves nothing. Work only from the reviewer's findings in this verdict loop; do not rerun a detector to discover new fixes. This does not replace the earlier local-source scan or the required rendered-page scan at each inspected web width.
-
-Report the final verdict under the reviewer's own disposition word and at its actual scope. A verdict pass scores the listed fixes and nothing else: "the reviewer scored all three fixes resolved" is a claim it supports, "no material issues remain" is not. A table with open material findings is never announced as a pass, never softened, and never dressed as whole-surface approval when only a fix list was scored. When the user answers a ship with evidence against it, their own screenshot, a named mismatch with the direction contract, that evidence outranks every capture you made: put their material in the packet and spawn a fresh reviewer for a new full review. Patching inline and self-certifying is how a rejected page ships twice.
-
-After the last correction, hand off to the documenter. Use the installed role definition when the host exposes it, without reading its source file again. If the role is not installed but the host can spawn subagents, read `<skill-base-dir>/agents/impeccino-documenter.md` in full and pass its full Markdown body as instructions to a fresh general-purpose subagent with no inherited conversation history. Apply the role file's `tools` frontmatter as child tool limits where supported, and keep writes inside the supplied boundary. Give it the project root, artifact path, direction contract, PRODUCT.md, [document.md](document.md), and write boundary. If no subagent tool is available, read the same role file and [document.md](document.md) in full before writing. Perform the documentation pass locally within the supplied boundary, then produce the role's full output contract. In the user-facing handoff, label it as a local pass, outside the role's contracted return. Verify the outcome: new worlds and approved system changes require token-bearing DESIGN.md **and** `DESIGN.json`, not prose alone. Ordinary extensions compare the finished build against the incumbent system, preserve its files, and report the evidence checked; report pre-existing drift without repairing it unasked. Recheck after later edits. Finish only when review and documentation are complete.
+When recording a new world or requested system change, use the documenter or
+[document.md](document.md) after implementation. Its write boundary comes from
+the task's existing authorization, not from this reference. New system records
+include token-bearing DESIGN.md and DESIGN.json; ordinary extensions preserve
+the incumbent record and report unrelated drift. Stop when the requested outcome
+and required checks pass, under the host's workflow and budget.

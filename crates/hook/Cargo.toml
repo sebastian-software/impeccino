@@ -16,3 +16,6 @@ impeccino-context = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }
 sha2 = "0.10"
+
+[dev-dependencies]
+impeccino-html = { workspace = true }
