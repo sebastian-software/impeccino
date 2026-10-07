@@ -38,6 +38,7 @@ function checkCounts(rootDir, skills) {
   // Validate counts in key files
   const filesToCheck = [
     'README.md',
+    'README.md.src',
     'AGENTS.md',
   ];
 
@@ -199,7 +200,8 @@ function validateProse(rootDir) {
     { re: /\bmoreover\b|\bfurthermore\b/i, rationale: 'Transition crutch on a metronome. Drop, or use "also".' },
     { re: /\btapestry\b/i, rationale: 'AI scenery noun. Cut.' },
   ];
-  const errors = scanProseFiles(rootDir, 'README.md', phraseRules);
+  const errors = scanProseFiles(rootDir, 'README.md', phraseRules)
+    + scanProseFiles(rootDir, 'README.md.src', phraseRules);
 
   if (errors === 0) {
     console.log(`✓ Prose validator: no AI tells in user-facing copy`);

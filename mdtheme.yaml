@@ -1,0 +1,8 @@
+themes:
+  - git: https://github.com/sebastian-software/sebastian-theme.git
+    ref: 39b0432a958c23fbd4b6ae8a263ab07178a7150f
+    path: markdown
+badges:
+  enabled: true
+  published: false
+  workflow: ci.yml

@@ -27,7 +27,9 @@
     "release:skill": "node scripts/release.mjs skill",
     "release:engine": "node scripts/release.mjs engine",
     "check:engine-release": "node scripts/check-engine-release.mjs",
-    "pin:engine": "node scripts/pin-engine.mjs"
+    "pin:engine": "node scripts/pin-engine.mjs",
+    "readme:write": "mise run readme:write",
+    "readme:check": "mise run readme:check"
   },
   "devDependencies": {
     "@ai-sdk/anthropic": "^4.0.7",

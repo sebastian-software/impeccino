@@ -50,6 +50,10 @@ git config remote.upstream.tagOpt --no-tags
 
 This affects future fetches only. A direct `git fetch --tags upstream` still fetches tags.
 
+## README authoring
+
+Edit `README.md.src`; mdtheme composes `README.md` with the pinned Sebastian Software theme. Review `mise.toml`, then run `mise trust` and `mise install --locked github:sebastian-software/mdtheme`. Use `pnpm run readme:write` and `pnpm run readme:check`; commit the source and reviewed output together. The dedicated README workflow verifies composition. Registry badges are disabled because this project is not published to npm or crates.io; authored badges show the skill and engine GitHub releases.
+
 ## Skill authoring
 
 Follow [AGENTS.md](../AGENTS.md) for cross-harness writing rules, command conventions, and change-specific validation.
@@ -94,7 +98,8 @@ impeccino/
     RUNTIME-ENV.md                 # Environment the engine reads
     STYLE.md                       # Editorial style guide
     DEVELOP.md                     # This file
-  README.md                        # User documentation
+  README.md.src                    # Authored user documentation
+  README.md                        # Composed public README (mdtheme)
 ```
 
 ## Troubleshooting
