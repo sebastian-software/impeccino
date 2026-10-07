@@ -3,7 +3,7 @@
 //! text engine and design-system engine.
 //!
 //! Engine seams: [`engines::HtmlEngine`] (static HTML, crates/html) and
-//! [`engines::UrlEngine`] (browser, crates/browser). This crate never depends
+//! [`engines::UrlEngine`] (agent-browser page capture). This crate never depends
 //! on those crates; the `cli` binary wires them in through
 //! [`engines::Engines`]. crates/html depends on this crate for the design
 //! system types and helpers ([`design_system`]).

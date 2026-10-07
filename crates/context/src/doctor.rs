@@ -1,4 +1,4 @@
-//! JS: doctor.mjs -> `impeccino doctor`
+//! Project artifact and harness diagnostics for `impeccino doctor`.
 
 use crate::artifact_schema::{
     read_product_schema_version, stamp_product_schema, PRODUCT_SCHEMA_VERSION,

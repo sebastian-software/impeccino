@@ -1,15 +1,4 @@
-//! The `impeccino detect` adapter for the static HTML engine: implements
-//! `impeccino_detect::engines::HtmlEngine` over [`crate::engine::detect_html`],
-//! wiring the three pieces `detectHtml` borrows from other JS modules:
-//!
-//! - the design-system trio (`checkSourceDesignSystem` and
-//!   `mergeDesignSystemFindings` from the `detect` crate, plus the DOM-backed
-//!   `collectStaticDesignSystemFindings` ported here, JS
-//!   `cli/engine/design-system.mjs`),
-//! - `runTextContentAnalyzers` (regex engine, `detect` crate).
-//!
-//! Dependency direction: html depends on detect, never the reverse; the
-//! `cli` binary registers [`StaticHtmlEngine`] in `Engines`.
+//! Static HTML engine adapter with governing design-system resolution.
 
 use std::path::Path;
 
@@ -47,7 +36,7 @@ impl HtmlEngine for StaticHtmlEngine {
     ) -> Result<Vec<Finding>, EngineError> {
         // The JS DEGRADED notice fires only when its parser modules fail to
         // import; the port links them in. The stderr sink carries the
-        // unreadable-linked-stylesheet notices (issue #652).
+        // unreadable-linked-stylesheet notices (issue pbakaus/impeccable#652).
         let stderr_cell = std::cell::RefCell::new(stderr);
         let warn = |msg: &str| {
             let _ = stderr_cell.borrow_mut().write_all(msg.as_bytes());
@@ -103,7 +92,6 @@ impl DesignSystemHook for DetectDesignSystemHook<'_> {
     }
 }
 
-/// JS: design-system.mjs#shouldSkipStaticDesignElement
 fn should_skip_static_design_element(el: &StaticElement<'_>) -> bool {
     let tag = el.tag_lower();
     if STATIC_DESIGN_SKIP_TAGS.contains(&tag.as_str()) {
@@ -126,7 +114,6 @@ fn should_skip_static_design_element(el: &StaticElement<'_>) -> bool {
     false
 }
 
-/// JS: design-system.mjs#collectStaticDesignSystemFindings
 ///
 /// Font-size design-system checks are source-scan-only (see
 /// `checkSourceDesignSystem`); computed font-size cascades and clamp() ramps

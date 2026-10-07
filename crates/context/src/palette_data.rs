@@ -1,4 +1,4 @@
-//! Generated from skill/scripts/palette.mjs SEEDS by scratchpad/gen-palette.mjs. Do not edit.
+//! Maintained seed palettes and their design intent.
 
 pub struct Seed {
     pub id: &'static str,

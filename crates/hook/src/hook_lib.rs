@@ -1,10 +1,4 @@
-//! JS: skill/scripts/hook-lib.mjs. The shared library behind `hook`,
-//! `hook-before-edit`, and `hooks` (hook-admin): constants, config, the
-//! session cache, harness detection and event normalization, target
-//! expansion, finding filtering, rendering, and the audit log.
-//!
-//! Everything that reaches stdout or a file goes through JS string semantics
-//! (UTF-16 lengths, `String()` coercions) so the goldens match byte for byte.
+//! Shared hook state, harness envelopes and scan helpers.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -83,7 +77,7 @@ pub use impeccino_core::registry::IMMEDIATE_TIER_RULES;
 
 /// A legacy id fallback that keeps older detector findings recognizable when
 /// they carry neither the runtime flag nor the canonical advisory severity.
-/// Current findings are classified by their serialized metadata (#709).
+/// Current findings are classified by their serialized metadata (pbakaus/impeccable#709).
 pub const ADVISORY_RULES: &[&str] = &["em-dash-overuse"];
 
 /// JS: isAdvisoryFinding(finding)
@@ -104,7 +98,7 @@ const STEER_LINE: &str = "That does not mean the design is good: keep following 
 
 // ── paths ─────────────────────────────────────────────────────────────────
 
-/// JS: hook-lib.mjs#hookStateDir (issue #422) — where the mutable hook cache
+/// `hookStateDir`: (issue pbakaus/impeccable#422) — where the mutable hook cache
 /// lives: a per-project directory under the user cache,
 /// `<cache>/impeccino/projects/<slug>-<hash>` (docs/adr/0020), so the project
 /// itself carries no tool state. IMPECCINO_CACHE_ROOT replaces
@@ -192,7 +186,7 @@ pub struct Runtime<'a> {
     /// `IMPECCINO_COMMAND` (`/impeccino` or `$impeccino`).
     pub impeccino_command: String,
     /// The `HOOK_ADMIN_COMMAND` printed in the full footer
-    /// (JS: `node '<abs>/hook-admin.mjs'`; here `'<self>' hooks`).
+    /// Printed as `'<self>' hooks`, using the configured launcher.
     pub hook_admin_command: String,
     pub html: &'a dyn HtmlEngine,
     /// `process.platform === 'win32'` (command-arg quoting).
@@ -421,7 +415,6 @@ pub fn is_project_skipped(rt: &Runtime, file_path: &str) -> bool {
     ProjectIgnores::new().is_skipped(&abs, false)
 }
 
-/// JS: template-extensions.mjs#matchConfiguredExtension
 pub fn match_configured_extension<'a>(
     file_path: &str,
     extensions: &'a [ExtensionEntry],
@@ -1689,7 +1682,7 @@ pub fn payload(text: &str, event_name: &str, harness: &str) -> String {
         out.insert("additionalContext".into(), Value::String(text.to_string()));
     } else if harness == "codex" && event_name == "Stop" {
         // Codex's Stop schema rejects unknown fields, so findings that should
-        // continue the turn use a top-level blocking decision (#603).
+        // continue the turn use a top-level blocking decision (pbakaus/impeccable#603).
         // https://developers.openai.com/codex/hooks#stop
         if js::trim(text).is_empty() {
             return String::new();
@@ -1784,7 +1777,7 @@ pub fn resolve_harness(rt: &Runtime, event: Option<&Map<String, Value>>) -> &'st
         // `toolName`/`toolArgs`. Check Grok first: the old GitHub heuristic
         // (`toolName` and no `tool_input`) also matches Grok, which is how
         // live PostToolUse was classified as Copilot and then skipped with
-        // no-file-path (#646).
+        // no-file-path (pbakaus/impeccable#646).
         if looks_like_grok_envelope(ev) {
             return "grok";
         }
@@ -1802,7 +1795,7 @@ pub fn resolve_harness(rt: &Runtime, event: Option<&Map<String, Value>>) -> &'st
         // Codex turn-scoped events carry `turn_id`. Claude Code does not.
         // Detecting it here means an already-installed Codex hook emits the
         // Codex Stop contract without rewriting the hook command to set
-        // IMPECCINO_HOOK_HARNESS (#603).
+        // IMPECCINO_HOOK_HARNESS (pbakaus/impeccable#603).
         if str_field(ev, "turn_id").is_some() {
             return "codex";
         }
@@ -1810,7 +1803,6 @@ pub fn resolve_harness(rt: &Runtime, event: Option<&Map<String, Value>>) -> &'st
     "claude"
 }
 
-/// JS: hook-lib.mjs#looksLikeGrokEnvelope
 fn looks_like_grok_envelope(ev: &Map<String, Value>) -> bool {
     if ev.contains_key("hook_event_name")
         || ev.contains_key("tool_name")
@@ -1827,7 +1819,7 @@ fn looks_like_grok_envelope(ev: &Map<String, Value>) -> bool {
     matches!(ev.get("toolName"), Some(Value::String(_))) && ev.contains_key("toolInput")
 }
 
-/// JS: hook-lib.mjs#isStopEvent — Stop arrives as Claude's
+/// `isStopEvent`: Stop arrives as Claude's
 /// `hook_event_name: "Stop"` or Grok Build's `hookEventName: "stop"`.
 /// hook.mjs routes on the raw stdin, before any normalize, so both casings
 /// must match here.
@@ -1941,7 +1933,7 @@ fn normalize_github_event(
     out
 }
 
-/// JS: hook-lib.mjs#normalizeGrokEvent — Grok Build 1.0.5 (captured
+/// `normalizeGrokEvent`: Grok Build 1.0.5 (captured
 /// 2026-08-24) sends camelCase `toolName` / `toolInput` / `sessionId` /
 /// `stopHookActive`, plus `cwd` alongside a trailing-slashed
 /// `workspaceRoot` (every consumer path.resolve()s, so no stripping here).

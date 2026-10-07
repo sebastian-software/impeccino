@@ -1044,7 +1044,7 @@ fn prune_impeccino_hook_from_manifest(path: &str) -> Result<bool, String> {
     Ok(true)
 }
 
-/// `hooks reset`: remove the hook entries (issue #512: a leftover entry
+/// `hooks reset`: remove the hook entries (issue pbakaus/impeccable#512: a leftover entry
 /// keeps invoking the hook) and the session cache in the user cache.
 fn reset(rt: &Runtime, cwd: &str, manifest_root: &str) -> Result<String, String> {
     let (pruned, shared_left) = uninstall(rt, manifest_root)?;

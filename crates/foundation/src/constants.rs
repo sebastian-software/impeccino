@@ -1,5 +1,4 @@
-//! Port of `cli/engine/shared/constants.mjs`. Sets keep the JS insertion
-//! order as slices so anything that iterates them matches.
+//! Shared rule sets with stable iteration order.
 
 /// JS `SAFE_TAGS`.
 pub const SAFE_TAGS: &[&str] = &[

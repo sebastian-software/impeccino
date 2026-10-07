@@ -1,6 +1,4 @@
-//! Section 5 per-element browser adapters (`checkElement*DOM`) from
-//! `checks.mjs`, plus their DOM-facing helpers. See browser/mod.rs for the
-//! full list this module owns.
+//! Rendered element rules and their DOM measurement adapters.
 
 use super::background::{
     read_own_background_color, resolve_background_info, resolve_gradient_stops, BackgroundInfo,
@@ -50,7 +48,6 @@ pub fn parse_rgb_or_any(value: &str) -> Option<Rgba> {
     parse_rgb(Some(value)).or_else(|| parse_any_color(Some(value)))
 }
 
-/// JS: checks.mjs#isTabContextElement(el)
 pub fn is_tab_context_element(dom: &dyn Dom, el: ElId) -> bool {
     if closest_or_none(dom, el, TAB_CONTEXT_SELECTOR).is_some() {
         return true;
@@ -71,14 +68,12 @@ pub fn is_tab_context_element(dom: &dyn Dom, el: ElId) -> bool {
     false
 }
 
-/// JS: checks.mjs#isStatusContextElement(el)
 pub fn is_status_context_element(dom: &dyn Dom, el: ElId) -> bool {
     closest_or_none(dom, el, STATUS_CONTEXT_SELECTOR).is_some()
 }
 
 pub const SIDES: [&str; 4] = ["Top", "Right", "Bottom", "Left"];
 
-/// JS: checks.mjs#checkElementBordersDOM(el)
 pub fn check_element_borders_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     if BORDER_SAFE_TAGS.contains(&tag.as_str()) {
@@ -147,7 +142,6 @@ fn finding_hits(v: Vec<measures::Finding>) -> Vec<RuleHit> {
         .collect()
 }
 
-/// JS: checks.mjs#classSelector(el)
 pub fn class_selector(dom: &dyn Dom, el: ElId) -> String {
     let cls = class_attr(dom, el);
     let tokens: Vec<&str> = WS_RUN
@@ -169,7 +163,6 @@ pub fn class_selector(dom: &dyn Dom, el: ElId) -> String {
     }
 }
 
-/// JS: checks.mjs#isRenderedForBrowserRule(el)
 pub fn is_rendered_for_browser_rule(dom: &dyn Dom, el: ElId) -> bool {
     let mut cur = Some(el);
     while let Some(c) = cur {
@@ -191,7 +184,6 @@ pub fn is_rendered_for_browser_rule(dom: &dyn Dom, el: ElId) -> bool {
     true
 }
 
-/// JS: checks.mjs#effectiveOpacityDOM(el)
 pub fn effective_opacity_dom(dom: &dyn Dom, el: ElId) -> f64 {
     let mut o = 1.0f64;
     let mut cur = Some(el);
@@ -241,7 +233,6 @@ re!(
     )
 );
 
-/// JS: checks.mjs#checkElementPseudoStripeDOM(el)
 pub fn check_element_pseudo_stripe_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     if BORDER_SAFE_TAGS.contains(&tag.as_str()) || tag == "summary" {
@@ -338,7 +329,6 @@ pub fn check_element_pseudo_stripe_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> 
     findings
 }
 
-/// JS: checks.mjs#readPseudoSurfaceDOM(el, rect)
 pub fn read_pseudo_surface_dom(dom: &dyn Dom, el: ElId, rect: &Rect) -> Option<Rgba> {
     for which in PSEUDOS {
         if !pseudo_present(dom, el, which) {
@@ -378,7 +368,6 @@ pub fn read_pseudo_surface_dom(dom: &dyn Dom, el: ElId, rect: &Rect) -> Option<R
 
 // ── colors ────────────────────────────────────────────────────────────────
 
-/// JS: checks.mjs#checkElementColorsDOM(el)
 pub fn check_element_colors_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     let rect = dom.rect(el);
@@ -490,7 +479,6 @@ pub fn check_element_colors_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
 
 // ── icon tile / italic serif / hero eyebrow ───────────────────────────────
 
-/// JS: checks.mjs#checkElementIconTileDOM(el)
 pub fn check_element_icon_tile_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     if !HEADING_TAGS.contains(&tag.as_str()) {
@@ -531,7 +519,6 @@ pub fn check_element_icon_tile_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     })
 }
 
-/// JS: checks.mjs#checkElementItalicSerifDOM(el)
 pub fn check_element_italic_serif_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     if tag != "h1" && tag != "h2" {
@@ -563,7 +550,6 @@ pub fn check_element_italic_serif_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     Vec::new()
 }
 
-/// JS: checks.mjs#domAccentDashPseudo(el)
 pub fn dom_accent_dash_pseudo(dom: &dyn Dom, el: ElId) -> bool {
     for which in PSEUDOS {
         if !pseudo_present(dom, el, which) {
@@ -587,7 +573,6 @@ pub fn dom_accent_dash_pseudo(dom: &dyn Dom, el: ElId) -> bool {
     false
 }
 
-/// JS: checks.mjs#checkElementHeroEyebrowDOM(el)
 pub fn check_element_hero_eyebrow_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     if tag != "h1" {
@@ -619,7 +604,6 @@ pub fn check_element_hero_eyebrow_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
 
 // ── motion / glow / AI palette ────────────────────────────────────────────
 
-/// JS: checks.mjs#checkElementMotionDOM(el)
 pub fn check_element_motion_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     if SAFE_TAGS.contains(&tag.as_str()) {
@@ -669,7 +653,6 @@ fn gradient_ancestor_average(dom: &dyn Dom, start: Option<ElId>) -> Option<Rgba>
     None
 }
 
-/// JS: checks.mjs#checkElementGlowDOM(el)
 pub fn check_element_glow_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let box_shadow = {
         let v = dom.style(el, "boxShadow");
@@ -774,7 +757,6 @@ pub struct AiPaletteReading {
     pub tells: Vec<TellHue>,
 }
 
-/// JS: checks.mjs#checkElementAIPaletteDOM(el)
 ///
 /// One element's reading. The gradient half answers on its own; the ink half
 /// is held for the page pass, because a single saturated hue on a dark ground
@@ -852,7 +834,6 @@ re!(
     )
 );
 
-/// JS: checks.mjs#elementGradientValue(style, el)
 pub fn element_gradient_value(dom: &dyn Dom, el: ElId) -> String {
     let bg_image = {
         let v = dom.style(el, "backgroundImage");
@@ -879,7 +860,6 @@ pub fn element_gradient_value(dom: &dyn Dom, el: ElId) -> String {
     String::new()
 }
 
-/// JS: checks.mjs#spotlightLabel(el)
 pub fn spotlight_label(dom: &dyn Dom, el: ElId) -> String {
     if let Some(name) = dom.attr(el, "data-name") {
         if !name.is_empty() {
@@ -909,7 +889,6 @@ pub fn spotlight_label(dom: &dyn Dom, el: ElId) -> String {
     }
 }
 
-/// JS: checks.mjs#checkElementRadialSpotlightDOM(el)
 pub fn check_element_radial_spotlight_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let gradient_value = element_gradient_value(dom, el);
     if gradient_value.is_empty() {
@@ -927,7 +906,6 @@ pub fn check_element_radial_spotlight_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHi
 
 // ── oversized h1 / gpt border shadow ──────────────────────────────────────
 
-/// JS: checks.mjs#checkElementOversizedH1DOM(el)
 pub fn check_element_oversized_h1_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     if tag != "h1" {
@@ -951,7 +929,6 @@ pub fn check_element_oversized_h1_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     }))
 }
 
-/// JS: checks.mjs#checkElementGptBorderShadowDOM(el)
 pub fn check_element_gpt_border_shadow_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let style = ElStyle { dom, el };
     let widths = border_widths_from_style(&style);
@@ -1011,7 +988,6 @@ re!(
     r"(?-u:\b)(demo-area|demo-stage|demo-viewport)(?-u:\b)"
 );
 
-/// JS: checks.mjs#positionedChildHasSubstantiveContent(child)
 pub fn positioned_child_has_substantive_content(dom: &dyn Dom, child: ElId) -> bool {
     let text = collapse_ws(&dom.text_content(child));
     if !js::trim(&text).is_empty() {
@@ -1026,7 +1002,6 @@ pub fn positioned_child_has_substantive_content(dom: &dyn Dom, child: ElId) -> b
     false
 }
 
-/// JS: checks.mjs#positionedChildIsDecorative(child)
 pub fn positioned_child_is_decorative(dom: &dyn Dom, child: ElId) -> bool {
     if closest_or_none(dom, child, "[aria-hidden=\"true\"]").is_some() {
         return true;
@@ -1050,7 +1025,6 @@ pub fn positioned_child_is_decorative(dom: &dyn Dom, child: ElId) -> bool {
     false
 }
 
-/// JS: checks.mjs#clippingContainerIsIntentionalViewport(el)
 pub fn clipping_container_is_intentional_viewport(dom: &dyn Dom, el: ElId) -> bool {
     let role_description =
         js::to_lower_case(&dom.attr(el, "aria-roledescription").unwrap_or_default());
@@ -1065,7 +1039,6 @@ pub fn clipping_container_is_intentional_viewport(dom: &dyn Dom, el: ElId) -> bo
     VIEWPORT_IDENT_RE.is_match(&ident) || DEMO_IDENT_RE.is_match(&ident)
 }
 
-/// JS: checks.mjs#elementRect(el)
 pub fn element_rect(dom: &dyn Dom, el: ElId) -> Option<Rect> {
     let rect = dom.rect(el);
     if !rect.all_finite() {
@@ -1077,7 +1050,6 @@ pub fn element_rect(dom: &dyn Dom, el: ElId) -> Option<Rect> {
     Some(rect)
 }
 
-/// JS: checks.mjs#positionedChildEscapesClip(el, child, clipX, clipY)
 pub fn positioned_child_escapes_clip(
     dom: &dyn Dom,
     el: ElId,
@@ -1098,7 +1070,6 @@ pub fn positioned_child_escapes_clip(
     )
 }
 
-/// JS: checks.mjs#checkClippedOverflow(el, style, getStyle)
 pub fn check_clipped_overflow(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let clips = |v: &str| v == "hidden" || v == "clip";
     let scrolls = |v: &str| v == "auto" || v == "scroll";
@@ -1137,7 +1108,6 @@ pub fn check_clipped_overflow(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     Vec::new()
 }
 
-/// JS: checks.mjs#checkElementClippedOverflowDOM(el)
 pub fn check_element_clipped_overflow_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     check_clipped_overflow(dom, el)
 }
@@ -1151,7 +1121,6 @@ fn is_scroll_region(dom: &dyn Dom, el: ElId) -> bool {
         || SCROLL_RE.is_match(&dom.style(el, "overflow"))
 }
 
-/// JS: checks.mjs#checkElementTextOverflowDOM(el)
 pub fn check_element_text_overflow_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     if TEXT_OVERFLOW_SKIP_TAGS.contains(&tag.as_str()) {
@@ -1254,7 +1223,6 @@ re!(
     )
 );
 
-/// JS: checks.mjs#keyframesToggleVisibilityDOM(name)
 pub fn keyframes_toggle_visibility_dom(dom: &dyn Dom, name: &str) -> bool {
     if name.is_empty() {
         return false;
@@ -1281,7 +1249,6 @@ pub fn keyframes_toggle_visibility_dom(dom: &dyn Dom, name: &str) -> bool {
     toggles_out
 }
 
-/// JS: checks.mjs#checkElementBlinkingCursorDOM(el)
 pub fn check_element_blinking_cursor_dom(dom: &dyn Dom, el: ElId) -> Vec<BrowserFinding> {
     let tag = tag_lower(dom, el);
     if matches!(

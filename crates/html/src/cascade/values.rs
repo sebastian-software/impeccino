@@ -1,8 +1,4 @@
-//! Color / length / token helpers of the static cascade.
-//!
-//! JS: css-cascade.mjs#splitCssList, #splitCssTokens, #cssPropToCamel,
-//! #staticColorToCss, #parseStaticColor, #extractStaticColor,
-//! #normalizeStaticCssValue, #unwrapCssAtLayer
+//! CSS list splitting, property normalization and computed value resolution.
 
 use super::checks_shim::{resolve_length_px, resolve_var_refs, CustomProps};
 use super::defaults::{
@@ -35,7 +31,6 @@ pub fn style_get<'a>(style: Option<&'a StyleValues>, prop: &str) -> Option<&'a s
 
 // ─── splitCssList / splitCssTokens ──────────────────────────────────────────
 
-/// JS: css-cascade.mjs#splitCssList(value)
 /// Split on top-level commas (outside quotes and parens/brackets), trimming
 /// each part and dropping an empty tail.
 pub fn split_css_list(value: &str) -> Vec<String> {
@@ -74,7 +69,6 @@ pub fn split_css_list(value: &str) -> Vec<String> {
     parts
 }
 
-/// JS: css-cascade.mjs#splitCssTokens(value)
 /// Split on top-level whitespace (outside quotes and parens).
 pub fn split_css_tokens(value: &str) -> Vec<String> {
     let chars: Vec<char> = value.chars().collect();
@@ -124,7 +118,6 @@ pub fn split_css_tokens(value: &str) -> Vec<String> {
 
 static DASH_LOWER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"-([a-z])").expect("DASH_LOWER_RE"));
 
-/// JS: css-cascade.mjs#cssPropToCamel(prop)
 pub fn css_prop_to_camel(prop: &str) -> String {
     if prop.is_empty() {
         return prop.to_string();
@@ -139,7 +132,6 @@ pub fn css_prop_to_camel(prop: &str) -> String {
 
 // ─── Colors ─────────────────────────────────────────────────────────────────
 
-/// JS: css-cascade.mjs#staticColorToCss(c)
 pub fn static_color_to_css(c: Option<&Rgba>) -> String {
     let Some(c) = c else {
         return String::new();
@@ -154,7 +146,6 @@ pub fn static_color_to_css(c: Option<&Rgba>) -> String {
     }
 }
 
-/// JS: css-cascade.mjs#parseStaticColor(value)
 pub fn parse_static_color(value: &str) -> Option<Rgba> {
     if let Some(parsed) = parse_any_color(Some(value)) {
         return Some(parsed);
@@ -189,7 +180,6 @@ static VAR_HEAD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^var\(").expect(
 static COLOR_MIX_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)color-mix\(").expect("COLOR_MIX_RE"));
 
-/// JS: css-cascade.mjs#extractStaticColor(value)
 pub fn extract_static_color(value: &str) -> String {
     if value.is_empty() {
         return String::new();
@@ -267,7 +257,6 @@ fn font_size_base2(current: Option<&StyleValues>, parent: Option<&StyleValues>) 
     }
 }
 
-/// JS: css-cascade.mjs#normalizeStaticCssValue(prop, value, customProps, parentStyle, currentStyle = null)
 pub fn normalize_static_css_value(
     prop: &str,
     value: &str,
@@ -325,48 +314,4 @@ pub fn normalize_static_css_value(
         }
     }
     resolved
-}
-
-// ─── unwrapCssAtLayer ───────────────────────────────────────────────────────
-
-static AT_LAYER_OPEN_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"@layer(?-u:\b)[^{;]*\{").expect("AT_LAYER_OPEN_RE"));
-
-/// JS: css-cascade.mjs#unwrapCssAtLayer(source)
-/// Rewrite `@layer name { ... }` blocks to their inner rules as flat CSS
-/// (jsdom doesn't implement @layer). Walks the source balancing braces so
-/// nested style rules inside the layer block are handled; an unbalanced
-/// block returns the source unchanged.
-pub fn unwrap_css_at_layer(source: &str) -> String {
-    if source.is_empty() || !source.contains("@layer") {
-        return source.to_string();
-    }
-    let bytes = source.as_bytes();
-    let mut out = String::new();
-    let mut last_idx = 0usize;
-    let mut search_from = 0usize;
-    while let Some(m) = AT_LAYER_OPEN_RE.find_at(source, search_from) {
-        let open_start = m.start();
-        let open_end = m.end();
-        let mut depth: i64 = 1;
-        let mut i = open_end;
-        while i < bytes.len() && depth > 0 {
-            let c = bytes[i];
-            if c == b'{' {
-                depth += 1;
-            } else if c == b'}' {
-                depth -= 1;
-            }
-            i += 1;
-        }
-        if depth != 0 {
-            return source.to_string();
-        }
-        out.push_str(&source[last_idx..open_start]);
-        out.push_str(&source[open_end..i - 1]);
-        last_idx = i;
-        search_from = i;
-    }
-    out.push_str(&source[last_idx..]);
-    out
 }

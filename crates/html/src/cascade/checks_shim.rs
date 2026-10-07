@@ -7,13 +7,13 @@ use impeccino_core::checks::measures;
 /// An ordered `--name -> value` map (JS `Map<string,string>`).
 pub type CustomProps = indexmap::IndexMap<String, String>;
 
-/// JS: checks.mjs#resolveVarRefs(raw, customPropMap, depth = 0), via core.
+/// `resolveVarRefs`: via core.
 pub fn resolve_var_refs(raw: &str, custom_props: &CustomProps) -> String {
     let lookup = |name: &str| custom_props.get(name).cloned();
     measures::resolve_var_refs(raw, &lookup, 0)
 }
 
-/// JS: checks.mjs#resolveLengthPx(value, fontSizePx), via core.
+/// `resolveLengthPx`: via core.
 pub fn resolve_length_px(value: &str, font_size_px: f64) -> Option<f64> {
     measures::resolve_length_px(Some(value), font_size_px)
 }

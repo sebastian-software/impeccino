@@ -1,5 +1,4 @@
-//! Port of `cli/engine/node/file-system.mjs`: the directory walker, the
-//! import graph, framework dev-server config detection, and the port probe.
+//! Directory walking, import resolution and local server probing.
 
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
@@ -18,8 +17,8 @@ pub use impeccino_common::scan_scope::{
 type HttpHeaders = Vec<(String, String)>;
 type HttpResponse = (u16, HttpHeaders, String);
 
-/// JS: file-system.mjs#walkDir(dir, onReadError). An unreadable directory is
-/// reported and skipped rather than silently yielding nothing (#711).
+/// `walkDir`: An unreadable directory is
+/// reported and skipped rather than silently yielding nothing (pbakaus/impeccable#711).
 pub fn walk_dir_reporting(
     dir: &str,
     on_read_error: &mut dyn FnMut(&str, &std::io::Error),
@@ -91,7 +90,6 @@ static IMPORT_SPECIFIER_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
     ]
 });
 
-/// JS: file-system.mjs#resolveImport
 pub fn resolve_import(specifier: &str, from_dir: &str, file_set: &[String]) -> Option<String> {
     if !(specifier.starts_with('.') || specifier.starts_with('/')) {
         return None;
@@ -115,9 +113,9 @@ pub fn resolve_import(specifier: &str, from_dir: &str, file_set: &[String]) -> O
     None
 }
 
-/// JS: file-system.mjs#buildImportGraph(files, onReadError). A file that
+/// `buildImportGraph`: A file that
 /// cannot be read is reported and left out of the graph; the caller skips it
-/// for the scan too (#711).
+/// for the scan too (pbakaus/impeccable#711).
 pub fn build_import_graph_reporting(
     files: &[String],
     on_read_error: &mut dyn FnMut(&str, &std::io::Error),
@@ -257,7 +255,6 @@ pub struct DetectedFramework {
     pub fingerprint: Fingerprint,
 }
 
-/// JS: file-system.mjs#detectFrameworkConfig
 pub fn detect_framework_config(dir: &str) -> Option<DetectedFramework> {
     let rd = std::fs::read_dir(dir).ok()?;
     let entries: Vec<String> = rd
@@ -302,7 +299,7 @@ pub struct PortProbe {
 
 const MAX_HTTP_RESPONSE_BYTES: usize = 1024 * 1024;
 
-/// JS: file-system.mjs#isPortListening. With a fingerprint, an HTTP GET of
+/// `isPortListening`: With a fingerprint, an HTTP GET of
 /// `http://localhost:${port}/` with a 2 s total deadline. Requests stay on
 /// loopback, including redirects. Without one, a loopback TCP connect uses a
 /// 500 ms total deadline.

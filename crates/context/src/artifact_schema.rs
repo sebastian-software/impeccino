@@ -1,4 +1,4 @@
-//! JS: lib/artifact-schema.mjs
+//! Artifact schema version parsing and stamping.
 
 use once_cell::sync::Lazy;
 use regex::Regex;

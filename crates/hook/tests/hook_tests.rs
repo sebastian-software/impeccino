@@ -1499,7 +1499,7 @@ fn render_template_dedupes_descriptions_and_quotes_hints() {
         render_template(&r, &[x], "/x/a.tsx", &c, &opts("/x"))
     };
     assert!(!no_hint.contains("If deliberate"));
-    // platform quoting (#476 / #533)
+    // platform quoting (pbakaus/impeccable#476 / pbakaus/impeccable#533)
     assert_eq!(
         quote_command_arg("Space Grotesk Var", false),
         "'Space Grotesk Var'"
@@ -1890,7 +1890,7 @@ fn run_hook_skips_unsafe_and_foreign_targets() {
         Some("outside-project")
     );
     assert!(!t.has_cache());
-    // template extensions (#316): server templates go to the HTML engine by
+    // template extensions (pbakaus/impeccable#316): server templates go to the HTML engine by
     // default, no config needed
     let blade = t.write("views/a.blade.php", "<style>.t{background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent;}</style>");
     let res = go(&blade);
@@ -3698,7 +3698,7 @@ fn admin_reset_reports_state_file_delete_errors() {
     assert!(err.contains(&cache), "{err}");
 }
 
-// ── Grok Build + Codex (#646, #603, upstream 35ae0733/bfe634e2/3c442af7/c9e7cd8a) ──
+// ── Grok Build + Codex (pbakaus/impeccable#646, pbakaus/impeccable#603, upstream 35ae0733/bfe634e2/3c442af7/c9e7cd8a) ──
 
 const MIXED_CSS: &str = ".title { background: linear-gradient(90deg, #f472b6, #a78bfa); -webkit-background-clip: text; color: transparent; }\n.card { border-left: 4px solid #6366f1; border-radius: 8px; }\n";
 
@@ -3753,7 +3753,7 @@ fn grok_post_tool_use_scans_and_stop_reports_everything() {
     let r = rt(&cwd);
     let css = t.write("src/a.css", MIXED_CSS);
     // Grok Build PostToolUse: camelCase fields must normalize into a scan,
-    // not skip with no-file-path (#646).
+    // not skip with no-file-path (pbakaus/impeccable#646).
     let post = json!({
         "hookEventName": "post_tool_use", "sessionId": "g1", "cwd": cwd,
         "toolName": "str_replace", "toolInput": { "file_path": css },
@@ -3819,7 +3819,7 @@ fn stop_cache_syncs_after_clean_scan_so_reintroductions_fire() {
 
 #[test]
 fn codex_stop_emits_decision_block() {
-    // #603: Codex Stop rejects Claude's hookSpecificOutput shape; findings
+    // pbakaus/impeccable#603: Codex Stop rejects Claude's hookSpecificOutput shape; findings
     // that should continue the turn are a top-level blocking decision.
     assert_eq!(
         payload("findings", "Stop", "codex"),

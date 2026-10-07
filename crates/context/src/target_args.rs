@@ -1,4 +1,4 @@
-//! JS: lib/target-args.mjs
+//! Parsing of explicit context target arguments.
 
 #[derive(Debug, Clone, Default)]
 pub struct TargetOptions {

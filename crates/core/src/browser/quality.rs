@@ -1,9 +1,4 @@
-//! `checkQuality` and its browser adapters from `checks.mjs` Section 5:
-//! `checkQuality` (every branch, including the rect-gated ones the static
-//! engine never reaches), `checkElementQualityDOM`,
-//! `hasVisibleBackgroundBoundary`, `hasMeaningfulDirectText`,
-//! `textDescendantsFlushSides`, `isVisuallyHidden`, `isNonRenderedText`,
-//! `checkPageQualityFromDoc`, `checkPageQualityDOM`.
+//! Rendered DOM adapters for shared quality predicates.
 
 use super::dom::{
     closest_or_none, direct_text, has_direct_text_longer_than, matches_or_false, pf0, style_px,
@@ -63,7 +58,7 @@ fn matches_or_closest(dom: &dyn Dom, el: ElId, sel: &str) -> bool {
     matches_or_false(dom, el, sel) || closest_or_none(dom, el, sel).is_some()
 }
 
-/// JS: checks.mjs#hasVisibleBackgroundBoundary(style, el, win) — browser:
+/// `hasVisibleBackgroundBoundary`: browser:
 /// `style` is `el`'s own computed style, `win` the live window.
 pub fn has_visible_background_boundary(dom: &dyn Dom, el: ElId) -> bool {
     let bg = dom.style(el, "backgroundColor");
@@ -81,7 +76,6 @@ pub fn has_visible_background_boundary(dom: &dyn Dom, el: ElId) -> bool {
     true
 }
 
-/// JS: checks.mjs#hasMeaningfulDirectText(node)
 pub fn has_meaningful_direct_text(dom: &dyn Dom, el: ElId) -> bool {
     has_direct_text_longer_than(dom, el, 4)
 }
@@ -103,7 +97,7 @@ fn rendered_line_widths(dom: &dyn Dom, el: ElId) -> Option<Vec<f64>> {
     )
 }
 
-/// JS: checks.mjs#textDescendantsFlushSides(el, rect) → [top, right, bottom, left]
+/// `textDescendantsFlushSides`: → [top, right, bottom, left]
 ///
 /// The side is flush when the *text* lands on it, not when a text-bearing box
 /// does. A `<td>` fills its table edge to edge and insets its own text by the
@@ -146,7 +140,6 @@ pub fn text_descendants_flush_sides(dom: &dyn Dom, el: ElId, rect: &Rect) -> [bo
     flush
 }
 
-/// JS: checks.mjs#isVisuallyHidden(el, style)
 pub fn is_visually_hidden(dom: &dyn Dom, el: ElId) -> bool {
     let clip_path = {
         let a = dom.style(el, "clipPath");
@@ -172,7 +165,6 @@ pub fn is_visually_hidden(dom: &dyn Dom, el: ElId) -> bool {
     )
 }
 
-/// JS: checks.mjs#isNonRenderedText(el, tag, style)
 pub fn is_non_rendered_text(dom: &dyn Dom, el: ElId, tag: &str) -> bool {
     is_non_rendered_text_from_style(
         tag,
@@ -196,7 +188,7 @@ pub struct QualityInput {
     pub viewport_width: f64,
 }
 
-/// JS: checks.mjs#checkQuality(opts), browser adapter inputs (`rect` set,
+/// `checkQuality`: browser adapter inputs (`rect` set,
 /// `win` = window).
 pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
     let el = q.el;
@@ -620,7 +612,6 @@ pub fn check_quality(dom: &dyn Dom, q: &QualityInput) -> Vec<RuleHit> {
     findings
 }
 
-/// JS: checks.mjs#checkElementQualityDOM(el)
 pub fn check_element_quality_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     let tag = tag_lower(dom, el);
     let has_direct_text = has_direct_text_longer_than(dom, el, 10);
@@ -662,7 +653,6 @@ pub fn check_element_quality_dom(dom: &dyn Dom, el: ElId) -> Vec<RuleHit> {
     )
 }
 
-/// JS: checks.mjs#checkPageQualityFromDoc(doc)
 pub fn check_page_quality_from_doc(dom: &dyn Dom) -> Vec<RuleHit> {
     let headings: Vec<(String, String)> = dom
         .query_all(None, "h1, h2, h3, h4, h5, h6")
@@ -673,7 +663,7 @@ pub fn check_page_quality_from_doc(dom: &dyn Dom) -> Vec<RuleHit> {
     check_skipped_headings(&headings)
 }
 
-/// JS: checks.mjs#checkPageQualityDOM() — `{ type, detail }` shape.
+/// `checkPageQualityDOM`: `{ type, detail }` shape.
 pub fn check_page_quality_dom(dom: &dyn Dom) -> Vec<BrowserFinding> {
     check_page_quality_from_doc(dom)
         .iter()

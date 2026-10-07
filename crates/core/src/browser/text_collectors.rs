@@ -1,9 +1,4 @@
-//! Kicker / numbered-label / em-dash / repeated-text browser collectors from
-//! `checks.mjs` (`collectKickerCandidates`, `checkKickerAboveHeadingDOM`,
-//! `collectNumberedSectionLabelCandidates`, `checkNumberedSectionLabelsDOM`,
-//! `checkEmDashOveruseDOM`, `collectRepeatedContainerTextFindings`,
-//! `checkRepeatedContainerTextDOM`) against the [`Dom`] probe. The pure
-//! gates live in `checks::rules` / `checks::text_rules`.
+//! Rendered text collection for shared prose and heading rules.
 
 use super::dom::{matches_or_false, tag_lower, Dom, ElId, ElStyle};
 use super::driver::DesignSystemConfig;
@@ -25,7 +20,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
 
-/// JS: checks.mjs#cleanInlineText(el): direct text nodes joined with a
+/// `cleanInlineText`: direct text nodes joined with a
 /// space, whitespace collapsed, trimmed.
 pub fn clean_inline_text(dom: &dyn Dom, el: ElId) -> String {
     crate::js_ext_b::clean_inline_text(dom.direct_text_nodes(el))
@@ -36,7 +31,6 @@ fn collapsed_text_content(dom: &dyn Dom, el: ElId) -> String {
     crate::js_ext_b::collapsed_text_content(&dom.text_content(el))
 }
 
-/// JS: checks.mjs#isKickerCardContext(heading, kicker)
 pub fn is_kicker_card_context(dom: &dyn Dom, heading: ElId, kicker: ElId) -> bool {
     match dom.closest(heading, KICKER_CARD_CONTEXT_SELECTOR) {
         Ok(Some(item)) => dom.contains(item, kicker),
@@ -47,7 +41,6 @@ pub fn is_kicker_card_context(dom: &dyn Dom, heading: ElId, kicker: ElId) -> boo
 static HEADING_LEVEL_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^h([1-6])$").expect("HEADING_LEVEL_RE"));
 
-/// JS: checks.mjs#kickerHeadingLevel(heading)
 pub fn kicker_heading_level(dom: &dyn Dom, heading: ElId) -> f64 {
     let tag = tag_lower(dom, heading);
     if let Some(m) = HEADING_LEVEL_RE.captures(&tag) {
@@ -92,7 +85,6 @@ fn strip_edge_quotes_slice(text: &str, n: usize) -> String {
     slice_utf16_prefix(&strip_edge_quotes(text), n)
 }
 
-/// JS: checks.mjs#collectKickerCandidates(document, getComputedStyle, resolveLengthPx || 0)
 pub fn collect_kicker_candidates(dom: &dyn Dom) -> Vec<KickerCandidate> {
     collect_kicker_candidates_with_elements(dom)
         .into_iter()
@@ -103,7 +95,7 @@ pub fn collect_kicker_candidates(dom: &dyn Dom) -> Vec<KickerCandidate> {
 /// The same walk, each candidate paired with the eyebrow element it came
 /// from. The finding is about that element and belongs on it: reported
 /// against the page it named `body`, and a charged row has to have something
-/// to point at (REN-406).
+/// to point at (upstream REN-406).
 pub fn collect_kicker_candidates_with_elements(dom: &dyn Dom) -> Vec<(ElId, KickerCandidate)> {
     let mut candidates = Vec::new();
     for heading in dom
@@ -182,14 +174,13 @@ pub fn collect_kicker_candidates_with_elements(dom: &dyn Dom) -> Vec<(ElId, Kick
     candidates
 }
 
-/// JS: checks.mjs#checkKickerAboveHeadingDOM()
 ///
 /// Two things the page-level version could not do. The finding lands on the
 /// eyebrow it is about rather than on `body`. And an eyebrow the repository's
 /// own design document names — `.eyebrow`, written into DESIGN.md as the one
 /// place caps are allowed — is that repository's vocabulary, not slop: a
 /// pattern the author's contract declares by name is a component with rules,
-/// and charging it reviews the design system instead of the change (REN-406).
+/// and charging it reviews the design system instead of the change (upstream REN-406).
 pub fn check_kicker_above_heading_dom(
     dom: &dyn Dom,
     design_system: Option<&DesignSystemConfig>,
@@ -226,7 +217,6 @@ pub fn is_declared_component(
         .any(|sel| matches_or_false(dom, el, sel))
 }
 
-/// JS: checks.mjs#collectNumberedSectionLabelCandidates(document, ...)
 pub fn collect_numbered_section_label_candidates(dom: &dyn Dom) -> Vec<NumberedLabelCandidate> {
     let mut candidates = Vec::new();
     let mut seen_labels: Vec<ElId> = Vec::new();
@@ -311,7 +301,6 @@ fn hits(v: Vec<crate::checks::measures::Finding>) -> Vec<RuleHit> {
         .collect()
 }
 
-/// JS: checks.mjs#checkNumberedSectionLabelsDOM()
 pub fn check_numbered_section_labels_dom(dom: &dyn Dom) -> Vec<RuleHit> {
     hits(check_numbered_section_labels(
         &collect_numbered_section_label_candidates(dom),
@@ -319,7 +308,6 @@ pub fn check_numbered_section_labels_dom(dom: &dyn Dom) -> Vec<RuleHit> {
     ))
 }
 
-/// JS: checks.mjs#checkEmDashOveruseDOM()
 pub fn check_em_dash_overuse_dom(dom: &dyn Dom) -> Vec<RuleHit> {
     let Some(body) = dom.body() else {
         return Vec::new();
@@ -332,7 +320,6 @@ pub fn check_em_dash_overuse_dom(dom: &dyn Dom) -> Vec<RuleHit> {
     hits(check_em_dash_overuse(Some(&text)))
 }
 
-/// JS: checks.mjs#collectRepeatedContainerTextFindings(doc, getStyle, opts)
 /// with `isVisible` supplied by the caller.
 pub fn collect_repeated_container_text_findings(
     dom: &dyn Dom,
@@ -369,7 +356,6 @@ pub fn collect_repeated_container_text_findings(
     check_repeated_container_text_nodes(&nodes)
 }
 
-/// JS: checks.mjs#checkRepeatedContainerTextDOM()
 pub fn check_repeated_container_text_dom(dom: &dyn Dom) -> Vec<RuleHit> {
     collect_repeated_container_text_findings(dom, &|el| is_rendered_for_browser_rule(dom, el))
 }
@@ -406,7 +392,7 @@ mod tests {
             hits[0].finding.detail,
             "kicker \"Features\" above h2 \"Everything you need\""
         );
-        // The finding names the eyebrow, not the page (REN-406).
+        // The finding names the eyebrow, not the page (upstream REN-406).
         assert_eq!(hits[0].el, Some(kicker));
 
         // An eyebrow the repository's DESIGN.md declares by name stands down.

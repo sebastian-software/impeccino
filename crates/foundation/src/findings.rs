@@ -1,4 +1,4 @@
-//! Port of `cli/engine/findings.mjs`: the finding object every engine emits.
+//! Finding construction and serialized severity metadata.
 
 use crate::inline_ignores::IgnorableFinding;
 use crate::registry::{get_ap, Antipattern};
@@ -21,7 +21,7 @@ pub struct Finding {
     #[serde(with = "crate::js::json_number")]
     pub line: f64,
     pub snippet: String,
-    /// JS `advisory: true`, derived from the effective severity (#709).
+    /// JS `advisory: true`, derived from the effective severity (pbakaus/impeccable#709).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub advisory: Option<bool>,
     /// Extra keys spread onto the finding by callers, in insertion order.
@@ -57,9 +57,9 @@ pub fn finding_for(ap: &Antipattern, file_path: &str, snippet: &str, line: f64) 
     f
 }
 
-/// JS: findings.mjs#deriveAdvisoryFlag. `advisory: true` is stamped when and
+/// `deriveAdvisoryFlag`: `advisory: true` is stamped when and
 /// only when the effective severity is `'advisory'`, so a per-finding severity
-/// promotion or demotion carries the flag with it (#709).
+/// promotion or demotion carries the flag with it (pbakaus/impeccable#709).
 pub fn derive_advisory_flag(item: &mut Finding) {
     item.advisory = if item.severity == "advisory" {
         Some(true)

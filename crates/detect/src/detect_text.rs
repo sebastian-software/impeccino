@@ -1,7 +1,4 @@
-//! Port of `cli/engine/engines/regex/detect-text.mjs`: the regex engine for
-//! non-HTML sources (CSS, JSX, TSX, Vue, Svelte, Astro, ...): comment
-//! stripping, `<style>` block and CSS-in-JS extraction, the inset-stripe scan,
-//! line matchers, page analyzers, dedupe, and inline ignores.
+//! Source-text detection and CSS-in-JavaScript extraction.
 
 use impeccino_core::checks::css_scan::{
     scan_css_text_for_grid_background, scan_css_text_for_pseudo_stripe,
@@ -414,7 +411,7 @@ enum State {
     DoubleQuote,
 }
 
-/// JS: detect-text.mjs#stripJsComments. Blanks comments without moving any
+/// `stripJsComments`: Blanks comments without moving any
 /// following source so line numbers survive.
 pub fn strip_js_comments(content: &str, jsx: bool) -> String {
     let chars: Vec<char> = content.chars().collect();
@@ -1118,7 +1115,6 @@ fn last_capture<'a>(re: &regex::Regex, text: &'a str) -> Option<regex::Captures<
     re.captures_iter(text).last()
 }
 
-/// JS: detect-text.mjs#scanInsetStripeCss
 pub fn scan_inset_stripe_css(
     raw_content: &str,
     file_path: &str,
@@ -1276,7 +1272,6 @@ re!(
     format!("<{s}[^>]*>({ANY}*?)</{s}>", s = ci("style"))
 );
 
-/// JS: detect-text.mjs#extractStyleBlocks
 pub fn extract_style_blocks(content: &str, ext: &str) -> Vec<Block> {
     let ext = js::to_lower_case(ext);
     if ext != ".astro" && ext != ".vue" && ext != ".svelte" {
@@ -1491,7 +1486,6 @@ fn find_css_in_js_templates(content: &str) -> Vec<Template> {
     templates
 }
 
-/// JS: detect-text.mjs#extractCSSinJS
 pub fn extract_css_in_js(content: &str, ext: &str) -> Vec<Block> {
     let ext = js::to_lower_case(ext);
     if !CSS_IN_JS_EXTENSIONS.contains(&ext.as_str()) {
@@ -1530,7 +1524,6 @@ fn strip_css_in_js_comments(content: &str, ext: &str) -> String {
 
 // ─── Matchers over lines ─────────────────────────────────────────────────────
 
-/// JS: detect-text.mjs#runRegexMatchers
 pub fn run_regex_matchers(
     lines: &[&str],
     file_path: &str,
@@ -1571,14 +1564,13 @@ pub fn run_regex_matchers(
     findings
 }
 
-/// JS: detect-text.mjs#runTextContentAnalyzers
 pub fn run_text_content_analyzers(content: &str, file_path: &str) -> Vec<Finding> {
     if !should_run_page_analyzers(content, file_path) {
         return vec![];
     }
     let mut findings = Vec::new();
     // JS: the 3 text-content analyzers sit at indices 1-3 of REGEX_ANALYZERS.
-    // flat-type-hierarchy left this source-only path in #702 because it needs
+    // flat-type-hierarchy left this source-only path in pbakaus/impeccable#702 because it needs
     // rendered role and usage evidence.
     for i in 0..TEXT_CONTENT_ANALYZER_IDS.len() {
         let analyzer = REGEX_ANALYZERS[1 + i];
@@ -1597,7 +1589,6 @@ fn pseudo_stripe_findings(text: &str, file_path: &str, line_offset: usize) -> Ve
         .collect()
 }
 
-/// JS: detect-text.mjs#detectText
 pub fn detect_text(content: &str, file_path: &str, options: &TextOptions) -> Vec<Finding> {
     let mut findings: Vec<Finding> = Vec::new();
     let ext = ext_from_file_path(file_path);

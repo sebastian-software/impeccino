@@ -1,9 +1,4 @@
-//! Section 6 browser page-level checks from `checks.mjs`: `checkTypography`,
-//! `isCardLikeDOM`, `checkLayout`, `checkHeadingRhythmDOM`,
-//! `checkCreamPalette` (browser path), `measureHiddenTextDOM`,
-//! `checkEdgeFlushCardsDOM`, `isLayeredElement`, `elementDirectText`,
-//! `isPaintedForOcclusion`, `checkTextOcclusionDOM`,
-//! `checkFirstViewportColumnOverflowDOM`.
+//! Rendered typography, layout, occlusion and page-level checks.
 
 use super::dom::{
     ancestors_inclusive, class_attr, closest_or_none, direct_text, has_direct_text_longer_than,
@@ -96,7 +91,6 @@ fn has_visible_direct_text(dom: &dyn Dom, el: ElId) -> bool {
     has_direct_text_longer_than(dom, el, 0)
 }
 
-/// JS: checks.mjs#checkTypography()
 pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
     let mut findings = Vec::new();
 
@@ -112,9 +106,9 @@ pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
         if !has_visible_direct_text(dom, el) {
             continue;
         }
-        // JS-PARITY: checks.mjs#checkTypography uses primaryFontFace(ff) whose
+        // Compatibility: typography uses primaryFontFace(ff), whose
         // default skip is CSS_GENERIC_FONTS, so a system stack keeps its system
-        // face as primary (fix #678).
+        // face as primary (fix pbakaus/impeccable#678).
         let family = dom.style(el, "fontFamily");
         let Some(primary) = primary_font_face(&family) else {
             continue;
@@ -141,7 +135,7 @@ pub fn check_typography(dom: &dyn Dom) -> Vec<BrowserFinding> {
     findings
 }
 
-/// JS: checks.mjs#isRenderedTypeElement over a live DOM.
+/// `isRenderedTypeElement`: over a live DOM.
 fn is_rendered_type_element(dom: &dyn Dom, el: ElId) -> bool {
     for current in ancestors_inclusive(dom, el) {
         if dom.hidden_prop(current) || dom.attr(current, "hidden").is_some() {
@@ -165,7 +159,7 @@ fn is_rendered_type_element(dom: &dyn Dom, el: ElId) -> bool {
     true
 }
 
-/// JS: checks.mjs#checkFlatTypeHierarchyFromDoc over a live DOM.
+/// `checkFlatTypeHierarchyFromDoc`: over a live DOM.
 pub fn check_flat_type_hierarchy_from_dom(
     dom: &dyn Dom,
     skip_selector: Option<&str>,
@@ -195,7 +189,6 @@ pub fn check_flat_type_hierarchy_from_dom(
     check_flat_type_hierarchy_samples(&samples)
 }
 
-/// JS: checks.mjs#isCardLikeDOM(el)
 pub fn is_card_like_dom(dom: &dyn Dom, el: ElId) -> bool {
     let tag = tag_lower(dom, el);
     if SAFE_TAGS.contains(&tag.as_str())
@@ -219,7 +212,7 @@ pub fn is_card_like_dom(dom: &dyn Dom, el: ElId) -> bool {
     is_card_like_from_props(has_shadow, has_border, has_radius, has_bg)
 }
 
-/// JS: checks.mjs#checkLayout() — `{ type, detail, el }`.
+/// `checkLayout`: `{ type, detail, el }`.
 pub fn check_layout(dom: &dyn Dom) -> Vec<ElFinding> {
     let mut findings = Vec::new();
     let mut flagged: Vec<ElId> = Vec::new();
@@ -267,7 +260,6 @@ pub fn check_layout(dom: &dyn Dom) -> Vec<ElFinding> {
     findings
 }
 
-/// JS: checks.mjs#checkHeadingRhythmDOM()
 pub fn check_heading_rhythm_dom(dom: &dyn Dom) -> Vec<ElFinding> {
     const MIN_VIOLATIONS: usize = 2;
     const CARD_EXEMPT_HEIGHT: f64 = 200.0;
@@ -481,7 +473,7 @@ pub fn check_heading_rhythm_dom(dom: &dyn Dom) -> Vec<ElFinding> {
         .collect()
 }
 
-/// JS: checks.mjs#checkCreamPalette(document) (browser path)
+/// `checkCreamPalette`: (browser path)
 pub fn check_cream_palette(dom: &dyn Dom) -> Vec<RuleHit> {
     let Some(body) = dom.body() else {
         return Vec::new();
@@ -511,7 +503,6 @@ enum HiddenState {
     Excluded,
 }
 
-/// JS: checks.mjs#measureHiddenTextDOM()
 pub fn measure_hidden_text_dom(dom: &dyn Dom) -> HiddenTextMeasure {
     let root = dom.document_element();
     let mut cache: std::collections::HashMap<ElId, HiddenState> = std::collections::HashMap::new();
@@ -600,7 +591,6 @@ fn is_scroller(dom: &dyn Dom, el: ElId) -> bool {
         || SCROLL_RE.is_match(&dom.style(el, "overflow"))
 }
 
-/// JS: checks.mjs#checkEdgeFlushCardsDOM()
 pub fn check_edge_flush_cards_dom(dom: &dyn Dom) -> Vec<ElFinding> {
     let mut findings = Vec::new();
     let vh = {
@@ -714,7 +704,6 @@ pub fn check_edge_flush_cards_dom(dom: &dyn Dom) -> Vec<ElFinding> {
     findings
 }
 
-/// JS: checks.mjs#isLayeredElement(el)
 pub fn is_layered_element(dom: &dyn Dom, el: ElId) -> bool {
     let body = dom.body();
     let mut cur = Some(el);
@@ -736,12 +725,10 @@ pub fn is_layered_element(dom: &dyn Dom, el: ElId) -> bool {
     false
 }
 
-/// JS: checks.mjs#elementDirectText(el)
 pub fn element_direct_text(dom: &dyn Dom, el: ElId) -> String {
     js::trim(&direct_text(dom, el)).to_string()
 }
 
-/// JS: checks.mjs#isPaintedForOcclusion(el)
 pub fn is_painted_for_occlusion(dom: &dyn Dom, el: ElId) -> bool {
     let mut cur = Some(el);
     while let Some(c) = cur {
@@ -762,7 +749,6 @@ pub fn is_painted_for_occlusion(dom: &dyn Dom, el: ElId) -> bool {
 
 const OCCLUSION_TEXT_SKIP_TAGS: &[&str] = &["script", "style", "noscript", "template", "title"];
 
-/// JS: checks.mjs#checkTextOcclusionDOM()
 pub fn check_text_occlusion_dom(dom: &dyn Dom) -> Vec<ElFinding> {
     let mut findings = Vec::new();
     let mut seen_victims: Vec<ElId> = Vec::new();
@@ -1248,7 +1234,6 @@ pub fn check_text_occlusion_dom(dom: &dyn Dom) -> Vec<ElFinding> {
     findings
 }
 
-/// JS: checks.mjs#checkFirstViewportColumnOverflowDOM()
 pub fn check_first_viewport_column_overflow_dom(dom: &dyn Dom) -> Vec<ElFinding> {
     let mut findings = Vec::new();
     let vw = {
@@ -1432,7 +1417,7 @@ mod tests {
         d.set_style(s, "fontSize", "24px");
         let f = check_typography(&d);
         // One `body` role is under TYPE_HIERARCHY_MIN_ROLES, so the flat-type
-        // rule abstains and only the font finding stands (#702).
+        // rule abstains and only the font finding stands (pbakaus/impeccable#702).
         assert_eq!(f.len(), 1, "{f:?}");
         assert_eq!(f[0].type_, "overused-font");
         assert_eq!(f[0].detail, "Primary font: inter (95% of text)");

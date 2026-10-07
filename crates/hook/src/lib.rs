@@ -1,14 +1,4 @@
-//! impeccino-hook: the design hook verbs (`hook`, `hook-before-edit`,
-//! `hooks` / `hook-admin`), ported from `skill/scripts/hook.mjs`,
-//! `hook-before-edit.mjs`, `hook-admin.mjs`, and `hook-lib.mjs`.
-//!
-//! The regex engine and design-system loader come from `impeccino-detect`;
-//! the static HTML engine is reached through the `HtmlEngine` seam the `cli`
-//! binary wires in (crates/html), so `.html` targets and configured
-//! html-engine template extensions get the same DOM rules the JS applied.
-//! The native-platform gate reads PRODUCT.md through `impeccino-context`'s
-//! `resolve_context` / `extract_platform` (only the platform is observable,
-//! so the rest of `loadContext` is skipped).
+//! Hook execution and administration for supported host harnesses.
 
 pub mod admin;
 pub mod before_edit;

@@ -1,4 +1,4 @@
-//! JS: palette.mjs -> `impeccino palette`
+//! Seeded palette generation for `impeccino palette`.
 
 use crate::palette_data::{Seed, SEEDS, TEMPLATE};
 use crate::util::to_fixed;

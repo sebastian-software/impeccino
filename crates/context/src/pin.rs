@@ -1,4 +1,4 @@
-//! JS: pin.mjs -> `impeccino pin <pin|unpin> <command>`
+//! Standalone command shortcut creation and removal.
 
 use crate::jsp;
 use crate::util::{exists, read_json};
@@ -79,9 +79,7 @@ fn find_harness_dirs(project_root: &str) -> Vec<String> {
     let mut dirs = Vec::new();
     for h in HARNESS_DIRS {
         let skills = jsp::join(&[project_root, h, "skills"]);
-        if exists(&jsp::join(&[&skills, "impeccino"]))
-            || exists(&jsp::join(&[&skills, "i-impeccino"]))
-        {
+        if exists(&jsp::join(&[&skills, "impeccino"])) {
             dirs.push(skills);
         }
     }
@@ -138,9 +136,7 @@ fn generate_pinned_skill(
 // reference file, so `/impeccino-<cmd>` runs the same workflow
 // `/impeccino <cmd>` routes to.
 //
-// JS: pin.mjs#generatePinnedOpencodeCommand. The JS body says
-// `node <skill-base-dir>/scripts/context.mjs`; the engine names its own
-// command, as everywhere else the launcher replaced a script path.
+// Generated commands invoke the installed launcher and its context verb.
 fn generate_pinned_opencode_command(command: &str, metadata: &serde_json::Value) -> String {
     let desc = metadata
         .get(command)
@@ -159,7 +155,7 @@ fn generate_pinned_opencode_command(command: &str, metadata: &serde_json::Value)
     )
 }
 
-/// JS: pin.mjs#opencodeUserConfigDir. Mirrors the CLI's precedence
+/// `opencodeUserConfigDir`: Mirrors the CLI's precedence
 /// (`OPENCODE_CONFIG_DIR` -> `XDG_CONFIG_HOME/opencode` -> `~/.config/opencode`).
 fn opencode_user_config_dir(io: &Io) -> String {
     if let Some(v) = io.env.get("OPENCODE_CONFIG_DIR").filter(|v| !v.is_empty()) {
@@ -171,7 +167,7 @@ fn opencode_user_config_dir(io: &Io) -> String {
     jsp::join(&[&crate::util::homedir(&io.env), ".config", "opencode"])
 }
 
-/// JS: pin.mjs#findOpencodeCommandsDirs. The project-local dir when the
+/// `findOpencodeCommandsDirs`: The project-local dir when the
 /// project has the skill, plus the user config dir when Impeccino is
 /// installed globally. With `for_cleanup`, both are included even when the
 /// skill is gone, so unpin can still reach a pin a removed install left
@@ -201,7 +197,6 @@ fn find_opencode_commands_dirs(project_root: &str, io: &Io, for_cleanup: bool) -
     dirs
 }
 
-/// JS: pin.mjs#writePinnedOpencodeCommand
 fn write_pinned_opencode_command(
     commands_dir: &str,
     command: &str,
@@ -231,7 +226,6 @@ fn write_pinned_opencode_command(
     Ok(true)
 }
 
-/// JS: pin.mjs#removePinnedOpencodeCommand
 fn remove_pinned_opencode_command(
     commands_dir: &str,
     command: &str,
@@ -543,6 +537,21 @@ mod tests {
         assert_eq!(code, 1);
         assert!(stdout.is_empty());
         assert!(stderr.contains("No project harness directories with Impeccino installed"));
+    }
+
+    #[test]
+    fn an_unshipped_alias_is_not_an_installed_impeccino_skill() {
+        let root = TempDir::new();
+        write(
+            &root.0,
+            ".codex/skills/i-impeccino/SKILL.md",
+            "---\nname: i-impeccino\n---\n",
+        );
+        let (code, stdout, stderr) = invoke(&root.0, "pin");
+        assert_eq!(code, 1, "{stdout}\n{stderr}");
+        assert!(stdout.is_empty());
+        assert!(stderr.contains("No project harness directories with Impeccino installed"));
+        assert!(!root.0.join(".codex/skills/polish").exists());
     }
 
     #[test]

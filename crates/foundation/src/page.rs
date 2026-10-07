@@ -1,4 +1,4 @@
-//! Port of `cli/engine/shared/page.mjs`.
+//! Page findings and SVG illustration measurements.
 
 use crate::js::{ci, WS};
 use once_cell::sync::Lazy;

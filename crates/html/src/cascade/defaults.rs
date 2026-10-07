@@ -1,14 +1,9 @@
-//! The static cascade's tables: which properties inherit, the default
-//! computed style, the CSS-name to camelCase map, and the extra named colors.
-//!
-//! JS: css-cascade.mjs#STATIC_INHERITED_PROPS, #STATIC_DEFAULT_STYLE,
-//! #STATIC_PROP_MAP, #STATIC_NAMED_COLORS, #BORDER_SHORTHAND_RE
+//! Default styles, inherited properties and supported pseudo states.
 
 use impeccino_core::color::Rgba;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-/// JS: css-cascade.mjs#BORDER_SHORTHAND_RE
 /// `/^(\d+(?:\.\d+)?)px\s+(solid|dashed|dotted|double|groove|ridge|inset|outset)\s+(.+)$/i`
 pub static BORDER_SHORTHAND_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(
@@ -18,7 +13,6 @@ pub static BORDER_SHORTHAND_RE: Lazy<Regex> = Lazy::new(|| {
     .expect("BORDER_SHORTHAND_RE")
 });
 
-/// JS: css-cascade.mjs#STATIC_INHERITED_PROPS
 pub const STATIC_INHERITED_PROPS: &[&str] = &[
     "color",
     "fontFamily",
@@ -43,7 +37,7 @@ pub fn is_static_inherited_prop(prop: &str) -> bool {
     STATIC_INHERITED_PROPS.contains(&prop)
 }
 
-/// JS: css-cascade.mjs#STATIC_DEFAULT_STYLE, in the JS object's key order
+/// `STATIC_DEFAULT_STYLE`: in the JS object's key order
 /// (the computed-style model iterates this order).
 pub const STATIC_DEFAULT_STYLE: &[(&str, &str)] = &[
     ("color", "rgb(0, 0, 0)"),
@@ -117,7 +111,6 @@ pub fn static_default_style(prop: &str) -> Option<&'static str> {
         .map(|(_, v)| *v)
 }
 
-/// JS: css-cascade.mjs#STATIC_PROP_MAP
 pub const STATIC_PROP_MAP: &[(&str, &str)] = &[
     ("background-color", "backgroundColor"),
     ("background-image", "backgroundImage"),
@@ -183,7 +176,7 @@ pub fn static_prop_map(prop: &str) -> Option<&'static str> {
         .map(|(_, v)| *v)
 }
 
-/// JS: css-cascade.mjs#STATIC_NAMED_COLORS. parseStaticColor tries
+/// `STATIC_NAMED_COLORS`: parseStaticColor tries
 /// parseAnyColor first, which already resolves every name in the shared
 /// CSS_NAMED_COLORS table. This fallback only carries the keywords
 /// parseAnyColor deliberately returns null for: the cascade needs

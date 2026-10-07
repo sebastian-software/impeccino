@@ -52,7 +52,6 @@ re!(
     format!(r"(--[A-Za-z0-9_-]+){WS}*:{WS}*([^;{{}}]+)")
 );
 
-/// JS: checks.mjs#collectCssCustomProps
 pub fn collect_css_custom_props(content: &str) -> CustomProps {
     let mut map = JsMap::new();
     for m in CUSTOM_PROP_RE.captures_iter(content) {
@@ -78,7 +77,7 @@ re!(
     )
 );
 
-/// JS: checks.mjs#enclosingCssSelector. `index` is a byte offset into
+/// `enclosingCssSelector`: `index` is a byte offset into
 /// `css_text` (JS passes a UTF-16 index; callers here convert).
 pub fn enclosing_css_selector(css_text: &str, index: usize) -> Option<String> {
     if css_text.is_empty() {
@@ -95,7 +94,7 @@ pub fn enclosing_css_selector(css_text: &str, index: usize) -> Option<String> {
     }
     // Ignore delimiters inside comments when locating the previous
     // declaration. Blanking each comment to its own length keeps every index
-    // into the original source valid (#709).
+    // into the original source valid (pbakaus/impeccable#709).
     let before_open = SELECTOR_COMMENT_RE.replace_all(&css_text[..open], |c: &regex::Captures| {
         " ".repeat(c[0].len())
     });
@@ -133,7 +132,6 @@ re!(
     format!(r"{WS}*!{}{WS}*$", ci("important"))
 );
 
-/// JS: checks.mjs#parseCssDeclBlock
 pub fn parse_css_decl_block(block: &str) -> DeclMap {
     let mut decls = JsMap::new();
     for part in block.split(';') {
@@ -161,7 +159,6 @@ re!(
     )
 );
 
-/// JS: checks.mjs#cssLengthToPx
 pub fn css_length_to_px(value: &str) -> Option<f64> {
     let m = CSS_LENGTH_RE.captures(js::trim(value))?;
     let n = parse_float(&m[1]);
@@ -174,7 +171,6 @@ pub fn css_length_to_px(value: &str) -> Option<f64> {
 
 re!(ZERO_OFFSET_RE, r"^-?0(?:px|%|rem|em)?$");
 
-/// JS: checks.mjs#isZeroOffset
 pub fn is_zero_offset(value: Option<&str>) -> bool {
     match value {
         None => false,
@@ -245,7 +241,7 @@ re!(
     )
 );
 
-/// JS: checks.mjs#collectMarqueeKeyframes (a Set, in insertion order)
+/// `collectMarqueeKeyframes`: (a Set, in insertion order)
 pub fn collect_marquee_keyframes(content: &str) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
     let mut pos = 0usize;
@@ -301,7 +297,7 @@ re!(
     )
 );
 
-/// JS: checks.mjs#collectPulseKeyframes (Map name -> pulses?)
+/// `collectPulseKeyframes`: (Map name -> pulses?)
 pub fn collect_pulse_keyframes(content: &str) -> JsMap<bool> {
     let mut map: JsMap<bool> = JsMap::new();
     let mut pos = 0usize;
@@ -350,7 +346,6 @@ re!(INFINITE_RE, format!(r"{B}{}{B}", ci("infinite")));
 
 re!(IDENT_RE, r"^[a-zA-Z_-][A-Za-z0-9_-]*$");
 
-/// JS: checks.mjs#infiniteAnimationNames
 pub fn infinite_animation_names(decls: &DeclMap) -> Vec<String> {
     let mut out = Vec::new();
     if let Some(shorthand) = decls.get("animation").filter(|s| !s.is_empty()) {
@@ -394,7 +389,6 @@ re!(
     )
 );
 
-/// JS: checks.mjs#stripReducedMotionBlocks
 pub fn strip_reduced_motion_blocks(content: &str) -> String {
     let mut out = String::new();
     let mut last = 0usize;
@@ -409,7 +403,7 @@ pub fn strip_reduced_motion_blocks(content: &str) -> String {
     out
 }
 
-/// JS: checks.mjs#landmarkSourceRanges (byte offsets)
+/// `landmarkSourceRanges`: (byte offsets)
 pub fn landmark_source_ranges(content: &str) -> Vec<(usize, usize)> {
     let mut ranges = Vec::new();
     for tag in ["header", "nav"] {
@@ -428,7 +422,6 @@ pub fn landmark_source_ranges(content: &str) -> Vec<(usize, usize)> {
     ranges
 }
 
-/// JS: checks.mjs#indexInSourceRanges
 pub fn index_in_source_ranges(index: usize, ranges: &[(usize, usize)]) -> bool {
     ranges
         .iter()
@@ -536,7 +529,6 @@ fn value_contains_token(value: &str, needle: &str) -> bool {
     false
 }
 
-/// JS: checks.mjs#selectorHitsLandmark
 pub fn selector_hits_landmark(content: &str, selector: &str, ranges: &[(usize, usize)]) -> bool {
     if ranges.is_empty() {
         return false;

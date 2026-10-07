@@ -1,8 +1,4 @@
-//! Shorthand expansion of the static cascade.
-//!
-//! JS: css-cascade.mjs#expandStaticBoxValues, #parseStaticBorder,
-//! #parseStaticFont, #parseStaticTransition, #parseStaticAnimation,
-//! #expandStaticDeclaration
+//! CSS shorthand expansion and box, border and background parsing.
 
 use super::defaults::{is_static_inherited_prop, static_default_style};
 use super::values::{css_prop_to_camel, extract_static_color, split_css_list, split_css_tokens};
@@ -13,7 +9,6 @@ use regex::Regex;
 /// A `[prop, value]` pair as emitted by `expandStaticDeclaration`.
 pub type Expanded = (String, String);
 
-/// JS: css-cascade.mjs#expandStaticBoxValues(tokens)
 pub fn expand_static_box_values(tokens: &[String]) -> [String; 4] {
     match tokens.len() {
         0 => ["0px".into(), "0px".into(), "0px".into(), "0px".into()],
@@ -54,7 +49,6 @@ pub struct StaticBorder {
 static BORDER_WIDTH_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^-?[0-9.]+(?:px|rem|em|%)$").expect("BORDER_WIDTH_RE"));
 
-/// JS: css-cascade.mjs#parseStaticBorder(value)
 pub fn parse_static_border(value: &str) -> StaticBorder {
     let mut out = StaticBorder::default();
     for token in split_css_tokens(value) {
@@ -82,7 +76,6 @@ static FONT_WEIGHT_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)(?-u:\b)([1-9]00|bold|normal|lighter|bolder)(?-u:\b)").expect("FONT_WEIGHT_RE")
 });
 
-/// JS: css-cascade.mjs#parseStaticFont(value)
 pub fn parse_static_font(value: &str) -> Vec<Expanded> {
     let mut out: Vec<Expanded> = Vec::new();
     let slash_parts = FONT_SIZE_SLASH_RE.captures(value);
@@ -139,7 +132,6 @@ static TRANSITION_KEYWORD_RE: Lazy<Regex> = Lazy::new(|| {
 });
 static ENDS_WITH_S_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"s$").expect("ENDS_WITH_S_RE"));
 
-/// JS: css-cascade.mjs#parseStaticTransition(value)
 pub fn parse_static_transition(value: &str) -> StaticTransition {
     let mut props: Vec<String> = Vec::new();
     let mut timings: Vec<String> = Vec::new();
@@ -171,7 +163,6 @@ static ANIMATION_KEYWORD_RE: Lazy<Regex> = Lazy::new(|| {
     .expect("ANIMATION_KEYWORD_RE")
 });
 
-/// JS: css-cascade.mjs#parseStaticAnimation(value)
 pub fn parse_static_animation(value: &str) -> StaticAnimation {
     let mut names: Vec<String> = Vec::new();
     let mut timings: Vec<String> = Vec::new();
@@ -220,7 +211,6 @@ fn box4(names: [&str; 4], vals: [String; 4]) -> Vec<Expanded> {
     ]
 }
 
-/// JS: css-cascade.mjs#expandStaticDeclaration(prop, value)
 pub fn expand_static_declaration(prop: &str, value: &str) -> Vec<Expanded> {
     let p = js::to_lower_case(prop);
     let v = js::trim(value);

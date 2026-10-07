@@ -1,39 +1,4 @@
-//! The static DOM: `StaticDocument` / `StaticElement` from
-//! `cli/engine/engines/static-html/css-cascade.mjs`, over an html5ever tree.
-//!
-//! The JS engine parses with htmlparser2 (`lowerCaseTags: true`) and queries
-//! with css-select. Two htmlparser2 quirks the JS wrapper exposes and this
-//! port reproduces:
-//!
-//! - `<script>` and `<style>` nodes have type `script` / `style`, not `tag`.
-//!   css-select still matches them (`isTag` is true for all three), so they
-//!   appear in `querySelectorAll` results and get element checks run on
-//!   them, but `StaticElement.children` / `parentElement` /
-//!   `previousElementSibling` / `closest` only walk `tag`-typed nodes and the
-//!   cascade never computes a style for them (they read as the default
-//!   style). [`StaticElement::is_plain_tag`] is that distinction.
-//! - `childNodes` maps every non-text, non-tag child (comments, doctypes,
-//!   script/style elements) to a `nodeType: 8` stub.
-//!
-//! html5ever differs from htmlparser2 in tree construction. What this port
-//! normalizes: `<template>` fragments are flattened back under the
-//! `<template>` element, and `html` / `head` / `body` elements the source
-//! never spelled out are unwrapped again (htmlparser2 never implies them, so
-//! a partial keeps its flat top-level shape and `:root` matches each
-//! top-level element). What stays different, none of which the fixture
-//! corpus exercises (see `tests/oracle_html.rs`; observable CLI behavior is
-//! pinned by the reviewed goldens under `tests/oracle/golden/`):
-//!
-//! - attribute names: htmlparser2 runs with `lowerCaseAttributeNames: false`,
-//!   so `<div CLASS="card" STYLE="...">` has no `class` / `style` for the JS
-//!   engine, while html5ever lowercases attribute names (the browser
-//!   behavior) and the port sees them;
-//! - implied `<tbody>` in tables, `<p>` auto-close on block starts, foster
-//!   parenting of stray table content, nested `<a>` (adoption agency), and
-//!   `<noscript>` content (raw text here, markup in htmlparser2);
-//! - SVG tag names keep their case (`linearGradient`); tag matching is
-//!   ASCII case-insensitive on both sides so selectors agree, but
-//!   `tagName` reads lowercase as htmlparser2 (`lowerCaseTags`) reports it.
+//! Static DOM access and cascade-backed element properties over html5ever.
 
 use crate::select::{El, Selector, SelectorError};
 use ego_tree::{NodeId, NodeRef};
@@ -59,7 +24,6 @@ pub struct StaticDocument {
     accent_dash: HashSet<NodeId>,
     pseudo_surface: HashMap<NodeId, Rgba>,
     selector_cache: RefCell<HashMap<String, Result<Selector, SelectorError>>>,
-    unsupported_selectors: RefCell<Vec<String>>,
 }
 
 impl std::fmt::Debug for StaticDocument {
@@ -179,7 +143,6 @@ impl StaticDocument {
             accent_dash: HashSet::new(),
             pseudo_surface: HashMap::new(),
             selector_cache: RefCell::new(HashMap::new()),
-            unsupported_selectors: RefCell::new(Vec::new()),
         }
     }
 
@@ -204,27 +167,16 @@ impl StaticDocument {
         StaticElement { doc: self, node }
     }
 
-    /// Compile (and cache) a selector; `Err` where css-select throws. The
-    /// first failure of each selector text is recorded for the parity report.
+    /// Compile and cache a selector, including unsupported-selector errors.
     pub fn compile(&self, selector: &str) -> Result<Selector, SelectorError> {
         if let Some(r) = self.selector_cache.borrow().get(selector) {
             return r.clone();
         }
         let r = Selector::parse(selector);
-        if r.is_err() {
-            self.unsupported_selectors
-                .borrow_mut()
-                .push(selector.to_string());
-        }
         self.selector_cache
             .borrow_mut()
             .insert(selector.to_string(), r.clone());
         r
-    }
-
-    /// Selectors css-select would refuse that were seen during this scan.
-    pub fn unsupported_selectors(&self) -> Vec<String> {
-        self.unsupported_selectors.borrow().clone()
     }
 
     /// css-select `selectAll(selector, nodes)`: every element among `nodes`
@@ -587,7 +539,6 @@ mod tests {
         // No `<head>` in the source: the synthesized one is unwrapped.
         assert_eq!(doc.query_selector_all("*").len(), 8);
         assert!(doc.query_selector_all("p:focus").is_empty());
-        assert_eq!(doc.unsupported_selectors(), vec!["p:focus".to_string()]);
     }
 
     #[test]

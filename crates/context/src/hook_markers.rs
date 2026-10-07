@@ -31,7 +31,7 @@ static LAUNCHER_HOOK_MARKER: Lazy<Regex> = Lazy::new(|| {
 });
 
 /// User-scope Windows commands embed a JSON-quoted path whose backslashes are
-/// doubled in the command string (#784). #604's single `\`→`/` replace is not
+/// doubled in the command string (pbakaus/impeccable#784). pbakaus/impeccable#604's single `\`→`/` replace is not
 /// enough: `\\` becomes `//`, which breaks `skills/impeccino` matching.
 /// A leading `//` after a quote (or at the start of the string) is a UNC
 /// prefix and stays two slashes, so doctor still probes `//server/share/...`.

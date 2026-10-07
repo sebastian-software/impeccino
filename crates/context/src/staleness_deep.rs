@@ -1,4 +1,4 @@
-//! JS: lib/staleness-deep.mjs (Tier 2, doctor only)
+//! Deep artifact, hook and workspace checks used by doctor.
 
 use crate::context::{extract_platform, TargetCandidate};
 use crate::design_parser::parse_design_md;

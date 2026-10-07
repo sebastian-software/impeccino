@@ -1,9 +1,4 @@
-//! `checkQuality` and its static-DOM helpers from `checks.mjs` Section 5
-//! (`resolveFontSizePx`, `hasVisibleBackgroundBoundary`, `isVisuallyHidden`,
-//! `isNonRenderedText`, `checkElementQuality`, `checkPageQualityFromDoc`).
-//! Only the branches reachable with `rect: null` (the static adapter) are
-//! ported; the browser-only rules (line-length, the rect-gated
-//! cramped-padding, body-text-viewport-edge) never fire here.
+//! Static DOM adapters for shared text quality predicates.
 
 use crate::background::{sv, sv_opt};
 use crate::cascade::StyleValues;
@@ -41,7 +36,6 @@ pub fn pf0(s: &str) -> f64 {
     }
 }
 
-/// JS: checks.mjs#resolveFontSizePx(el, win)
 pub fn resolve_font_size_px(el: &StaticElement<'_>) -> f64 {
     let mut chain: Vec<String> = Vec::new();
     let mut cur = Some(*el);
@@ -73,7 +67,6 @@ pub fn resolve_font_size_px(el: &StaticElement<'_>) -> f64 {
     px
 }
 
-/// JS: checks.mjs#hasVisibleBackgroundBoundary(style, el, win)
 pub fn has_visible_background_boundary(style: &StyleValues, el: &StaticElement<'_>) -> bool {
     let bg = sv(style, "backgroundColor");
     if css_color_is_transparent(Some(bg)) {
@@ -90,7 +83,6 @@ pub fn has_visible_background_boundary(style: &StyleValues, el: &StaticElement<'
     true
 }
 
-/// JS: checks.mjs#isVisuallyHidden(el, style)
 pub fn is_visually_hidden(el: &StaticElement<'_>, style: &StyleValues) -> bool {
     let clip_path = {
         let value = sv(style, "clipPath");
@@ -116,7 +108,6 @@ pub fn is_visually_hidden(el: &StaticElement<'_>, style: &StyleValues) -> bool {
     )
 }
 
-/// JS: checks.mjs#isNonRenderedText(el, tag, style)
 pub fn is_non_rendered_text(
     el: &StaticElement<'_>,
     tag: &str,
@@ -150,7 +141,7 @@ fn side_len(style: &StyleValues, key: &str, font_size: f64) -> f64 {
     resolve_length_px(sv_opt(style, key), font_size).unwrap_or(0.0)
 }
 
-/// JS: checks.mjs#checkQuality(opts), static (`rect: null`) branches.
+/// `checkQuality`: static (`rect: null`) branches.
 pub fn check_quality(q: &QualityInput<'_, '_>) -> Vec<RuleHit> {
     let el = q.el;
     let tag = q.tag;
@@ -330,7 +321,6 @@ pub fn check_quality(q: &QualityInput<'_, '_>) -> Vec<RuleHit> {
     findings
 }
 
-/// JS: checks.mjs#checkElementQuality(el, style, tag, window)
 pub fn check_element_quality(
     el: &StaticElement<'_>,
     style: &StyleValues,
@@ -353,7 +343,6 @@ pub fn check_element_quality(
     })
 }
 
-/// JS: checks.mjs#checkPageQualityFromDoc(doc)
 pub fn check_page_quality_from_doc(doc: &crate::dom::StaticDocument) -> Vec<RuleHit> {
     let headings: Vec<(String, String)> = doc
         .query_selector_all("h1, h2, h3, h4, h5, h6")

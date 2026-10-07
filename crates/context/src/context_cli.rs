@@ -1,4 +1,4 @@
-//! JS: context.mjs `cli()` and its directive builders.
+//! Context CLI output and directive builders.
 
 use crate::context::*;
 use crate::jsp;
@@ -65,7 +65,7 @@ pub fn automatic_hook_mode(ctx: &Ctx, cwd: &str, env: &Env, provider: &Provider)
     }
     let manifests = hook_manifests_for(&provider.id);
     for root in hook_manifest_search_roots(ctx, cwd, env) {
-        // A manifest can live above the resolved product (#710).
+        // A manifest can live above the resolved product (pbakaus/impeccable#710).
         for rel in manifests {
             if let Some(raw) = read_json(&jsp::join(&[&root, rel])) {
                 if let Some(h) = raw.get("hooks") {
@@ -83,7 +83,6 @@ pub fn automatic_hook_mode(ctx: &Ctx, cwd: &str, env: &Env, provider: &Provider)
     "none"
 }
 
-/// JS: context.mjs#hookManifestSearchRoots
 ///
 /// Harness project settings are discovered by walking up from the resolved
 /// project root. Its hook manifest can live at an enclosing git root, so
@@ -400,7 +399,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         }
     };
     let target_provided = has_target_option(&options);
-    // #706: resolve `--target` once, so a bare workspace name does not walk
+    // pbakaus/impeccable#706: resolve `--target` once, so a bare workspace name does not walk
     // the candidates twice and loadContext sees the resolved path.
     let resolved_target_path = if target_provided {
         Some(resolve_target_path(

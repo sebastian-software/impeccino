@@ -1,4 +1,4 @@
-//! JS: lib/staleness.mjs (Tier 1)
+//! Fast artifact checks used during context boot.
 
 use crate::artifact_schema::*;
 use crate::context::{BriefSummary, Ctx};

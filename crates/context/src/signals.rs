@@ -1,4 +1,4 @@
-//! JS: context-signals.mjs -> `impeccino signals` (alias: context-signals)
+//! Repository context signals for `impeccino signals`.
 
 use crate::context::{extract_platform, load_context};
 use crate::jsp;

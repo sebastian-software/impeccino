@@ -97,7 +97,7 @@ pub trait Dom {
     /// `document.documentElement.outerHTML` for HTML-pattern checks.
     fn document_html_for_patterns(&self) -> String;
     /// The CSS of every readable linked stylesheet whose rules resolve to a
-    /// live element, flattened out of its grouping rules (#709). Empty when
+    /// live element, flattened out of its grouping rules (pbakaus/impeccable#709). Empty when
     /// the probe cannot read the CSSOM.
     fn linked_stylesheet_text(&self) -> String {
         String::new()

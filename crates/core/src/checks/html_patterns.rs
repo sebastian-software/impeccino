@@ -1,6 +1,4 @@
-//! Port of `cli/engine/rules/checks.mjs` page-level regex-on-HTML checks:
-//! `scanHtmlForShapeAssembledIllustration`, `buildHtmlPatternCorpora`, and
-//! `checkHtmlPatterns` (the browser / static shared pattern pass).
+//! Page-level HTML pattern checks.
 
 use crate::checks::css_scan::{
     enclosing_css_selector, scan_css_text_for_buried_raster, scan_css_text_for_glow,
@@ -98,7 +96,6 @@ fn svg_attr_dim(open_tag: &str, re: &Regex) -> Option<f64> {
     None
 }
 
-/// JS: checks.mjs#scanHtmlForShapeAssembledIllustration
 pub fn scan_html_for_shape_assembled_illustration(html: &str) -> Vec<RuleHit> {
     let mut findings = Vec::new();
     for m in SVG_BLOCK_RE.find_iter(html) {
@@ -182,7 +179,6 @@ re!(
     )
 );
 
-/// JS: checks.mjs#buildHtmlPatternCorpora
 pub fn build_html_pattern_corpora(html: &str) -> HtmlPatternCorpora {
     if !HAS_MARKUP_RE.is_match(html) {
         return HtmlPatternCorpora {
@@ -392,7 +388,7 @@ fn pf(id: &str, snippet: String, selector: Option<String>) -> PatternFinding {
     }
 }
 
-/// JS: checks.mjs#checkHtmlPatterns. `corpora` defaults to
+/// `checkHtmlPatterns`: `corpora` defaults to
 /// `buildHtmlPatternCorpora(html)`. Findings' `index` fields are byte
 /// offsets into `corpora.style_text`.
 pub fn check_html_patterns(

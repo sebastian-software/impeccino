@@ -1,4 +1,4 @@
-//! Integration tests for `::placeholder` contrast detection (#790).
+//! Integration tests for `::placeholder` contrast detection (pbakaus/impeccable#790).
 
 use impeccino_html::{detect_html_source, DetectHtmlOptions};
 use std::path::Path;

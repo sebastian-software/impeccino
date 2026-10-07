@@ -1,7 +1,4 @@
-//! Page-level checks: `checkStaticPageTypography` (detect-html.mjs) and the
-//! Section 6 document walks from `checks.mjs` (`isCardLike`,
-//! `checkPageLayout`, `collectRepeatedContainerTextFindings`,
-//! `checkRepeatedContainerTextFromDoc`, `checkCreamPalette`).
+//! Static page typography, layout and document checks.
 
 use crate::adapters::{clean_inline_text, StyleRef};
 use crate::background::{read_own_background_color, resolve_border_radius_px, sv};
@@ -24,7 +21,6 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
 
-/// JS: detect-html.mjs#checkStaticPageTypography(document, window)
 pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
     let mut findings = Vec::new();
     let mut font_usage: Vec<(String, usize)> = Vec::new();
@@ -36,9 +32,9 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
             continue;
         }
         let ff = sv(el.style(), "fontFamily");
-        // JS-PARITY: detect-html.mjs#checkStaticPageTypography uses
+        // Compatibility: the static typography check uses
         // primaryFontFace(ff) whose default skip is CSS_GENERIC_FONTS, so a
-        // system stack keeps its system face as primary (fix #678).
+        // system stack keeps its system face as primary (fix pbakaus/impeccable#678).
         let primary = primary_font_face(ff);
         let Some(primary) = primary else {
             continue;
@@ -59,11 +55,11 @@ pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
     findings
 }
 
-/// JS: checks.mjs#isRenderedTypeElement over the static cascade.
+/// `isRenderedTypeElement`: over the static cascade.
 ///
 /// JS-PARITY: jsdom's `el.hidden` reflects the `hidden` attribute, which the
 /// attribute test already covers. `contentVisibility` only ever reads its
-/// `STATIC_DEFAULT_STYLE` default here: css-cascade.mjs#STATIC_PROP_MAP has no
+/// `STATIC_DEFAULT_STYLE` default here: the static property map has no
 /// `content-visibility` entry, so a declared `content-visibility: hidden`
 /// never reaches the static computed style.
 fn is_rendered_type_element(el: &StaticElement<'_>) -> bool {
@@ -92,7 +88,7 @@ fn is_rendered_type_element(el: &StaticElement<'_>) -> bool {
     true
 }
 
-/// JS: checks.mjs#checkFlatTypeHierarchyFromDoc over the static document.
+/// `checkFlatTypeHierarchyFromDoc`: over the static document.
 pub fn check_flat_type_hierarchy_from_doc(doc: &StaticDocument) -> Vec<RuleHit> {
     let mut samples: Vec<TypeSample> = Vec::new();
     for el in doc.query_selector_all(TYPE_HIERARCHY_SELECTOR) {
@@ -142,7 +138,6 @@ static OVERLAY_CLASS_RE: Lazy<Regex> = Lazy::new(|| {
         .expect("OVERLAY_CLASS_RE")
 });
 
-/// JS: checks.mjs#isCardLike(el, win)
 pub fn is_card_like(el: &StaticElement<'_>) -> bool {
     let tag = el.tag_lower();
     if SAFE_TAGS.contains(&tag.as_str())
@@ -171,7 +166,6 @@ pub fn is_card_like(el: &StaticElement<'_>) -> bool {
     is_card_like_from_props(has_shadow, has_border, has_radius, has_bg)
 }
 
-/// JS: checks.mjs#checkPageLayout(doc, win)
 pub fn check_page_layout(doc: &StaticDocument) -> Vec<RuleHit> {
     let mut findings = Vec::new();
     let all = doc.query_selector_all("*");
@@ -247,7 +241,6 @@ fn is_visible(el: &StaticElement<'_>) -> bool {
     true
 }
 
-/// JS: checks.mjs#collectRepeatedContainerTextFindings(doc, getStyle, opts)
 /// with `isVisible = display !== 'none'` (`checkRepeatedContainerTextFromDoc`).
 pub fn check_repeated_container_text_from_doc(doc: &StaticDocument) -> Vec<RuleHit> {
     let elements = doc.query_selector_all("*");
@@ -281,7 +274,6 @@ pub fn check_repeated_container_text_from_doc(doc: &StaticDocument) -> Vec<RuleH
 
 // ─── Cream palette ──────────────────────────────────────────────────────────
 
-/// JS: checks.mjs#checkCreamPalette(doc, win)
 pub fn check_cream_palette(doc: &StaticDocument) -> Vec<RuleHit> {
     let Some(body) = doc.body() else {
         return Vec::new();

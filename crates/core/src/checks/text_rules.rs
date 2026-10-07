@@ -1,7 +1,4 @@
-//! Port of cli/engine/rules/checks.mjs (see checks/mod.rs for the split):
-//! the pure parts of the kicker / numbered-label / em-dash / repeated-text
-//! rules, plus the tag sets and selectors their element adapters (in the
-//! `html` crate and the browser bundle) share.
+//! Shared prose, kicker and repeated text predicates.
 
 use crate::checks::measures::{Finding, StyleMap};
 use crate::checks::rules::{is_accent_color, is_card_like_from_props, RuleHit};
@@ -50,7 +47,7 @@ pub fn has_active_tab_class_token(class_name: &str) -> bool {
 /// JS `\d` is ASCII only.
 const D: &str = "[0-9]";
 
-/// JS: checks.mjs#KICKER_META_TEXT_RE (`/[·•|]|\s[\/›»>]\s|\b(19|20)\d{2}\b/`).
+/// `KICKER_META_TEXT_RE`: (`/[·•|]|\s[\/›»>]\s|\b(19|20)\d{2}\b/`).
 pub static KICKER_META_TEXT_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(
         r"[·•|]|{ws}[/›»>]{ws}|(?-u:\b)(19|20){d}{{2}}(?-u:\b)",
@@ -60,7 +57,7 @@ pub static KICKER_META_TEXT_RE: Lazy<Regex> = Lazy::new(|| {
     .expect("KICKER_META_TEXT_RE")
 });
 
-/// JS: checks.mjs#KICKER_DOC_NUMBERING_RE (JS `/i`).
+/// `KICKER_DOC_NUMBERING_RE`: (JS `/i`).
 pub static KICKER_DOC_NUMBERING_RE: Lazy<Regex> = Lazy::new(|| {
     let words = [
         "section", "article", "clause", "appendix", "exhibit", "schedule", "chapter", "part",
@@ -88,7 +85,6 @@ pub static KICKER_DOC_NUMBERING_RE: Lazy<Regex> = Lazy::new(|| {
     .expect("KICKER_DOC_NUMBERING_RE")
 });
 
-/// JS: checks.mjs#isKickerCandidate.
 pub fn is_kicker_candidate(o: &KickerCandidateInput) -> bool {
     re!(SLASH_PATH_RE, r"^/[0-9A-Za-z_-]+");
     re!(
@@ -153,7 +149,6 @@ pub fn is_kicker_candidate(o: &KickerCandidateInput) -> bool {
     true
 }
 
-/// JS: checks.mjs#isNumberedSectionLabelCandidate.
 pub fn is_numbered_section_label_candidate(o: &NumberedLabelCandidateInput) -> bool {
     re!(MONO_RE, ci("mono"));
     if !["h2", "h3", "h4"].contains(&o.heading_tag) {
@@ -192,7 +187,7 @@ pub fn is_numbered_section_label_candidate(o: &NumberedLabelCandidateInput) -> b
         || is_accent_color(o.label_color)
 }
 
-/// JS: checks.mjs#checkNumberedSectionLabels (`min_count` default 2).
+/// `checkNumberedSectionLabels`: (`min_count` default 2).
 pub fn check_numbered_section_labels(
     candidates: &[NumberedLabelCandidate],
     min_count: Option<f64>,
@@ -250,7 +245,7 @@ fn count_em_dashes(body: &str) -> usize {
     count
 }
 
-/// JS: checks.mjs#checkEmDashOveruse. Two gates (absolute floor + density)
+/// `checkEmDashOveruse`: Two gates (absolute floor + density)
 /// over already-rendered text. `None` for a non-string input.
 pub fn check_em_dash_overuse(text: Option<&str>) -> Vec<Finding> {
     re!(WS_RE, format!("{}+", WS));
@@ -273,7 +268,7 @@ pub fn check_em_dash_overuse(text: Option<&str>) -> Vec<Finding> {
 
 // ─── Repeated container text ────────────────────────────────────────────────
 
-/// JS: checks.mjs#isRepeatedTextContainer. A container worth attributing
+/// `isRepeatedTextContainer`: A container worth attributing
 /// text to: visibly bounded and surface-like.
 pub fn is_repeated_text_container(style: Option<&dyn StyleMap>) -> bool {
     let Some(style) = style else { return false };
@@ -329,7 +324,7 @@ pub struct RepeatedTextNode {
     pub is_visible: bool,
 }
 
-/// JS: checks.mjs#collectRepeatedContainerTextFindings, over normalized
+/// `collectRepeatedContainerTextFindings`: over normalized
 /// layout-independent DOM facts.
 pub fn check_repeated_container_text_nodes(nodes: &[RepeatedTextNode]) -> Vec<RuleHit> {
     let containers: Vec<usize> = nodes
