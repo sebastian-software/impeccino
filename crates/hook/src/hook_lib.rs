@@ -405,6 +405,15 @@ pub fn read_config(_cwd: &str) -> HookConfig {
     HookConfig::default()
 }
 
+/// Production hooks retain contextual signals for interpretation. The raw
+/// compatibility helpers keep their original advisory preference.
+pub fn read_reporting_config(cwd: &str) -> HookConfig {
+    HookConfig {
+        advisory_rules: "include".into(),
+        ..read_config(cwd)
+    }
+}
+
 /// True when the project's git metadata says to leave `file_path` alone:
 /// git ignores it, or .gitattributes marks it generated or vendored.
 pub fn is_project_skipped(rt: &Runtime, file_path: &str) -> bool {
@@ -888,7 +897,16 @@ pub fn filter_findings_for(
     config: &HookConfig,
     scan: &HookScanOptions,
 ) -> Vec<Finding> {
-    scan.decisions.apply(filter_findings(findings, config))
+    let findings = findings
+        .into_iter()
+        .map(|mut finding| {
+            impeccino_core::findings::apply_reporting_policy(&mut finding);
+            finding
+        })
+        .collect();
+    let mut findings = scan.decisions.apply(filter_findings(findings, config));
+    findings.sort_by_key(is_advisory_finding);
+    findings
 }
 
 /// JS: splitFindingsByTier(findings) -> (immediate, deferred)
@@ -1164,10 +1182,15 @@ fn format_finding_line(rt: &Runtime, f: &Finding, compact: bool) -> String {
         js::trim(&f.description)
     };
     let name = js::trim(&f.name);
+    let name = if is_advisory_finding(f) {
+        format!("{name} (advisory)")
+    } else {
+        name.to_string()
+    };
     let name_segment = if name.is_empty() {
         String::new()
     } else {
-        format!("{}.", TRAILING_DOTS_RE.replacen(name, 1, ""))
+        format!("{}.", TRAILING_DOTS_RE.replacen(&name, 1, ""))
     };
     let _ = rt;
     let hint = format_finding_ignore_hint(f);
@@ -1194,18 +1217,17 @@ fn format_deduped_finding_line(rt: &Runtime, f: &Finding, seen_rules: &mut Vec<S
 
 /// JS: directiveFooter({ mode })
 pub fn directive_footer(rt: &Runtime, short: bool) -> String {
-    if short {
-        return "Triage per the session policy: fix real problems; waive a confident false positive or sanctioned exception where it lives with an `impeccino-disable-line <rule>: <reason>` comment and disclose it in your reply; unsure, ask in one line.".to_string();
-    }
     let _ = rt;
+    if short {
+        return "Triage per the session policy: repair measured defects within scope; interpret advisories against the brief. Preserve justified decisions and use an `impeccino-disable-line <rule>: <reason>` comment for an evidenced exception.".into();
+    }
     [
-        "Triage each finding, then state in your reply what you fixed, what you waived, and what you left standing:".to_string(),
-        "- Real design problem: fix it. Keep intentional design as designed.".to_string(),
-        "- Confident false positive or sanctioned exception in one place (an intentional demo or fixture, documentation of bad design, literal or domain-appropriate motion, a choice the user confirmed): waive it where it lives with an `impeccino-disable-line <rule>: <who decided, and the evidence>` comment (`-next-line` for the line below, `impeccino-disable` for the whole file) and disclose it. Write \"user confirmed\" in a reason only when the user did.".to_string(),
-        "- Unsure: leave it as is and ask the user in one line.".to_string(),
-        "Self-serve ends at the in-file waiver. A project-wide decision (a rule waived in DESIGN.md with `<!-- impeccino-disable <rule>: reason -->`, a font or color declared as a DESIGN.md token, a file kept out through .gitignore or .gitattributes) needs the user's explicit approval, and never waive a finding to push a blocked write through.".to_string(),
-    ]
-    .join("\n")
+        "Triage each finding against the task and evidence:",
+        "- Real design problem: repair the measured defect within scope.",
+        "- Advisory: check purpose and rendered consequences; address unjustified pattern clusters.",
+        "- Preserve existing waivers. Record an evidenced exception with an `impeccino-disable-line <rule>: <who decided, and the evidence>` comment, or a durable system decision with `<!-- impeccino-disable <rule>: reason -->` in DESIGN.md. Do not invent approval or hide a defect with a token or waiver.",
+        "Follow the host’s authorization and task scope. Ask only when a material decision remains unresolved.",
+    ].join("\n")
 }
 
 /// Render options (JS `opts`).

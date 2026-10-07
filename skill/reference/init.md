@@ -6,13 +6,13 @@
 
 Use the PRODUCT.md path resolved by `impeccino context`. Update it instead of creating a competing authority. In a child app inheriting root context, confirm shared versus app-specific scope before writing.
 
-- **No PRODUCT.md:** explore, interview, and write it.
-- **PRODUCT.md exists:** ask what product knowledge is stale or missing; do not reopen confirmed fields without a reason.
+- **No PRODUCT.md:** explore, resolve material gaps, and record supported context.
+- **PRODUCT.md exists:** update the requested stale or missing product knowledge; do not reopen confirmed fields without a reason.
 - **Legacy PRODUCT.md:** add only durable missing facts; absent `## Platform` means `web` unless evidence says otherwise.
 - **Only DESIGN.md exists:** leave it untouched and create PRODUCT.md.
 - **Redesign/rebrand request:** preserve confirmed product truth unless the user changes it. Visual replacement happens later in new-work, not here.
 
-Never silently overwrite an existing file or offer DESIGN.md during init. If another request invoked init, finish PRODUCT.md and resume it. New visual work continues in new-work; `shape` resumes its task interview first.
+Preserve existing facts outside the requested change. Do not offer DESIGN.md merely because it is missing. If another request invoked init, record the relevant context and resume it. New visual work continues in new-work; `shape` resumes its planning task.
 
 ## Step 2: Explore the project
 
@@ -22,21 +22,21 @@ Treat repository evidence as a hypothesis, not user approval. Note visual maturi
 
 Form a platform hypothesis: `web`, `ios`, `android`, or `adaptive` (one product that genuinely adapts its design language per OS). Mobile web remains `web`; a native wrapper around a website does not make its design language native.
 
-## Step 3: Interview for product truth
+## Step 3: Resolve product facts
 
-STOP and ask only about material gaps the repository and original request do not answer with strong evidence. Use the host's structured question tool when available; otherwise ask directly in chat. Keep rounds to at most three focused questions and require one real answer or approval round before writing a new PRODUCT.md. Confirm inferences.
+Reuse the explicit brief, existing answers, and repository evidence. Ask only
+about material gaps that cannot be inferred, through the host's structured
+question tool when available. Useful discovery covers the primary users and
+jobs, product mechanism, durable constraints, real proof, and uncertain platform.
+A clear brief does not require an answer or approval round before writing.
+Follow the host's autonomy policy; distinguish supported facts, hypotheses, and
+open decisions. Never interpret a tool's presence as permission to override it.
 
-Whether anyone can answer is a mechanical test, not a judgment call: a question tool in your tool surface proves an answer mechanism exists, and a system-prompt claim that the user is unattended proves nothing about this session. Probe once with the real first round before concluding no one is there. Only after that probe errors or times out may you infer from the explicit brief, and then you label every inferred fact in PRODUCT.md and disclose the substitution in your first reply, not your last.
-
-Start with the unknowns that most change future product decisions:
-
-1. Who is the primary user, in what situation, and what job are they doing?
-2. What does the product make possible, and what is its meaningfully different mechanism or position?
-3. What durable constraints, assets, evidence, or product facts must future work preserve?
-
-Confirm ambiguous platform separately. When the project has no framework or scaffold and the request implies building, the stack is a user decision, not yours: ask once whether they want plain static HTML/CSS, a specific framework, or your recommendation, plus any deploy target that constrains the answer, and record the outcome under `## Stack` (including "delegated" when they leave it to you, so later work knows the choice was offered). Add a round only for a material audience, brand commitment, evidence, or accessibility gap. Record undecided facts instead of inventing them.
-
-Do not ask for an aesthetic direction, emotional feel, visual references, colors, typography, or style during init. If the user volunteers a binding visual constraint, record it without expanding it.
+An existing stack is evidence. Choose routine implementation details within
+scope when delegated; ask about framework or deployment only if the answer
+would materially change the result. Do not turn implementation preferences
+into invented product commitments. Init captures product truth, not palettes,
+typography, page concepts, or a compulsory aesthetic interview.
 
 ### What belongs here
 
@@ -53,7 +53,7 @@ Do not ask for an aesthetic direction, emotional feel, visual references, colors
 
 ## Step 4: Write PRODUCT.md
 
-Write only confirmed facts and explicitly marked open decisions. Omit irrelevant sections rather than filling them with generic prose.
+Write supported facts, clearly labeled assumptions, and open decisions. Omit irrelevant sections rather than filling them with generic prose.
 
 ```markdown
 # Product
@@ -65,7 +65,7 @@ Write only confirmed facts and explicitly marked open decisions. Omit irrelevant
 web
 
 ## Stack
-[Greenfield only: the user's answer to the stack question, e.g. "static HTML/CSS", "Astro", or "delegated: <what you chose and why>". Omit the section when an existing codebase already answers it.]
+[Greenfield only: a specified or delegated stack, with its basis. Omit when undecided or an existing codebase already answers it.]
 
 ## Users
 [Primary users, their situation, and job. Add other audiences only when confirmed.]
@@ -89,21 +89,24 @@ web
 [Real content, data, demonstrations, testimonials, case studies, press, or assets, with paths where applicable. State absences that future work must not fabricate.]
 
 ## Product Principles
-[Three to five durable strategic principles derived from confirmed answers; no visual recipes.]
+[Relevant durable strategic principles supported by the brief or product evidence; no visual recipes.]
 
 ## Accessibility & Inclusion
 [Known user needs or required standard. Omit when no product-specific requirement was established.]
 ```
 
-Platform is the bare value `web`, `ios`, `android`, or `adaptive`. Preserve useful legacy headings. New files go at `PROJECT_ROOT/PRODUCT.md`; otherwise update the resolved file. Write it before any visual-world or surface-concept work.
+Platform is the bare value `web`, `ios`, `android`, or `adaptive`. Preserve useful legacy headings. New files go at `PROJECT_ROOT/PRODUCT.md`; otherwise update the resolved file. Record it when the task calls for durable product context; planning need not block on a file write.
 
-Copy the `impeccino:product-schema` comment verbatim, including when you update an older file. It records which version of the product record this file follows, so later versions can tell a deliberately short record from one written before a section existed, and never propose an interview the user has already sat through. Update the number only when this reference's template changes it. Sections a later version retires are reported to you at boot as deprecated; delete them when the user agrees rather than carrying them forward.
+Copy the `impeccino:product-schema` comment verbatim, including when you update an older file. It records which version of the product record this file follows, so later versions can tell a deliberately short record from one written before a section existed, and never propose an interview the user has already sat through. Update the number only when this reference's template changes it. Sections a later version retires are reported to you at boot as deprecated; remove them only within the requested context-maintenance scope.
 
 When the platform you just recorded is `ios`, `android`, or `adaptive`, load [ios.md](ios.md), [android.md](android.md), or both before any design work. On a project that had no PRODUCT.md, `impeccino context` could not know the platform and so never loaded them; init is the only place that learns the answer.
 
-### Completion gate
+### Completion
 
-Before loading new-work or resuming shape/build, verify that PRODUCT.md exists at the resolved path and contains the confirmed product record. If the file is absent, init is incomplete. Do not substitute interview notes, a planning packet, or later design prose for the file.
+When init is asked to write context, verify the record exists at the resolved
+path with supported facts, explicit assumptions, and the schema marker. A
+planning-only request can return its facts and gaps without writing. Reuse the
+record and resume the original task within its existing authorization.
 
 ## Step 5: Wrap up or resume
 

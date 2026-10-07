@@ -28,7 +28,7 @@ The severity says what should happen, not how bad it is.
 
 - **`auto`** carries no decision. Run `"<skill-base-dir>/scripts/impeccino" doctor --fix` once to apply these, then report what it moved in one line. Do not ask permission first, and do not ask about them afterward.
 - **`mention`** needs the user to know but not to decide anything now. State each one in a sentence with its offered fix.
-- **`route`** needs a specific command. Name the command and the gap it would close. Run it only if the user asks in this turn; `init` and `document` are conversations, not repairs you perform unattended.
+- **`route`** needs a specific command. Name the command and the gap it would close. Run it when context repair is within the task’s existing authorization; otherwise recommend it. `init` and `document` resolve product or system facts rather than mechanical schema repairs.
 
 Report all three groups in one pass. Findings are not errors and the command does not fail on them.
 

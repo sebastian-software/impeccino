@@ -16,11 +16,11 @@ harnesses without any subagent support.
 ## Decision
 
 `skill/agents/*.md` are plain Claude Code agent files and the only agent
-source. SKILL.md's "Shipped agents" section says to use an installed role
-definition when the host exposes it. If the role is missing but the host can
+source. SKILL.md's "Shipped agents" section describes roles for tasks that request the corresponding handoff. Use an installed role
+definition when the host exposes it and its delegation policy permits the call. If the role is missing but the host can
 spawn subagents, the parent reads the matching file and passes its Markdown
 body as instructions to a fresh general-purpose subagent, along with the task
-inputs and no conversation history. If no subagent tool is available, the
+inputs and no conversation history. If delegation is unavailable or not permitted, the
 parent reads the same file and performs the role locally, disclosing that the
 pass was not independent. Neither role runs an engine command, so neither
 needs the launcher's path.
@@ -33,4 +33,4 @@ needs the launcher's path.
   per-agent reasoning effort.
 - Claude keeps tool limits and turn ceilings when a manager links
   `skill/agents/*.md` into `.claude/agents/`.
-- The fallback path is not yet exercised by an end-to-end run.
+- Source and scripted harness tests cover the fallback contract. Real model workflow checks require provider credentials; skipped runs are not evidence of an independent review.

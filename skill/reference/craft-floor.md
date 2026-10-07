@@ -25,7 +25,7 @@ resolution. Existing detector waivers remain the user's recorded decisions.
 
 ## Verify the changed result
 
-Use the bounded inspection rounds in SKILL.md and the active playbook. Reuse
+Use the task scope, host workflow, and required checks in SKILL.md and the active playbook. Reuse
 hook findings rather than running a duplicate source scan. Inspect the affected
 reading or task path with real content and relevant sizes, states, and input
 methods; include contrast, focus, source order, overflow, and reduced motion

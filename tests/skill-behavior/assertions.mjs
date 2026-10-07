@@ -47,19 +47,19 @@ export function assertCommandComparison(trace, text) {
     'comparison must not invent a critique prerequisite');
 }
 
-export function assertNewWorkLifecycle(trace, { target, redesign = false }) {
+export function assertNewWorkLifecycle(trace, { target, requireDiscovery = false, persistBrief = false, recordSystem = false }) {
   const calls = trace.toolCalls;
   const writes = (call, file) => (call.mutatedPaths || []).includes(file);
   const implementation = calls.findIndex((call) => writes(call, target));
   const question = calls.findIndex((call) => call.name === 'ask_user_question');
   const brief = calls.findIndex((call) => (call.mutatedPaths || []).some((file) => file === 'SURFACES.md' || file.endsWith('/SURFACES.md')));
   assert.ok(implementation >= 0, `new-work did not produce the requested artifact: ${target}`);
-  assert.ok(question >= 0 && question < implementation, 'implementation must follow a user answer');
-  assert.ok(brief >= 0 && brief < implementation, 'the direction contract must be recorded in a surface brief before implementation');
-  if (redesign) {
+  if (requireDiscovery) assert.ok(question >= 0 && question < implementation, 'requested discovery must precede implementation');
+  if (persistBrief) assert.ok(brief >= 0 && brief < implementation, 'requested surface brief must precede implementation');
+  if (recordSystem) {
     const lastImplementation = calls.findLastIndex((call) => writes(call, target));
     const documentation = calls.findLastIndex((call) => writes(call, 'DESIGN.md'));
-    assert.ok(documentation > lastImplementation, 'redesign must record DESIGN.md from the finished build, after the last page edit');
+    assert.ok(documentation > lastImplementation, 'requested system recording must write DESIGN.md from the finished build, after the last page edit');
   }
 }
 

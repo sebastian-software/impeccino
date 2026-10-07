@@ -1,3 +1,5 @@
+> Native knowledge curation is pending. This retained material remains available; apply it within the task and host instructions, and verify platform behavior with native evidence.
+
 # iOS platform
 
 For native iOS / iPadOS apps: SwiftUI, UIKit, React Native, Expo, Flutter shipping to Apple hardware.

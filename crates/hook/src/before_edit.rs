@@ -751,7 +751,7 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
         return skip(&audit, "generated");
     }
 
-    let config = read_config(&cwd);
+    let config = read_reporting_config(&cwd);
     let ext_name = js::to_lower_case(&jsp::extname(&file_path));
     let configured = match_configured_extension(&file_path, &config.extensions);
     audit.insert(
@@ -818,7 +818,10 @@ fn main_flow(rt: &Runtime, stdin: &str) -> Out {
         detector_detect_text(&content, &file_path, &scan)
     };
     let raw_count = findings.len();
-    let filtered = filter_findings_for(findings, &config, &scan);
+    let filtered: Vec<_> = filter_findings_for(findings, &config, &scan)
+        .into_iter()
+        .filter(|finding| !is_advisory_finding(finding))
+        .collect();
     if filtered.is_empty() {
         return allow(
             ext(

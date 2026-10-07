@@ -118,19 +118,21 @@ it('case-study user supplies evidence now instead of promising a future message'
   }
 });
 
-it('new-work requires approval and a brief before code, then documents the finished redesign', () => {
+it('new-work gates come from the request and system recording follows implementation', () => {
   const ask = { name: 'ask_user_question' };
   const brief = { name: 'bash', mutatedPaths: ['SURFACES.md'] };
   const page = { name: 'write', mutatedPaths: ['current.html'] };
   const design = { name: 'write', mutatedPaths: ['DESIGN.md'] };
-  const check = (toolCalls) => assertNewWorkLifecycle({ toolCalls }, { target: 'current.html', redesign: true });
-  assert.doesNotThrow(() => check([ask, brief, page, design]));
-  assert.doesNotThrow(() => check([ask, brief, page, design, page, design]));
+  const check = (toolCalls, options = {}) => assertNewWorkLifecycle({ toolCalls }, { target: 'current.html', ...options });
+  assert.doesNotThrow(() => check([page]));
+  assert.doesNotThrow(() => check([page, design], { recordSystem: true }));
+  const requested = { requireDiscovery: true, persistBrief: true, recordSystem: true };
+  assert.doesNotThrow(() => check([ask, brief, page, design], requested));
   assert.throws(() => check([ask, brief]), /did not produce/);
-  assert.throws(() => check([brief, page, ask, design]), /user answer/);
-  assert.throws(() => check([ask, page, brief, design]), /surface brief before/);
-  assert.throws(() => check([ask, brief, design, page]), /finished build/);
-  assert.throws(() => check([ask, brief, page, design, page]), /finished build/);
+  assert.throws(() => check([brief, page, ask, design], requested), /requested discovery/);
+  assert.throws(() => check([ask, page, brief, design], requested), /requested surface brief/);
+  assert.throws(() => check([ask, brief, design, page], requested), /finished build/);
+  assert.throws(() => check([ask, brief, page, design, page], requested), /finished build/);
 });
 
 it('stages the universal references independently of the source skill', async () => {

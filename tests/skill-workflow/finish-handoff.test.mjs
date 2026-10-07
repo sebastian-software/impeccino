@@ -48,10 +48,10 @@ for (const modelId of (process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS || 'claude-so
             environment: 'This is a resumed post-review checkpoint. No subagent or browser tools are available. The review is closed; no further UI edits or screenshots are needed. Read/list/write tools are available.',
             priorMessages: [
               { role: 'user', content: preserveSystem
-                ? 'Use /impeccino to add the specified keyboard guide page inside the established Field Manual world. Keep the existing visual system. Do not repair unrelated project drift.'
+                ? 'Use /impeccino to add the specified keyboard guide page inside the established Field Manual world. Keep the existing visual system and complete its documentation check after review. Do not repair unrelated project drift.'
                 : mode === 'redesign'
                   ? 'Use /impeccino to redesign the keyboard guide. I approve replacing the old beige-card/serif/orange world with the plain single-column, system-font, white-background and blue-link identity. Update the system documentation from the finished page.'
-                  : 'Use /impeccino to create Field Manual’s first keyboard guide page. The chosen identity is plain, single-column, system fonts, white background and blue links.' },
+                  : 'Use /impeccino to create Field Manual’s first keyboard guide page. The chosen identity is plain, single-column, system fonts, white background and blue links. Record the finished system documentation.' },
               { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'load-new-work', toolName: 'read', input: { path: '.claude/skills/impeccino/reference/new-work.md' } }] },
               { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'load-new-work', toolName: 'read', output: { type: 'text', value: reference } }] },
               { role: 'assistant', content: `Checkpoint: context and PRODUCT.md were loaded. The user confirmed the exact page and identity. The surface brief and index.html are written. Desktop/mobile captures were validated, the detector ran once, and the shipped finish reviewer returned ship with no open findings. ${preserveSystem

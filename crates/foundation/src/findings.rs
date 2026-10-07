@@ -68,6 +68,37 @@ pub fn derive_advisory_flag(item: &mut Finding) {
     };
 }
 
+/// Reporting policy over raw matcher results. Raw helpers retain their frozen
+/// compatibility contract; production reports distinguish evidence from advice.
+pub fn apply_reporting_policy(item: &mut Finding) {
+    let Some(ap) = crate::registry::ANTIPATTERNS
+        .iter()
+        .find(|ap| ap.id == item.antipattern)
+    else {
+        return; // A rule pack owns the policy of its own registered rows.
+    };
+    if matches!(
+        ap.id,
+        "broken-image"
+            | "script-error"
+            | "low-contrast"
+            | "text-occlusion"
+            | "text-overflow"
+            | "first-viewport-column-overflow"
+    ) {
+        return;
+    }
+    item.severity = "advisory".into();
+    item.description = if ap.id.starts_with("design-system-") {
+        "The observed value differs from the recorded design system. Check whether the implementation or the record should change; deliberate additions can be valid."
+    } else if ap.category == "slop" {
+        "A recurring visual or copy pattern. Judge its purpose against the brief and surrounding choices; address an unjustified cluster rather than treating this match as proof of poor design or AI authorship."
+    } else {
+        "An observed value or structural risk that needs task and rendered context. Confirm a visible or functional consequence before treating it as a defect."
+    }.into();
+    derive_advisory_flag(item);
+}
+
 /// JS `finding(id, filePath, snippet, line = 0)`. Returns `None` for an id
 /// that is not in the registry (where the JS would throw a TypeError).
 pub fn try_finding(id: &str, file_path: &str, snippet: &str, line: f64) -> Option<Finding> {
@@ -87,6 +118,28 @@ pub fn finding(id: &str, file_path: &str, snippet: &str, line: f64) -> Finding {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reporting_distinguishes_pattern_drift_risk_and_measured_defect() {
+        for id in ["gradient-text", "design-system-color", "buried-raster"] {
+            let mut item = finding(id, "page.html", "observed value", 3.0);
+            apply_reporting_policy(&mut item);
+            assert_eq!(item.advisory, Some(true), "{id}");
+            assert_eq!(item.snippet, "observed value");
+            let once = item.clone();
+            apply_reporting_policy(&mut item);
+            assert_eq!(item, once);
+        }
+        let mut measured = finding("low-contrast", "page.html", "ratio 1.2", 4.0);
+        let raw = measured.clone();
+        apply_reporting_policy(&mut measured);
+        assert_eq!(measured, raw);
+        let mut external = measured.clone();
+        external.antipattern = "external-owned-rule".into();
+        let raw = external.clone();
+        apply_reporting_policy(&mut external);
+        assert_eq!(external, raw);
+    }
 
     #[test]
     fn shape_and_order() {

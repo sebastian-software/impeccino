@@ -88,16 +88,11 @@ describe('universal skill source', () => {
     expect(dispatch).toMatch(/inline finish review is not independent/i);
     expect(dispatch).toMatch(/keep that disclosure outside the role's contracted return/i);
 
-    expect(newWork).not.toMatch(/Never read the shipped agents' definition files before spawning/);
-    expect(newWork).toMatch(/<skill-base-dir>\/agents\/impeccino-finish-reviewer\.md/);
-    expect(newWork).toMatch(/<skill-base-dir>\/agents\/impeccino-documenter\.md/);
-    expect(newWork).toMatch(/pass its full Markdown body.*general-purpose subagent/i);
-    expect(newWork).toMatch(/role file's `tools` frontmatter as child tool limits/i);
-    expect(newWork).toMatch(/complete its full five-section review locally before acting on its disposition/i);
-    expect(newWork).toMatch(/read the same role file and \[document\.md\]\(document\.md\) in full before writing/i);
-    expect(newWork).toMatch(/Perform the documentation pass locally.*then produce the role's full output contract/i);
-    expect(newWork).toMatch(/label it as a local pass, outside the role's contracted return/i);
-    expect(newWork).toMatch(/keep this disclosure outside the reviewer's contracted return/i);
+    expect(newWork).toMatch(/host-permitted role routing/i);
+    expect(newWork).toMatch(/Review is\s+read-only/i);
+    expect(newWork).toMatch(/local review is not independent/i);
+    expect(newWork).toMatch(/write boundary comes from\s+the task's existing authorization/i);
+
   });
 });
 
@@ -106,11 +101,12 @@ describe('cross-reference contracts', () => {
   const skillDir = path.join(process.cwd(), 'skill');
   const read = (name) => fs.readFileSync(path.join(skillDir, name), 'utf-8');
 
-  test('all commands follow the shared bounded inspection cycle', () => {
+  test('verification follows outcome and host budget rather than a fixed ceiling', () => {
     const overdrive = read('reference/overdrive.md');
-    expect(overdrive).toMatch(/bounded finish cycle/i);
-    expect(overdrive).toMatch(/at most one more round/i);
-    expect(overdrive).not.toMatch(/Expect multiple rounds of refinement/i);
+    const skill = read('SKILL.md');
+    expect(overdrive).toMatch(/host controls the inspection\s+budget/i);
+    expect(skill).toMatch(/Stop when the requested outcome and checks pass/i);
+    expect([skill, overdrive].join('\n')).not.toMatch(/at most one more round|two rounds is the ceiling|mandatory interview/i);
   });
 
   test('review and documentation distinguish style warnings from observed defects', () => {
@@ -120,60 +116,53 @@ describe('cross-reference contracts', () => {
 
     expect(craftFloor).toMatch(/Style warnings are context-dependent/i);
     expect(reviewer).toMatch(/A style warning alone is not a material fix/i);
-    expect(documenter).toMatch(/A style advisory alone is no reason to omit a reusable rule/i);
+    expect(documenter).toMatch(/A style advisory alone is no reason to omit a\s+reusable rule/i);
     for (const text of [craftFloor, reviewer, documenter]) {
       expect(text).not.toMatch(/non-waivable ban|explicitly calls a ban|no brief earns it back/i);
     }
   });
 
-  test('standalone document seed and post-build documentation have separate timing', () => {
+  test('standalone seed and post-build documentation have separate timing', () => {
     const document = read('reference/document.md');
     const newWork = read('reference/new-work.md');
     const documenter = read('agents/impeccino-documenter.md');
-
-    expect(document).toContain('This is the explicit standalone');
-    expect(document).toContain('document --seed');
-    expect(document).toContain('workflow.');
-    expect(newWork).toContain('post-build handoff is separate from the standalone');
-    expect(newWork).toContain('document --seed');
-    expect(newWork).toMatch(/DESIGN\.md is written at finish from the built world/i);
-    expect(documenter).toContain('standalone questions, overwrite confirmation');
-    expect(documenter).toContain('do not run them or ask the user');
+    expect(document).toMatch(/document --seed.*provisional direction before implementation/i);
+    expect(document).toMatch(/post-build documenter uses scan mode after implementation/is);
+    expect(newWork).toMatch(/document.md.*after implementation/is);
+    expect(documenter).toMatch(/Use scan mode here, not the standalone document --seed path/is);
   });
 
   test('the documenter uses approved handoff authority and reports gaps to its caller', () => {
     const documenter = read('agents/impeccino-documenter.md');
 
     expect(documenter).toMatch(/no user-facing channel/i);
-    expect(documenter).toMatch(/report the missing authority to the caller/i);
-    expect(documenter).toMatch(/preserve incumbent decisions outside that approved scope and carry every existing waiver forward/i);
+    expect(documenter).toMatch(/report the missing\s+authority to the caller/i);
+    expect(documenter).toMatch(/preserve incumbent decisions outside\s+that authorized scope and carry every existing waiver forward/i);
     expect(documenter).not.toMatch(/ask the user to clarify/i);
   });
 
-  test('concept-seed keys are required only for a roll that ran', () => {
+  test('creative selection is optional and keys describe rolls that ran', () => {
     const newWork = read('reference/new-work.md');
     const reviewer = read('agents/impeccino-finish-reviewer.md');
-
-    expect(newWork).toMatch(/concept-seed.*ran, include the printed seed key/i);
-    expect(newWork).toMatch(/No roll: <reason>/);
+    expect(newWork).toMatch(/optional local helper/i);
+    expect(newWork).toMatch(/printed seed key.*only when a concept roll ran/is);
     expect(reviewer).toMatch(/When concept-seed ran, require the printed seed key/i);
-    expect(reviewer).toMatch(/when FORM records an allowed no-roll reason.*no key is required/i);
+    expect(reviewer).toMatch(/no-roll task\s+requires no key/i);
     expect(reviewer).toMatch(/Missing key alone never proves a roll was skipped/i);
   });
 
-  test('critique personas use PRODUCT.md audience truth', () => {
+  test('critique grounds audience in product evidence instead of fictional personas', () => {
     const critique = read('reference/critique.md');
-
-    expect(critique).toMatch(/PRODUCT\.md.*Users.*section/i);
-    expect(critique).toMatch(/PRODUCT\.md.*concrete information under.*Users/i);
-    expect(critique).not.toMatch(/Design Context.*impeccino init/i);
+    expect(critique).toMatch(/PRODUCT.md.*Users.*ground audience/is);
+    expect(critique).toMatch(/fictional personas\s+and numerical heuristic scores are not evidence/i);
+    expect(critique).not.toMatch(/Auto-select.*personas/i);
   });
 
   test('source and rendered URL detector passes stay distinct', () => {
     const critique = read('reference/critique.md');
-
-    expect(critique).toMatch(/source pass scans local files and directories, not URLs/i);
-    expect(critique).toMatch(/rendered-page detector remains a separate required web pass on the URL/i);
+    expect(critique).toContain('detect --json <local source paths>');
+    expect(critique).toContain('detect --viewport <W>x<H> <url>');
+    expect(critique).toMatch(/source file is not a rendered-page target/i);
   });
 
   test('native projects skip web-only detector instructions', () => {
@@ -254,20 +243,21 @@ describe('skill text contracts cleaned up in issue 33', () => {
     }
     const audit = read('reference/audit.md');
     expect(audit.indexOf('### 3. Theming')).toBeLessThan(audit.indexOf('### 4. Responsive Design'));
-    expect(audit.indexOf('| 3 | Theming |')).toBeLessThan(audit.indexOf('| 4 | Responsive Design |'));
+    for (const heading of ['Audit Health', 'Implementation Integrity', 'Findings and Actions', 'Coverage']) {
+      expect(audit).toContain(`### ${heading}`);
+      expect(read('reference/audit.native.md')).toContain(`### ${heading}`);
+    }
   });
 
-  test('focused body measure and detector guidance stay context-sensitive and distinct', () => {
+  test('knowledge selection and source evidence stay task-scoped', () => {
     const operate = read('reference/operate.md');
     const typeset = read('reference/typeset.md');
-    expect(operate).toContain('45–75ch');
-    expect(typeset).toContain('45–75ch');
-    expect([operate, typeset].join('\n')).not.toContain('65–75ch');
-
+    expect(operate).toMatch(/no mandatory font count, timing, palette, or measure/i);
+    expect(typeset).toMatch(/fixed measure alone is\s+not a defect/i);
     const newWork = read('reference/new-work.md');
     const polish = read('reference/polish.md');
-    expect(newWork).toMatch(/do not rerun a detector to discover new fixes.*earlier local-source scan.*rendered-page scan at each inspected web width/i);
-    expect(polish).toMatch(/one manual source-file scan.*do not duplicate that source scan/i);
-    expect(polish).toContain('Rendered-page URL scans remain separate');
+    expect(newWork).toMatch(/hooks have not already supplied.*source evidence/is);
+    expect(polish).toMatch(/Reuse hooks.*source evidence/is);
+    expect(polish).toMatch(/Rendered URL checks provide separate layout evidence/i);
   });
 });

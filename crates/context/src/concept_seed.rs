@@ -1,5 +1,5 @@
-//! `impeccino concept-seed`: the roll that decides which of the model's own
-//! grounded candidates gets built. Everything is local: the model writes the
+//! `impeccino concept-seed`: a repeatable suggestion over the model's own
+//! ordered candidates. Everything is local: the model writes the
 //! ordered list, a hash of the seed key picks the index, and nothing leaves
 //! the machine (docs/adr/0019-concept-seed-is-local.md).
 

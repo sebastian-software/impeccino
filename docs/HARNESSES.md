@@ -130,9 +130,9 @@ Impeccino ships two roles as plain Claude Code agent files in `skill/agents/` an
 |---------|--------------------------|
 | Claude Code | Programmatically, from within the skill/agent flow. |
 | Grok Build | Programmatically via `spawn_subagent` (built-in types plus project/user agents under `.grok/agents/`). |
-| Codex CLI | Only if the user has allowed sub-agents / parallel work; otherwise the skill must ask once, then stop (see the harness-specific gate in `skill/reference/critique.md`). |
+| Codex CLI | Follow the active host policy for delegation. A skill invocation grants no additional permission; use the disclosed local role fallback when delegation is unavailable. |
 | Cursor | Agent-chosen: auto-delegated by the Agent, or user-invoked via `/name`. Not reliably skill-spawnable. |
-| Others | Varies; treat as unavailable unless verified, and degrade loudly. |
+| Others | Follow the active host policy and available tools; disclose when a role runs locally. |
 
 ## Placeholder / Variable Substitution
 
