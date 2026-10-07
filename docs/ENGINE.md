@@ -107,6 +107,14 @@ consumer names one crate: `impeccino_core::js`, `impeccino_core::color`,
 crates separates shared data and helpers from rule logic within the internal
 runtime.
 
+Static and rendered DOM adapters feed shared computed-style and text facts
+into `core::checks::{quality,rules,text_rules}`. These predicates own
+layout-independent quality findings, font usage, cream palettes, heading
+order, repeated container text, and tab/status contexts. Adapter parity tests
+in `crates/html/src/static_engine.rs` assert identical findings, including
+hidden-text exemptions and UTF-16 snippet boundaries. Geometry, live pixels,
+and the browser's full CSS implementation remain rendered-page inputs.
+
 The detector ships 61 built-in rules, listed in
 `crates/foundation/src/registry.rs`; `pnpm run check` reads the count from
 there. Most run on source files, through the text engine (`crates/detect`)

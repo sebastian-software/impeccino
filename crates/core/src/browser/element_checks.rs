@@ -24,7 +24,8 @@ use crate::checks::rules::{
     Sides, HEADING_TAGS,
 };
 use crate::checks::text_rules::{
-    CURSOR_FIRST_VIEWPORT_PX, CURSOR_GLYPH_RE, POSITIONED_CHILD_INTERACTIVE_SELECTOR,
+    has_active_tab_class_token, CURSOR_FIRST_VIEWPORT_PX, CURSOR_GLYPH_RE,
+    POSITIONED_CHILD_INTERACTIVE_SELECTOR, STATUS_CONTEXT_SELECTOR, TAB_CONTEXT_SELECTOR,
     TEXT_OVERFLOW_SKIP_TAGS,
 };
 use crate::color::{
@@ -49,28 +50,9 @@ pub fn parse_rgb_or_any(value: &str) -> Option<Rgba> {
     parse_rgb(Some(value)).or_else(|| parse_any_color(Some(value)))
 }
 
-// JS `/(?:^|[\s_-])(?:active|current|selected)(?:$|[\s_-])/i`: ASCII-only
-// case folding (`ci`) and the JS `\s` set (`WS`), never Rust `(?i)` / `\s`.
-re!(
-    ACTIVE_CLASS_RE,
-    format!(
-        "(?:^|[{ws}_-])(?:{a}|{c}|{s})(?:$|[{ws}_-])",
-        ws = js::WS_CHARS,
-        a = js::ci("active"),
-        c = js::ci("current"),
-        s = js::ci("selected")
-    )
-);
-
 /// JS: checks.mjs#isTabContextElement(el)
 pub fn is_tab_context_element(dom: &dyn Dom, el: ElId) -> bool {
-    if closest_or_none(
-        dom,
-        el,
-        "[aria-selected=\"true\"], [aria-current]:not([aria-current=\"false\"])",
-    )
-    .is_some()
-    {
+    if closest_or_none(dom, el, TAB_CONTEXT_SELECTOR).is_some() {
         return true;
     }
     let mut cur = Some(el);
@@ -80,7 +62,7 @@ pub fn is_tab_context_element(dom: &dyn Dom, el: ElId) -> bool {
             break;
         }
         let cls = class_attr_or_prop(dom, c);
-        if ACTIVE_CLASS_RE.is_match(&cls) {
+        if has_active_tab_class_token(&cls) {
             return true;
         }
         cur = dom.parent(c);
@@ -91,12 +73,7 @@ pub fn is_tab_context_element(dom: &dyn Dom, el: ElId) -> bool {
 
 /// JS: checks.mjs#isStatusContextElement(el)
 pub fn is_status_context_element(dom: &dyn Dom, el: ElId) -> bool {
-    closest_or_none(
-        dom,
-        el,
-        "[role=\"status\"], [role=\"alert\"], [role=\"alertdialog\"], [role=\"log\"], [aria-live=\"polite\"], [aria-live=\"assertive\"]",
-    )
-    .is_some()
+    closest_or_none(dom, el, STATUS_CONTEXT_SELECTOR).is_some()
 }
 
 pub const SIDES: [&str; 4] = ["Top", "Right", "Bottom", "Left"];

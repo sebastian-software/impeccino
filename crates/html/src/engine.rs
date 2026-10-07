@@ -143,7 +143,7 @@ fn run_rule(rule_id: &str, el: &StaticElement<'_>, tag: &str) -> Vec<RuleHit> {
             let base = el.parent_element().unwrap_or(*el);
             check_element_glow(style, resolve_background(&base, None))
         }
-        "motion-rules" => check_element_motion(tag, style),
+        "motion-rules" => check_element_motion(tag, el.class_name(), style),
         "icon-tile-stack" => check_element_icon_tile(el, tag),
         "italic-serif-display" => check_element_italic_serif(el, style, tag),
         "hero-eyebrow-chip" => check_element_hero_eyebrow(el, style, tag),

@@ -7,24 +7,23 @@
 
 use super::dom::{matches_or_false, tag_lower, Dom, ElId, ElStyle};
 use super::driver::DesignSystemConfig;
-use super::element_checks::{class_selector, is_rendered_for_browser_rule};
+use super::element_checks::is_rendered_for_browser_rule;
 use super::{BrowserFinding, ElFinding};
 use crate::checks::measures::resolve_length_px;
 use crate::checks::rules::{check_kicker_above_heading, KickerCandidate, RuleHit};
 use crate::checks::text_rules::{
-    check_em_dash_overuse, check_numbered_section_labels, is_kicker_candidate,
-    is_numbered_section_label_candidate, is_repeated_text_container, parse_numbered_label_text,
-    strip_edge_quotes, KickerCandidateInput, NumberedLabelCandidate, NumberedLabelCandidateInput,
-    HEADING_TAGS, KICKER_CARD_CONTEXT_SELECTOR, KICKER_SKIP_SELECTOR, REPEATED_TEXT_CONTAINER_TAGS,
-    REPEATED_TEXT_SKIP_SELECTOR,
+    check_em_dash_overuse, check_numbered_section_labels, check_repeated_container_text_nodes,
+    is_kicker_candidate, is_numbered_section_label_candidate, is_repeated_text_container,
+    parse_numbered_label_text, strip_edge_quotes, KickerCandidateInput, NumberedLabelCandidate,
+    NumberedLabelCandidateInput, RepeatedTextNode, HEADING_TAGS, KICKER_CARD_CONTEXT_SELECTOR,
+    KICKER_SKIP_SELECTOR, REPEATED_TEXT_CONTAINER_TAGS, REPEATED_TEXT_SKIP_SELECTOR,
 };
 use crate::js::{self, parse_float, parse_int};
 use crate::js_ext_a::num_truthy;
-use crate::js_ext_b::{slice_utf16_prefix, utf16_len};
+use crate::js_ext_b::slice_utf16_prefix;
 use once_cell::sync::Lazy;
 use regex::Regex;
-
-static WS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!("{}+", js::WS)).expect("WS_RE"));
+use std::collections::HashMap;
 
 /// JS: checks.mjs#cleanInlineText(el): direct text nodes joined with a
 /// space, whitespace collapsed, trimmed.
@@ -333,137 +332,41 @@ pub fn check_em_dash_overuse_dom(dom: &dyn Dom) -> Vec<RuleHit> {
     hits(check_em_dash_overuse(Some(&text)))
 }
 
-static ICON_CLASS_RE: Lazy<Regex> = Lazy::new(|| {
-    // JS `/icon|material-symbols|(?:^|\s)fa[srlbd]?(?:\s|-|$)/i`, ASCII folding.
-    Regex::new(&format!(
-        "{icon}|{ms}|(?:^|{ws}){fa}[srlbdSRLBD]?(?:{ws}|-|$)",
-        icon = js::ci("icon"),
-        ms = js::ci("material-symbols"),
-        fa = js::ci("fa"),
-        ws = js::WS
-    ))
-    .expect("ICON_CLASS_RE")
-});
-static ALPHA_RE: Lazy<Regex> = Lazy::new(|| Regex::new("[a-zA-Z]").expect("ALPHA_RE"));
-
 /// JS: checks.mjs#collectRepeatedContainerTextFindings(doc, getStyle, opts)
 /// with `isVisible` supplied by the caller.
 pub fn collect_repeated_container_text_findings(
     dom: &dyn Dom,
     is_visible: &dyn Fn(ElId) -> bool,
 ) -> Vec<RuleHit> {
-    let mut findings = Vec::new();
-    let mut containers: Vec<ElId> = Vec::new();
-    for el in dom.query_all(None, "*").unwrap_or_default() {
-        if !REPEATED_TEXT_CONTAINER_TAGS.contains(&tag_lower(dom, el).as_str()) {
-            continue;
-        }
-        if super::dom::closest_or_none(dom, el, REPEATED_TEXT_SKIP_SELECTOR).is_some() {
-            continue;
-        }
-        let style = ElStyle { dom, el };
-        if !is_repeated_text_container(Some(&style)) {
-            continue;
-        }
-        containers.push(el);
-    }
-
-    for &container in &containers {
-        if !is_visible(container) {
-            continue;
-        }
-        let descendants = dom.query_all(Some(container), "*").unwrap_or_default();
-        if descendants.len() > 250 {
-            continue;
-        }
-        // text -> signatures, in first-seen order (JS Map).
-        let mut groups: Vec<(String, Vec<String>)> = Vec::new();
-        for &d in &descendants {
-            let mut anc = dom.parent(d);
-            let mut owned_by_inner = false;
-            while let Some(a) = anc {
-                if a == container {
-                    break;
-                }
-                if containers.contains(&a) {
-                    owned_by_inner = true;
-                    break;
-                }
-                anc = dom.parent(a);
+    let elements = dom.query_all(None, "*").unwrap_or_default();
+    let indexes: HashMap<ElId, usize> = elements
+        .iter()
+        .enumerate()
+        .map(|(index, &el)| (el, index))
+        .collect();
+    let nodes: Vec<RepeatedTextNode> = elements
+        .iter()
+        .map(|&el| {
+            let tag = tag_lower(dom, el);
+            let style = ElStyle { dom, el };
+            let is_skipped =
+                super::dom::closest_or_none(dom, el, REPEATED_TEXT_SKIP_SELECTOR).is_some();
+            RepeatedTextNode {
+                parent: dom
+                    .parent(el)
+                    .and_then(|parent| indexes.get(&parent).copied()),
+                is_container: !is_skipped
+                    && REPEATED_TEXT_CONTAINER_TAGS.contains(&tag.as_str())
+                    && is_repeated_text_container(Some(&style)),
+                tag,
+                class_name: dom.attr(el, "class").unwrap_or_default(),
+                direct_text: clean_inline_text(dom, el),
+                is_skipped,
+                is_visible: is_visible(el),
             }
-            if owned_by_inner {
-                continue;
-            }
-            if super::dom::closest_or_none(dom, d, REPEATED_TEXT_SKIP_SELECTOR).is_some() {
-                continue;
-            }
-            if ICON_CLASS_RE.is_match(&dom.attr(d, "class").unwrap_or_default()) {
-                continue;
-            }
-            if !is_visible(d) {
-                continue;
-            }
-            let direct = clean_inline_text(dom, d);
-            let len = utf16_len(&direct);
-            if !(4..=48).contains(&len) {
-                continue;
-            }
-            if !ALPHA_RE.is_match(&direct) {
-                continue;
-            }
-            let mut sig: Vec<String> = Vec::new();
-            let mut cur = Some(d);
-            while let Some(c) = cur {
-                if c == container {
-                    break;
-                }
-                let raw = dom.attr(c, "class").unwrap_or_default();
-                let raw_cls = js::trim(&raw);
-                let mut cls: Vec<&str> = if raw_cls.is_empty() {
-                    Vec::new()
-                } else {
-                    WS_RE.split(raw_cls).filter(|s| !s.is_empty()).collect()
-                };
-                cls.sort_by(|a, b| a.encode_utf16().cmp(b.encode_utf16()));
-                let cls = cls.join(".");
-                sig.push(if cls.is_empty() {
-                    tag_lower(dom, c)
-                } else {
-                    format!("{}.{}", tag_lower(dom, c), cls)
-                });
-                cur = dom.parent(c);
-            }
-            let joined = sig.join(">");
-            match groups.iter_mut().find(|(t, _)| *t == direct) {
-                Some((_, sigs)) => sigs.push(joined),
-                None => groups.push((direct, vec![joined])),
-            }
-        }
-        for (text, sigs) in &groups {
-            if sigs.len() < 3 {
-                continue;
-            }
-            let mut distinct: Vec<&String> = Vec::new();
-            for s in sigs {
-                if !distinct.contains(&s) {
-                    distinct.push(s);
-                }
-            }
-            if distinct.len() < 3 {
-                continue;
-            }
-            findings.push(RuleHit::new(
-                "repeated-container-text",
-                format!(
-                    "\"{}\" rendered {}× in distinct spots inside {}",
-                    slice_utf16_prefix(text, 40),
-                    sigs.len(),
-                    class_selector(dom, container)
-                ),
-            ));
-        }
-    }
-    findings
+        })
+        .collect();
+    check_repeated_container_text_nodes(&nodes)
 }
 
 /// JS: checks.mjs#checkRepeatedContainerTextDOM()
