@@ -1,6 +1,6 @@
 # Developer Guide
 
-Documentation for contributors to Impeccino.
+Source format and local setup for Impeccino contributors. [AGENTS.md](../AGENTS.md) is the contributor guide and owns validation and release instructions.
 
 ## Architecture
 
@@ -34,26 +34,11 @@ Frontmatter uses the [Agent Skills spec](https://agentskills.io/specification) f
 
 The body is the same for every harness (ADR 0001). Write the launcher as `"<skill-base-dir>/scripts/impeccino" <verb>`, commands as `/impeccino <command>`, questions as "the host's structured question tool", and harness- or model-specific guidance as a labelled paragraph (`In Codex: ...`).
 
-## Checks
+## Local setup and validation
 
-```bash
-pnpm run check         # Count claims, skill frontmatter limits, prose gates
-pnpm run fetch:engine  # Pinned engine binary for this machine into skill/scripts/bin/
-```
+Install repository tooling with `pnpm install --frozen-lockfile`. Build the local engine with `cargo build --release -p impeccino`, then set `IMPECCINO_BIN="$PWD/target/release/impeccino"` when running the default suites. Follow [AGENTS.md's validation rules](../AGENTS.md#testing-guidelines) for the affected area; the [suite README](../tests/skill-behavior/README.md) describes provider-backed setup checks.
 
-To try an edit in a harness, link `skill/` into a project as `.claude/skills/impeccino` or `.agents/skills/impeccino`.
-
-## Testing
-
-```bash
-pnpm run test                  # Default suites: core + oracle (no API keys needed; the oracle skips without an engine binary)
-pnpm run test:skill-behavior   # Opt-in: LLM-backed checks that the SKILL.md Setup flow actually drives the agent (~5 min, costs cents, needs `.env`)
-pnpm run test:skill-workflow   # Opt-in: provider-backed completed workflows; the test harness needs `npx playwright install chromium` once
-```
-
-The skill-behavior suite runs the models in `DEFAULT_MODELS` (`tests/skill-behavior/providers.mjs`) with the source `skill/SKILL.md` inlined as the system prompt and a workspace-scoped `bash`/`read`/`write`/`list` tool set. It then asserts on the tool-call trace, not on free-form output. Use it whenever you edit `skill/SKILL.md`'s Setup section or any Setup-touching reference (`init.md`, `document.md`, `new-work.md`, sub-command refs). Per-scenario assertions and the current baseline live in `tests/skill-behavior/README.md`. Provider keys live in repo-root `.env` (gitignored); missing keys skip cleanly.
-
-Impeccino itself runs nothing in a browser ([ADR 0011](adr/0011-no-own-browser-stack.md)). The skill-workflow suite uses Playwright Chromium only inside its test harness, standing in for the browser tool a real harness provides.
+To try an edit in a harness, link `skill/` into a project as `.claude/skills/impeccino` or `.agents/skills/impeccino`. The workflow test harness uses Playwright Chromium (`npx playwright install chromium` once); the skill itself uses its host browser tools and agent-browser (ADR 0016).
 
 ## Upstream Tags
 

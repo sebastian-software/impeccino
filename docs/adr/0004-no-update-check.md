@@ -4,8 +4,8 @@
 
 ## Context
 
-`impeccino context` called `impeccable.style/api/version` once a day and
-told the agent to offer `npx impeccino update` (`UPDATE_AVAILABLE`). With a
+`impeccable context` called `impeccable.style/api/version` once a day and
+told the agent to offer `npx impeccable update` (`UPDATE_AVAILABLE`). With a
 skill manager pinning an exact commit, that notice is noise at best and an
 instruction to bypass the pin at worst, and it is a network call on every
 session start.
@@ -17,6 +17,6 @@ it.
 
 ## Consequences
 
-- No phone-home from `context`; the `updateCheck` config key has nothing left
-  to switch off and remains tolerated in existing configs.
+- No phone-home from `context`. The former `updateCheck` setting has no reader;
+  project config files were removed in ADR 0020.
 - `doctor` describes tool-version drift as the installer's job.

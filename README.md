@@ -206,7 +206,7 @@ Hook surfaces the engine manages:
 
 The hook also understands Grok Build's events, and `context` recognizes a Grok manifest at `.grok/hooks/impeccino.json`; `hooks on` does not write that one. Gemini CLI has no hook manifest; the skill asks for a manual detector run there.
 
-Every hook command goes through the skill's launcher. `hooks on` checks that the detected skill includes its launchers; it returns an actionable error when no supported project launcher exists or a whole Claude settings file is malformed. Unrelated hook entries and settings are preserved. The hook is on where its entries are installed; there is nothing else to configure. `IMPECCINO_HOOK_DISABLED=1` turns an installed hook off for one shell, and `IMPECCINO_HOOK_QUIET=1` silences the clean-edit acks.
+Every hook command goes through the skill's launcher. `hooks on` checks that the detected skill includes its launchers; it returns an actionable error when no supported project launcher exists or a whole Claude settings file is malformed. Unrelated hook entries and settings are preserved. The hook is on where its entries are installed; there is nothing else to configure. `IMPECCINO_HOOK_DISABLED=1` turns an installed hook off for one shell, and `IMPECCINO_HOOK_QUIET=1` silences clean and pending per-edit acknowledgments; Stop findings remain visible.
 
 In Claude Code, command hooks run independently of model-tool approval, so the first edit or Stop event can download and cache the engine even if the session denies the model's launcher command. Review hooks before unattended runs; to disable all Claude Code hooks for a run, pass `--settings '{"disableAllHooks": true}'`.
 
@@ -222,12 +222,14 @@ The agent interprets findings alongside the design guidance and visual inspectio
 
 ## Harnesses
 
+**Verified skill loading and launcher invocation:** [Claude Code](https://claude.ai/code) and [Codex CLI](https://github.com/openai/codex).
+
+**Expected to work through their Agent Skills support:** the tools below. Their documented capabilities are listed in [HARNESSES.md](docs/HARNESSES.md); these are not completed Impeccino workflow verifications.
+
 - [Cursor](https://cursor.com)
-- [Claude Code](https://claude.ai/code)
 - [GitHub Copilot](https://github.com/features/copilot)
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
-- [Codex CLI](https://github.com/openai/codex)
 - [Grok Build](https://x.ai/cli)
 - [Hermes Agent](https://hermes-agent.nousresearch.com)
 - [OpenCode](https://opencode.ai)
@@ -241,7 +243,7 @@ The agent interprets findings alongside the design guidance and visual inspectio
 
 ## Contributing
 
-See [DEVELOP.md](docs/DEVELOP.md) for contributor guidelines and build instructions.
+Follow [AGENTS.md](AGENTS.md) for contributor rules and validation, and [DEVELOP.md](docs/DEVELOP.md) for source format and local setup.
 
 ## License
 

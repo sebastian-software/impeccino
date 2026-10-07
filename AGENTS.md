@@ -16,7 +16,14 @@
 - `pnpm run test:skill-behavior` - opt-in LLM-backed checks that the SKILL.md Setup flow actually drives the agent (the model lineup is `DEFAULT_MODELS` in `tests/skill-behavior/providers.mjs`; needs `.env` with provider keys).
 - `pnpm run test:skill-workflow` - opt-in provider-backed completed workflows (full build, finish handoff); its test harness drives Playwright Chromium for screenshots (`npx playwright install chromium` once).
 
-Run `pnpm run check` after changing anything in `skill/` or user-facing counts.
+Run `pnpm run check` after changing anything in `skill/` or user-facing counts. Read [docs/STYLE.md](docs/STYLE.md) before editing user-facing copy. The automated prose gates scan README.md and skill Markdown; other docs follow the same editorial brief.
+
+| Area touched | Required opt-in suite |
+|---|---|
+| Setup or Setup-adjacent references; engine pin (`skill/scripts/VERSION`) | `pnpm run test:skill-behavior` |
+| Completed build or finish handoff under `skill/` | `pnpm run test:skill-workflow` |
+
+The suite READMEs document provider models, scenarios and baseline assertions. Use `DEFAULT_MODELS` in `tests/skill-behavior/providers.mjs` as the lineup source; do not duplicate model names or scenario lists here.
 
 ## One Skill for Every Harness
 
@@ -31,6 +38,20 @@ Write skill text so it holds in every harness:
 - SKILL.md frontmatter uses the Agent Skills spec fields (`name`, `description`, `license`, `compatibility`, `metadata`) plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0008); strict validators such as Codex's `quick_validate.py` flag the extras, which is expected. Keep `allowed-tools` out. `metadata.version` is the skill version.
 
 Nothing generated is tracked (ADR 0002). If a change seems to need a derived file in git, derive it where it is consumed instead.
+
+## Skill architecture and authoring
+
+The skill has one command router. Do not add standalone skills or restore the removed per-domain references: shared guidance belongs in `craft-floor.md`, `new-work.md`, `operate.md`, or the command that consumes it. Claude Code agent files in `skill/agents/` are the shipped roles; SKILL.md explains the fallback for other harnesses.
+
+Mode is per surface: Persuade, Operate, Read, or Experience. Store it in that surface's marked section of `SURFACES.md`, never as a project-wide PRODUCT.md register. Platform is independent: PRODUCT.md's `## Platform` holds `web`, `ios`, `android`, or `adaptive`; a missing field defaults to web. Native variants replace the web command reference when one exists, and adaptive loads both platform references. Keep the report skeleton of `audit.md` and `audit.native.md` aligned. Accessibility guidance belongs in audit rather than the setup design laws.
+
+The detector and design hooks are web-only. Native routing is defined in `skill/reference/routing.md`; hook scans skip a native PRODUCT.md platform. `concept-seed` is local and deterministic (ADR 0019): do not restore a concept catalog, service calls, or choice telemetry. `doctor` is maintenance tooling and stays outside the design command table and pin metadata.
+
+Boot staleness checks are a performance contract. Tier 1 consumes already-loaded Markdown, bounded stats and small JSON, and reuses target discovery already paid for; it adds no directory walks, git calls or workspace sweep. Tier 2 is doctor's explicit deep pass. Findings are shared data; `doctor --fix` applies only mechanical `auto` fixes. Mention and route findings are throttled per project; auto fixes are never throttled. When retiring a PRODUCT.md field, add a reason to the deprecated-sections check and review the resulting boot golden. Schema versions describe artifact shape, not releases.
+
+To add a command, create `skill/reference/<command>.md`, add its Commands-table row and frontmatter argument hint, update the command lists in both audit references and critique, and add metadata in `skill/scripts/command-metadata.json`. Update the pin command validation and oracle coverage, then update the README count and command list. `pnpm run check` counts the router rows automatically.
+
+The public interface is the skill and its workflows. CLI verbs and Rust APIs are internal integration details; update their callers and coverage together (see [docs/ENGINE.md](docs/ENGINE.md)). The shipped binary installs no rule pack. Text and static rule-pack extension contracts belong in ENGINE.md.
 
 ## Sandbox gotchas for Codex agents
 
@@ -53,7 +74,7 @@ For runtime changes under `crates/`, add a failing regression in the affected cr
 
 For changes to `skill/SKILL.md`'s Setup section or any Setup-touching reference file (`init.md`, `document.md`, `new-work.md`, sub-command refs), also run `pnpm run test:skill-behavior`. The suite spawns current real models (the `DEFAULT_MODELS` lineup in `tests/skill-behavior/providers.mjs`) with the source SKILL.md inlined as system prompt and a workspace-scoped tool set, then asserts on the tool-call trace. Provider keys live in repo-root `.env`; missing keys skip cleanly. Scope to one provider with `IMPECCINO_SKILL_BEHAVIOR_MODELS=<id>`; add `IMPECCINO_SKILL_BEHAVIOR_VERBOSE=1` to dump per-scenario traces. Baseline and per-scenario assertions live in `tests/skill-behavior/README.md`.
 
-Other area-to-suite obligations (the canonical mapping is the `triggers` lists in `scripts/test-suites.mjs`; CLAUDE.md carries the table): an engine version bump (`skill/scripts/VERSION`) owes `pnpm run test:skill-behavior` on top of the default run, and changes across `skill/` that alter a completed build or the finish handoff owe `pnpm run test:skill-workflow`.
+Other area-to-suite obligations (the canonical mapping is the `triggers` lists in `scripts/test-suites.mjs`; the table below mirrors it): an engine version bump (`skill/scripts/VERSION`) owes `pnpm run test:skill-behavior` on top of the default run, and changes across `skill/` that alter a completed build or the finish handoff owe `pnpm run test:skill-workflow`.
 
 ## Anti-pattern detection rules
 
