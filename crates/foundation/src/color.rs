@@ -1,8 +1,4 @@
-//! Port of `cli/engine/shared/color.mjs`.
-//!
-//! Every function keeps the JS name in its doc comment. Colors are the JS
-//! `{ r, g, b, a? }` object: `a` is absent on the `CSS_NAMED_COLORS` entries
-//! and present everywhere else, exactly as in the source.
+//! CSS color parsing, conversions and contrast calculations.
 
 use crate::js::{
     self, ci, math_cos, math_hypot, math_max, math_max3, math_min, math_min3, math_pow, math_round,
@@ -286,7 +282,7 @@ pub fn parse_gradient_colors(bg_image: Option<&str>) -> Vec<Rgba> {
         }
     }
     for m in HEX_IN_GRADIENT.captures_iter(bg) {
-        // Nested hex inside color-mix is an ingredient, not a stop (issue #578).
+        // Nested hex inside color-mix is an ingredient, not a stop (issue pbakaus/impeccable#578).
         let idx = m.get(0).unwrap().start();
         if token_spans.iter().any(|&(s, e)| idx >= s && idx < e) {
             continue;
@@ -324,7 +320,7 @@ pub fn has_chroma(c: Option<&Rgba>, threshold: Option<f64>) -> bool {
 /// could have. The raw spread cannot say the same thing, because it shrinks
 /// towards white and towards black — `#e8edf2` spreads 10 of 255 and is a
 /// quarter of the way to fully saturated at its lightness, which is why it
-/// reads as a cool off-white and not as gray (REN-404).
+/// reads as a cool off-white and not as gray (upstream REN-404).
 pub fn lightness_saturation(c: &Rgba) -> (f64, f64) {
     let max = math_max3(c.r, c.g, c.b) / 255.0;
     let min = math_min3(c.r, c.g, c.b) / 255.0;

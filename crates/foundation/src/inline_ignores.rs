@@ -1,6 +1,4 @@
-//! Port of `cli/engine/shared/inline-ignores.mjs`: eslint-disable-style
-//! waivers that live in the scanned file (`impeccino-disable`,
-//! `impeccino-disable-line`, `impeccino-disable-next-line`).
+//! Inline rule suppression with eslint-style directives.
 
 use crate::js::{self, ci, WS};
 use once_cell::sync::Lazy;

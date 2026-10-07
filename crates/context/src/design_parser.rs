@@ -1,5 +1,4 @@
-//! JS: lib/design-parser.mjs, the subset doctor's coverage check reads:
-//! frontmatter (YAML subset) and canonical H2 presence.
+//! Design document parsing for doctor coverage checks.
 
 use crate::util::js_trim;
 use once_cell::sync::Lazy;

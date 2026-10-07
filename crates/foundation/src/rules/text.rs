@@ -18,31 +18,24 @@ macro_rules! re {
 
 // ─── Shared constants (selectors, tag sets, regexes) ────────────────────────
 
-/// JS: checks.mjs#HEADING_TAGS.
 pub const HEADING_TAGS: &[&str] = &["h1", "h2", "h3", "h4", "h5", "h6"];
 
-/// JS: checks.mjs#KICKER_SKIP_SELECTOR.
 pub const KICKER_SKIP_SELECTOR: &str = "nav,form,table,thead,tbody,tfoot,figure,figcaption,ol,ul,li,[role=\"navigation\"],[aria-label*=\"breadcrumb\" i],[class*=\"breadcrumb\" i],[aria-hidden=\"true\"],[data-impeccino-allow-kickers]";
 
-/// JS: checks.mjs#KICKER_CARD_CONTEXT_SELECTOR.
 pub const KICKER_CARD_CONTEXT_SELECTOR: &str =
     "article,button,a,li,[role=\"listitem\"],[role=\"option\"]";
 
-/// JS: checks.mjs#NUMBERED_LABEL_TAGS.
 pub const NUMBERED_LABEL_TAGS: &[&str] = &["span", "p", "div", "small", "em", "strong", "b"];
 
-/// JS: checks.mjs#REPEATED_TEXT_SKIP_SELECTOR.
 pub const REPEATED_TEXT_SKIP_SELECTOR: &str = "table,select,datalist,nav,menu,[role=\"navigation\"],[role=\"menu\"],[role=\"menubar\"],[role=\"listbox\"],[role=\"grid\"],[role=\"tablist\"],[role=\"radiogroup\"],[aria-hidden=\"true\"]";
 
-/// JS: checks.mjs#REPEATED_TEXT_CONTAINER_TAGS.
 pub const REPEATED_TEXT_CONTAINER_TAGS: &[&str] = &[
     "div", "section", "article", "aside", "main", "figure", "form", "fieldset", "details", "li",
 ];
 
-/// JS: checks.mjs#QUALITY_TEXT_TAGS.
 pub const QUALITY_TEXT_TAGS: &[&str] = &["p", "li", "td", "th", "dd", "blockquote", "figcaption"];
 
-/// JS: checks.mjs#TEXT_EDGE_TAGS (upper-case tag names, as the JS set).
+/// `TEXT_EDGE_TAGS`: (upper-case tag names, as the JS set).
 pub const TEXT_EDGE_TAGS: &[&str] = &[
     "A",
     "BUTTON",
@@ -64,37 +57,30 @@ pub const TEXT_EDGE_TAGS: &[&str] = &[
     "TH",
 ];
 
-/// JS: checks.mjs#SR_ONLY_SELECTOR.
 pub const SR_ONLY_SELECTOR: &str = ".sr-only, .visually-hidden, .visuallyhidden, .screen-reader, .screen-reader-only, .screenreader, .a11y-hidden, .hidden-visually, [class*=\"sr-only\" i], [class*=\"visually-hidden\" i], [class*=\"visuallyhidden\" i], [class*=\"screen-reader\" i], [class*=\"screenreader\" i]";
 
-/// JS: checks.mjs#NON_RENDERED_TAGS.
 pub const NON_RENDERED_TAGS: &[&str] = &[
     "script", "style", "title", "noscript", "template", "head", "meta", "link", "base", "param",
     "source", "track", "datalist", "col", "colgroup", "map", "area",
 ];
 
-/// JS: checks.mjs#TEXT_OVERFLOW_SKIP_TAGS.
 pub const TEXT_OVERFLOW_SKIP_TAGS: &[&str] = &[
     "pre", "code", "textarea", "svg", "canvas", "select", "option", "marquee",
 ];
 
-/// JS: checks.mjs#CURSOR_GLYPH_RE (`/^[_|▀-▟■▮❙❚｜]$/`).
+/// `CURSOR_GLYPH_RE`: (`/^[_|▀-▟■▮❙❚｜]$/`).
 pub static CURSOR_GLYPH_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[_|▀-▟■▮❙❚｜]$").expect("CURSOR_GLYPH_RE"));
 
-/// JS: checks.mjs#CURSOR_FIRST_VIEWPORT_PX.
 pub const CURSOR_FIRST_VIEWPORT_PX: f64 = 1200.0;
 
-/// JS: checks.mjs#HIDDEN_TEXT_EXCLUDE_TAGS.
 pub const HIDDEN_TEXT_EXCLUDE_TAGS: &[&str] = &[
     "script", "style", "noscript", "template", "title", "head", "meta", "link", "option",
     "optgroup", "select", "datalist", "dialog",
 ];
 
-/// JS: checks.mjs#OCCLUSION_TEXT_SKIP_TAGS.
 pub const OCCLUSION_TEXT_SKIP_TAGS: &[&str] = &["script", "style", "noscript", "template", "title"];
 
-/// JS: checks.mjs#POSITIONED_CHILD_INTERACTIVE_SELECTOR.
 pub const POSITIONED_CHILD_INTERACTIVE_SELECTOR: &str = "a[href],button,input,select,summary,textarea,[tabindex]:not([tabindex=\"-1\"]),[role=\"button\"],[role=\"dialog\"],[role=\"link\"],[role=\"listbox\"],[role=\"menu\"],[role=\"menuitem\"],[role=\"option\"],[role=\"tooltip\"]";
 
 // ─── Kicker above heading ───────────────────────────────────────────────────
@@ -136,7 +122,7 @@ pub struct NumberedLabel {
     pub text: String,
 }
 
-/// JS: checks.mjs#parseNumberedLabelText. A zero-padded / two-digit bare
+/// `parseNumberedLabelText`: A zero-padded / two-digit bare
 /// index, or a 1-2 digit index, a non-word separator, and a short label.
 pub fn parse_numbered_label_text(raw_text: Option<&str>) -> Option<NumberedLabel> {
     re!(WS_RE, format!("{}+", WS));
@@ -206,8 +192,6 @@ pub struct NumberedLabelCandidate {
 
 // ─── Em-dash overuse ────────────────────────────────────────────────────────
 
-/// JS: constants.mjs#EM_DASH_FLOOR.
 pub const EM_DASH_FLOOR: usize = 8;
 
-/// JS: constants.mjs#EM_DASH_CHARS_PER_DASH.
 pub const EM_DASH_CHARS_PER_DASH: usize = 500;

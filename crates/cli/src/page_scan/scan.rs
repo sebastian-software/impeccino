@@ -2,9 +2,8 @@
 //!
 //! Every page operation (capture a snapshot, answer hit tests, scroll, load
 //! an image, read a pixel, take a screenshot) is a request sent through
-//! [`PageIo`]. The decisions all stay here and in `impeccino_core`: this is
-//! the former URL engine's scan (`crates/browser`, docs/adr/0011) with the
-//! Chrome DevTools connection replaced by agent-browser (docs/adr/0016).
+//! [`PageIo`]. Decisions stay here and in `impeccino_core`; agent-browser
+//! supplies browser measurements (docs/adr/0016).
 
 use impeccino_core::browser::driver::{collect_browser_findings, generate_selector};
 use impeccino_core::browser::page_checks::measure_hidden_text_dom;

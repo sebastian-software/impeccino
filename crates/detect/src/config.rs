@@ -37,7 +37,6 @@ impl DetectionConfig {
 re!(EDGE_QUOTE_RE, r#"^["']|["']$"#);
 re!(WS_RUN_RE, format!("{WS}+"));
 
-/// JS: impeccino-config.mjs#normalizeIgnoreValue
 pub fn normalize_ignore_value(value: &str) -> String {
     let t = js::trim(value);
     let t = EDGE_QUOTE_RE.replace_all(t, "");
@@ -96,7 +95,6 @@ const DIRECT_VALUE_RULES: &[&str] = &[
     "design-system-font-size",
 ];
 
-/// JS: impeccino-config.mjs#extractFindingIgnoreValue
 pub fn extract_finding_ignore_value(finding: &Finding) -> String {
     let rule = normalize_ignore_rule(&finding.antipattern);
     if !DIRECT_VALUE_RULES.contains(&rule.as_str()) {

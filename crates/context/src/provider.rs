@@ -1,22 +1,8 @@
 //! Provider identity and skill-directory resolution for the binary.
 //!
-//! The JS scripts learn their provider at build time (`lib/provider.mjs`,
-//! rewritten per harness) and find `../reference/` and `../SKILL.md` relative
-//! to their own file. One binary serves every harness, so both are resolved
-//! at run time:
-//!
-//! - **Skill dir**: `IMPECCINO_SKILL_DIR` when set; otherwise walk up from the
-//!   executable's path (the binary ships at `<skill>/scripts/bin/<target>/` or
-//!   is launched via `<skill>/scripts/impeccino`) until a directory holding
-//!   `reference/ios.md` is found. `None` when neither works (source checkouts
-//!   running `target/debug/impeccino` need the env var).
-//! - **Provider id**: `IMPECCINO_PROVIDER_ID` when set; otherwise derived from
-//!   the skill dir's harness folder (`<root>/.codex/skills/impeccino` ->
-//!   `codex`); otherwise `source`, exactly what the JS reads in a source
-//!   checkout. The command prefix is `$` for `codex`, `/` for everything else.
-//! - **Self command**: the text a directive prints where the JS printed
-//!   `node <scripts>/<script>.mjs`. `IMPECCINO_SELF` when set (the launcher
-//!   exports it), else the executable path. Printed as `<self> <verb>`.
+//! One binary serves every harness. Skill paths and provider identity are
+//! resolved at runtime from launcher overrides or the executable location.
+//! `IMPECCINO_SELF` selects the launcher printed in generated directives.
 
 use crate::jsp;
 use crate::util::Env;

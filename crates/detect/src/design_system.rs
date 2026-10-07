@@ -166,7 +166,6 @@ pub struct DesignMdPath {
     pub context_dir: String,
 }
 
-/// JS: design-system.mjs#resolveDesignMdPath
 pub fn resolve_design_md_path(cwd: &str) -> Option<DesignMdPath> {
     if let Some(root) = first_existing(cwd, &DESIGN_NAMES) {
         return Some(DesignMdPath {
@@ -206,7 +205,7 @@ re!(CRLF_RE, "\r?\n");
 re!(COMMENT_LINE_RE, format!("^{WS}*#"));
 re!(LEADING_WS_RE, format!("^{WS}*"));
 
-/// JS: design-system.mjs#parseFrontmatter. `None` when there is no
+/// `parseFrontmatter`: `None` when there is no
 /// `---` block; otherwise the parsed object (possibly empty).
 /// Class selectors the design document names as its own, in the order it
 /// names them.
@@ -215,14 +214,14 @@ re!(LEADING_WS_RE, format!("^{WS}*"));
 /// the `.eyebrow` class" — and that is the repository declaring a pattern by
 /// name. A rule that fires on one of those is reviewing the design system
 /// rather than the change, so the browser rules read this list and stand
-/// down (REN-406). Only a plain class selector counts: a backticked file
+/// down (upstream REN-406). Only a plain class selector counts: a backticked file
 /// name, property or hex is not a component.
 ///
 /// Not every class a document names is a class it sanctions. A document also
 /// writes down what it does *not* want — "Avoid `.eyebrow`", "`.card-old` is
 /// deprecated", a "Don't" section of counter-examples — and exempting those
 /// would silence exactly the misuse the document was written to forbid
-/// (REN-406 follow-up). So each occurrence is read in the document's own
+/// (upstream REN-406 follow-up). So each occurrence is read in the document's own
 /// structure: the heading chain above it, and the clause it sits in. A class
 /// condemned anywhere in the document is declared nowhere — a document that
 /// says "deprecated" about a class has said enough.
@@ -347,7 +346,7 @@ pub fn parse_frontmatter(md: &str) -> Option<Map<String, Value>> {
     Some(parse_yaml_subset(&lines[1..end].join("\n")))
 }
 
-/// JS: design-system.mjs#parseYamlSubset (nested maps and scalars only).
+/// `parseYamlSubset`: (nested maps and scalars only).
 pub fn parse_yaml_subset(yaml: &str) -> Map<String, Value> {
     // Build a tree of paths, then materialize: JS mutates nested objects by
     // reference; here we track the key path of each open mapping.
@@ -422,7 +421,6 @@ fn find_top_level_colon(s: &str) -> Option<usize> {
     None
 }
 
-/// JS: design-system.mjs#unquoteYamlKey
 pub fn unquote_yaml_key(key: &str) -> &str {
     if (key.starts_with('"') && key.ends_with('"'))
         || (key.starts_with('\'') && key.ends_with('\''))
@@ -576,7 +574,6 @@ fn is_literal_font_stack(stack: &str) -> bool {
     !NON_LITERAL_STACK_RE.is_match(stack)
 }
 
-/// JS: design-system.mjs#primaryFont
 pub fn primary_font(stack: &str) -> String {
     if stack.is_empty() || VAR_RE.is_match(stack) || !is_literal_font_stack(stack) {
         return String::new();
@@ -584,7 +581,6 @@ pub fn primary_font(stack: &str) -> String {
     impeccino_core::design_system::computed_primary_font(stack)
 }
 
-/// JS: design-system.mjs#cssColorLabel
 pub fn css_color_label(raw: &str) -> String {
     impeccino_core::design_system::css_color_label(raw)
 }
@@ -603,7 +599,6 @@ fn colors_close(a: &Rgba, b: &Rgba) -> bool {
     impeccino_core::design_system::colors_close(a, b)
 }
 
-/// JS: design-system.mjs#parseDesignColor
 pub fn parse_design_color(value: &str) -> Option<Rgba> {
     impeccino_core::design_system::parse_design_color(value)
 }
@@ -632,7 +627,7 @@ pub struct AllowedFontSize {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DesignSystem {
     pub present: bool,
-    /// Class selectors the document names as its own (REN-406). Filled where
+    /// Class selectors the document names as its own (upstream REN-406). Filled where
     /// the markdown itself is at hand; the allowlists come from frontmatter
     /// and sidecar, this comes from the prose.
     pub declared_selectors: Vec<String>,
@@ -931,7 +926,6 @@ fn add_sidecar_shadows(out: &mut DesignSystem, sidecar: Option<&Value>) {
     }
 }
 
-/// JS: design-system.mjs#normalizeDesignSystem
 pub fn normalize_design_system(
     frontmatter: Option<&Map<String, Value>>,
     sidecar: Option<&Value>,
@@ -969,7 +963,6 @@ fn mtime_ms(p: &str) -> Option<f64> {
     Some(d.as_secs_f64() * 1000.0)
 }
 
-/// JS: design-system.mjs#loadDesignSystemForCwd
 pub fn load_design_system_for_cwd(cwd: &str) -> Option<DesignSystem> {
     let md = resolve_design_md_path(cwd)?;
     let md_stat = mtime_ms(&md.path);
@@ -1022,7 +1015,7 @@ pub struct DesignRoot {
     pub has_design: bool,
 }
 
-/// JS: design-system.mjs#homeDirForms — both forms of the home directory. The
+/// `homeDirForms`: both forms of the home directory. The
 /// walk compares path strings, and a symlinked home (e.g. /home -> /var/home)
 /// never string-matches the physical paths a cwd-resolved target produces,
 /// which would let the post-boundary walk sail through $HOME and inherit
@@ -1043,7 +1036,7 @@ fn home_dir_forms(cwd: &str, home: &str) -> Vec<String> {
     forms
 }
 
-/// JS: design-system.mjs#findDesignRoot. `home` is `os.homedir()`.
+/// `findDesignRoot`: `home` is `os.homedir()`.
 ///
 /// A directory carrying a project marker but no DESIGN.md is a project
 /// BOUNDARY. A nested package.json inherits the ancestor DESIGN.md only when
@@ -1052,7 +1045,7 @@ fn home_dir_forms(cwd: &str, home: &str) -> Vec<String> {
 /// roots (turbo/nx/lerna/pnpm with no globs) still own apps/<name> and
 /// packages/<name>. A stray nested package that matches no glob does not
 /// inherit, and a nested separate repository (.git with no workspace
-/// declaration) still inherits nothing (issue #570).
+/// declaration) still inherits nothing (issue pbakaus/impeccable#570).
 pub fn find_design_root(start_dir: &str, cwd: &str, home: &str) -> Option<DesignRoot> {
     let mut dir = jsp::resolve(cwd, &[start_dir]);
     let home_dirs = home_dir_forms(cwd, home);
@@ -1109,7 +1102,6 @@ pub fn find_design_root(start_dir: &str, cwd: &str, home: &str) -> Option<Design
 /// Memo for `load_design_system_for_target`, keyed by design root.
 pub type DesignSystemCache = HashMap<String, Option<Rc<DesignSystem>>>;
 
-/// JS: design-system.mjs#loadDesignSystemForTarget
 pub fn load_design_system_for_target(
     target_path: &str,
     cache: Option<&mut DesignSystemCache>,
@@ -1139,7 +1131,6 @@ pub fn load_design_system_for_target(
 
 // ─── Allowlist predicates ────────────────────────────────────────────────────
 
-/// JS: design-system.mjs#isAllowedFont
 pub fn is_allowed_font(font: &str, ds: Option<&DesignSystem>) -> bool {
     if font.is_empty() || is_generic_font(font) {
         return true;
@@ -1150,7 +1141,6 @@ pub fn is_allowed_font(font: &str, ds: Option<&DesignSystem>) -> bool {
     }
 }
 
-/// JS: design-system.mjs#isAllowedColorRaw
 pub fn is_allowed_color_raw(raw: &str, ds: Option<&DesignSystem>) -> bool {
     let Some(ds) = ds.filter(|d| d.has_colors) else {
         return true;
@@ -1162,7 +1152,6 @@ pub fn is_allowed_color_raw(raw: &str, ds: Option<&DesignSystem>) -> bool {
     )
 }
 
-/// JS: design-system.mjs#isAllowedShadowColorRaw
 pub fn is_allowed_shadow_color_raw(raw: &str, ds: Option<&DesignSystem>) -> bool {
     let Some(ds) = ds.filter(|d| !d.allowed_shadow_colors.is_empty()) else {
         return false;
@@ -1176,7 +1165,6 @@ pub fn is_allowed_shadow_color_raw(raw: &str, ds: Option<&DesignSystem>) -> bool
     })
 }
 
-/// JS: design-system.mjs#isAllowedRadiusRaw
 pub fn is_allowed_radius_raw(raw: &str, ds: Option<&DesignSystem>) -> bool {
     let Some(ds) = ds.filter(|d| d.has_radii) else {
         return true;
@@ -1218,7 +1206,7 @@ fn font_size_step_status(raw: &str, ds: &DesignSystem) -> StepStatus {
     }
 }
 
-/// JS: design-system.mjs#offRampClampEndpoints. `None` when `raw` is not a
+/// `offRampClampEndpoints`: `None` when `raw` is not a
 /// fluid value (or the system has no ramp).
 pub fn off_ramp_clamp_endpoints(raw: &str, ds: Option<&DesignSystem>) -> Option<Vec<String>> {
     let ds = ds.filter(|d| d.has_font_sizes)?;
@@ -1232,7 +1220,6 @@ pub fn off_ramp_clamp_endpoints(raw: &str, ds: Option<&DesignSystem>) -> Option<
     )
 }
 
-/// JS: design-system.mjs#isAllowedFontSizeRaw
 pub fn is_allowed_font_size_raw(raw: &str, ds: Option<&DesignSystem>) -> bool {
     let Some(ds) = ds.filter(|d| d.has_font_sizes) else {
         return true;
@@ -1432,7 +1419,6 @@ fn check_font_stack(
     )]
 }
 
-/// JS: design-system.mjs#extractRadiusTokens
 pub fn extract_radius_tokens(value: &str) -> Vec<String> {
     impeccino_core::design_system::radius_tokens(value)
 }
@@ -1495,7 +1481,6 @@ fn check_font_size_value(
     )]
 }
 
-/// JS: design-system.mjs#checkSourceDesignSystem
 pub fn check_source_design_system(
     content: &str,
     file_path: &str,
@@ -1619,7 +1604,6 @@ pub fn check_source_design_system(
     dedupe_design_findings(findings)
 }
 
-/// JS: design-system.mjs#isTransparentCss
 pub fn is_transparent_css(value: &str) -> bool {
     impeccino_core::design_system::is_transparent_css(value)
 }
@@ -1694,7 +1678,6 @@ fn canonical_design_finding_key(item: &Finding) -> Option<String> {
     }
 }
 
-/// JS: design-system.mjs#mergeDesignSystemFindings
 pub fn merge_design_system_findings(groups: Vec<Vec<Finding>>) -> Vec<Finding> {
     let mut out: Vec<Finding> = Vec::new();
     let mut seen: Vec<(String, usize)> = Vec::new();
@@ -1754,7 +1737,7 @@ fn finding_ignore_or_value_only(item: &Finding) -> String {
 mod tests {
     use super::*;
 
-    /// REN-406: the halfday design document's one rule about caps.
+    /// upstream REN-406: the halfday design document's one rule about caps.
     #[test]
     fn declared_component_selectors_reads_the_document() {
         let md = "# Halfday design system\n\n- Plain British English, sentence case everywhere.\n  No Title Case, no ALL CAPS outside the `.eyebrow` class.\n- `styles/tokens.css` is the only file with a raw colour, `--ink-900` or `#0f172a`.\n- **Button.** Four kinds and no more: `.btn-primary`, `.btn-secondary`,\n  `.btn-ghost`, `.btn-danger`. And `.btn-primary` again.\n";
@@ -1839,7 +1822,7 @@ mod tests {
         );
     }
 
-    // ── #570 monorepo DESIGN.md inheritance ─────────────────────────────────
+    // ── pbakaus/impeccable#570 monorepo DESIGN.md inheritance ─────────────────────────────────
     // Mirrors tests/detect-cli-design-monorepo.test.mjs (public repo main,
     // 47e41195 + 5d7c1cce + e975bec4 + 91f2c7b4) at the findDesignRoot level.
 
@@ -2159,7 +2142,7 @@ mod tests {
         );
     }
 
-    // upstream 1bcdf80f / #687: var() radius fallbacks leave the closing
+    // upstream 1bcdf80f / pbakaus/impeccable#687: var() radius fallbacks leave the closing
     // paren on the final token; strip it so `8px)` is not read as unitless.
     #[test]
     fn var_radius_fallback_strips_closing_paren() {

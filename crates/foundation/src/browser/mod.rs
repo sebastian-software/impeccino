@@ -93,7 +93,7 @@ pub struct BrowserConfig {
     pub design_system: Option<DesignSystemConfig>,
 }
 
-/// JS: checks.mjs#measureHiddenTextDOM() result.
+/// `measureHiddenTextDOM`: result.
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HiddenTextMeasure {

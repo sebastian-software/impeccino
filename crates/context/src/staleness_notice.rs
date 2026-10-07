@@ -1,4 +1,4 @@
-//! JS: lib/staleness-notice.mjs
+//! Freshness filtering and staleness directives.
 
 use crate::jsp;
 use crate::staleness::Finding;

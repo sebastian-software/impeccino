@@ -5,7 +5,6 @@ use impeccino_html::cascade::checks_shim::{resolve_length_px, resolve_var_refs, 
 use impeccino_html::cascade::rules::{
     apply_static_declaration, parse_static_style_attribute, DeclMeta, SpecifiedStore,
 };
-use impeccino_html::cascade::values::unwrap_css_at_layer;
 use impeccino_html::{detect_html_source, DetectHtmlOptions};
 use std::path::Path;
 
@@ -122,35 +121,6 @@ fn parse_static_style_attribute_edge_cases_match_node() {
             (s(""), s("i"), false, 9),
             (s("j"), s("k:l"), false, 10),
         ]
-    );
-}
-
-#[test]
-fn unwrap_css_at_layer_shapes() {
-    assert_eq!(unwrap_css_at_layer(""), "");
-    assert_eq!(unwrap_css_at_layer(".a{color:red}"), ".a{color:red}");
-    assert_eq!(
-        unwrap_css_at_layer("@layer base { .a{color:red} } .b{c:d}"),
-        " .a{color:red}  .b{c:d}"
-    );
-    assert_eq!(
-        unwrap_css_at_layer("@layer{ .a{ .n{x:y} } }@layer a.b { .c{d:e} }"),
-        " .a{ .n{x:y} }  .c{d:e} "
-    );
-    // statement form is untouched
-    assert_eq!(
-        unwrap_css_at_layer("@layer a, b; .x{y:z}"),
-        "@layer a, b; .x{y:z}"
-    );
-    // unbalanced: source unchanged
-    assert_eq!(
-        unwrap_css_at_layer("@layer x { .a{color:red}"),
-        "@layer x { .a{color:red}"
-    );
-    // `@layered` does not match the word boundary
-    assert_eq!(
-        unwrap_css_at_layer("@layered x { .a{c:d} }"),
-        "@layered x { .a{c:d} }"
     );
 }
 

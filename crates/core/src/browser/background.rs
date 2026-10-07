@@ -44,14 +44,13 @@ fn parse_rgb_or_any(value: &str) -> Option<Rgba> {
     parse_rgb(Some(value)).or_else(|| parse_any_color(Some(value)))
 }
 
-/// JS: checks.mjs#readOwnBackgroundColor(el, computedStyle) — in the browser
+/// `readOwnBackgroundColor`: in the browser
 /// `DETECTOR_IS_BROWSER` short-circuits before the inline-shorthand peek, so
 /// this is the computed-style parse alone.
 pub fn read_own_background_color(dom: &dyn Dom, el: ElId) -> Option<Rgba> {
     parse_rgb_or_any(&dom.style(el, "backgroundColor"))
 }
 
-/// JS: checks.mjs#readCascadeBackgroundColor(current, style, customPropMap)
 /// — browser branch: computed style only.
 fn read_cascade_background_color(dom: &dyn Dom, el: ElId) -> Option<Rgba> {
     parse_rgb_or_any(&dom.style(el, "backgroundColor"))
@@ -66,7 +65,7 @@ fn alpha_gt(bg: &Rgba, t: f64) -> bool {
     }
 }
 
-/// JS: checks.mjs#resolveBackgroundInfo(el, win, customPropMap) in browser mode.
+/// `resolveBackgroundInfo`: in browser mode.
 pub fn resolve_background_info(dom: &dyn Dom, el: ElId) -> BackgroundInfo {
     let mut current = Some(el);
     let mut overlays: Vec<Rgba> = Vec::new();
@@ -157,12 +156,10 @@ pub fn resolve_background_info(dom: &dyn Dom, el: ElId) -> BackgroundInfo {
     }
 }
 
-/// JS: checks.mjs#resolveBackground(el, win, customPropMap)
 pub fn resolve_background(dom: &dyn Dom, el: ElId) -> Option<Rgba> {
     resolve_background_info(dom, el).color
 }
 
-/// JS: checks.mjs#compositeGradientStops(stops, gradientEl, win, customPropMap)
 fn composite_gradient_stops(
     dom: &dyn Dom,
     stops: Vec<Rgba>,
@@ -192,7 +189,7 @@ fn composite_gradient_stops(
     }
 }
 
-/// JS: checks.mjs#resolveGradientStops(el, win, customPropMap) in browser mode.
+/// `resolveGradientStops`: in browser mode.
 pub fn resolve_gradient_stops(dom: &dyn Dom, el: ElId) -> Option<Vec<Rgba>> {
     let mut current = Some(el);
     let mut overlays: Vec<Rgba> = Vec::new();

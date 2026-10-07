@@ -1,4 +1,4 @@
-//! Port of `cli/engine/shared/fonts.mjs`.
+//! Font family parsing and primary font classification.
 
 use crate::js::{self, ci, WS_CHARS};
 use once_cell::sync::Lazy;

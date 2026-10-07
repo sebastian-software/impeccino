@@ -16,8 +16,7 @@
 //!   is a parse error, exactly where css-select throws, so the callers skip
 //!   the rule the same way `try { selectAll } catch {}` does in JS.
 //!
-//! Selector parse errors are recorded by the callers (see
-//! `StaticDocument::unsupported_selectors`) for the parity report.
+//! Selector parse errors are cached and unsupported rules are skipped.
 
 use cssparser::{match_ignore_ascii_case, CowRcStr, Parser as CssParser, SourceLocation, ToCss};
 use ego_tree::NodeRef;

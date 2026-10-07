@@ -1,5 +1,4 @@
-//! Port of the `REGEX_MATCHERS` line matchers and `REGEX_ANALYZERS` page
-//! analyzers from `cli/engine/engines/regex/detect-text.mjs`.
+//! Source line matchers and page-wide text analyzers.
 
 use impeccino_core::checks::css_scan::{
     scan_css_text_for_glow, scan_css_text_for_marquee, scan_css_text_for_radial_halo,
@@ -49,7 +48,6 @@ impl MatchCtx {
 /// tracks string, template-literal, paren and brace depth and reports every
 /// other character to `on_char`, which returns `true` to stop the walk.
 ///
-/// JS: detect-text.mjs#scanJs
 struct ScanDepth {
     paren: i32,
     brace: i32,
@@ -144,7 +142,7 @@ where
     }
 }
 
-/// JS: detect-text.mjs#containingMarkupTag (only its `text` is read).
+/// `containingMarkupTag`: (only its `text` is read).
 fn containing_markup_tag(line: &str) -> impl Fn(usize) -> String + '_ {
     move |index: usize| {
         let mut i = 0usize;
@@ -187,7 +185,6 @@ struct TernarySplit {
     suffix: String,
 }
 
-/// JS: detect-text.mjs#findTernarySplit
 fn find_ternary_split(text: &str) -> Option<TernarySplit> {
     let mut q_pos: Option<usize> = None;
     let mut q_paren = 0i32;
@@ -253,7 +250,6 @@ fn find_ternary_split(text: &str) -> Option<TernarySplit> {
     split
 }
 
-/// JS: detect-text.mjs#exclusiveClassScopes
 fn exclusive_class_scopes(text: &str) -> Vec<String> {
     let Some(split) = find_ternary_split(text) else {
         return vec![text.to_string()];
@@ -268,9 +264,9 @@ fn exclusive_class_scopes(text: &str) -> Vec<String> {
     out
 }
 
-/// JS: detect-text.mjs#grayOnColorPairs. A gray text class only pairs with a
+/// `grayOnColorPairs`: A gray text class only pairs with a
 /// chromatic background inside the same markup tag and the same ternary arm
-/// (#707).
+/// (pbakaus/impeccable#707).
 fn gray_on_color_pairs(line: &str, gray_class: &str, index: usize) -> Vec<String> {
     exclusive_class_scopes(&containing_markup_tag(line)(index))
         .into_iter()
@@ -399,7 +395,6 @@ fn spread3(v: [f64; 3]) -> f64 {
     js::math_max3(v[0], v[1], v[2]) - js::math_min3(v[0], v[1], v[2])
 }
 
-/// JS: detect-text.mjs#isNeutralAuthoredColor
 pub fn is_neutral_authored_color(raw_color: &str) -> bool {
     let c = js::to_lower_case(js::trim(raw_color));
     if c.is_empty() {
@@ -1016,7 +1011,6 @@ re!(HTML_COMMENT_RE, format!("<!--{ANY}*?-->"));
 re!(TAG_RE, "<[^>]+>");
 re!(WS_RUN_RE, format!("{WS}+"));
 
-/// JS: detect-text.mjs#stripHtmlToText
 pub fn strip_html_to_text(html: &str) -> String {
     let s = SCRIPT_BLOCK_RE.replace_all(html, " ");
     let s = STYLE_BLOCK_RE.replace_all(&s, " ");
@@ -1406,7 +1400,7 @@ mod tests {
         out
     }
 
-    /// Cases recorded from origin/main's JS after #707; every expectation
+    /// Cases recorded from origin/main's JS after pbakaus/impeccable#707; every expectation
     /// here was produced by running `impeccino detect` on both engines.
     #[test]
     fn gray_on_color_scoping() {

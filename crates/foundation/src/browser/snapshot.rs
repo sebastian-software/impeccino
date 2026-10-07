@@ -370,7 +370,7 @@ pub struct Snapshot {
     #[serde(default)]
     pub keyframes: SnapshotKeyframes,
     /// `__snapLinkedStylesheetText()`: the readable linked-stylesheet corpus
-    /// (#709). Absent in captures older than that change.
+    /// (pbakaus/impeccable#709). Absent in captures older than that change.
     #[serde(rename = "linkedCss", default)]
     pub linked_css: String,
     /// The property columns of `SnapNode::style` (normally `STYLE_PROPS`;

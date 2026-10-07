@@ -1,4 +1,4 @@
-//! JS: context.mjs (resolution + loadContext). The CLI lives in context_cli.rs.
+//! Project context discovery, target resolution and document loading.
 
 use crate::jsp;
 use crate::surface_briefs::resolve_surface_brief;
@@ -267,7 +267,7 @@ pub fn resolve_target_selection(
 pub fn resolve_project(cwd: &str, options: &TargetOptions, env: &Env) -> Project {
     let abs_cwd = jsp::resolve(cwd, &[]);
     let target_dir = resolve_target_dir(&abs_cwd, options);
-    // #710: an explicit target inside its own git repository resolves against
+    // pbakaus/impeccable#710: an explicit target inside its own git repository resolves against
     // that repository, so caller context never leaks across the boundary.
     let has_explicit_target = has_target_option(options) && target_dir != abs_cwd;
     let target_git_root = if has_explicit_target {
@@ -330,7 +330,6 @@ pub fn resolve_project(cwd: &str, options: &TargetOptions, env: &Env) -> Project
     }
 }
 
-/// JS: context.mjs#findGitBoundaryRoot
 pub fn find_git_boundary_root(start_dir: &str, env: &Env) -> Option<String> {
     let mut dir = jsp::resolve(start_dir, &[]);
     let home = jsp::resolve(&homedir(env), &[]);
@@ -349,7 +348,6 @@ pub fn find_git_boundary_root(start_dir: &str, env: &Env) -> Option<String> {
     }
 }
 
-/// JS: context.mjs#hasGitBoundary
 pub fn has_git_boundary(dir: &str) -> bool {
     shared_has_git_boundary(dir)
 }
@@ -390,9 +388,9 @@ fn resolve_env_context_dir(cwd: &str, env: &Env) -> Option<String> {
     })
 }
 
-/// JS: context.mjs#resolveTargetPath. A bare workspace name (or a
+/// `resolveTargetPath`: A bare workspace name (or a
 /// single-segment path a caller already absolutized against cwd) that does
-/// not exist resolves to the one workspace candidate with that name (#706).
+/// not exist resolves to the one workspace candidate with that name (pbakaus/impeccable#706).
 pub fn resolve_target_path(cwd: &str, target_path: &str, env: &Env) -> String {
     let abs = if jsp::is_absolute(target_path) {
         target_path.to_string()
@@ -405,7 +403,6 @@ pub fn resolve_target_path(cwd: &str, target_path: &str, env: &Env) -> String {
     find_unique_bare_target(cwd, target_path, env).unwrap_or(abs)
 }
 
-/// JS: context.mjs#findUniqueBareTarget
 fn find_unique_bare_target(cwd: &str, target_path: &str, env: &Env) -> Option<String> {
     let abs_cwd = jsp::resolve(cwd, &[]);
     let abs = if jsp::is_absolute(target_path) {

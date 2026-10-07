@@ -1,9 +1,4 @@
-//! Static element adapters from `checks.mjs` Section 5 (`checkElement*`) and
-//! their DOM helpers (`scopedIgnoreActive`, `isTabContextElement`,
-//! `isStatusContextElement`, `cleanInlineText`, kicker / numbered-label
-//! candidate collection, radial spotlight, clipped overflow). Every pure
-//! check comes from `impeccino_core::checks`; this file only reads the DOM
-//! and the computed style and hands plain data over.
+//! Static DOM adapters for shared element predicates.
 
 use crate::background::{
     a_ge, a_gt, read_own_background_color, resolve_background, resolve_background_info,
@@ -61,7 +56,6 @@ static WS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!("{}+", js::WS)).exp
 static IGNORE_SPLIT_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(&format!("[{},]+", js::WS_CHARS)).expect("IGNORE_SPLIT_RE"));
 
-/// JS: checks.mjs#scopedIgnoreActive(el, ruleId)
 pub fn scoped_ignore_active(el: &StaticElement<'_>, rule_id: &str) -> bool {
     let rule = js::to_lower_case(rule_id);
     let mut cur = Some(*el);
@@ -81,7 +75,6 @@ pub fn scoped_ignore_active(el: &StaticElement<'_>, rule_id: &str) -> bool {
     false
 }
 
-/// JS: checks.mjs#isTabContextElement(el)
 pub fn is_tab_context_element(el: &StaticElement<'_>) -> bool {
     if el.closest(TAB_CONTEXT_SELECTOR).is_some() {
         return true;
@@ -101,12 +94,11 @@ pub fn is_tab_context_element(el: &StaticElement<'_>) -> bool {
     false
 }
 
-/// JS: checks.mjs#isStatusContextElement(el)
 pub fn is_status_context_element(el: &StaticElement<'_>) -> bool {
     el.closest(STATUS_CONTEXT_SELECTOR).is_some()
 }
 
-/// JS: checks.mjs#cleanInlineText(el): direct text nodes joined with a
+/// `cleanInlineText`: direct text nodes joined with a
 /// space, whitespace collapsed, trimmed.
 pub fn clean_inline_text(el: &StaticElement<'_>) -> String {
     let parts: Vec<&str> = el
@@ -125,7 +117,6 @@ fn collapsed_text_content(el: &StaticElement<'_>) -> String {
     impeccino_core::js_ext_b::collapsed_text_content(&el.text_content())
 }
 
-/// JS: checks.mjs#isKickerCardContext(heading, kicker)
 fn is_kicker_card_context(heading: &StaticElement<'_>, kicker: &StaticElement<'_>) -> bool {
     match heading.closest(KICKER_CARD_CONTEXT_SELECTOR) {
         Some(item) => item.contains(kicker),
@@ -136,7 +127,6 @@ fn is_kicker_card_context(heading: &StaticElement<'_>, kicker: &StaticElement<'_
 static HEADING_LEVEL_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^h([1-6])$").expect("HEADING_LEVEL_RE"));
 
-/// JS: checks.mjs#kickerHeadingLevel(heading)
 fn kicker_heading_level(heading: &StaticElement<'_>) -> f64 {
     let tag = heading.tag_lower();
     if let Some(m) = HEADING_LEVEL_RE.captures(&tag) {
@@ -179,7 +169,6 @@ fn strip_edge_quotes_slice(text: &str, n: usize) -> String {
     )
 }
 
-/// JS: checks.mjs#collectKickerCandidates(doc, getStyle, resolveLetterSpacing)
 pub fn collect_kicker_candidates(doc: &StaticDocument) -> Vec<KickerCandidate> {
     let mut candidates = Vec::new();
     for heading in doc.query_selector_all("h1, h2, h3, h4, [role=\"heading\"]") {
@@ -251,12 +240,10 @@ pub fn collect_kicker_candidates(doc: &StaticDocument) -> Vec<KickerCandidate> {
     candidates
 }
 
-/// JS: checks.mjs#checkKickerAboveHeadingFromDoc(doc, win)
 pub fn check_kicker_above_heading_from_doc(doc: &StaticDocument) -> Vec<RuleHit> {
     check_kicker_above_heading(&collect_kicker_candidates(doc))
 }
 
-/// JS: checks.mjs#collectNumberedSectionLabelCandidates(doc, getStyle, resolveLetterSpacing)
 pub fn collect_numbered_section_label_candidates(
     doc: &StaticDocument,
 ) -> Vec<NumberedLabelCandidate> {
@@ -336,7 +323,6 @@ pub fn collect_numbered_section_label_candidates(
     candidates
 }
 
-/// JS: checks.mjs#checkNumberedSectionLabelsFromDoc(doc, win)
 pub fn check_numbered_section_labels_from_doc(doc: &StaticDocument) -> Vec<RuleHit> {
     hits(check_numbered_section_labels(
         &collect_numbered_section_label_candidates(doc),
@@ -355,7 +341,6 @@ static INLINE_BG_IMAGE_RE: Lazy<Regex> = Lazy::new(|| {
     .expect("INLINE_BG_IMAGE_RE")
 });
 
-/// JS: checks.mjs#elementGradientValue(style, el)
 fn element_gradient_value(style: &StyleValues, el: &StaticElement<'_>) -> String {
     let bg_image = match sv_opt(style, "backgroundImage") {
         Some(v) if !v.is_empty() && v != "none" => v,
@@ -377,7 +362,6 @@ fn element_gradient_value(style: &StyleValues, el: &StaticElement<'_>) -> String
     String::new()
 }
 
-/// JS: checks.mjs#spotlightLabel(el)
 fn spotlight_label(el: &StaticElement<'_>) -> String {
     if let Some(name) = el.get_attribute("data-name") {
         if !name.is_empty() {
@@ -399,7 +383,6 @@ fn spotlight_label(el: &StaticElement<'_>) -> String {
     el.tag_lower()
 }
 
-/// JS: checks.mjs#checkElementRadialSpotlight(el, style, tag, window)
 pub fn check_element_radial_spotlight(el: &StaticElement<'_>, style: &StyleValues) -> Vec<RuleHit> {
     let gradient_value = element_gradient_value(style, el);
     if gradient_value.is_empty() {
@@ -416,7 +399,6 @@ pub fn check_element_radial_spotlight(el: &StaticElement<'_>, style: &StyleValue
 
 // ─── Element adapters ───────────────────────────────────────────────────────
 
-/// JS: checks.mjs#checkElementBorders(tag, style, overrides = null, resolvedRadius, el)
 pub fn check_element_borders(
     tag: &str,
     style: &StyleValues,
@@ -449,7 +431,6 @@ pub fn check_element_borders(
     )
 }
 
-/// JS: checks.mjs#checkElementColors(el, style, tag, window, customPropMap, hasAnchorInheritRule)
 pub fn check_element_colors(
     el: &StaticElement<'_>,
     style: &StyleValues,
@@ -593,7 +574,6 @@ pub fn check_element_colors(
     findings
 }
 
-/// JS: checks.mjs#checkElementHoverContrast(el, style, tag, window)
 pub fn check_element_hover_contrast(
     el: &StaticElement<'_>,
     style: &StyleValues,
@@ -656,7 +636,6 @@ pub fn check_element_hover_contrast(
     })
 }
 
-/// JS: checks.mjs#checkElementIconTile(el, tag, window)
 pub fn check_element_icon_tile(el: &StaticElement<'_>, tag: &str) -> Vec<RuleHit> {
     if !is_heading_tag(tag) {
         return Vec::new();
@@ -699,7 +678,6 @@ pub fn check_element_icon_tile(el: &StaticElement<'_>, tag: &str) -> Vec<RuleHit
     })
 }
 
-/// JS: checks.mjs#checkElementItalicSerif(el, style, tag)
 pub fn check_element_italic_serif(
     el: &StaticElement<'_>,
     style: &StyleValues,
@@ -747,7 +725,6 @@ pub fn check_element_italic_serif(
     Vec::new()
 }
 
-/// JS: checks.mjs#checkElementHeroEyebrow(el, style, tag, window, customPropMap)
 pub fn check_element_hero_eyebrow(
     el: &StaticElement<'_>,
     style: &StyleValues,
@@ -788,7 +765,6 @@ pub fn check_element_hero_eyebrow(
     })
 }
 
-/// JS: checks.mjs#checkElementMotion(tag, style)
 pub fn check_element_motion(tag: &str, class_list: &str, style: &StyleValues) -> Vec<RuleHit> {
     let timing: Vec<&str> = [
         sv(style, "animationTimingFunction"),
@@ -806,7 +782,6 @@ pub fn check_element_motion(tag: &str, class_list: &str, style: &StyleValues) ->
     })
 }
 
-/// JS: checks.mjs#checkElementGlow(tag, style, effectiveBg)
 pub fn check_element_glow(
     style: &StyleValues,
     effective_bg: Option<impeccino_core::color::Rgba>,
@@ -829,7 +804,6 @@ pub fn check_element_glow(
     })
 }
 
-/// JS: detect-html.mjs#checkElementBrokenImage(el)
 pub fn check_element_broken_image(el: &StaticElement<'_>) -> Vec<RuleHit> {
     let Some(src) = el.get_attribute("src") else {
         return vec![RuleHit::new(
@@ -847,7 +821,6 @@ pub fn check_element_broken_image(el: &StaticElement<'_>) -> Vec<RuleHit> {
     Vec::new()
 }
 
-/// JS: checks.mjs#checkElementOversizedH1(el, style, tag, window)
 pub fn check_element_oversized_h1(el: &StaticElement<'_>, tag: &str) -> Vec<RuleHit> {
     if tag != "h1" {
         return Vec::new();
@@ -864,7 +837,6 @@ pub fn check_element_oversized_h1(el: &StaticElement<'_>, tag: &str) -> Vec<Rule
     }))
 }
 
-/// JS: checks.mjs#checkElementGptBorderShadow(el, style)
 pub fn check_element_gpt_border_shadow(style: &StyleValues) -> Vec<RuleHit> {
     let s = StyleRef(style);
     let widths = border_widths_from_style(&s);
@@ -881,7 +853,6 @@ pub fn check_element_gpt_border_shadow(style: &StyleValues) -> Vec<RuleHit> {
 
 // ─── Clipped overflow container ─────────────────────────────────────────────
 
-/// JS: checks.mjs#classSelector(el)
 pub fn class_selector(el: &StaticElement<'_>) -> String {
     let cls = js::trim(el.class_name());
     let tokens: Vec<&str> = if cls.is_empty() {
@@ -911,7 +882,6 @@ static VIEWPORT_DEMO_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?-u:\b)(demo-area|demo-stage|demo-viewport)(?-u:\b)").expect("VIEWPORT_DEMO_RE")
 });
 
-/// JS: checks.mjs#positionedChildHasSubstantiveContent(child)
 fn positioned_child_has_substantive_content(child: &StaticElement<'_>) -> bool {
     let text = collapsed_text_content(child);
     if !text.is_empty() {
@@ -923,7 +893,6 @@ fn positioned_child_has_substantive_content(child: &StaticElement<'_>) -> bool {
         .is_some()
 }
 
-/// JS: checks.mjs#positionedChildIsDecorative(child)
 fn positioned_child_is_decorative(child: &StaticElement<'_>) -> bool {
     if child.closest("[aria-hidden=\"true\"]").is_some() {
         return true;
@@ -947,7 +916,6 @@ fn positioned_child_is_decorative(child: &StaticElement<'_>) -> bool {
     false
 }
 
-/// JS: checks.mjs#clippingContainerIsIntentionalViewport(el)
 fn clipping_container_is_intentional_viewport(el: &StaticElement<'_>) -> bool {
     let role_description =
         js::to_lower_case(el.get_attribute("aria-roledescription").unwrap_or(""));
@@ -962,7 +930,7 @@ fn clipping_container_is_intentional_viewport(el: &StaticElement<'_>) -> bool {
     VIEWPORT_IDENT_RE.is_match(&ident) || VIEWPORT_DEMO_RE.is_match(&ident)
 }
 
-/// JS: checks.mjs#checkClippedOverflow(el, style, getStyle) / checkElementClippedOverflow
+/// `checkClippedOverflow`: / checkElementClippedOverflow
 pub fn check_element_clipped_overflow(el: &StaticElement<'_>, style: &StyleValues) -> Vec<RuleHit> {
     let clips = |v: &str| v == "hidden" || v == "clip";
     let scrolls = |v: &str| v == "auto" || v == "scroll";

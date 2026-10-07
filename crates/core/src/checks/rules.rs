@@ -1,7 +1,4 @@
-//! Port of `cli/engine/rules/checks.mjs` Section 3: the pure element checks
-//! and their helpers. Every function keeps the JS name in its doc comment;
-//! opts objects become structs whose `Option` fields mirror the JS
-//! `undefined` / `null` distinctions the source relies on.
+//! Pure element rule predicates shared by static and rendered adapters.
 
 use crate::checks::measures::{cream_from_class_list, is_cream_color};
 use crate::color::{
@@ -103,7 +100,6 @@ pub fn check_cream_palette_facts(
     Vec::new()
 }
 
-/// JS: checks.mjs#checkBorders
 pub fn check_borders(
     tag: &str,
     widths: &Sides<f64>,
@@ -175,9 +171,9 @@ re!(
 );
 re!(TW_BG_CLIP_TEXT, format!(r"{B}bg-clip-text{B}"));
 
-/// JS: detect-text.mjs#TW_SOLID_CHROMATIC_BG_RE and checks.mjs#checkColors's
+/// Solid chromatic Tailwind backgrounds and the color check's
 /// `colorBgMatch`, whose `\d+(?!\/)\b` skips a `bg-blue-500/10` opacity tint
-/// (#707). The `regex` crate has no lookahead: `\d+` is already maximal before
+/// (pbakaus/impeccable#707). The `regex` crate has no lookahead: `\d+` is already maximal before
 /// the word boundary, so the only thing left to test is the byte after it.
 pub fn find_solid_chromatic_bg(s: &str) -> Option<&str> {
     let mut from = 0usize;
@@ -208,7 +204,6 @@ fn is_heading_123(tag: &str) -> bool {
     matches!(tag, "h1" | "h2" | "h3")
 }
 
-/// JS: checks.mjs#checkColors
 pub fn check_colors(opts: &ColorOpts) -> Vec<RuleHit> {
     let tag = opts.tag.as_str();
     let bg_image = opts.bg_image.as_deref().unwrap_or("");
@@ -307,7 +302,7 @@ fn contrast_findings(opts: &ColorOpts, text_color: &Rgba) -> Vec<RuleHit> {
     // surface is a colour when it has chroma of its own. The old pair of
     // tests read relative luminance as if it were lightness, which made every
     // off-white under 0.85 gray and charged an off-white nav on a teal
-    // masthead three times over (REN-404).
+    // masthead three times over (upstream REN-404).
     if is_gray_ink(text_color) && bgs.iter().all(|b| has_chroma(Some(b), Some(40.0))) {
         let bg_label = match opts.effective_bg {
             Some(bg) => color_to_hex(Some(&bg)),
@@ -405,7 +400,6 @@ pub fn check_placeholder_colors(
     findings
 }
 
-/// JS: checks.mjs#checkHoverContrast
 pub fn check_hover_contrast(opts: &HoverContrastOpts) -> Vec<RuleHit> {
     if !opts.has_direct_text || opts.is_emoji_only || opts.text_color.is_none() || opts.bg.is_none()
     {
@@ -437,7 +431,6 @@ pub fn check_hover_contrast(opts: &HoverContrastOpts) -> Vec<RuleHit> {
 
 // ─── isCardLikeFromProps / HEADING_TAGS ─────────────────────────────────────
 
-/// JS: checks.mjs#isCardLikeFromProps
 pub fn is_card_like_from_props(
     has_shadow: bool,
     has_border: bool,
@@ -450,7 +443,6 @@ pub fn is_card_like_from_props(
     has_radius || has_bg
 }
 
-/// JS: checks.mjs#checkIconTile
 pub fn check_icon_tile(opts: &IconTileOpts) -> Vec<RuleHit> {
     if !is_heading_tag(&opts.heading_tag) {
         return Vec::new();
@@ -531,7 +523,6 @@ fn strip_font_quotes(f: &str) -> &str {
     &t[start..end]
 }
 
-/// JS: checks.mjs#resolveSerif
 pub fn resolve_serif(font_family: Option<&str>) -> SerifResolution {
     let none = SerifResolution {
         primary: None,
@@ -571,7 +562,6 @@ pub fn resolve_serif(font_family: Option<&str>) -> SerifResolution {
     }
 }
 
-/// JS: checks.mjs#checkItalicSerif
 pub fn check_italic_serif(opts: &ItalicSerifOpts) -> Vec<RuleHit> {
     if opts.font_style.as_deref() != Some("italic") {
         return Vec::new();
@@ -613,7 +603,6 @@ re!(
     format!(r"{}[aA]?\({WS}*[0-9.]+{WS}*,{WS}*([0-9.]+)%", ci("hsl"))
 );
 
-/// JS: checks.mjs#isAccentColor
 pub fn is_accent_color(css_color: &str) -> bool {
     if css_color.is_empty() {
         return false;
@@ -674,7 +663,6 @@ fn simple_length_px(token: &str) -> Option<f64> {
     }
 }
 
-/// JS: checks.mjs#resolveHeroHeadingSizePx
 pub fn resolve_hero_heading_size_px(value: Option<&str>) -> f64 {
     let input = js::to_lower_case(js::trim(value.unwrap_or("")));
     if input.is_empty() {
@@ -702,7 +690,6 @@ pub fn resolve_hero_heading_size_px(value: Option<&str>) -> f64 {
     0.0
 }
 
-/// JS: checks.mjs#checkHeroEyebrow
 pub fn check_hero_eyebrow(opts: &HeroEyebrowOpts) -> Vec<RuleHit> {
     if opts.heading_tag != "h1" {
         return Vec::new();
@@ -772,7 +759,6 @@ pub fn check_hero_eyebrow(opts: &HeroEyebrowOpts) -> Vec<RuleHit> {
     )]
 }
 
-/// JS: checks.mjs#checkKickerAboveHeading
 pub fn check_kicker_above_heading(candidates: &[KickerCandidate]) -> Vec<RuleHit> {
     candidates
         .iter()
@@ -830,7 +816,6 @@ pub(crate) static BEZIER_RE: Lazy<Regex> = Lazy::new(|| {
     .expect("BEZIER_RE")
 });
 
-/// JS: checks.mjs#checkMotion
 pub fn check_motion(opts: &MotionOpts) -> Vec<RuleHit> {
     if set_has(SAFE_TAGS, &opts.tag) {
         return Vec::new();
@@ -923,7 +908,6 @@ fn glow_scan(value: Option<&str>, prop: &str, on_dark_bg: bool) -> Option<RuleHi
     None
 }
 
-/// JS: checks.mjs#checkGlow
 pub fn check_glow(opts: &GlowOpts) -> Vec<RuleHit> {
     let on_dark_bg = opts
         .effective_bg
@@ -938,11 +922,8 @@ pub fn check_glow(opts: &GlowOpts) -> Vec<RuleHit> {
 
 // ─── Section 6 shared: flat type hierarchy ──────────────────────────────────
 
-/// JS: checks.mjs#TYPE_HIERARCHY_SELECTOR
 pub const TYPE_HIERARCHY_SELECTOR: &str = "h1,h2,h3,h4,h5,h6,p,li,td,th,dd,blockquote,figcaption";
-/// JS: checks.mjs#TYPE_HIERARCHY_MIN_ROLES
 pub const TYPE_HIERARCHY_MIN_ROLES: usize = 3;
-/// JS: checks.mjs#TYPE_HIERARCHY_MIN_STEP_RATIO
 pub const TYPE_HIERARCHY_MIN_STEP_RATIO: f64 = 1.25;
 
 /// One `{ role, size }` entry the JS pushes into `samples`.
@@ -952,7 +933,6 @@ pub struct TypeSample {
     pub size: f64,
 }
 
-/// JS: checks.mjs#typeHierarchyRole
 pub fn type_hierarchy_role(tag: &str) -> String {
     let tag = js::to_lower_case(tag);
     let b = tag.as_bytes();
@@ -963,7 +943,6 @@ pub fn type_hierarchy_role(tag: &str) -> String {
     }
 }
 
-/// JS: checks.mjs#dominantTypeRoleSize
 fn dominant_type_role_size(samples: &[f64]) -> Option<f64> {
     // `new Map()` keeps insertion order; the JS sorts by count desc then size asc.
     let mut counts: Vec<(f64, f64)> = Vec::new();
@@ -988,7 +967,6 @@ fn dominant_type_role_size(samples: &[f64]) -> Option<f64> {
     ranked.first().map(|(size, _)| *size)
 }
 
-/// JS: checks.mjs#checkFlatTypeHierarchySamples
 pub fn check_flat_type_hierarchy_samples(samples: &[TypeSample]) -> Vec<RuleHit> {
     // `new Map()` keyed by role, in first-seen order.
     let mut by_role: Vec<(String, Vec<f64>)> = Vec::new();
@@ -1160,7 +1138,7 @@ mod tests {
             .map(|h| h.snippet)
             .collect::<Vec<_>>()
         };
-        // #707: a `/10` opacity tint is not a solid chromatic fill.
+        // pbakaus/impeccable#707: a `/10` opacity tint is not a solid chromatic fill.
         assert!(hits("text-slate-300 hover:bg-red-500/10").is_empty());
         assert!(hits("text-slate-300 bg-red-500/10").is_empty());
         assert_eq!(
@@ -1174,7 +1152,7 @@ mod tests {
         );
     }
 
-    /// REN-404. The bench's masthead: `#e8edf2` nav links on `#123a36`. The
+    /// upstream REN-404. The bench's masthead: `#e8edf2` nav links on `#123a36`. The
     /// ink is an off-white with a cool tint, not gray, and the pairing clears
     /// contrast; the old test called everything under 0.85 relative luminance
     /// gray and charged it three times over on a page with nothing wrong.

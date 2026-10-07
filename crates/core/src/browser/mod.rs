@@ -1,68 +1,11 @@
-//! The rendered-page rule set, ported from the DOM adapters of
-//! `cli/engine/rules/checks.mjs` (Sections 4-6, the `*DOM` functions) and
-//! the former browser driver. Rule logic uses the [`dom::Dom`] interface;
-//! the CLI captures page measurements and supplies them as a snapshot.
+//! Rendered-page rules over the shared [`dom::Dom`] interface.
+//! The CLI captures measurements through agent-browser and supplies a snapshot.
 //!
-//! The probe trait itself, its snapshot implementation, the selector engine,
-//! the test fake and the plain-data types live in
-//! `impeccino_foundation::browser`; they are re-exported here under the
-//! paths callers already use.
-//!
-//! Module map (one JS region each, so parallel work does not collide):
-//!
-//! - `dom`: the [`dom::Dom`] trait, `ElId`, `Rect`, shared helpers.
-//! - `snapshot`: [`snapshot::SnapshotDom`], the adapter over a serialized
-//!   page snapshot; `selector`: the browser-flavored selector engine.
-//! - `fake_dom`: a table-driven fake for unit tests (test builds only).
-//! - `background`: Section 4 in browser mode — `readOwnBackgroundColor`,
-//!   `readCascadeBackgroundColor`, `resolveBackgroundInfo`,
-//!   `resolveBackground`, `resolveGradientStops`, `compositeGradientStops`.
-//! - `element_checks`: the per-element adapters of Section 5 —
-//!   `isTabContextElement`, `isStatusContextElement`, `checkElementBordersDOM`,
-//!   `checkElementPseudoStripeDOM`, `readPseudoSurfaceDOM`,
-//!   `checkElementColorsDOM`, `checkElementIconTileDOM`,
-//!   `checkElementItalicSerifDOM`, `domAccentDashPseudo`,
-//!   `checkElementHeroEyebrowDOM`, `checkElementMotionDOM`,
-//!   `checkElementGlowDOM`, `checkElementAIPaletteDOM`,
-//!   `elementGradientValue`, `spotlightLabel`, `checkElementRadialSpotlightDOM`,
-//!   `checkElementOversizedH1DOM`, `checkElementGptBorderShadowDOM`,
-//!   `classSelector`, `positionedChild*`, `clippingContainerIsIntentionalViewport`,
-//!   `elementRect`, `positionedChildEscapesClip`, `checkClippedOverflow`,
-//!   `checkElementClippedOverflowDOM`, `isRenderedForBrowserRule`,
-//!   `checkElementTextOverflowDOM`, `keyframesToggleVisibilityDOM`,
-//!   `checkElementBlinkingCursorDOM`, `effectiveOpacityDOM`.
-//! - `quality`: `checkQuality` (browser branches included),
-//!   `checkElementQualityDOM`, `hasVisibleBackgroundBoundary`,
-//!   `hasMeaningfulDirectText`, `textDescendantsFlushSides`,
-//!   `isVisuallyHidden`, `isNonRenderedText`, `checkPageQualityFromDoc`,
-//!   `checkPageQualityDOM`.
-//! - `page_checks`: Section 6 browser page-level checks — `checkTypography`,
-//!   `isCardLikeDOM`, `checkLayout`, `checkHeadingRhythmDOM`,
-//!   `checkCreamPalette` (browser path), `measureHiddenTextDOM`,
-//!   `checkEdgeFlushCardsDOM`, `isOpaqueDecoratedBox` (in core measures),
-//!   `isLayeredElement`, `elementDirectText`, `isPaintedForOcclusion`,
-//!   `checkTextOcclusionDOM`, `checkFirstViewportColumnOverflowDOM`.
-//! - `text_collectors`: `cleanInlineText`, `isKickerCardContext`,
-//!   `kickerHeadingLevel`, `collectKickerCandidates`,
-//!   `checkKickerAboveHeadingDOM`, `collectNumberedSectionLabelCandidates`,
-//!   `checkNumberedSectionLabelsDOM`, `checkEmDashOveruseDOM`,
-//!   `collectRepeatedContainerTextFindings`, `checkRepeatedContainerTextDOM`.
-//! - `driver`: index.mjs — `scopedIgnoreActive`, `collectBrowserFindings`
-//!   (element loop, page-level passes, html-pattern scoping, pulsing-dot
-//!   promotion), the design-system checks, and selector generation.
-//! - `visual`: the visual-contrast subsystem's decisions —
-//!   `collectVisualContrastReasons`, `collectVisualContrastCandidates`,
-//!   `blendRgba`, `pickWorstContrastColor`, `textSamplePoints`,
-//!   `parsePositionToken/Pair`, `resolvePaintedImageRect`,
-//!   `resolveObjectImageRect`, `pointToImageSource`, `firstCssUrl`,
-//!   `getLayerValue`, the candidate-analysis finalization. Its plain-data
-//!   plans and rects are shared. The async pixel sampling (Image loading,
-//!   canvas draws) stays JS and feeds these.
-//!
-//! Porting rules are the crate's usual ones:
-//! JS number/string semantics through `crate::js`, field order preserved,
-//! bugs ported, `// JS-PARITY:` where it looks odd. Every function carries a
-//! `/// JS: <file>#<name>` doc comment.
+//! Shared DOM types, snapshots, selectors and test fakes live in foundation.
+//! `background` resolves painted surfaces; `element_checks` and `page_checks`
+//! run element and layout rules; `quality` and `text_collectors` adapt shared
+//! text predicates; `visual` plans contrast samples; `driver` groups findings.
+//! Number and string compatibility helpers keep the frozen vectors stable.
 
 pub use impeccino_foundation::browser::dom;
 pub use impeccino_foundation::browser::selector;

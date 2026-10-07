@@ -1,8 +1,4 @@
-//! Section 4 of `cli/engine/rules/checks.mjs`: the unified background walk
-//! (`readOwnBackgroundColor`, `readCascadeBackgroundColor`,
-//! `resolveBackgroundInfo`, `resolveBackground`, `resolveGradientStops`,
-//! `compositeGradientStops`, `resolveBorderRadiusPx`), static-engine
-//! branches only (`DETECTOR_IS_BROWSER === false`).
+//! Static background cascade, alpha compositing and gradient resolution.
 
 use crate::cascade::StyleValues;
 use crate::dom::StaticElement;
@@ -91,7 +87,6 @@ fn hex_to_rgba(h: &str) -> Rgba {
     }
 }
 
-/// JS: checks.mjs#readOwnBackgroundColor(el, computedStyle)
 pub fn read_own_background_color(el: &StaticElement<'_>, style: &StyleValues) -> Option<Rgba> {
     let bgc = sv_opt(style, "backgroundColor");
     let bg = parse_rgb(bgc).or_else(|| parse_any_color(bgc));
@@ -114,7 +109,6 @@ pub fn read_own_background_color(el: &StaticElement<'_>, style: &StyleValues) ->
     bg
 }
 
-/// JS: checks.mjs#readCascadeBackgroundColor(current, style, customPropMap)
 pub fn read_cascade_background_color(
     current: &StaticElement<'_>,
     style: &StyleValues,
@@ -155,7 +149,6 @@ fn flatten(overlays: &[Rgba], base: Rgba) -> Rgba {
     acc
 }
 
-/// JS: checks.mjs#resolveBackgroundInfo(el, win, customPropMap)
 pub fn resolve_background_info(
     el: &StaticElement<'_>,
     custom_props: CustomPropMap<'_>,
@@ -234,12 +227,10 @@ pub fn resolve_background_info(
     }
 }
 
-/// JS: checks.mjs#resolveBackground(el, win, customPropMap)
 pub fn resolve_background(el: &StaticElement<'_>, custom_props: CustomPropMap<'_>) -> Option<Rgba> {
     resolve_background_info(el, custom_props).color
 }
 
-/// JS: checks.mjs#resolveGradientStops(el, win, customPropMap)
 pub fn resolve_gradient_stops(
     el: &StaticElement<'_>,
     custom_props: CustomPropMap<'_>,
@@ -295,7 +286,6 @@ pub fn resolve_gradient_stops(
     None
 }
 
-/// JS: checks.mjs#compositeGradientStops(stops, gradientEl, win, customPropMap)
 pub fn composite_gradient_stops(
     stops: &[Rgba],
     gradient_el: &StaticElement<'_>,
@@ -325,7 +315,6 @@ pub fn composite_gradient_stops(
     }
 }
 
-/// JS: checks.mjs#resolveBorderRadiusPx(el, style, widthPx, win)
 pub fn resolve_border_radius_px(style: &StyleValues, width_px: f64) -> f64 {
     parse_radius_to_px(sv_opt(style, "borderRadius"), width_px).unwrap_or(0.0)
 }

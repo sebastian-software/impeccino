@@ -1,12 +1,4 @@
-//! The DOM half of `css-cascade.mjs`: `collectStaticCssText`,
-//! `buildStaticStyleMap` (rule matching, inline styles, the pseudo-element
-//! accent-dash / surface marking, the computed-style pass and the hover
-//! pass). Everything here writes into a [`StaticDocument`].
-//!
-//! `buildBorderOverrideMap` / `buildCustomPropMap` are not ported: they read
-//! the jsdom CSSOM (`document.styleSheets`, `rule.style.borderLeft`) which
-//! the static document never had, so in the static path they were dead
-//! (`customPropMap` is `null`, `overrides` is `null`).
+//! Static stylesheet collection and per-element style map construction.
 
 use super::checks_shim::CustomProps;
 use super::{
@@ -34,7 +26,6 @@ static STYLESHEET_REL_RE: Lazy<Regex> =
 static REMOTE_HREF_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)^(https?:)?//").expect("REMOTE_HREF_RE"));
 
-/// JS: css-cascade.mjs#resolveLinkedCssPath(fileDir, href)
 /// Cache-busting (styles.css?v=3) and root-relative (/static/app.css) hrefs
 /// must not resolve as OS-absolute paths; otherwise the whole stylesheet is
 /// invisible to every element-level check.
@@ -84,7 +75,6 @@ fn resolve_linked_css_path(file_dir: &str, href: &str) -> String {
     jsp::join(&[file_dir, &rel])
 }
 
-/// JS: css-cascade.mjs#collectStaticCssText(root, fileDir, modules)
 /// The text of every `<style>` element plus every local `<link rel=stylesheet>`
 /// resolved relative to `file_dir` (query/hash stripped), joined with `\n`.
 /// `warn` receives the JS `process.stderr.write` notice for an unreadable
@@ -261,7 +251,6 @@ fn mark_pseudo_rule(
     }
 }
 
-/// JS: css-cascade.mjs#buildStaticStyleMap(root, staticDoc, cssText, modules)
 pub fn build_static_style_map(doc: &mut StaticDocument, css_text: &str) {
     let mut specified: SpecifiedStore<NodeId> = SpecifiedStore::new();
     let mut hover_specified: SpecifiedStore<NodeId> = SpecifiedStore::new();

@@ -1,13 +1,4 @@
-//! Port of `cli/engine/engines/static-html/css-cascade.mjs`, the plain-data
-//! half: value/color/token helpers, shorthand expansion, cascade priority,
-//! specificity, the specified-declaration store, and the stylesheet rule
-//! collector (a port of the css-tree parse + generate subset the JS relies
-//! on lives in [`csstree`]).
-//!
-//! The DOM half of that file lives in [`build`] (`buildStaticStyleMap`,
-//! `collectStaticCssText`) and `crate::dom` (`StaticElement`,
-//! `StaticDocument`; `buildStaticWindow` is the document's accessor
-//! methods). `buildBorderOverrideMap` is jsdom-only and not ported.
+//! Static CSS cascade over html5ever DOM nodes.
 
 pub mod build;
 pub mod checks_shim;

@@ -89,7 +89,6 @@ const EMOJI_CLASS: &str = r"[\x{1F1E6}-\x{1F1FF}\x{1F300}-\x{1F9FF}\x{1FA00}-\x{
 
 re!(EMOJI_CHAR_RE, EMOJI_CLASS);
 
-/// JS: checks.mjs#isEmojiOnlyText
 pub fn is_emoji_only_text(text: &str) -> bool {
     if text.is_empty() {
         return false;
@@ -256,7 +255,6 @@ re!(SHADOW_HEX, format!(r"#[0-9a-fA-F]{{3,8}}{B}"));
 
 re!(SHADOW_WORD, r"[a-zA-Z][a-zA-Z]*");
 
-/// JS: checks.mjs#findShadowColor
 pub fn find_shadow_color(layer: &str) -> Option<ShadowColor> {
     if let Some(m) = SHADOW_COLOR_FN.find(layer) {
         return Some(ShadowColor {
@@ -289,7 +287,6 @@ pub fn find_shadow_color(layer: &str) -> Option<ShadowColor> {
 
 re!(SHADOW_LEN, format!(r"(-?{D}*\.?{D}+)(px|rem|em)?"));
 
-/// JS: checks.mjs#extractShadowLengths
 pub fn extract_shadow_lengths(layer: &str, color_span: Option<(usize, usize)>) -> Vec<f64> {
     let stripped: String = match color_span {
         Some((s, e)) => format!("{} {}", &layer[..s], &layer[e..]),

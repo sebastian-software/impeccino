@@ -17,8 +17,6 @@ static ROWS: &[Antipattern] = &[Antipattern {
     severity: Some("warning"),
     name: "Unfinished copy marker",
     description: "Text still carries a TODO marker from drafting.",
-    skill_section: None,
-    skill_guideline: None,
 }];
 
 #[derive(Debug)]

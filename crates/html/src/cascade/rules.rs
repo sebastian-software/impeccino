@@ -1,68 +1,4 @@
-//! Cascade priority, specificity, the specified-declaration store, inline
-//! `style=""` parsing, and the stylesheet rule collector.
-//!
-//! JS: css-cascade.mjs#compareStaticPriority, #staticSpecificity,
-//! #applyStaticDeclaration, #parseStaticStyleAttribute,
-//! #collectStaticCssRules
-//!
-//! ## css-tree behaviors `collect_static_css_rules` reproduces
-//!
-//! The JS hands the stylesheet to css-tree 3.2.1 and reads back
-//! `csstree.generate(rule.prelude)` and `csstree.generate(decl.value)`. The
-//! port in [`super::csstree`] re-implements the exact subset so the rule list
-//! is byte-equal. Behaviors that had to be reproduced:
-//!
-//! - **Tolerant parsing with Raw fallback.** A rule prelude that fails the
-//!   selector grammar becomes `Raw` text up to the `{` (so `} .b{...}` after
-//!   a stray brace yields the selector `} .b`); a declaration whose value
-//!   fails becomes a Raw *value* (`Raw` value text is emitted verbatim,
-//!   e.g. `url(x y.png)`, `@x`, `1..2`, `progid:...`); a declaration that
-//!   fails entirely (`b:c !important d`, `color:red !important !important`,
-//!   `--y` without colon, nested `.c{d:e}`) becomes a Raw *block child*, which
-//!   the JS skips (`child.type !== 'Declaration'`). Recovery consumes tokens
-//!   with css-tree's balance table (`skipUntilBalanced`), so a stray `;`
-//!   inside parens or a `{...}` block does not end the raw span.
-//! - **Selector normalization.** Preludes are regenerated: whitespace around
-//!   combinators and commas is dropped (`a > b , c` -> `a>b,c`), a
-//!   descendant combinator becomes a single space, `:not( .x , .y )` ->
-//!   `:not(.x,.y)`, attribute selectors lose inner spaces and re-quote their
-//!   value with double quotes (`[ data-x = 'y' i ]` -> `[data-x="y"i]`), an
-//!   `An+B` argument is canonicalized (`2n + 1` -> `2n+1`). Comments inside
-//!   selectors vanish. Case is preserved.
-//! - **Value normalization** (`parseValue: true`). Values are re-tokenized
-//!   and re-emitted with a space only where two tokens would otherwise merge
-//!   (css-tree's "safe" `token-before` table): `rgb( 1 , 2 , 3 )` ->
-//!   `rgb(1,2,3)`, `a , b` -> `a,b`, `x  y` -> `x y`, `1 / 2` -> `1/2`,
-//!   `-1px +2px` -> `-1px+2px`, `1 -2` -> `1-2` but `1 - 2` stays (an
-//!   operator keeps the spaces around it), `url(foo.png) no-repeat` ->
-//!   `url(foo.png)no-repeat`, `1.2.3` -> `1.2 .3`. Strings are decoded and
-//!   re-encoded with double quotes and CSSOM escaping (`'}'` -> `"}"`,
-//!   `"\201C"` -> `"\u{201C}"`); `url("x y.png")` -> `url(x\ y.png)`,
-//!   `URL(x.png)` -> `url(x.png)`; `var( --x , red )` -> `var(--x, red )`
-//!   (the fallback is a raw span). Comments inside values vanish.
-//! - **Custom properties** (`parseCustomProperty: false`) keep their raw text
-//!   including surrounding whitespace, which the JS then trims.
-//! - **`!important`** parses as `true`; another ident (`!ie`) is kept as a
-//!   string; the JS coerces both with `!!`. `! important` with a space is
-//!   accepted.
-//! - **At-rules.** Only `@media`, `@supports`, `@layer` (named or anonymous,
-//!   nested to any depth, in any order) are descended; `@keyframes`,
-//!   `@font-face`, `@page`, `@container`, `@import` and unknown at-rules are
-//!   skipped along with everything inside them. Nested style rules inside a
-//!   style rule's block (`a { &:hover {...} }`) are not collected: the JS
-//!   only walks top-level and at-rule-nested `Rule` nodes and only reads
-//!   `Declaration` children.
-//! - **Empty / whitespace-only stylesheets, CDO/CDC (`<!--` `-->`), and
-//!   `/*! */` comments** contribute nothing.
-//! - Selectors are split on top-level commas of the *generated* prelude
-//!   with `splitCssList` (attribute values with commas stay intact) and each
-//!   gets its own rule with the same `order`; empty selectors are dropped.
-//! - Two css-tree details are intentionally simplified because they cannot
-//!   change the output here: at-rule preludes are always consumed as Raw
-//!   (see `parser.rs`), and the tokenizer's balance table is computed on a
-//!   fresh buffer (css-tree reuses a typed array across parses, which can
-//!   only differ for a stray top-level `)`/`]` after an earlier, longer
-//!   parse in the same process).
+//! CSS rule extraction, specificity and declaration priority.
 
 use super::csstree::{self, Important, Node};
 use super::shorthand::expand_static_declaration;
@@ -91,7 +27,6 @@ pub struct SpecifiedDecl {
     pub value: String,
 }
 
-/// JS: css-cascade.mjs#compareStaticPriority(a, b)
 /// True when `b` should replace the existing `a` (or there is no `a`).
 pub fn compare_static_priority(a: Option<&DeclMeta>, b: &DeclMeta) -> bool {
     let Some(a) = a else {
@@ -125,7 +60,7 @@ static PUNCT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[*>+~(),]").expect("PUN
 static TYPE_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?-u:\b)[a-zA-Z][0-9A-Za-z_-]*(?-u:\b)").expect("TYPE_RE"));
 
-/// JS: css-cascade.mjs#staticSpecificity(selector) -> [ids, classes, types]
+/// `staticSpecificity`: -> [ids, classes, types]
 pub fn static_specificity(selector: &str) -> [u32; 3] {
     let no_where = WHERE_RE.replace_all(selector, "");
     let ids = ID_RE.find_iter(&no_where).count() as u32;
@@ -177,7 +112,6 @@ impl<K: Hash + Eq> SpecifiedStore<K> {
     }
 }
 
-/// JS: css-cascade.mjs#applyStaticDeclaration(specified, node, prop, value, meta)
 pub fn apply_static_declaration<K: Hash + Eq>(
     specified: &mut SpecifiedStore<K>,
     node: K,
@@ -215,7 +149,6 @@ static IMPORTANT_STRIP_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(r"(?i){ws}*!important{ws}*$", ws = js::WS)).expect("IMPORTANT_STRIP_RE")
 });
 
-/// JS: css-cascade.mjs#parseStaticStyleAttribute(styleText, orderBase = 0)
 pub fn parse_static_style_attribute(style_text: &str, order_base: i64) -> Vec<StyleAttrDecl> {
     let mut decls: Vec<StyleAttrDecl> = Vec::new();
     for part in style_text.split(';') {
@@ -307,7 +240,6 @@ fn star_empty_compounds(s: &str) -> String {
     out
 }
 
-/// JS: css-cascade.mjs#collectStaticCssRules(cssText, csstree)
 pub fn collect_static_css_rules(css_text: &str) -> Vec<CssRule> {
     let mut rules: Vec<CssRule> = Vec::new();
     let ast = match csstree::parse_stylesheet(css_text) {

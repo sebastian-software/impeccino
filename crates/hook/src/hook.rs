@@ -1,6 +1,4 @@
-//! JS: skill/scripts/hook.mjs (`impeccino hook`) and hook-lib.mjs
-//! `runHook` / `runStopHook`: the PostToolUse per-edit pass and the Stop deep
-//! pass. Always exits 0; stdout is one JSON document or nothing.
+//! Post-edit and Stop hooks, session tracking and bounded rescans.
 
 use impeccino_core::findings::Finding;
 use impeccino_core::js;
@@ -515,7 +513,7 @@ fn run_hook_inner(
         // JS: Grok ignores PostToolUse stdout, so Stop is the user-visible
         // pass. Remembering here would dedupe those findings out of Stop.
         // Touch the file so Stop has it, and leave the finding list empty
-        // (#646).
+        // (pbakaus/impeccable#646).
         if harness == "grok" {
             touch_file(&mut cache, &session_id, file_path);
         } else {
@@ -634,7 +632,7 @@ fn run_hook_inner(
         }
     }
 
-    // Issues #344 and #305 kept a clean edit from creating state in a
+    // Issues pbakaus/impeccable#344 and pbakaus/impeccable#305 kept a clean edit from creating state in a
     // project that never used Impeccino. State lives in the user cache now
     // (docs/adr/0020), never in the project, so a clean edit persists once a
     // session cache exists for the project; the first finding creates it.
@@ -801,7 +799,7 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
     let harness = resolve_harness(rt, Some(&event));
     audit.insert("harness".into(), Value::from(harness));
     let event = normalize_hook_event(rt, &event, &rt.proc_cwd, harness);
-    // Stop-hook re-entry guard (#400): Claude Code and Codex send
+    // Stop-hook re-entry guard (pbakaus/impeccable#400): Claude Code and Codex send
     // `stop_hook_active`; Grok sends `stopHookActive`, copied onto the
     // snake_case field by the normalizer. Cursor and GitHub Copilot omit
     // the field, so the strict `=== true` is a no-op for them.
@@ -809,7 +807,7 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
     // JS: Grok fires Stop twice: `end_turn` (the gate that can inject
     // additionalContext) then an observe-only `shutdown`. A second deep
     // pass would re-emit the same findings. Claude omits `reason`; only
-    // skip when Grok named a reason that is not end_turn (#646).
+    // skip when Grok named a reason that is not end_turn (pbakaus/impeccable#646).
     if harness == "grok" {
         if let Some(Value::String(reason)) = event.get("reason") {
             if reason != "end_turn" {
@@ -1159,9 +1157,8 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
     }
 }
 
-/// JS: hook.mjs#isStopEvent(stdinJson)
 fn is_stop_event(stdin: &str) -> bool {
-    // JS: hook.mjs#stdinIsStop routes on the raw stdin via hook-lib's
+    // Route on raw stdin through hook-lib's
     // isStopEvent, which matches Claude's `hook_event_name: "Stop"` and
     // Grok Build's `hookEventName: "stop"`.
     match serde_json::from_str::<Value>(stdin) {

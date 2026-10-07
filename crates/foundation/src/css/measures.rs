@@ -70,7 +70,7 @@ pub fn parse_float_or_zero(s: Option<&str>) -> f64 {
 
 // ─── Section 4: lengths, colors, var() ──────────────────────────────────────
 
-/// JS: checks.mjs#parseRadiusToPx. Parse a single CSS length token to
+/// `parseRadiusToPx`: Parse a single CSS length token to
 /// pixels; percentages convert against `width_px` when one is supplied,
 /// else the raw percentage number is returned. `width_px` NaN reads as
 /// "no width".
@@ -122,7 +122,7 @@ impl<F: Fn(&str) -> Option<String>> CustomProps for F {
     }
 }
 
-/// JS: checks.mjs#resolveVarRefs. Resolve `var(--x[, fallback])` refs in a
+/// `resolveVarRefs`: Resolve `var(--x[, fallback])` refs in a
 /// value string, recursing up to 8 levels for chained refs. Returns the
 /// input unchanged when no refs are present or a chain does not resolve.
 pub fn resolve_var_refs(raw: &str, custom_props: &dyn CustomProps, depth: u32) -> String {
@@ -155,7 +155,7 @@ pub fn resolve_var_refs(raw: &str, custom_props: &dyn CustomProps, depth: u32) -
         .into_owned()
 }
 
-/// JS: checks.mjs#parseColorResolved. Resolve var() refs (when a map is
+/// `parseColorResolved`: Resolve var() refs (when a map is
 /// given), then parse. `None` on any failure.
 pub fn parse_color_resolved(
     s: Option<&str>,
@@ -172,7 +172,7 @@ pub fn parse_color_resolved(
     color::parse_any_color(Some(&resolved))
 }
 
-/// JS: checks.mjs#resolveLengthPx. Resolve a CSS length given a font-size
+/// `resolveLengthPx`: Resolve a CSS length given a font-size
 /// context; `None` for `normal` / `auto` / `inherit` / unparseable.
 pub fn resolve_length_px(value: Option<&str>, font_size_px: f64) -> Option<f64> {
     let value = value?;
@@ -198,7 +198,6 @@ pub fn resolve_length_px(value: Option<&str>, font_size_px: f64) -> Option<f64> 
     Some(num * font_size_px)
 }
 
-/// JS: checks.mjs#cssColorIsTransparent.
 pub fn css_color_is_transparent(value: Option<&str>) -> bool {
     re!(
         ZERO_RGBA,
@@ -222,7 +221,6 @@ pub fn css_color_is_transparent(value: Option<&str>) -> bool {
     ZERO_RGBA.is_match(&s)
 }
 
-/// JS: checks.mjs#colorsNearlyMatch.
 pub fn colors_nearly_match(a: Option<&str>, b: Option<&str>) -> bool {
     let (Some(ca), Some(cb)) = (color::parse_any_color(a), color::parse_any_color(b)) else {
         return false;
@@ -238,7 +236,7 @@ pub fn colors_nearly_match(a: Option<&str>, b: Option<&str>) -> bool {
 
 // ─── Radial spotlight ───────────────────────────────────────────────────────
 
-/// JS: checks.mjs#SPOTLIGHT_COLOR_TOKEN_RE (JS `/i`, ASCII `\b`).
+/// `SPOTLIGHT_COLOR_TOKEN_RE`: (JS `/i`, ASCII `\b`).
 pub static SPOTLIGHT_COLOR_TOKEN_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(
         r"(?:{rgb}[aA]?|{hsl}[aA]?|{oklch}|{oklab}|{lab}|{lch}|{hwb}|{colormix})\([^)]*(?:\([^)]*\))?[^)]*\)|#[0-9a-fA-F]{{3,8}}(?-u:\b)|(?-u:\b){transparent}(?-u:\b)",
@@ -262,7 +260,7 @@ pub struct GradientStop {
     pub transparent: bool,
 }
 
-/// JS: checks.mjs#parseRadialGradientStops. The ordered stops of the FIRST
+/// `parseRadialGradientStops`: The ordered stops of the FIRST
 /// non-repeating radial-gradient in a background value, or `None` when
 /// there is no plain radial-gradient to read.
 pub fn parse_radial_gradient_stops(value: Option<&str>) -> Option<Vec<GradientStop>> {
@@ -362,7 +360,7 @@ pub struct RadialSpotlightInput<'a> {
     pub label: Option<&'a str>,
 }
 
-/// JS: checks.mjs#TAILWIND_BG_HEX (insertion order preserved).
+/// `TAILWIND_BG_HEX`: (insertion order preserved).
 pub const TAILWIND_BG_HEX: &[(&str, &str)] = &[
     ("bg-amber-50", "#fffbeb"),
     ("bg-amber-100", "#fef3c7"),
@@ -396,7 +394,7 @@ pub struct OversizedH1Input<'a> {
 
 // ─── Hairline border + wide diffuse shadow ──────────────────────────────────
 
-/// JS: checks.mjs#CSS_COLOR_TOKEN_RE (JS `/gi`, ASCII `\b`).
+/// `CSS_COLOR_TOKEN_RE`: (JS `/gi`, ASCII `\b`).
 pub static CSS_COLOR_TOKEN_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(
         r"(?:{rgb}[aA]?|{hsl}[aA]?|{oklch}|{oklab}|{lab}|{lch}|{color})\([^)]*\)|#[0-9a-fA-F]{{3,8}}(?-u:\b)|(?-u:\b)(?:{black}|{white}|{transparent}|{currentcolor})(?-u:\b)",
@@ -415,7 +413,7 @@ pub static CSS_COLOR_TOKEN_RE: Lazy<Regex> = Lazy::new(|| {
     .expect("CSS_COLOR_TOKEN_RE")
 });
 
-/// JS: checks.mjs#shadowLayerAlpha. Alpha of the first color token in one
+/// `shadowLayerAlpha`: Alpha of the first color token in one
 /// box-shadow layer; 1 when there is none or it does not parse.
 pub fn shadow_layer_alpha(layer: &str) -> f64 {
     let Some(m) = CSS_COLOR_TOKEN_RE.find(layer) else {
@@ -459,7 +457,7 @@ fn split_shadow_layers(s: &str) -> Vec<&str> {
     out
 }
 
-/// JS: checks.mjs#shadowMaxBlurPx. Largest blur radius across the layers
+/// `shadowMaxBlurPx`: Largest blur radius across the layers
 /// whose color alpha is at least `min_alpha` (JS default 0).
 pub fn shadow_max_blur_px(box_shadow: Option<&str>, min_alpha: Option<f64>) -> f64 {
     re!(WORD_RE, r"(?-u:\b)[a-zA-Z]+(?-u:\b)");
@@ -489,7 +487,6 @@ pub fn shadow_max_blur_px(box_shadow: Option<&str>, min_alpha: Option<f64>) -> f
     max_blur
 }
 
-/// JS: checks.mjs#cssColorAlpha.
 pub fn css_color_alpha(value: Option<&str>) -> f64 {
     if css_color_is_transparent(value) {
         return 0.0;
@@ -511,7 +508,7 @@ pub struct GptBorderShadowInput<'a> {
     pub box_shadow: Option<&'a str>,
 }
 
-/// JS: checks.mjs#borderWidthsFromStyle. Top, right, bottom, left.
+/// `borderWidthsFromStyle`: Top, right, bottom, left.
 pub fn border_widths_from_style(style: &dyn StyleMap) -> [f64; 4] {
     [
         parse_float_or_zero(style.prop("borderTopWidth").as_deref()),
@@ -521,7 +518,7 @@ pub fn border_widths_from_style(style: &dyn StyleMap) -> [f64; 4] {
     ]
 }
 
-/// JS: checks.mjs#borderColorsFromStyle. Top, right, bottom, left (`''`
+/// `borderColorsFromStyle`: Top, right, bottom, left (`''`
 /// when unset).
 pub fn border_colors_from_style(style: &dyn StyleMap) -> [String; 4] {
     [
@@ -559,7 +556,7 @@ impl From<Option<f64>> for LengthInput<'_> {
     }
 }
 
-/// JS: checks.mjs#metricLengthPx (`font_size_px` default 16).
+/// `metricLengthPx`: (`font_size_px` default 16).
 pub fn metric_length_px(value: LengthInput, font_size_px: f64) -> Option<f64> {
     match value {
         LengthInput::Number(n) if n.is_finite() => Some(n),
@@ -569,7 +566,6 @@ pub fn metric_length_px(value: LengthInput, font_size_px: f64) -> Option<f64> {
     }
 }
 
-/// JS: checks.mjs#firstMetricLengthPx.
 pub fn first_metric_length_px(font_size_px: f64, values: &[LengthInput]) -> Option<f64> {
     for v in values {
         if let Some(parsed) = metric_length_px(*v, font_size_px) {
@@ -579,7 +575,7 @@ pub fn first_metric_length_px(font_size_px: f64, values: &[LengthInput]) -> Opti
     None
 }
 
-/// JS: checks.mjs#expandBoxShorthand. One to four values to
+/// `expandBoxShorthand`: One to four values to
 /// `[top, right, bottom, left]`.
 // JS-PARITY: expandBoxShorthand on an empty array yields four `undefined`s;
 // this returns an empty Vec (no caller reaches it with no parts).
@@ -613,7 +609,7 @@ pub fn expand_box_shorthand<T: Clone>(parts: &[T]) -> Vec<T> {
     }
 }
 
-/// JS: checks.mjs#clippedByInset. `clip-path: inset(...)` that removes the
+/// `clippedByInset`: `clip-path: inset(...)` that removes the
 /// whole box.
 pub fn clipped_by_inset(clip_path: Option<&str>) -> bool {
     re!(INSET_RE, format!(r"^inset{ws}*\(([^)]*)\)$", ws = WS));
@@ -645,7 +641,7 @@ pub fn clipped_by_inset(clip_path: Option<&str>) -> bool {
     top + bottom >= 100.0 || left + right >= 100.0
 }
 
-/// JS: checks.mjs#clippedByRect. Legacy `clip: rect(...)` that removes the
+/// `clippedByRect`: Legacy `clip: rect(...)` that removes the
 /// whole box.
 pub fn clipped_by_rect(clip: Option<&str>) -> bool {
     re!(RECT_RE, format!(r"^rect{ws}*\(([^)]*)\)$", ws = WS));
@@ -684,7 +680,7 @@ pub struct SrOnlyMetrics {
     pub client_height: Option<f64>,
 }
 
-/// JS: checks.mjs#isScreenReaderOnlyTextStyle. Visually-hidden-but-readable
+/// `isScreenReaderOnlyTextStyle`: Visually-hidden-but-readable
 /// text: a 1x1 absolutely positioned clipped box, an `inset()` clip-path
 /// that removes the box, or a legacy `clip: rect(...)` that does.
 pub fn is_screen_reader_only_text_style(

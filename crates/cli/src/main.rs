@@ -3,8 +3,7 @@
 //! Every skill script and CLI subcommand is a verb here. Verb crates expose
 //! `run(args: &[String], io: &mut Io) -> i32` (exit code) and never call
 //! `std::process::exit` themselves, so this file is the single place exit codes
-//! and stream flushing are decided (contract: docs/CLI-CONTRACT.md in the
-//! public repo). Verb names are the JS script basenames; a few carry aliases
+//! and stream flushing are decided. A few verbs carry aliases
 //! (`signals` for context-signals, `hooks` for hook-admin).
 
 use std::io::Write;

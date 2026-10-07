@@ -1,5 +1,4 @@
-//! Port of `cli/engine/cli/main.mjs`: `detectCli()`, the text formatter, and
-//! stdin dispatch.
+//! Detection target dispatch, output formatting and exit-code handling.
 
 use std::io::Write;
 
@@ -100,7 +99,6 @@ fn format_finding_summary(count: usize) -> String {
     )
 }
 
-/// JS: main.mjs#expandJoinedUrlTargets
 ///
 /// Some agent runners hand a shell-ready URL list to the process as one argv
 /// value. A browser accepts the spaces as part of one encoded URL, producing a
@@ -216,7 +214,6 @@ fn format_advisory_section(advisory: &[&Finding], stderr_tty: bool) -> String {
     lines.join("\n")
 }
 
-/// JS: main.mjs#formatFindings
 pub fn format_findings(findings: &[Finding], json_mode: bool, stderr_tty: bool) -> String {
     if json_mode {
         return serde_json::to_string_pretty(findings).unwrap_or_else(|_| "[]".into());
@@ -252,12 +249,11 @@ struct Ctx<'a> {
     cache: DesignSystemCache,
     stdin_tty: bool,
     /// JS `hadOperationalFailure`: at least one requested target could not be
-    /// scanned, which forces exit 1 (#711).
+    /// scanned, which forces exit 1 (pbakaus/impeccable#711).
     had_operational_failure: bool,
 }
 
 impl<'a> Ctx<'a> {
-    /// JS: main.mjs#reportLocalScanFailure
     fn report_local_scan_failure(&mut self, target: &str, message: &str) {
         self.had_operational_failure = true;
         self.io
@@ -433,7 +429,7 @@ fn file_url_to_local_path(url: &str) -> Option<String> {
     Some(decoded)
 }
 
-/// JS: main.mjs#detectCli. `args` are the argv after the `detect` verb (the
+/// `detectCli`: `args` are the argv after the `detect` verb (the
 /// leading `detect` the JS strips itself is also stripped here).
 pub fn run_detect(args: &[String], io: &mut Io, engines: &Engines) -> i32 {
     match detect_cli(args, io, engines) {
@@ -604,7 +600,7 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
             None
         };
         // JS: `await createBrowserDetector()` throws before the loop; the
-        // failure is reported once and every URL target is skipped (#711).
+        // failure is reported once and every URL target is skipped (pbakaus/impeccable#711).
         let mut browser_setup_failed = false;
         if let Some(s) = shared.as_deref() {
             if let Err(e) = s.ensure_launched() {
@@ -640,7 +636,7 @@ fn detect_cli(args_in: &[String], io: &mut Io, engines: &Engines) -> Result<i32,
     let (primary_len, advisory_len) = (primary.len(), advisory.len());
     // Exit 1 means at least one requested scan could not complete. It takes
     // precedence over exit 2 because findings from the remaining targets do
-    // not turn a partial scan into a complete one (#711).
+    // not turn a partial scan into a complete one (pbakaus/impeccable#711).
     let exit_code = if ctx.had_operational_failure {
         1
     } else if primary_len > 0 {
@@ -794,7 +790,7 @@ fn scan_targets(
                 }
             }
             // Unreadable directories and files are reported, not silently
-            // skipped, and each one forces exit 1 (#711). What git ignores,
+            // skipped, and each one forces exit 1 (pbakaus/impeccable#711). What git ignores,
             // and what .gitattributes marks generated or vendored, is left
             // out of the walk.
             let mut walk_failures: Vec<(String, String)> = Vec::new();

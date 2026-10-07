@@ -1,6 +1,4 @@
-//! JS: skill/scripts/hook-before-edit.mjs (`impeccino hook-before-edit`),
-//! the Cursor preToolUse write gate. Always exits 0 and prints exactly one
-//! JSON document: `{"permission":"allow"...}` or the deny payload.
+//! Pre-edit hook validation against a temporary copy of the proposed file.
 
 use impeccino_core::findings::Finding;
 use impeccino_core::js;

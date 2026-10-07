@@ -42,7 +42,7 @@ impl From<Rect> for Box4 {
 
 // ─── raster sampling helpers (sampleDrawablePixel) ─────────────────────────
 
-/// JS: index.mjs#sampleDrawablePixel — the canvas geometry: intrinsic size
+/// `sampleDrawablePixel`: the canvas geometry: intrinsic size
 /// scaled to a 640px raster budget.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

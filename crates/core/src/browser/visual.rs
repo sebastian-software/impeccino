@@ -94,7 +94,6 @@ fn rgba_value(c: Option<&Rgba>) -> Value {
 
 // ─── candidates ─────────────────────────────────────────────────────────────
 
-/// JS: index.mjs#collectVisualContrastReasons(el, style)
 pub fn collect_visual_contrast_reasons(dom: &dyn Dom, el: ElId) -> Vec<String> {
     let mut reasons: Vec<String> = Vec::new();
     let add = |reasons: &mut Vec<String>, r: &str| {
@@ -207,7 +206,6 @@ pub fn collect_visual_contrast_reasons(dom: &dyn Dom, el: ElId) -> Vec<String> {
     reasons
 }
 
-/// JS: index.mjs#collectVisualContrastCandidates(options)
 pub fn collect_visual_contrast_candidates(dom: &dyn Dom, options: &Value) -> Vec<Value> {
     let max_candidates = match options.get("maxCandidates") {
         Some(Value::Number(n)) if n.as_f64().is_some_and(f64::is_finite) => n.as_f64().unwrap(),
@@ -320,12 +318,10 @@ pub fn collect_visual_contrast_candidates(dom: &dyn Dom, options: &Value) -> Vec
 
 // ─── pure math ──────────────────────────────────────────────────────────────
 
-/// JS: index.mjs#clampByte(value)
 pub fn clamp_byte(value: f64) -> f64 {
     math_max(0.0, math_min(255.0, math_round(value)))
 }
 
-/// JS: index.mjs#blendRgba(fg, bg)
 pub fn blend_rgba(fg: Option<&Rgba>, bg: Option<&Rgba>) -> Option<Rgba> {
     let Some(fg) = fg else { return bg.copied() };
     if bg.is_none() || fg.a.is_none() || fg.a.unwrap() >= 0.999 {
@@ -346,7 +342,6 @@ pub fn blend_rgba(fg: Option<&Rgba>, bg: Option<&Rgba>) -> Option<Rgba> {
     })
 }
 
-/// JS: index.mjs#pickWorstContrastColor(textColor, colors)
 pub fn pick_worst_contrast_color(text_color: &Rgba, colors: &[Rgba]) -> Option<Rgba> {
     if colors.is_empty() {
         return None;
@@ -363,7 +358,6 @@ pub fn pick_worst_contrast_color(text_color: &Rgba, colors: &[Rgba]) -> Option<R
     Some(worst)
 }
 
-/// JS: index.mjs#firstCssUrl(value)
 pub fn first_css_url(value: &str) -> String {
     let Some(m) = FIRST_CSS_URL_RE.captures(value) else {
         return String::new();
@@ -389,7 +383,6 @@ pub fn first_css_url(value: &str) -> String {
     js::trim(s).to_string()
 }
 
-/// JS: index.mjs#getLayerValue(value, index)
 pub fn get_layer_value(value: &str, index: usize) -> String {
     value
         .split(',')
@@ -398,7 +391,6 @@ pub fn get_layer_value(value: &str, index: usize) -> String {
         .unwrap_or_default()
 }
 
-/// JS: index.mjs#parsePositionToken(token, container, painted)
 pub fn parse_position_token(token: &str, container: f64, painted: f64) -> f64 {
     if token.is_empty() || token == "center" {
         return (container - painted) / 2.0;
@@ -419,7 +411,6 @@ pub fn parse_position_token(token: &str, container: f64, painted: f64) -> f64 {
     (container - painted) / 2.0
 }
 
-/// JS: index.mjs#parsePositionPair(positionValue)
 pub fn parse_position_pair(position_value: &str) -> (String, String) {
     let src = if position_value.is_empty() {
         "50% 50%"
@@ -458,7 +449,6 @@ fn intrinsic_or_one(v: f64) -> f64 {
     }
 }
 
-/// JS: index.mjs#resolvePaintedImageRect(containerRect, image, sizeValue, positionValue)
 pub fn resolve_painted_image_rect(
     container: &Box4,
     intrinsic_w: f64,
@@ -523,7 +513,6 @@ pub fn resolve_painted_image_rect(
     }
 }
 
-/// JS: index.mjs#resolveObjectImageRect(containerRect, image, style)
 pub fn resolve_object_image_rect(
     container: &Box4,
     intrinsic_w: f64,
@@ -567,7 +556,6 @@ pub fn resolve_object_image_rect(
     }
 }
 
-/// JS: index.mjs#pointToImageSource(point, paintedRect)
 pub fn point_to_image_source(x: f64, y: f64, painted: &PaintedRect) -> Option<(f64, f64)> {
     if x < painted.left
         || y < painted.top
@@ -594,7 +582,6 @@ pub fn point_to_image_source(x: f64, y: f64, painted: &PaintedRect) -> Option<(f
     ))
 }
 
-/// JS: index.mjs#textSamplePoints(rect)
 pub fn text_sample_points(rect: &Rect, inner_width: f64, inner_height: f64) -> Vec<(f64, f64)> {
     let inset_x = math_min(12.0, math_max(1.0, rect.width * 0.12));
     let inset_y = math_min(8.0, math_max(1.0, rect.height * 0.22));
@@ -629,7 +616,7 @@ pub fn text_sample_points(rect: &Rect, inner_width: f64, inner_height: f64) -> V
 
 // ─── raster sampling helpers (sampleDrawablePixel) ─────────────────────────
 
-/// JS: index.mjs#sampleDrawablePixel (canvas sizing)
+/// `sampleDrawablePixel`: (canvas sizing)
 pub fn raster_plan(intrinsic_w: f64, intrinsic_h: f64) -> RasterPlan {
     let iw = intrinsic_or_one(intrinsic_w);
     let ih = intrinsic_or_one(intrinsic_h);
@@ -645,7 +632,7 @@ pub fn raster_plan(intrinsic_w: f64, intrinsic_h: f64) -> RasterPlan {
     }
 }
 
-/// JS: index.mjs#sampleDrawablePixel (source point → raster pixel)
+/// `sampleDrawablePixel`: (source point → raster pixel)
 pub fn raster_pixel(plan: &RasterPlan, source_x: f64, source_y: f64) -> (f64, f64) {
     (
         math_max(
@@ -690,7 +677,7 @@ pub fn raster_no_context_sample() -> Value {
 
 // ─── the background stack walk (sampleVisualBackgroundAtPoint) ─────────────
 
-/// JS: index.mjs#sampleVisualBackgroundAtPoint — the depth cap and the node
+/// `sampleVisualBackgroundAtPoint`: the depth cap and the node
 /// list (`elementsFromPoint` stack from the element down). `Err` carries the
 /// early-unresolved sample.
 pub fn stack_nodes(
@@ -732,7 +719,7 @@ pub fn stack_nodes(
         .collect())
 }
 
-/// JS: index.mjs#sampleImageElement — painted rect + source point for the
+/// `sampleImageElement`: painted rect + source point for the
 /// `<img>` at `node` (`intrinsic_*` are the JS `naturalWidth || videoWidth ||
 /// width` chain, 0 when none). `Err` is the unresolved sample.
 pub fn img_source_point(
@@ -757,7 +744,7 @@ pub fn img_source_point(
     }
 }
 
-/// JS: index.mjs#sampleImageElement — the retry with the separately loaded
+/// `sampleImageElement`: the retry with the separately loaded
 /// image: the painted box stays, only the intrinsic size changes
 /// (`loaded.naturalWidth || loaded.width || paintedRect.intrinsicWidth`).
 pub fn img_loaded_source_point(
@@ -834,7 +821,7 @@ fn with_method(sample: Value, method: &str) -> Value {
     }
 }
 
-/// JS: index.mjs#sampleCssBackground — every decision except the image
+/// `sampleCssBackground`: every decision except the image
 /// load and the canvas sample.
 pub fn css_plan(dom: &dyn Dom, node: ElId, text_color: Option<&Rgba>) -> CssPlan {
     let bg_image = dom.style(node, "backgroundImage");
@@ -1001,7 +988,7 @@ fn unresolved(candidate: &Value, reason: &str) -> Value {
     )
 }
 
-/// JS: index.mjs#analyzeVisualContrastCandidate — everything before the
+/// `analyzeVisualContrastCandidate`: everything before the
 /// sampling loop.
 pub fn prepare_analysis(dom: &dyn Dom, candidate: &Value) -> Prepared {
     let selector = str_or_empty(candidate.get("selector"));
@@ -1073,7 +1060,7 @@ pub fn prepare_analysis(dom: &dyn Dom, candidate: &Value) -> Prepared {
     }
 }
 
-/// JS: index.mjs#analyzeVisualContrastCandidate — after the sampling loop:
+/// `analyzeVisualContrastCandidate`: after the sampling loop:
 /// `samples` is one `{ status, color?, method?, reason? }` per point.
 pub fn finish_analysis(
     candidate: &Value,

@@ -1,11 +1,4 @@
-//! Port of cli/engine/rules/checks.mjs (see checks/mod.rs for the split):
-//! the plain-data helpers and pure gates of Sections 4-6. Element / document
-//! adapters live in the `html` crate.
-//!
-//! Style-reading helpers take a [`StyleMap`]: any lookup from the JS
-//! camelCase computed-style property name (`borderTopWidth`, `clipPath`) to
-//! its string value, so a jsdom-style map, a real cascade, and a test
-//! `HashMap` all fit.
+//! Pure CSS and element measurements used by shared rule predicates.
 
 use crate::color::{self, Rgba};
 
@@ -29,7 +22,7 @@ macro_rules! re {
     };
 }
 
-/// JS: checks.mjs#checkRadialSpotlight. Pure gate; `label` is a stable
+/// `checkRadialSpotlight`: Pure gate; `label` is a stable
 /// identifier the fixture test keys on.
 pub fn check_radial_spotlight(input: &RadialSpotlightInput) -> Vec<Finding> {
     let Some(stops) = parse_radial_gradient_stops(input.gradient_value) else {
@@ -93,7 +86,7 @@ pub fn check_radial_spotlight(input: &RadialSpotlightInput) -> Vec<Finding> {
 
 // ─── Cream / beige palette ──────────────────────────────────────────────────
 
-/// JS: checks.mjs#isCreamColor. A warm, lightly-tinted off-white.
+/// `isCreamColor`: A warm, lightly-tinted off-white.
 pub fn is_cream_color(rgb: Option<&Rgba>) -> bool {
     let Some(c) = rgb else { return false };
     let (r, g, b) = (c.r, c.g, c.b);
@@ -107,7 +100,7 @@ pub fn is_cream_color(rgb: Option<&Rgba>) -> bool {
     (6.0..=48.0).contains(&warmth)
 }
 
-/// JS: checks.mjs#creamFromClassList. The Tailwind background token that
+/// `creamFromClassList`: The Tailwind background token that
 /// renders as a cream surface, or `None`.
 pub fn cream_from_class_list(cls: Option<&str>) -> Option<String> {
     re!(ARB_RE, r"(?-u:\b)bg-\[([^\]]+)\]");
@@ -143,7 +136,6 @@ const OVERSIZED_H1_MIN_CHARS: usize = 40;
 const OVERSIZED_H1_MIN_VIEWPORT_HEIGHT_RATIO: f64 = 0.28;
 const OVERSIZED_H1_MIN_VIEWPORT_AREA_RATIO: f64 = 0.25;
 
-/// JS: checks.mjs#checkOversizedH1.
 pub fn check_oversized_h1(input: &OversizedH1Input) -> Vec<Finding> {
     if input.tag != "h1" {
         return vec![];
@@ -179,7 +171,6 @@ pub fn check_oversized_h1(input: &OversizedH1Input) -> Vec<Finding> {
     vec![]
 }
 
-/// JS: checks.mjs#checkGptThinBorderWideShadow.
 pub fn check_gpt_thin_border_wide_shadow(input: &GptBorderShadowInput) -> Vec<Finding> {
     let mut visible_thin: Vec<f64> = Vec::new();
     for (index, &width) in input.border_widths.iter().enumerate() {
@@ -213,7 +204,7 @@ pub fn check_gpt_thin_border_wide_shadow(input: &GptBorderShadowInput) -> Vec<Fi
 
 // ─── Clipped overflow / screen-reader-only text ─────────────────────────────
 
-/// JS: checks.mjs#positionedStyleImpliesEscape. A positioned child's inset
+/// `positionedStyleImpliesEscape`: A positioned child's inset
 /// declarations read as pushing it outside its clipping parent (negative
 /// offset or a full 100% offset).
 pub fn positioned_style_implies_escape(style: &dyn StyleMap) -> bool {
@@ -254,7 +245,7 @@ pub fn positioned_style_implies_escape(style: &dyn StyleMap) -> bool {
     false
 }
 
-/// JS: checks.mjs#checkContentHiddenAtRest. Pure threshold check over a
+/// `checkContentHiddenAtRest`: Pure threshold check over a
 /// `measureHiddenTextDOM()` result.
 pub fn check_content_hidden_at_rest(input: &ContentHiddenInput) -> Vec<Finding> {
     if input.total_chars < 200.0 || input.hidden_chars < 150.0 {
@@ -282,7 +273,7 @@ pub fn check_content_hidden_at_rest(input: &ContentHiddenInput) -> Vec<Finding> 
 
 // ─── Text occlusion helper ──────────────────────────────────────────────────
 
-/// JS: checks.mjs#isOpaqueDecoratedBox. A near-solid background fill or
+/// `isOpaqueDecoratedBox`: A near-solid background fill or
 /// two-plus visible borders make a box hide whatever sits behind it.
 pub fn is_opaque_decorated_box(cs: Option<&dyn StyleMap>) -> bool {
     let Some(cs) = cs else { return false };

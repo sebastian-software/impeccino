@@ -9,7 +9,6 @@ use super::{BrowserConfig, BrowserFinding, FindingGroup};
 /// The collect result type is shared.
 pub use impeccino_foundation::browser::CollectResult;
 
-/// JS: checks.mjs#scopedIgnoreActive(el, ruleId)
 pub fn scoped_ignore_active(dom: &dyn Dom, el: ElId, rule_id: &str) -> bool {
     let rule = crate::js::to_lower_case(rule_id);
     // Handle 0 is JS null (a missing document.body): the walk never runs.
@@ -63,33 +62,27 @@ const DESIGN_SKIP_TAGS: &[&str] = &[
     "head", "title", "meta", "link", "style", "script", "noscript", "template", "source",
 ];
 
-/// JS: index.mjs#normalizeBrowserFontName(value)
 pub fn normalize_browser_font_name(value: &str) -> String {
     crate::design_system::normalize_font_name(value)
 }
 
-/// JS: index.mjs#browserPrimaryFont(stack)
 pub fn browser_primary_font(stack: &str) -> String {
     crate::design_system::computed_primary_font(stack)
 }
 
-/// JS: index.mjs#browserColorsClose(a, b)
 pub fn browser_colors_close(a: &crate::color::Rgba, b: &crate::color::Rgba) -> bool {
     crate::design_system::colors_close(a, b)
 }
 
-/// JS: index.mjs#isBrowserDesignColorAllowed(raw, designSystem)
 pub fn is_browser_design_color_allowed(raw: &str, ds: Option<&DesignSystemConfig>) -> bool {
     let Some(ds) = ds else { return true };
     crate::design_system::is_allowed_color_raw(raw, ds.has_colors, &ds.allowed_colors)
 }
 
-/// JS: index.mjs#isBrowserTransparentCss(value)
 pub fn is_browser_transparent_css(value: &str) -> bool {
     crate::design_system::is_transparent_css(value)
 }
 
-/// JS: index.mjs#isBrowserDesignRadiusAllowed(raw, designSystem)
 pub fn is_browser_design_radius_allowed(raw: &str, ds: Option<&DesignSystemConfig>) -> bool {
     let Some(ds) = ds else { return true };
     crate::design_system::is_allowed_radius_raw(
@@ -100,30 +93,25 @@ pub fn is_browser_design_radius_allowed(raw: &str, ds: Option<&DesignSystemConfi
     )
 }
 
-/// JS: index.mjs#browserRadiusTokens(value)
 pub fn browser_radius_tokens(value: &str) -> Vec<String> {
     crate::design_system::radius_tokens(value)
 }
 
-/// JS: index.mjs#browserHasDirectText(el)
 pub fn browser_has_direct_text(dom: &dyn Dom, el: ElId) -> bool {
     dom.direct_text_nodes(el)
         .iter()
         .any(|t| !crate::js::trim(t).is_empty())
 }
 
-/// JS: index.mjs#browserSampleText(el)
 pub fn browser_sample_text(dom: &dyn Dom, el: ElId) -> String {
     crate::design_system::sample_text(&dom.text_content(el), 40)
 }
 
-/// JS: index.mjs#shouldSkipDesignElement(el)
 pub fn should_skip_design_element(dom: &dyn Dom, el: ElId) -> bool {
     let tag = tag_lower(dom, el);
     DESIGN_SKIP_TAGS.contains(&tag.as_str()) || is_element_hidden(dom, el)
 }
 
-/// JS: index.mjs#checkElementDesignSystemDOM(el, designSystem, seen)
 pub fn check_element_design_system_dom(
     dom: &dyn Dom,
     el: ElId,
@@ -199,7 +187,6 @@ pub fn decode_uri_component(s: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
-/// JS: index.mjs#decodeBrowserGoogleFamily(value)
 pub fn decode_browser_google_family(value: &str) -> String {
     let family = value.split(':').next().unwrap_or("").replace('+', " ");
     decode_uri_component(&family).unwrap_or(family)
@@ -209,7 +196,6 @@ static GOOGLE_FAMILY_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::
     regex::Regex::new(r"[?&]family=([^&]+)").expect("GOOGLE_FAMILY_RE")
 });
 
-/// JS: index.mjs#checkBrowserDesignSystemSources(designSystem, seen)
 pub fn check_browser_design_system_sources(
     dom: &dyn Dom,
     ds: Option<&DesignSystemConfig>,
@@ -279,7 +265,6 @@ fn is_selector_name_char(c: Option<char>) -> bool {
     matches!(c, Some(c) if c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
-/// JS: injected/index.mjs#pseudoElementHostSelector
 ///
 /// Rewrites a selector so its pseudo-elements resolve to the live element
 /// that originates them: `.card::before` to `.card`, and a hostless
@@ -406,7 +391,6 @@ pub fn pseudo_element_host_selector(selector: &str) -> Option<String> {
     Some(drop_dangling_commas(crate::js::trim(&output)))
 }
 
-/// JS: injected/index.mjs#selectorNodesForLiveDom
 ///
 /// `None` means "unresolvable": the DOM API refused the selector, or the
 /// pseudo-element rewrite left nothing queryable. An empty vector from a
@@ -435,7 +419,7 @@ pub fn selector_nodes_for_live_dom(dom: &dyn Dom, selector: &str) -> Option<Vec<
 pub fn scoped_html_pattern_findings(dom: &dyn Dom) -> Vec<BrowserFinding> {
     let html = dom.document_html_for_patterns();
     // Linked stylesheets are absent from the page's outerHTML, so the probe
-    // hands their readable, live-resolving rules to the style corpus (#709).
+    // hands their readable, live-resolving rules to the style corpus (pbakaus/impeccable#709).
     let mut corpora = crate::checks::html_patterns::build_html_pattern_corpora(&html);
     let linked_css = dom.linked_stylesheet_text();
     if !linked_css.is_empty() {
@@ -496,7 +480,6 @@ static HASHED_2: once_cell::sync::Lazy<regex::Regex> =
 static HASHED_3: once_cell::sync::Lazy<regex::Regex> =
     once_cell::sync::Lazy::new(|| regex::Regex::new(r"^[a-zA-Z0-9]{6,}$").expect("HASHED_3"));
 
-/// JS: index.mjs#isLikelyHashedClass(c)
 pub fn is_likely_hashed_class(c: &str) -> bool {
     if c.is_empty() {
         return true;
@@ -527,7 +510,6 @@ fn class_list(dom: &dyn Dom, el: ElId) -> Vec<String> {
     out
 }
 
-/// JS: index.mjs#buildSelectorSegment(el)
 pub fn build_selector_segment(dom: &dyn Dom, el: ElId) -> String {
     let tag = tag_lower(dom, el);
     let mut sel = tag.clone();
@@ -580,7 +562,6 @@ pub fn build_selector_segment(dom: &dyn Dom, el: ElId) -> String {
     sel
 }
 
-/// JS: index.mjs#generateSelector(el)
 pub fn generate_selector(dom: &dyn Dom, el: ElId) -> String {
     let body = dom.body();
     let root = dom.document_element();
@@ -606,7 +587,7 @@ pub fn generate_selector(dom: &dyn Dom, el: ElId) -> String {
         // JS `current.id` (the raw property, truthy check). Where the
         // property is not a string (shadowed by a named control) the object
         // is truthy and CSS.escape stringifies it; that garbage-selector case
-        // is exactly issue #407 for the anchor path and is left as the JS
+        // is exactly issue pbakaus/impeccable#407 for the anchor path and is left as the JS
         // does it: id_prop None means the getter returned an element, which
         // is truthy → escape("[object HTMLInputElement]").
         let cur_id = match dom.id_prop(cur) {
@@ -629,7 +610,6 @@ pub fn generate_selector(dom: &dyn Dom, el: ElId) -> String {
     parts.join(" > ")
 }
 
-/// JS: index.mjs#isElementHidden(el)
 pub fn is_element_hidden(dom: &dyn Dom, el: ElId) -> bool {
     if Some(el) == dom.body() || Some(el) == dom.document_element() {
         return false;
@@ -644,7 +624,6 @@ fn hits(v: Vec<crate::checks::rules::RuleHit>) -> Vec<BrowserFinding> {
     v.iter().map(BrowserFinding::from_hit).collect()
 }
 
-/// JS: index.mjs#collectBrowserFindings()
 pub fn collect_browser_findings(dom: &dyn Dom, config: &BrowserConfig) -> CollectResult {
     use super::element_checks as ec;
     use super::page_checks as pc;
@@ -1289,7 +1268,7 @@ mod pseudo_host_tests {
         );
         // A pseudo-class keeps its colon while a pseudo-element resolves.
         assert_eq!(host("a:hover::after"), Some("a:hover".to_string()));
-        // Values recorded from the JS on origin/main (#709).
+        // Values recorded from the JS on origin/main (pbakaus/impeccable#709).
         assert_eq!(host(".a::before, .b"), Some(".a, .b".to_string()));
         assert_eq!(host(".a::before,"), Some(".a".to_string()));
         assert_eq!(host("::before ::after"), Some("* *".to_string()));

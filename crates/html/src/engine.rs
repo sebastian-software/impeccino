@@ -1,13 +1,4 @@
-//! Port of `cli/engine/engines/static-html/detect-html.mjs#detectHtml`: the
-//! whole static engine run for one HTML file, in the exact JS finding order
-//! (element rules in `STATIC_ELEMENT_RULES` order, design-system findings,
-//! then the page-level checks for full pages), then inline ignores.
-//!
-//! Two pieces the JS reaches into other engines for are exposed as hooks on
-//! [`DetectHtmlOptions`] instead of being duplicated here:
-//! `runTextContentAnalyzers` (regex engine) and the design-system trio
-//! (`checkSourceDesignSystem`, `collectStaticDesignSystemFindings`,
-//! `mergeDesignSystemFindings`). The `detect` crate wires them.
+//! Static HTML scan orchestration over the parsed DOM and cascade.
 
 use crate::adapters::{
     check_element_borders, check_element_broken_image, check_element_clipped_overflow,
@@ -335,17 +326,4 @@ pub fn detect_html_source(
     } else {
         apply_inline_ignores(findings, Some(html))
     }
-}
-
-/// The selectors css-select would refuse that a scan of `html` hits (for the
-/// parity report; not part of the JS API).
-pub fn unsupported_selectors(html: &str, file_path: &Path) -> Vec<String> {
-    let file_dir = file_path
-        .parent()
-        .map(|p| p.to_path_buf())
-        .unwrap_or_default();
-    let mut doc = StaticDocument::parse(html);
-    let css_text = collect_static_css_text(&doc, &file_dir, None);
-    build_static_style_map(&mut doc, &css_text);
-    doc.unsupported_selectors()
 }

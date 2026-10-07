@@ -1,7 +1,4 @@
-//! Port of `cli/engine/rules/checks.mjs` CSS-text scanners: the functions
-//! that read raw stylesheet / HTML text (no DOM) and return findings that
-//! carry a source `index` (a byte offset here; JS reports UTF-16 units, see
-//! `crate::js_ext_a::utf16_index`) and/or a `selector`.
+//! CSS source scanners for authored background, animation and decoration rules.
 
 use crate::checks::rules::{extract_shadow_lengths, find_shadow_color, ANY, B, D};
 use crate::color::{
@@ -32,7 +29,7 @@ re!(
     format!(r"var\({WS}*(--[a-zA-Z0-9_-]+){WS}*(?:,{WS}*([^)]+))?\)")
 );
 
-/// JS: checks.mjs#resolveVarRefs (Section 4). Kept private to the CSS-text
+/// `resolveVarRefs`: (Section 4). Kept private to the CSS-text
 /// scanners; the measures module carries the public port.
 pub(crate) fn resolve_var_refs(raw: &str, custom_props: &CustomProps) -> String {
     resolve_var_refs_depth(raw, custom_props, 0)
@@ -101,7 +98,6 @@ re!(
     )
 );
 
-/// JS: checks.mjs#cssTextHasDarkRootBg
 pub fn css_text_has_dark_root_bg(content: &str, custom_props: &CustomProps) -> bool {
     if DARK_BG_RE.is_match(content) || TW_DARK_BG_RE.is_match(content) {
         return true;
@@ -137,7 +133,6 @@ re!(
     )
 );
 
-/// JS: checks.mjs#scanCssTextForGlow
 pub fn scan_css_text_for_glow(content: &str) -> Vec<IndexedHit> {
     let custom_props = collect_css_custom_props(content);
     let has_dark_bg = css_text_has_dark_root_bg(content, &custom_props);
@@ -223,7 +218,6 @@ re!(
     )
 );
 
-/// JS: checks.mjs#scanCssTextForGridBackground
 pub fn scan_css_text_for_grid_background(content: &str) -> Vec<IndexedHit> {
     for blk in GRID_BLOCK_RE.captures_iter(content) {
         let block = blk
@@ -250,7 +244,7 @@ pub fn scan_css_text_for_grid_background(content: &str) -> Vec<IndexedHit> {
         let has_px_cell =
             SIZE_DECL_PX_RE.is_match(block) || SHORTHAND_PX_ANY_RE.is_match(&bg_joined);
         // A single hairline is a line, divider, or rail, not a grid, even
-        // when tiled by a 2D px cell (issue #615).
+        // when tiled by a 2D px cell (issue pbakaus/impeccable#615).
         if hairline_count >= 2 && has_px_cell {
             return vec![IndexedHit {
                 index: blk.get(0).unwrap().start(),
@@ -298,7 +292,6 @@ re!(
 re!(PX_STOP_RE, format!(r"(-?[0-9.]+)px{B}"));
 re!(TRANSPARENT_EXACT_RE, format!(r"^{}$", ci("transparent")));
 
-/// JS: checks.mjs#scanCssTextForRadialHalo
 pub fn scan_css_text_for_radial_halo(content: &str) -> Vec<IndexedHit> {
     let custom_props = collect_css_custom_props(content);
     if !css_text_has_dark_root_bg(content, &custom_props) {
@@ -614,7 +607,6 @@ fn get_or<'a>(decls: &'a DeclMap, a: &str, b: &str) -> &'a str {
     }
 }
 
-/// JS: checks.mjs#scanCssTextForPseudoStripe
 pub fn scan_css_text_for_pseudo_stripe(raw_content: &str) -> Vec<PatternFinding> {
     let content = blank_comments(raw_content);
     let custom_props = collect_css_custom_props(&content);
@@ -787,7 +779,6 @@ pub fn scan_css_text_for_pseudo_stripe(raw_content: &str) -> Vec<PatternFinding>
 // ─── scanCssTextForInsetStripe ──────────────────────────────────────────────
 re!(INSET_RE, format!(r"{B}{}{B}", ci("inset")));
 
-/// JS: checks.mjs#scanCssTextForInsetStripe
 pub fn scan_css_text_for_inset_stripe(content: &str) -> Vec<PatternFinding> {
     let custom_props = collect_css_custom_props(content);
     let mut findings = Vec::new();
@@ -927,7 +918,6 @@ re!(
 re!(CURVE_CMD_RE, "[CSQTAcsqta]");
 re!(SIGNED_NUM_RE, r"-?[0-9.]+");
 
-/// JS: checks.mjs#scanCssTextForOrganicClipPath
 pub fn scan_css_text_for_organic_clip_path(style_text: &str) -> Vec<PatternFinding> {
     let mut findings = Vec::new();
     for m in ORGANIC_CLIP_RE.captures_iter(style_text) {
@@ -1062,7 +1052,7 @@ re!(
 /// backtracking means the test fails only when `normal` follows the colon
 /// with no whitespace at all (with whitespace, a shorter `\s*` leaves the
 /// probe on the space, where `(?!normal)` succeeds).
-// JS-PARITY: checks.mjs#scanCssTextForBuriedRaster blend-mode guard,
+// Compatibility: the buried-raster blend-mode guard,
 // backtracking bug included.
 fn blend_mode_declared_not_normal(rule: &str, re: &Regex) -> bool {
     for m in re.find_iter(rule) {
@@ -1120,7 +1110,6 @@ fn buried_alpha_of(a: Option<&str>) -> f64 {
     }
 }
 
-/// JS: checks.mjs#scanCssTextForBuriedRaster
 pub fn scan_css_text_for_buried_raster(style_text: &str) -> Vec<PatternFinding> {
     let mut findings = Vec::new();
     for m in BURIED_DECL_RE.captures_iter(style_text) {
@@ -1198,7 +1187,7 @@ pub fn scan_css_text_for_buried_raster(style_text: &str) -> Vec<PatternFinding> 
 
 re!(MARQUEE_TAG_RE, format!(r"<{}{B}", ci("marquee")));
 
-/// JS: checks.mjs#scanCssTextForMarquee. `markup` defaults to `content`.
+/// `scanCssTextForMarquee`: `markup` defaults to `content`.
 pub fn scan_css_text_for_marquee(content: &str, markup: Option<&str>) -> Vec<PatternFinding> {
     let markup = markup.unwrap_or(content);
     let mut findings = Vec::new();
@@ -1245,7 +1234,6 @@ pub fn scan_css_text_for_marquee(content: &str, markup: Option<&str>) -> Vec<Pat
 
 re!(PCT_VALUE_RE, r"^([0-9.]+)%$");
 
-/// JS: checks.mjs#isRoundDotRadius
 pub fn is_round_dot_radius(radius_value: &str, w: f64, h: f64) -> bool {
     if radius_value.is_empty() {
         return false;
@@ -1280,7 +1268,7 @@ re!(
     format!(r"{B}(?:w|h|size)-(?:1|1\.5|2|2\.5|3|3\.5|4){B}")
 );
 
-/// JS: checks.mjs#scanCssTextForPulsingDot. `markup` defaults to `content`.
+/// `scanCssTextForPulsingDot`: `markup` defaults to `content`.
 pub fn scan_css_text_for_pulsing_dot(content: &str, markup: Option<&str>) -> Vec<PatternFinding> {
     let markup = markup.unwrap_or(content);
     let custom_props = collect_css_custom_props(content);

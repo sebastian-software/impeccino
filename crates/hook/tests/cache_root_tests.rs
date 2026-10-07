@@ -1,5 +1,5 @@
 //! Where hook state lives: the user cache by default (docs/adr/0020), or
-//! IMPECCINO_CACHE_ROOT (#422), which mirrors the scenarios main's
+//! IMPECCINO_CACHE_ROOT (pbakaus/impeccable#422), which mirrors the scenarios main's
 //! tests/hook.test.mjs added in 77a2eae8 / 5c82d58b / 30b3628f / cbd78701.
 //!
 //! These tests mutate the process environment, so they live in their own
@@ -314,7 +314,7 @@ fn clean_edit_without_a_session_cache_writes_nothing() {
     let cwd = project.path();
     let r = rt(&cwd);
     // A clean UI edit before the project has any session state writes
-    // nothing at all (issues #344, #305).
+    // nothing at all (issues pbakaus/impeccable#344, pbakaus/impeccable#305).
     let clean = project.write("src/b.css", CLEAN_CSS);
     let res = hook::run_hook(&r, &edit_event(&cwd, &clean, "s1"));
     assert_eq!(
