@@ -50,7 +50,7 @@
     }
   ],
   "files": {
-    ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json": "{\"version\":1,\"sessions\":{\"cv1\":{\"updatedAt\": <EPOCH>,\"files\":{\"<WS>/src/new.css\":{\"editCount\":0,\"findings\":[],\"cursorDenials\":{\"gradient-text:1\":8}}},\"footerShown\":true}}}",
+    ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json": "{\"version\":1,\"sessions\":{\"cv1\":{\"updatedAt\": <EPOCH>,\"files\":{\"<WS>/src/new.css\":{\"editCount\":0,\"findings\":[],\"cursorDenials\":{\"gradient-text\":8}}},\"footerShown\":true}}}",
     ".oracle-home/.cache/impeccino/projects/<PROJECT>/hook.cache.json.project-roots.lock": ""
   }
 }

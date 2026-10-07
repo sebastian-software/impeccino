@@ -1,8 +1,8 @@
 //! Inline rule suppression with eslint-style directives.
 
 use crate::js::{self, ci, WS};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// JS `DIRECTIVE_RE` =
 /// `/impeccino-(disable-next-line|disable-line|disable)\b[ \t]*([^\n\r]*)/gi`.

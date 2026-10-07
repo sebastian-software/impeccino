@@ -4,9 +4,9 @@ use crate::js::{
     self, ci, math_cos, math_hypot, math_max, math_max3, math_min, math_min3, math_pow, math_round,
     math_sin, number_to_string_radix, parse_float, parse_int, string_to_number, WS,
 };
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock as Lazy;
 
 /// The JS color object `{ r, g, b, a? }`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -384,6 +384,19 @@ pub fn color_to_hex(c: Option<&Rgba>) -> String {
         out.push_str(&s);
     }
     out
+}
+
+/// Format CSS channel values as six hexadecimal byte digits for display.
+/// The inherited `color_to_hex` helper remains the frozen numeric contract.
+pub fn display_color_hex(c: Option<&Rgba>) -> String {
+    let Some(c) = c else { return "?".to_string() };
+    let channel = |value: f64| value.round().clamp(0.0, 255.0) as u8;
+    format!(
+        "#{:02x}{:02x}{:02x}",
+        channel(c.r),
+        channel(c.g),
+        channel(c.b)
+    )
 }
 
 // ─── Color-space conversions ────────────────────────────────────────────────

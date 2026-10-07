@@ -2,9 +2,9 @@
 
 use impeccino_core::findings::Finding;
 use impeccino_core::js;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
+use std::sync::LazyLock as Lazy;
 
 use crate::hook_lib::*;
 use crate::util::{iso_now, jsp, now_ms, obj_field, str_field_any, truthy_value, utf16_len};
@@ -490,6 +490,21 @@ fn python_string_arg(script: &str, prefix_re: &Regex) -> String {
     String::new()
 }
 
+fn create_proposal_dir(base: &std::path::Path, stamp: &str) -> std::io::Result<std::path::PathBuf> {
+    for attempt in 0..32 {
+        let dir = base.join(format!("impeccino-pre-{stamp}-{attempt}"));
+        match std::fs::create_dir(&dir) {
+            Ok(()) => return Ok(dir),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "proposal directory collisions",
+    ))
+}
+
 /// JS: detectProposedHtml(detector, content, filePath, scanOptions)
 fn detect_proposed_html(
     rt: &Runtime,
@@ -499,8 +514,7 @@ fn detect_proposed_html(
 ) -> Result<Vec<Finding>, String> {
     let base = std::env::temp_dir();
     let stamp = format!("{}{}", std::process::id(), now_ms() as u64);
-    let dir = base.join(format!("impeccino-pre-{stamp}"));
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let dir = create_proposal_dir(&base, &stamp).map_err(|e| e.to_string())?;
     let tmp = dir.join(jsp::basename(file_path));
     let result = (|| {
         std::fs::write(&tmp, content).map_err(|e| e.to_string())?;
@@ -564,15 +578,11 @@ fn finding_signature(findings: &[Finding]) -> String {
             } else {
                 f.antipattern.as_str()
             };
-            let line = if f.line.abs() > 0.0 {
-                js::number_to_string(f.line)
-            } else {
-                "0".to_string()
-            };
-            format!("{ap}:{line}")
+            ap.to_string()
         })
         .collect();
     parts.sort_by(|a, b| crate::util::js_str_cmp(a, b));
+    parts.dedup();
     parts.join("|")
 }
 
@@ -887,4 +897,24 @@ pub fn run(rt: &Runtime, stdin: &str, io: &mut impeccino_common::Io) -> i32 {
     write_audit_log(rt, &out.audit, &rt.proc_cwd);
     io.out(&out.stdout);
     0
+}
+
+#[cfg(test)]
+mod temporary_directory_tests {
+    use super::*;
+    #[test]
+    fn coincident_proposals_do_not_reuse_an_owned_directory() {
+        let base = std::env::temp_dir();
+        let stamp = format!("collision-{}-{}", std::process::id(), now_ms());
+        let first = create_proposal_dir(&base, &stamp).unwrap();
+        std::fs::write(first.join("keep"), "owned by first proposal").unwrap();
+        let second = create_proposal_dir(&base, &stamp).unwrap();
+        assert_ne!(first, second);
+        assert_eq!(
+            std::fs::read_to_string(first.join("keep")).unwrap(),
+            "owned by first proposal"
+        );
+        std::fs::remove_dir_all(first).unwrap();
+        std::fs::remove_dir_all(second).unwrap();
+    }
 }

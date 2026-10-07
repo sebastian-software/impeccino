@@ -6,9 +6,9 @@
 
 use impeccino_core::findings::Finding;
 use impeccino_core::js;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::Value;
+use std::sync::LazyLock as Lazy;
 
 use crate::util::{re, WS};
 

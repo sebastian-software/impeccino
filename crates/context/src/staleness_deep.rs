@@ -9,9 +9,9 @@ use crate::staleness::{
 };
 use crate::util::{exists, js_trim, read_json, safe_read};
 use impeccino_core::inline_ignores::parse_design_waivers;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
+use std::sync::LazyLock as Lazy;
 
 const VISUAL_SOURCE_DIRS: [&str; 7] = [
     "src",

@@ -51,7 +51,7 @@ fn provider_from_skill_dir(skill_dir: &str) -> Option<&'static str> {
         ".dsh" => "dsh",
         ".gemini" => "gemini",
         ".codex" => "codex",
-        ".agents" => "agents",
+        ".agents" => "codex",
         ".github" => "github",
         ".kiro" => "kiro",
         ".opencode" => "opencode",
@@ -117,5 +117,20 @@ impl Provider {
             impeccino_common::quote_executable_path(&self.self_cmd, cfg!(windows)),
             verb
         )
+    }
+}
+
+#[cfg(test)]
+mod shared_skill_path_tests {
+    use super::*;
+    #[test]
+    fn codex_shared_skill_path_uses_the_codex_sigil() {
+        let env = Env::from([(
+            "IMPECCINO_SKILL_DIR".into(),
+            "/tmp/project/.agents/skills/impeccino".into(),
+        )]);
+        let p = detect(&env, "/tmp/project");
+        assert_eq!(p.command, "$impeccino");
+        assert_eq!(p.id, "codex");
     }
 }

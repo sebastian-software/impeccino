@@ -1,7 +1,7 @@
 //! Artifact schema version parsing and stamping.
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 pub const PRODUCT_SCHEMA_VERSION: i64 = 1;
 pub const DESIGN_SIDECAR_SCHEMA_VERSION: i64 = 2;

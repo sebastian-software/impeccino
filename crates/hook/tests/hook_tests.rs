@@ -2737,7 +2737,7 @@ fn before_edit_denies_shell_and_edit_shapes() {
     let cache = read_cache(&cwd);
     assert_eq!(
         cache["sessions"]["cv1"]["files"][jsp::join(&[&cwd, "src/new.css"])]["cursorDenials"]
-            ["gradient-text:1"],
+            ["gradient-text"],
         json!(7)
     );
     assert_eq!(cache["sessions"]["cv1"]["footerShown"], json!(true));
@@ -4010,4 +4010,68 @@ fn stop_scans_touched_files_with_live_preview_markers() {
         stop.stdout
     );
     assert_eq!(stop.audit.get("skipped"), None);
+}
+
+#[test]
+fn stop_eventually_scans_files_beyond_the_first_batch() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    t.write("package.json", "{}");
+    let r = rt(&cwd);
+    let mut cache = read_cache(&cwd);
+    for i in 0..41 {
+        let body = SIDE_TAB_CSS;
+        let file = t.write(&format!("src/file-{i:02}.css"), body);
+        bump_edit_count(&mut cache, "fair-stop", &file);
+    }
+    persist_project_cache(&r, &cwd, &cwd, &mut cache, "fair-stop");
+    let mut output = String::new();
+    for _ in 0..3 {
+        output.push_str(&hook::run_stop_hook(&r, &stop_event(&cwd, "fair-stop")).stdout);
+    }
+    assert!(
+        output.contains("file-40.css"),
+        "late file never scanned: {output}"
+    );
+}
+
+#[test]
+fn cursor_loop_breaker_survives_moving_a_finding_to_another_line() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    let mut last = String::new();
+    for i in 0..7 {
+        let event = json!({"session_id":"moving-line", "cwd":cwd, "event":"preToolUse", "tool_name":"Write", "tool_input":{"path":"src/card.css", "content":format!("{}{}", "\n".repeat(i), GRADIENT_CSS)}}).to_string();
+        last = hbe(&r, &event).0;
+    }
+    assert_eq!(
+        serde_json::from_str::<Value>(&last).unwrap()["permission"],
+        "allow",
+        "{last}"
+    );
+    assert!(last.contains("7th repeated denial"), "{last}");
+}
+
+#[test]
+fn stop_rotates_projects_when_the_first_project_fills_the_batch() {
+    let t = Tmp::new();
+    let cwd = t.path();
+    let r = rt(&cwd);
+    for (project, count) in [("a", 21), ("b", 1)] {
+        let marker = t.write(&format!("apps/{project}/package.json"), "{}");
+        let project_root = jsp::dirname(&marker);
+        let mut cache = read_cache(&project_root);
+        for index in 0..count {
+            let file = t.write(
+                &format!("apps/{project}/src/{project}-{index}.css"),
+                SIDE_TAB_CSS,
+            );
+            bump_edit_count(&mut cache, "fair-projects", &file);
+        }
+        persist_project_cache(&r, &project_root, &cwd, &mut cache, "fair-projects");
+    }
+    hook::run_stop_hook(&r, &stop_event(&cwd, "fair-projects"));
+    let second = hook::run_stop_hook(&r, &stop_event(&cwd, "fair-projects"));
+    assert!(second.stdout.contains("b-0.css"), "{}", second.stdout);
 }

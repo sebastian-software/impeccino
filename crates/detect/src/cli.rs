@@ -335,8 +335,25 @@ impl<'a> Ctx<'a> {
                 }));
             }
         };
+        self.detect_local_source(&content, file_path, options)
+    }
+
+    fn detect_local_source(
+        &mut self,
+        content: &str,
+        file_path: &str,
+        options: &ScanOptions,
+    ) -> Result<Vec<Finding>, EngineError> {
+        if is_html_path(file_path) {
+            return self.engines.html.detect_html_source(
+                content,
+                file_path,
+                options,
+                &mut *self.io.stderr,
+            );
+        }
         Ok(detect_text(
-            &content,
+            content,
             file_path,
             &TextOptions {
                 design_system: options.design_system.as_deref(),
@@ -819,33 +836,40 @@ fn scan_targets(
                     return Err(Exit(1));
                 }
             }
-            let mut unreadable_files: Vec<String> = Vec::new();
             let mut read_failures: Vec<(String, String)> = Vec::new();
-            let graph = build_import_graph_reporting(&files, &mut |file, err| {
-                unreadable_files.push(file.to_string());
-                read_failures.push((file.to_string(), node_scan_error(file, err)));
-            });
+            let mut scanned_files = std::collections::HashMap::new();
+            let graph = build_import_graph_reporting(
+                &files,
+                &mut |file, err| {
+                    read_failures.push((file.to_string(), node_scan_error(file, err)));
+                },
+                &mut |file, content| {
+                    let opts = ctx.scan_options_for(Some(file));
+                    scanned_files.insert(
+                        file.to_string(),
+                        ctx.detect_local_source(content, file, &opts),
+                    );
+                },
+            );
             for (file, message) in read_failures {
                 ctx.report_local_scan_failure(&file, &message);
             }
-            let mut imported_by_map: Vec<(String, Vec<String>)> = Vec::new();
-            for (importer, imports) in &graph {
-                for imported in imports {
-                    if let Some(slot) = imported_by_map.iter_mut().find(|(k, _)| k == imported) {
-                        if !slot.1.contains(importer) {
-                            slot.1.push(importer.clone());
-                        }
-                    } else {
-                        imported_by_map.push((imported.clone(), vec![importer.clone()]));
+            let mut imported_by_map: std::collections::HashMap<&str, Vec<&str>> =
+                std::collections::HashMap::new();
+            for entry in &graph {
+                for imported in &entry.imports {
+                    let importers = imported_by_map.entry(imported).or_default();
+                    if !importers.contains(&entry.path.as_str()) {
+                        importers.push(&entry.path);
                     }
                 }
             }
-            for file in &files {
-                if unreadable_files.contains(file) {
-                    continue;
-                }
-                let opts = ctx.scan_options_for(Some(file));
-                let file_findings = match ctx.detect_local_file(file, &opts) {
+            for entry in &graph {
+                let file = &entry.path;
+                let file_findings = match scanned_files
+                    .remove(file)
+                    .expect("graph nodes were scanned while loaded")
+                {
                     Ok(f) => f,
                     Err(e) => {
                         let message = e.message.clone();
@@ -854,7 +878,7 @@ fn scan_targets(
                     }
                 };
                 let mut file_findings = ctx.apply_decisions(Some(file), file_findings);
-                if let Some((_, importers)) = imported_by_map.iter().find(|(k, _)| k == file) {
+                if let Some(importers) = imported_by_map.get(file.as_str()) {
                     if !importers.is_empty() {
                         let names: Vec<Value> = importers
                             .iter()

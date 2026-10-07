@@ -864,6 +864,10 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
             ],
         );
     }
+    if roots.len() > 1 {
+        let offset = advance_stop_project_offset(rt, &session_cwd, &session_id, roots.len());
+        roots.rotate_left(offset);
+    }
     let multi_root_session = roots.len() > 1;
     let output_char_limit = if multi_root_session {
         (DEFAULT_MAX_CHARS as usize).saturating_sub(invocation_omission_reserve())
@@ -895,7 +899,7 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
         // file permission to escape that file's actual project, or to bypass
         // sensitive/generated-file filtering. Re-derive the nearest project
         // from disk and require it to match the registered cache root.
-        let touched: Vec<String> = candidate_files
+        let mut touched: Vec<String> = candidate_files
             .into_iter()
             .filter(|file| {
                 !has_path_traversal(file)
@@ -910,12 +914,23 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
         }
         projects_with_files += 1;
 
+        let partial_batch = touched.len() > STOP_MAX_FILES - scanned_total;
+        let offset = if partial_batch {
+            ensure_session(&mut cache, &session_id)
+                .get("stopScanOffset")
+                .and_then(Value::as_u64)
+                .unwrap_or(0) as usize
+                % touched.len()
+        } else {
+            0
+        };
+        touched.rotate_left(offset);
         let project_config = read_config(&project_cwd);
         let mut scans = HashMap::new();
         let mut fresh_groups: Vec<Group> = Vec::new();
         let mut cache_dirty = false;
         let mut project_has_non_native_target = false;
-        for file_path in &touched {
+        for (position, file_path) in touched.iter().enumerate() {
             if scanned_total >= STOP_MAX_FILES {
                 break;
             }
@@ -942,6 +957,13 @@ pub fn run_stop_hook(rt: &Runtime, stdin: &str) -> RunResult {
                 continue;
             }
             scanned_total += 1;
+            if partial_batch {
+                ensure_session(&mut cache, &session_id).insert(
+                    "stopScanOffset".into(),
+                    Value::from((offset + position + 1) % touched.len()),
+                );
+                cache_dirty = true;
+            }
             let content = match std::fs::read(file_path) {
                 Ok(b) => String::from_utf8_lossy(&b).into_owned(),
                 Err(_) => continue,

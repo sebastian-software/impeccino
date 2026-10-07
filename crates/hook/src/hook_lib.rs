@@ -15,9 +15,9 @@ use impeccino_detect::design_system::{
 use impeccino_detect::detect_text::{detect_text, TextOptions};
 use impeccino_detect::engines::{HtmlEngine, ScanOptions};
 use impeccino_detect::project_ignores::ProjectIgnores;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
+use std::sync::LazyLock as Lazy;
 
 use crate::util::{
     exists, iso_now, js_string, jsp, now_value, obj_field, safe_read, safe_read_json, slice_prefix,
@@ -122,11 +122,8 @@ fn hook_state_dir(cwd: &str) -> String {
     let mut root = impeccino_core::js::trim(&raw).to_string();
     if root.starts_with("~/") || root.starts_with("~\\") || root == "~" {
         // JS: os.homedir() || '' — HOME on unix, USERPROFILE on Windows.
-        let home = if cfg!(windows) {
-            std::env::var("USERPROFILE").unwrap_or_default()
-        } else {
-            std::env::var("HOME").unwrap_or_default()
-        };
+        let home = impeccino_common::project_files::home_dir(|key| std::env::var(key).ok())
+            .unwrap_or_default();
         root = if home.is_empty() {
             String::new()
         } else {
@@ -656,6 +653,32 @@ fn bounded_project_roots(roots: &[Value]) -> Vec<Value> {
         }
     }
     bounded
+}
+
+/// Rotate Stop's project order while retaining roots registered concurrently.
+pub fn advance_stop_project_offset(
+    rt: &Runtime,
+    cwd: &str,
+    session_id: &str,
+    count: usize,
+) -> usize {
+    let target = get_cache_path(cwd);
+    let Ok(_lock) = ProjectRootsLock::acquire(&target) else {
+        return 0;
+    };
+    let mut cache = read_cache(cwd);
+    let session = ensure_session(&mut cache, session_id);
+    let offset = session
+        .get("stopProjectOffset")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize
+        % count;
+    session.insert(
+        "stopProjectOffset".into(),
+        Value::from((offset + 1) % count),
+    );
+    persist_cache(rt, cwd, &cache);
+    offset
 }
 
 fn persist_cache_preserving_project_roots(rt: &Runtime, cwd: &str, cache: &Cache) -> bool {

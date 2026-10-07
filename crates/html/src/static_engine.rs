@@ -13,7 +13,7 @@ use impeccino_detect::engines::{EngineError, HtmlEngine, ScanOptions};
 
 use crate::background::sv;
 use crate::dom::{StaticDocument, StaticElement};
-use crate::engine::{detect_html, DesignSystemHook, DetectHtmlOptions};
+use crate::engine::{DesignSystemHook, DetectHtmlOptions};
 use crate::quality::pf0;
 
 /// The static HTML engine as `impeccino detect` sees it.
@@ -30,6 +30,27 @@ pub struct StaticHtmlEngine {
 impl HtmlEngine for StaticHtmlEngine {
     fn detect_html(
         &self,
+        path: &str,
+        options: &ScanOptions,
+        stderr: &mut dyn std::io::Write,
+    ) -> Result<Vec<Finding>, EngineError> {
+        let content = std::fs::read(path).map_err(|error| {
+            EngineError::new(match error.kind() {
+                std::io::ErrorKind::NotFound => {
+                    format!("ENOENT: no such file or directory, open '{path}'")
+                }
+                std::io::ErrorKind::PermissionDenied => {
+                    format!("EACCES: permission denied, open '{path}'")
+                }
+                _ => format!("{error}, open '{path}'"),
+            })
+        })?;
+        self.detect_html_source(&String::from_utf8_lossy(&content), path, options, stderr)
+    }
+
+    fn detect_html_source(
+        &self,
+        source: &str,
         path: &str,
         options: &ScanOptions,
         stderr: &mut dyn std::io::Write,
@@ -56,20 +77,11 @@ impl HtmlEngine for StaticHtmlEngine {
             static_rule_pack: self.static_rule_pack,
             rule_pack: options.rule_pack,
         };
-        detect_html(Path::new(path), &html_options).map_err(|e| {
-            EngineError::new(match e {
-                // JS `fs.readFileSync` rejection surfaced by `detectCli`'s catch.
-                crate::engine::HtmlEngineError::Read { path, source } => match source.kind() {
-                    std::io::ErrorKind::NotFound => {
-                        format!("ENOENT: no such file or directory, open '{path}'")
-                    }
-                    std::io::ErrorKind::PermissionDenied => {
-                        format!("EACCES: permission denied, open '{path}'")
-                    }
-                    _ => format!("{source}, open '{path}'"),
-                },
-            })
-        })
+        Ok(crate::engine::detect_html_source(
+            source,
+            Path::new(path),
+            &html_options,
+        ))
     }
 }
 
@@ -1016,8 +1028,7 @@ mod tests {
 
         assert_eq!(static_hits, rendered_hits);
         assert_eq!(static_hits.len(), 1);
-        assert!(static_hits[0]
-            .snippet
-            .contains(&format!("{}�", "x".repeat(59))));
+        assert!(static_hits[0].snippet.contains(&"x".repeat(59)));
+        assert!(!static_hits[0].snippet.contains('�'));
     }
 }

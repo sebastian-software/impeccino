@@ -4,8 +4,8 @@ use crate::checks::rules::RuleHit;
 use crate::checks::text_rules::NON_RENDERED_TAGS;
 use crate::js::{self, number_to_string, parse_float, to_fixed};
 use crate::js_ext_b::{collapse_whitespace, slice_utf16_prefix, utf16_len};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 static RASTER_URL_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(&format!(r"{}\(", js::ci("url"))).expect("RASTER_URL_RE"));

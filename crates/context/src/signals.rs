@@ -1,6 +1,6 @@
 //! Repository context signals for `impeccino signals`.
 
-use crate::context::{extract_platform, load_context};
+use crate::context::{extract_platform, load_context_without_visual_scan};
 use crate::jsp;
 use crate::target_args::TargetOptions;
 use crate::util::{exists, js_trim, json_pretty, opt_string, Env};
@@ -369,7 +369,7 @@ fn scan_targets(cwd: &str, git: &Value) -> Value {
 }
 
 pub fn gather_signals(cwd: &str, env: &Env) -> Value {
-    let ctx = load_context(cwd, &TargetOptions::default(), env);
+    let ctx = load_context_without_visual_scan(cwd, &TargetOptions::default(), env);
     let git = git_signals(cwd);
     let mut setup = Map::new();
     setup.insert("hasProduct".into(), Value::Bool(ctx.has_product));

@@ -89,6 +89,21 @@ function Thumb({ url }: { url?: string }) {
     },
 
     // Flag surface and errors
+    {
+      id: 'detect-safe-unicode-snippet', verb: 'detect',
+      setup: (ws) => fs.writeFileSync(path.join(ws, 'heading.html'), `<h1 style="font-style:italic;font-family:Georgia,serif;font-size:48px">${'x'.repeat(59)}😀tail</h1>`),
+      args: ['--no-config', '--json', 'heading.html'],
+    },
+    {
+      id: 'detect-clamped-color-label', verb: 'detect',
+      setup: (ws) => fs.writeFileSync(path.join(ws, 'color.html'), '<style>div:hover{color:rgb(300,0,0);background-color:white}</style><div>Hover me</div>'),
+      args: ['--no-config', '--json', 'color.html'],
+    },
+    {
+      id: 'detect-invalid-svg-dimensions', verb: 'detect',
+      args: ['--no-config', '--json', '-'],
+      stdin: '<svg width="." height="."><rect fill="red"/><rect fill="blue"/><rect fill="#0f0"/><circle/><circle/><circle/><ellipse/><polygon/></svg>',
+    },
     { id: 'detect-help', verb: 'detect', args: ['--help'] },
     { id: 'detect-no-args', verb: 'detect', args: [] },
     {

@@ -1,0 +1,7 @@
+{
+  "stdout": "[\n  {\n    \"antipattern\": \"italic-serif-display\",\n    \"name\": \"Italic serif display headline\",\n    \"description\": \"Oversized italic serif (Fraunces, Recoleta, Playfair, Newsreader-italic) as the primary hero headline reads as taste in isolation but has become the universal AI-startup landing page hero. Set roman, or move to a non-serif display face. Editorial / magazine register may legitimately want this — judge by context.\",\n    \"severity\": \"warning\",\n    \"category\": \"slop\",\n    \"file\": \"<WS>/heading.html\",\n    \"line\": 0,\n    \"snippet\": \"italic serif h1 (georgia) at 48px \\\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\\"\"\n  }\n]\n",
+  "stderr": "",
+  "exit": 2,
+  "signal": null,
+  "files": {}
+}

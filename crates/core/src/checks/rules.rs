@@ -2,7 +2,7 @@
 
 use crate::checks::measures::{cream_from_class_list, is_cream_color};
 use crate::color::{
-    color_to_hex, composite_color_over, contrast_ratio, get_hue, has_chroma, is_gray_ink,
+    composite_color_over, contrast_ratio, display_color_hex, get_hue, has_chroma, is_gray_ink,
     is_neutral_color, relative_luminance, Rgba,
 };
 use crate::constants::{
@@ -14,8 +14,8 @@ use crate::js::{
     to_fixed, WS,
 };
 use crate::js_ext_a::{num_truthy, slice_utf16_start, split_commas_outside_parens, utf16_length};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// The hit and option structs these checks are written against are shared;
 /// re-exported so `checks::rules` stays one path.
@@ -236,7 +236,7 @@ pub fn check_colors(opts: &ColorOpts) -> Vec<RuleHit> {
                     "ai-color-palette",
                     format!(
                         "Purple/violet text ({}) on heading",
-                        color_to_hex(Some(&text_color))
+                        display_color_hex(Some(&text_color))
                     ),
                 ));
             }
@@ -305,18 +305,22 @@ fn contrast_findings(opts: &ColorOpts, text_color: &Rgba) -> Vec<RuleHit> {
     // masthead three times over (upstream REN-404).
     if is_gray_ink(text_color) && bgs.iter().all(|b| has_chroma(Some(b), Some(40.0))) {
         let bg_label = match opts.effective_bg {
-            Some(bg) => color_to_hex(Some(&bg)),
+            Some(bg) => display_color_hex(Some(&bg)),
             None => format!(
                 "gradient({})",
                 bgs.iter()
-                    .map(|b| color_to_hex(Some(b)))
+                    .map(|b| display_color_hex(Some(b)))
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
         };
         findings.push(RuleHit::new(
             "gray-on-color",
-            format!("text {} on bg {}", color_to_hex(Some(text_color)), bg_label),
+            format!(
+                "text {} on bg {}",
+                display_color_hex(Some(text_color)),
+                bg_label
+            ),
         ));
     }
 
@@ -347,8 +351,8 @@ fn contrast_findings(opts: &ColorOpts, text_color: &Rgba) -> Vec<RuleHit> {
                     "{}:1 (need {}:1) — text {} on {}",
                     ratio_label,
                     number_to_string(threshold),
-                    color_to_hex(Some(text_color)),
-                    color_to_hex(Some(&bgs[worst_idx]))
+                    display_color_hex(Some(text_color)),
+                    display_color_hex(Some(&bgs[worst_idx]))
                 ),
             ));
         }
@@ -423,8 +427,8 @@ pub fn check_hover_contrast(opts: &HoverContrastOpts) -> Vec<RuleHit> {
             ":hover state {}:1 (need {}:1) — text {} on {}",
             to_fixed(ratio, 1),
             number_to_string(threshold),
-            color_to_hex(Some(&text_color)),
-            color_to_hex(Some(&bg))
+            display_color_hex(Some(&text_color)),
+            display_color_hex(Some(&bg))
         ),
     )]
 }
@@ -891,7 +895,11 @@ fn glow_scan(value: Option<&str>, prop: &str, on_dark_bg: bool) -> Option<RuleHi
         if vals[0] == 0.0 && vals[1] == 0.0 {
             return Some(RuleHit::new(
                 "dark-glow",
-                format!("Zero-offset {} glow ({})", prop, color_to_hex(Some(&color))),
+                format!(
+                    "Zero-offset {} glow ({})",
+                    prop,
+                    display_color_hex(Some(&color))
+                ),
             ));
         }
         if on_dark_bg {
@@ -900,7 +908,7 @@ fn glow_scan(value: Option<&str>, prop: &str, on_dark_bg: bool) -> Option<RuleHi
                 format!(
                     "Colored {} glow ({}) on dark background",
                     prop,
-                    color_to_hex(Some(&color))
+                    display_color_hex(Some(&color))
                 ),
             ));
         }
@@ -1027,6 +1035,25 @@ mod tests {
 
     // Expected values below were produced by running the JS functions in
     // Node against the same inputs.
+
+    #[test]
+    fn finding_color_labels_clamp_css_channels_to_bytes() {
+        let hits = check_hover_contrast(&HoverContrastOpts {
+            tag: "div".into(),
+            text_color: Some(Rgba::new(300.0, 0.0, 0.0, 1.0)),
+            bg: Some(Rgba::new(255.0, 255.0, 255.0, 1.0)),
+            own_bg_alpha: Some(1.0),
+            font_size: 16.0,
+            font_weight: 400.0,
+            has_direct_text: true,
+            is_emoji_only: false,
+        });
+        assert!(
+            hits[0].snippet.contains("text #ff0000 on #ffffff"),
+            "{:?}",
+            hits[0]
+        );
+    }
 
     #[test]
     fn hover_contrast_matches_node() {

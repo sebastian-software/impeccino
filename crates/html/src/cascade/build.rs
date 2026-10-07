@@ -15,11 +15,11 @@ use impeccino_core::checks::measures;
 use impeccino_core::color::parse_any_color;
 use impeccino_core::js;
 use indexmap::IndexMap;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::LazyLock as Lazy;
 
 static STYLESHEET_REL_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)(?-u:\b)stylesheet(?-u:\b)").expect("STYLESHEET_REL_RE"));

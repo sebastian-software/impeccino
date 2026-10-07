@@ -1,9 +1,9 @@
 //! Design document parsing for doctor coverage checks.
 
 use crate::util::js_trim;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
+use std::sync::LazyLock as Lazy;
 
 pub const CANONICAL_SECTIONS: [&str; 8] = [
     "Overview",

@@ -5,8 +5,8 @@
 //! CLI; those are latency limits, not another extension or generated-file
 //! policy.
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// Extensions accepted by directory scans and import resolution. Compound
 /// suffixes must remain ordered after simple suffixes for imports.

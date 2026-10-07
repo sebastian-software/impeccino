@@ -34,8 +34,8 @@ use crate::constants::{BORDER_SAFE_TAGS, SAFE_TAGS};
 use crate::js::{self, math_round, number_to_string, parse_float, parse_int, WS};
 use crate::js_ext_a::num_truthy;
 use crate::js_ext_b::utf16_len;
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {

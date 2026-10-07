@@ -130,14 +130,7 @@ impl Io {
     /// `os.homedir()`: `$HOME` on posix; on Windows Node reads `USERPROFILE`
     /// (a `HOME` left by an MSYS shell is only a fallback here).
     pub fn home(&self) -> Option<PathBuf> {
-        let (first, second) = if cfg!(windows) {
-            ("USERPROFILE", "HOME")
-        } else {
-            ("HOME", "USERPROFILE")
-        };
-        self.env(first)
-            .or_else(|| self.env(second))
-            .map(PathBuf::from)
+        crate::project_files::home_dir(|key| self.env(key).map(str::to_string)).map(PathBuf::from)
     }
 
     pub fn out(&mut self, s: &str) {
@@ -149,23 +142,7 @@ impl Io {
 }
 
 fn is_stdin_tty() -> bool {
-    #[cfg(unix)]
-    {
-        use std::os::fd::AsRawFd;
-        unsafe { libc_isatty(std::io::stdin().as_raw_fd()) }
-    }
-    #[cfg(not(unix))]
-    {
-        std::io::IsTerminal::is_terminal(&std::io::stdin())
-    }
-}
-
-#[cfg(unix)]
-unsafe fn libc_isatty(fd: i32) -> bool {
-    extern "C" {
-        fn isatty(fd: i32) -> i32;
-    }
-    unsafe { isatty(fd) == 1 }
+    std::io::IsTerminal::is_terminal(&std::io::stdin())
 }
 
 /// Test helper: capture output.
@@ -285,5 +262,24 @@ mod tests {
     fn stdin_below_the_ceiling_is_read_whole() {
         let (mut io, _cap) = Io::captured("hello", PathBuf::from("."), HashMap::new());
         assert_eq!(io.stdin(), "hello");
+    }
+}
+
+#[cfg(test)]
+mod home_resolution_tests {
+    use super::*;
+    #[test]
+    fn empty_primary_home_uses_the_host_fallback() {
+        let (primary, fallback) = if cfg!(windows) {
+            ("USERPROFILE", "HOME")
+        } else {
+            ("HOME", "USERPROFILE")
+        };
+        let env = HashMap::from([
+            (primary.to_string(), String::new()),
+            (fallback.to_string(), "/home/fallback".to_string()),
+        ]);
+        let (io, _) = Io::captured("", PathBuf::from("."), env);
+        assert_eq!(io.home(), Some(PathBuf::from("/home/fallback")));
     }
 }

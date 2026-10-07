@@ -20,101 +20,11 @@ pub fn utf16_len(s: &str) -> usize {
 /// JS `Number.prototype.toFixed(digits)` (round-half-up on the exact decimal
 /// expansion, which is what ties pick under "the larger n").
 pub fn to_fixed(v: f64, digits: usize) -> String {
-    if !v.is_finite() {
-        return js_number_to_string(v);
-    }
-    if v.abs() >= 1e21 {
-        return js_number_to_string(v);
-    }
-    let neg = v < 0.0 || (v == 0.0 && v.is_sign_negative() && false);
-    let a = v.abs();
-    // Exact decimal expansion (doubles have at most 1074 fractional digits).
-    let exact = format!("{:.1100}", a);
-    let (int_part, frac_part) = exact.split_once('.').unwrap();
-    let mut int_digits: Vec<u8> = int_part.bytes().map(|b| b - b'0').collect();
-    let frac: Vec<u8> = frac_part.bytes().map(|b| b - b'0').collect();
-    let mut kept: Vec<u8> = frac[..digits].to_vec();
-    let round_up = frac[digits] >= 5;
-    if round_up {
-        // propagate carry
-        let mut carry = true;
-        for d in kept.iter_mut().rev() {
-            if !carry {
-                break;
-            }
-            if *d == 9 {
-                *d = 0;
-            } else {
-                *d += 1;
-                carry = false;
-            }
-        }
-        if carry {
-            for d in int_digits.iter_mut().rev() {
-                if !carry {
-                    break;
-                }
-                if *d == 9 {
-                    *d = 0;
-                } else {
-                    *d += 1;
-                    carry = false;
-                }
-            }
-            if carry {
-                int_digits.insert(0, 1);
-            }
-        }
-    }
-    let mut s = String::new();
-    let int_s: String = int_digits.iter().map(|d| (b'0' + d) as char).collect();
-    let is_zero = int_digits.iter().all(|d| *d == 0) && kept.iter().all(|d| *d == 0);
-    if neg && !is_zero {
-        s.push('-');
-    } else if neg && is_zero && v < 0.0 {
-        // JS: (-0.0001).toFixed(2) === "-0.00"
-        s.push('-');
-    }
-    s.push_str(&int_s);
-    if digits > 0 {
-        s.push('.');
-        for d in kept {
-            s.push((b'0' + d) as char);
-        }
-    }
-    s
+    impeccino_core::js::to_fixed(v, digits)
 }
 
-/// JS `Number.prototype.toString()` for the ranges these scripts hit
-/// (integers, ordinary decimals). Uses Rust's shortest round-trip repr and
-/// fixes the exponent thresholds JS applies.
 pub fn js_number_to_string(v: f64) -> String {
-    if v.is_nan() {
-        return "NaN".into();
-    }
-    if v.is_infinite() {
-        return if v > 0.0 {
-            "Infinity".into()
-        } else {
-            "-Infinity".into()
-        };
-    }
-    if v == 0.0 {
-        return "0".into();
-    }
-    if v.fract() == 0.0 && v.abs() < 1e21 {
-        return format!("{}", v as i128);
-    }
-    let a = v.abs();
-    if (1e-6..1e21).contains(&a) {
-        let s = format!("{}", v);
-        return s;
-    }
-    // exponent form: d.ddde±x
-    let s = format!("{:e}", v);
-    let (m, e) = s.split_once('e').unwrap();
-    let e: i32 = e.parse().unwrap();
-    format!("{}e{}{}", m, if e >= 0 { "+" } else { "-" }, e.abs())
+    impeccino_core::js::number_to_string(v)
 }
 
 /// A JS number as a JSON value: integral values print without `.0`.
@@ -282,27 +192,15 @@ pub fn opt_string(s: &Option<String>) -> Value {
 
 /// `os.homedir()` as Node computes it on posix: $HOME first.
 pub fn homedir(env: &Env) -> String {
-    if cfg!(windows) {
-        // Node win32: USERPROFILE, then the process's own profile dir.
-        if let Some(h) = env.get("USERPROFILE") {
-            if !h.is_empty() {
-                return h.clone();
+    impeccino_common::project_files::home_dir(|key| env.get(key).cloned())
+        .or_else(|| impeccino_common::project_files::home_dir(|key| std::env::var(key).ok()))
+        .unwrap_or_else(|| {
+            if cfg!(windows) {
+                "C:\\".to_string()
+            } else {
+                "/".to_string()
             }
-        }
-        return std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
-    }
-    if let Some(h) = env.get("HOME") {
-        if !h.is_empty() {
-            return h.clone();
-        }
-    }
-    if let Some(h) = env.get("USERPROFILE") {
-        if !h.is_empty() {
-            return h.clone();
-        }
-    }
-    // Fallback: the process's real home.
-    std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
+        })
 }
 
 /// hook-lib `truthy()`: /^(1|true|yes|on)$/i on the trimmed value.

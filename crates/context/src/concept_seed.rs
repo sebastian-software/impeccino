@@ -3,7 +3,7 @@
 //! ordered list, a hash of the seed key picks the index, and nothing leaves
 //! the machine (docs/adr/0019-concept-seed-is-local.md).
 
-use crate::context::load_context;
+use crate::context::load_context_without_visual_scan;
 use crate::seed_text as t;
 use crate::target_args::TargetOptions;
 use impeccino_common::Io;
@@ -34,7 +34,11 @@ pub struct SeedArgs {
 
 fn unit(scope: &str, salt: &str, key: &str) -> f64 {
     let d = Sha256::digest(format!("{}:{}:{}", scope, salt, key).as_bytes());
-    u32::from_be_bytes([d[0], d[1], d[2], d[3]]) as f64 / 4294967295.0
+    unit_value(u32::from_be_bytes([d[0], d[1], d[2], d[3]]))
+}
+
+fn unit_value(value: u32) -> f64 {
+    value as f64 / 4294967296.0
 }
 
 /// The roll itself: the index to build, and for a surface round the three
@@ -219,11 +223,15 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
     // args[idx+1] may be undefined -> None
     let val =
         |name: &str| -> Option<Option<String>> { idx(name).map(|i| args.get(i + 1).cloned()) };
+    if val("--from").is_some_and(|value| value.is_none_or(|key| key.starts_with("--"))) {
+        io.err("--from requires a seed key.\n");
+        return 1;
+    }
     if let Some(flag) = REMOVED_FLAGS.iter().find(|f| idx(f).is_some()) {
         io.err(&fill(t::REMOVED_FLAG, &[("FLAG", flag)]));
         return 1;
     }
-    let ctx = load_context(&cwd, &TargetOptions::default(), &env);
+    let ctx = load_context_without_visual_scan(&cwd, &TargetOptions::default(), &env);
     if !ctx.has_product {
         io.out(t::NO_PRODUCT);
         return 1;
@@ -238,7 +246,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         },
         key: match val("--from") {
             Some(Some(k)) => k,
-            Some(None) => "undefined".to_string(),
+            Some(None) => unreachable!("missing seed value was rejected"),
             None => env
                 .get("IMPECCINO_CONCEPT_SEED")
                 .filter(|v| !v.is_empty())
@@ -275,6 +283,20 @@ mod tests {
             mode: Some(Some("persuade".to_string())),
             candidate_count: 7.0,
         }
+    }
+
+    #[test]
+    fn maximum_rng_value_stays_below_one() {
+        assert!(unit_value(u32::MAX) < 1.0);
+    }
+
+    #[test]
+    fn a_seed_flag_without_a_value_is_rejected_before_loading_context() {
+        let (mut io, captured) =
+            Io::captured("", std::env::temp_dir(), std::collections::HashMap::new());
+        assert_eq!(run(&["--from".to_string()], &mut io), 1);
+        assert!(String::from_utf8_lossy(&captured.stderr.borrow())
+            .contains("--from requires a seed key"));
     }
 
     #[test]

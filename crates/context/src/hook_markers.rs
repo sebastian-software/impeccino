@@ -11,8 +11,8 @@
 //! merging must recognize both; `doctor` and `context`'s automatic-hook scan
 //! must accept either as "installed".
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// The JS-era script markers, still recognized so old installs are pruned
 /// and repaired rather than duplicated.

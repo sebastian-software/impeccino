@@ -6,8 +6,8 @@
 //! this crate's own arms, so one `call` reaches every ported function and
 //! `KNOWN_FUNCTIONS` is the union of both id tables.
 
-use once_cell::sync::Lazy;
 use serde_json::Value;
+use std::sync::LazyLock as Lazy;
 
 pub use impeccino_foundation::vectors::{decode, encode, Js};
 

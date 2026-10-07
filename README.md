@@ -212,7 +212,7 @@ In Claude Code, command hooks run independently of model-tool approval, so the f
 
 For debugging, set `IMPECCINO_HOOK_LOG` to a path to write one NDJSON line per hook invocation. Leave it unset for normal use.
 
-The Stop pass suppresses confirmed pre-existing findings when a verified before-edit baseline is available (currently Claude Edit/Write results for text scans). Other findings are marked new or attribution unknown; unknown is not evidence that your session caused the problem. Explicit checks requested through the skill still report findings independently of session attribution.
+Each Stop scans up to 20 touched files. Large touched sets and project order rotate across Stop invocations so later files and projects also receive a deep pass. The Stop pass suppresses confirmed pre-existing findings when a verified before-edit baseline is available (currently Claude Edit/Write results for text scans). Other findings are marked new or attribution unknown; unknown is not evidence that your session caused the problem. Explicit checks requested through the skill still report findings independently of session attribution.
 
 ## Quality checks through the skill
 

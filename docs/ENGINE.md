@@ -223,3 +223,13 @@ runtime, in this order:
 
 CI runs the workspace build and tests (`rust`, `rust-windows`) and replays the
 oracle against a release build from the checkout under test.
+
+## Bounded scan work
+
+Directory detection loads each primary source once, passes it to the text or static HTML engine while it is in memory, and retains only import metadata and findings. Import resolution uses a shared hash set of candidate paths. Linked stylesheets are still resolved relative to the HTML file.
+
+Context's visual evidence probe reads at most 256 KiB from a candidate before applying its existing 64 Ki UTF-16 unit window; doctor, signals and concept-seed skip that probe because they do not report visual evidence. Globstar workspace discovery is capped at 32 directory levels and 4,096 visited directories. Target discovery already paid for at boot remains reusable by diagnostics.
+
+Stop retains its 20-file invocation limit and rotates large file sets and project order between invocations. Cursor's repeated-denial signature is the set of rule IDs in one file, independent of line shifts or duplicate occurrences. Proposal scans create a new directory atomically and never reuse a directory owned by another proposal.
+
+Display snippets end at whole Unicode scalars within their UTF-16 limit. CSS color labels clamp and round channels to bytes; the inherited numeric `color_to_hex` helper remains available for frozen compatibility vectors. Invalid SVG dimensions do not produce a sized-scene finding. `.agents/skills/impeccino` defaults to Codex identity; an explicit provider override still takes precedence.

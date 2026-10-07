@@ -7,9 +7,9 @@ use crate::js_ext_a::{
     is_word_byte, last_index_of_byte, split_commas_outside_parens, split_ws, JsMap,
 };
 use crate::rules::types::{ANY, B};
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock as Lazy;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {

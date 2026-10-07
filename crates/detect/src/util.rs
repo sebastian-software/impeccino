@@ -24,8 +24,8 @@ pub const NWS: &str = r"[^\t\n\x0B\x0C\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {
-        static $name: once_cell::sync::Lazy<regex::Regex> =
-            once_cell::sync::Lazy::new(|| regex::Regex::new(&$pat).expect(stringify!($name)));
+        static $name: std::sync::LazyLock<regex::Regex> =
+            std::sync::LazyLock::new(|| regex::Regex::new(&$pat).expect(stringify!($name)));
     };
 }
 pub(crate) use re;
