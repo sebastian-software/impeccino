@@ -1,7 +1,7 @@
 //! Shared file-scan scope facts used by the directory scanner and hooks.
 //!
-//! The CLI scans source files and the hook additionally scans server-side
-//! templates. The hook also keeps tighter per-event byte ceilings than the
+//! The CLI and hook scan source files and server-side templates. The hook
+//! keeps tighter per-event byte ceilings than the
 //! CLI; those are latency limits, not another extension or generated-file
 //! policy.
 

@@ -13,7 +13,8 @@ pub use impeccino_common::project_files::{
 };
 use impeccino_common::project_paths::{
     has_git_boundary as shared_has_git_boundary, is_monorepo_root as shared_is_monorepo_root,
-    match_glob_segments, segment_matches, MONOREPO_FALLBACK_PROJECT_DIRS, MONOREPO_MARKER_FILES,
+    segment_matches, workspace_exclusion_matches, MONOREPO_FALLBACK_PROJECT_DIRS,
+    MONOREPO_MARKER_FILES,
 };
 pub use impeccino_common::project_paths::{
     is_ignored_workspace_discovery_dir, normalize_workspace_pattern,
@@ -849,7 +850,7 @@ fn nearest_package_root_between(
 fn workspace_pattern_matches_rel(pattern: &str, rel_segments: &[&str]) -> bool {
     let norm = normalize_workspace_pattern(pattern);
     let segs: Vec<&str> = norm.split('/').filter(|s| !s.is_empty()).collect();
-    !segs.is_empty() && match_glob_segments(&segs, rel_segments)
+    workspace_exclusion_matches(&segs, rel_segments)
 }
 
 /// The package-manager workspace declarations shared by root resolution.
@@ -1139,6 +1140,22 @@ pub fn has_visual_implementation(project_root: &str) -> bool {
 #[cfg(test)]
 mod workspace_pattern_tests {
     use super::workspace_pattern_matches_rel;
+
+    #[test]
+    fn workspace_exclusions_cover_descendants_without_matching_siblings() {
+        assert!(workspace_pattern_matches_rel(
+            "packages/excluded",
+            &["packages", "excluded", "src"]
+        ));
+        assert!(workspace_pattern_matches_rel(
+            "apps/**/web",
+            &["apps", "tools", "web", "src"]
+        ));
+        assert!(!workspace_pattern_matches_rel(
+            "packages/excluded",
+            &["packages", "excluded-other", "src"]
+        ));
+    }
 
     #[test]
     fn globstar_patterns_still_match_their_suffix() {

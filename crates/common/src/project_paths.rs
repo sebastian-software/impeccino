@@ -271,6 +271,12 @@ pub fn match_glob_segments(pattern: &[&str], path: &[&str]) -> bool {
     match_from(pattern, path, 0, 0)
 }
 
+/// Match a workspace exclusion against a directory and every descendant.
+/// Globstar suffixes still have to match a complete ancestor path.
+pub fn workspace_exclusion_matches(pattern: &[&str], path: &[&str]) -> bool {
+    !pattern.is_empty() && (1..=path.len()).any(|end| match_glob_segments(pattern, &path[..end]))
+}
+
 /// True when the path belongs to the workspace declaration at `root`.
 /// Ordinary `*` patterns own a package at the declared depth and nested
 /// directories below that package; a `**` pattern is matched directly.
@@ -294,17 +300,7 @@ pub fn workspace_owns_path(root: &str, target: &str) -> bool {
             .split('/')
             .filter(|segment| !segment.is_empty())
             .collect();
-        if segments.is_empty() {
-            return false;
-        }
-        if segments.contains(&"**") {
-            return match_glob_segments(&segments, &path);
-        }
-        path.len() >= segments.len()
-            && segments
-                .iter()
-                .zip(&path)
-                .all(|(pattern, value)| segment_matches(pattern, value))
+        workspace_exclusion_matches(&segments, &path)
     };
     let excluded = patterns
         .iter()
@@ -399,6 +395,14 @@ mod tests {
             &["apps", "**", "web"],
             &["apps", "one", "api"]
         ));
+        assert!(workspace_exclusion_matches(
+            &["apps", "**", "web"],
+            &["apps", "one", "web", "src"]
+        ));
+        assert!(!workspace_exclusion_matches(
+            &["apps", "**", "web"],
+            &["apps", "one", "web-other", "src"]
+        ));
     }
 
     #[test]
@@ -435,6 +439,26 @@ mod tests {
                 "modules/*"
             ]
         );
+
+        std::fs::create_dir_all(root.join("apps/web")).unwrap();
+        std::fs::write(root.join("apps/web/package.json"), "{}").unwrap();
+        assert!(workspace_owns_path(
+            &root_text,
+            &root.join("apps/web/src").to_string_lossy()
+        ));
+        std::fs::write(
+            root.join("package.json"),
+            r#"{"workspaces":["apps/*","!apps/**/web"]}"#,
+        )
+        .unwrap();
+        assert!(!workspace_owns_path(
+            &root_text,
+            &root.join("apps/web/src").to_string_lossy()
+        ));
+        assert!(workspace_owns_path(
+            &root_text,
+            &root.join("apps/web-other").to_string_lossy()
+        ));
 
         std::fs::remove_dir_all(root).unwrap();
     }
