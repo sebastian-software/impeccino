@@ -308,7 +308,8 @@ for (const modelId of process.env.IMPECCINO_SKILL_BEHAVIOR_MODELS ? resolveModel
         assert.ok(fileLoaded(trace, 'documenter.md'), 'redesign must run the shipped documentation pass');
         const design = fs.readFileSync(path.join(workspace, 'DESIGN.md'), 'utf8');
         assert.notEqual(design.trim(), LEGACY_DESIGN.trim(), 'redesign preserved the old visual world verbatim');
-        assertDocumentationArtifacts(design, fs.readFileSync(path.join(workspace, 'DESIGN.json'), 'utf8'));
+        assertDocumentationArtifacts(design);
+        assert.equal(fs.existsSync(path.join(workspace, 'DESIGN.json')), false, 'new documentation must stay in DESIGN.md');
       } finally {
         cleanupWorkspace(workspace);
       }

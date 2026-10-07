@@ -27,7 +27,7 @@ You can also describe the work directly: `/impeccino redesign this hero for our 
 
 ## Keep the decisions between tasks
 
-`PRODUCT.md` records who the product serves, what it does, and which claims are supported. `DESIGN.md` records the visual system, with a `DESIGN.json` sidecar for machine-readable tokens. `SURFACES.md` keeps the mode and decisions for each surface, so the agent can distinguish a persuasive landing page from an operational dashboard in the same product.
+`PRODUCT.md` records who the product serves, what it does, and which claims are supported. `DESIGN.md` records the visual system, including machine-readable tokens and detector metadata. `SURFACES.md` keeps the mode and decisions for each surface, so the agent can distinguish a persuasive landing page from an operational dashboard in the same product.
 
 Use `/impeccino init` to record product context and `/impeccino document` to capture an existing visual system. A narrow refinement can start from the code already there. The task contracts tell the agent to reuse answers and preserve established decisions; discovery addresses gaps that would change the work.
 

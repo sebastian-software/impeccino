@@ -8,7 +8,7 @@
     "argumentHint": ""
   },
   "document": {
-    "description": "Record the actual reusable visual system in DESIGN.md and its detector sidecar. Preserve incumbent decisions, tokens, and waivers; ask only about material gaps. Seed mode records a provisional direction before implementation.",
+    "description": "Record the actual reusable visual system in DESIGN.md, including any needed detector metadata. Preserve incumbent decisions, tokens, and waivers; ask only about material gaps. Seed mode records a provisional direction before implementation.",
     "argumentHint": ""
   },
   "extract": {

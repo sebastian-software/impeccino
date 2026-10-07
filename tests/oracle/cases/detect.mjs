@@ -197,6 +197,16 @@ function Thumb({ url }: { url?: string }) {
       setup: (ws) => fs.writeFileSync(path.join(ws, '.gitattributes'), 'src/vendor/** linguist-vendored\n') },
     // The `ignores` verb wrote the retired config file.
     { id: 'ignores-removed', verb: 'ignores', args: ['add-rule', 'side-tab'] },
+    {
+      id: 'detect-embedded-design-metadata', verb: 'detect', workspace: 'ctx-empty',
+      setup: (ws) => {
+        fs.writeFileSync(path.join(ws, 'package.json'), '{}\n');
+        const metadata = { schemaVersion: 2, extensions: { colorMeta: { accent: { canonical: '#abcdef', tonalRamp: ['#fedcba'] } }, roundedMeta: { card: { canonical: '8px', aliases: ['12px'] } }, shadows: [{ value: '0 2px 4px #123456' }] } };
+        fs.writeFileSync(path.join(ws, 'DESIGN.md'), `---\ncolors:\n  ink: "#111111"\nrounded:\n  card: "4px"\n---\n# Design\n\n<!-- impeccino:design-metadata -->\n\`\`\`json\n${JSON.stringify(metadata)}\n\`\`\`\n`);
+        fs.writeFileSync(path.join(ws, 'card.css'), '.card{color:#abcdef;border-radius:8px;box-shadow:0 2px 4px #123456}.step{color:#fedcba;border-radius:12px}\n');
+      },
+      args: ['--json', 'card.css'],
+    },
     // A file in one project must not pick up another project's DESIGN.md
     { id: 'detect-config-cross-project', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--json', `<REPO>/tests/fixtures/antipatterns/blinking-cursor.html`], isolateHome: false },
   );

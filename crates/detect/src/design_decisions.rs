@@ -10,7 +10,7 @@
 //!   nothing, and a bare `impeccino-disable` (all rules) is not honored at
 //!   project scope.
 //! - **Declared values.** A font family DESIGN.md declares (frontmatter
-//!   `typography`, or the DESIGN.json sidecar) is a deliberate choice, so
+//!   `typography`) is a deliberate choice, so
 //!   `overused-font` does not fire for it.
 
 use std::collections::HashMap;

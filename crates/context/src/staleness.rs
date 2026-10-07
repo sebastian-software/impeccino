@@ -3,7 +3,7 @@
 use crate::artifact_schema::*;
 use crate::context::{BriefSummary, Ctx};
 use crate::jsp;
-use crate::util::{exists, is_dir, mtime_ms, read_json};
+use crate::util::{exists, is_dir, read_json};
 use impeccino_common::project_files::{DESIGN_SIDECAR_FILE, LEGACY_STATE_DIR, SURFACES_FILE};
 use regex::Regex;
 use serde_json::{Map, Value};
@@ -78,7 +78,7 @@ const NATIVE_EVIDENCE_DEPENDENCIES: [(&str, &str, &str); 3] = [
     ),
 ];
 
-/// The DESIGN.md sidecar: `DESIGN.json` next to DESIGN.md, or at the project
+/// Legacy metadata: `DESIGN.json` next to DESIGN.md, or at the project
 /// root when there is no DESIGN.md (docs/adr/0020).
 pub fn design_sidecar_path_for(project_root: &str, design_dir: Option<&str>) -> String {
     jsp::join(&[design_dir.unwrap_or(project_root), DESIGN_SIDECAR_FILE])
@@ -250,58 +250,65 @@ pub fn js_truthy(v: &Value) -> bool {
     }
 }
 
-/// JS: checkDesignSidecar
-pub fn check_design_sidecar(
+/// Production boot reuses the already-loaded Markdown and reads only the
+/// adjacent legacy file. No extra discovery or directory walk is needed.
+pub fn check_design_metadata(
+    markdown: Option<&str>,
     design_path: Option<&str>,
     sidecar_path: &str,
     project_root: &str,
 ) -> Vec<Finding> {
-    let mut out = Vec::new();
+    use impeccino_common::design_metadata::{embedded_metadata, parse_metadata};
+    let design_rel = to_relative(design_path, project_root);
+    let embedded = match embedded_metadata(markdown.unwrap_or("")) {
+        Ok(value) => value,
+        Err(reason) => return vec![finding(
+            "design-metadata-invalid", "DESIGN.md", design_rel, "route",
+            format!("DESIGN.md has invalid detector metadata: {reason}."),
+            "Offer `document` to repair the marked metadata block while preserving tokens and waivers.".into(),
+        )],
+    };
     if !exists(sidecar_path) {
-        return out;
+        return vec![];
     }
-    let rel_present = to_relative(Some(sidecar_path), project_root).unwrap();
-    let sidecar = read_json(sidecar_path);
-    let schema_version = read_sidecar_schema_version(sidecar.as_ref());
-    if let Some(sc) = &sidecar {
-        if js_truthy(sc)
-            && (schema_version.is_none() || schema_version.unwrap() < DESIGN_SIDECAR_SCHEMA_VERSION)
-        {
-            out.push(finding(
-                "design-sidecar-schema-outdated",
+    let sidecar_rel = to_relative(Some(sidecar_path), project_root);
+    let legacy = std::fs::read_to_string(sidecar_path)
+        .map_err(|e| e.to_string())
+        .and_then(|text| parse_metadata(&text));
+    let legacy = match legacy {
+        Ok(value) => value,
+        Err(reason) => {
+            return vec![finding(
+                "design-metadata-invalid",
                 DESIGN_SIDECAR_FILE,
-                Some(rel_present.clone()),
+                sidecar_rel,
                 "route",
-                format!(
-                    "{} is schemaVersion {}; the current sidecar is {}. Token primitives moved to the DESIGN.md frontmatter, so the old shape carries values that are now read from two places.",
-                    rel_present,
-                    schema_version.map(|v| v.to_string()).unwrap_or_else(|| "unset".to_string()),
-                    DESIGN_SIDECAR_SCHEMA_VERSION
-                ),
-                "Offer `document` to regenerate the sidecar. It reads the existing DESIGN.md, so no interview is needed.".to_string(),
-            ));
+                format!("The legacy design metadata cannot be migrated: {reason}."),
+                "Repair the legacy JSON before migrating it into DESIGN.md; retain both artifacts."
+                    .into(),
+            )]
         }
+    };
+    if embedded.as_ref().is_some_and(|value| value != &legacy) {
+        return vec![finding(
+            "design-metadata-conflict", "DESIGN.md", design_rel, "route",
+            "DESIGN.md and the legacy DESIGN.json contain different detector metadata. DESIGN.md is authoritative.".into(),
+            "Ask which values to retain and reconcile both records before removing DESIGN.json.".into(),
+        )];
     }
-    if let Some(dp) = design_path {
-        let dm = mtime_ms(dp);
-        let sm = mtime_ms(sidecar_path);
-        if let (Some(d), Some(s)) = (dm, sm) {
-            if d > s {
-                out.push(finding(
-                    "design-sidecar-stale",
-                    DESIGN_SIDECAR_FILE,
-                    Some(rel_present.clone()),
-                    "mention",
-                    format!(
-                        "DESIGN.md was edited after {} was generated, so the sidecar's ramps, shadows, motion tokens, and component snippets may contradict it.",
-                        rel_present
-                    ),
-                    "Offer `document` to refresh the sidecar, preserving DESIGN.md.".to_string(),
-                ));
-            }
-        }
-    }
-    out
+    let can_migrate = design_path.is_some() && markdown.is_some();
+    vec![finding(
+        "design-sidecar-legacy",
+        DESIGN_SIDECAR_FILE,
+        sidecar_rel,
+        if can_migrate { "auto" } else { "route" },
+        "DESIGN.json is a legacy artifact; detector metadata now belongs in DESIGN.md.".into(),
+        if can_migrate {
+            "Run `doctor --fix` to preserve all metadata in DESIGN.md and remove the verified legacy sidecar.".into()
+        } else {
+            "Locate or document the missing DESIGN.md before migrating the legacy metadata.".into()
+        },
+    )]
 }
 
 /// A `.impeccino/` directory left by the layout before docs/adr/0020. One
@@ -326,7 +333,7 @@ pub fn check_legacy_state_dir(project_root: &str, home: Option<&str>) -> Vec<Fin
         Some(format!("{}/", LEGACY_STATE_DIR)),
         "mention",
         "A `.impeccino/` directory from an earlier Impeccino layout sits at the project root. Nothing reads it any more: project state now lives in top-level files and Impeccino keeps no config file.".to_string(),
-        "Tell the user where its contents belong, then offer to delete the directory once they have moved what they want to keep: `design.json` becomes `DESIGN.json` next to DESIGN.md; each `surfaces/*.md` brief becomes a section of `SURFACES.md` (write it with `impeccino surface-brief write`); detector ignores in `config.json` and `config.local.json` become `<!-- impeccino-disable <rule> -->` waivers or declared tokens in DESIGN.md, or `.gitignore` / `.gitattributes` entries for whole files; decisions in `critique/ignore.md` become brand commitments in PRODUCT.md or rules in DESIGN.md. Everything else (critique snapshots, hook caches, review screenshots) can be deleted.".to_string(),
+        "Tell the user where its contents belong, then offer to delete the directory once they have moved what they want to keep: `design.json` belongs in the marked detector metadata block in DESIGN.md; each `surfaces/*.md` brief becomes a section of `SURFACES.md` (write it with `impeccino surface-brief write`); detector ignores in `config.json` and `config.local.json` become `<!-- impeccino-disable <rule> -->` waivers or declared tokens in DESIGN.md, or `.gitignore` / `.gitattributes` entries for whole files; decisions in `critique/ignore.md` become brand commitments in PRODUCT.md or rules in DESIGN.md. Everything else (critique snapshots, hook caches, review screenshots) can be deleted.".to_string(),
     )]
 }
 
@@ -437,7 +444,8 @@ pub fn collect_boot_finding_groups(ctx: &Ctx, cwd: &str, extras: &BootExtras) ->
         } else {
             Vec::new()
         },
-        design_sidecar: check_design_sidecar(
+        design_sidecar: check_design_metadata(
+            ctx.design.as_deref(),
             extras.abs_design_path.as_deref(),
             &extras.sidecar_path,
             &project_root,

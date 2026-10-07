@@ -968,8 +968,18 @@ pub fn load_design_system_for_cwd(cwd: &str) -> Option<DesignSystem> {
     let md_stat = mtime_ms(&md.path);
     let text = read_text(&md.path)?;
     let frontmatter = parse_frontmatter(&text)?;
-    let sidecar_path = resolve_design_sidecar_path(cwd, &md.context_dir);
-    let sidecar = sidecar_path.as_deref().and_then(read_json);
+    let embedded = impeccino_common::design_metadata::embedded_metadata(&text);
+    // A marked block is authoritative, including when malformed. Legacy
+    // fallback applies only when the Markdown has no metadata block.
+    let sidecar_path = if matches!(embedded, Ok(None)) {
+        resolve_design_sidecar_path(cwd, &md.context_dir)
+    } else {
+        None
+    };
+    let sidecar = embedded
+        .ok()
+        .flatten()
+        .or_else(|| sidecar_path.as_deref().and_then(read_json));
     let sidecar_stat = sidecar_path.as_deref().and_then(mtime_ms);
     let md_newer = matches!((md_stat, sidecar_stat), (Some(m), Some(s)) if m > s + 1000.0);
     let mut ds = normalize_design_system(

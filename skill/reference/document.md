@@ -44,7 +44,7 @@ Rules that matter:
 
 - **Token refs** use `{path.to.token}` (e.g. `{colors.primary}`, `{rounded.md}`). Components may reference primitives; primitives may not reference each other.
 - **Colors accept any valid CSS color string.** Hex is the recommended default for portability, but preserve an incumbent `rgb()`, `hsl()`, `oklch()`, wide-gamut, or mixed-color value when it is the project's normative source. Never split the source of truth without explicit reason.
-- **Component sub-tokens** are limited to 8 props: `backgroundColor`, `textColor`, `typography`, `rounded`, `padding`, `size`, `height`, `width`. Shadows, motion, focus rings, backdrop-filter: none of those fit. Carry them in the sidecar (Step 4b).
+- **Component sub-tokens** are limited to 8 props: `backgroundColor`, `textColor`, `typography`, `rounded`, `padding`, `size`, `height`, `width`. Shadows, motion, focus rings, backdrop-filter: none of those fit. Describe them in the body; actual shadow values can also use the detector metadata block below.
 - **Scale keys are open-ended.** Use whatever names the project already uses (`oxblood-deep`, `surface-container-low`). Don't rename to Material defaults.
 - **Variants are naming convention, not schema.** `button-primary` / `button-primary-hover` / `button-primary-active` as sibling keys.
 
@@ -64,8 +64,9 @@ Omit irrelevant sections rather than filling them with invented rules. Put respo
 ## Scope and evidence
 
 Record the actual reusable visual system from the resolved project or app.
-Read existing DESIGN.md and DESIGN.json before updating. A document request
-authorizes recording within its scope; it does not authorize replacing an
+Read existing DESIGN.md and any legacy DESIGN.json before updating. Preserve
+legacy metadata through the migration below; do not create a new sidecar.
+A document request authorizes recording within its scope; it does not authorize replacing an
 incumbent identity or unrelated decisions. Ask only when a material boundary
 or fact remains unclear. Select suitable system-design knowledge available to
 the host rather than inventing a metaphor or mandatory naming workshop.
@@ -100,14 +101,16 @@ irrelevant sections. Keep surface composition and mode in that surface's
 SURFACES.md section, not as global DESIGN.md rules. Apply [new-work.md](new-work.md)
 when an explicitly requested identity replacement needs direction.
 
-### Step 4b: Write the DESIGN.json sidecar (detector metadata only)
+### Keep detector metadata in DESIGN.md
 
-The engine reads `schemaVersion` and these sidecar fields to extend DESIGN.md's detector data: `extensions.colorMeta.<token>.canonical`, `extensions.colorMeta.<token>.tonalRamp`, `extensions.roundedMeta.<token>` (a string/number or its `canonical`, `value`, `values`, `aliases`, and `role` metadata), and `extensions.shadows[].value`. Do not generate component snippets, narrative, motion, breakpoints, display names, or other fields the engine does not read.
+The engine reads these optional fields in a marked JSON block inside DESIGN.md: `extensions.colorMeta.<token>.canonical`, `extensions.colorMeta.<token>.tonalRamp`, `extensions.roundedMeta.<token>` (a string/number or its `canonical`, `value`, `values`, `aliases`, and `role` metadata), and `extensions.shadows[].value`. Do not generate component snippets, narrative, motion, breakpoints, display names, or other fields the engine does not read.
 
-Regenerate the sidecar beside the resolved DESIGN.md whenever you regenerate that record. If the user asks to refresh only the sidecar (for example after doctor reports it stale), preserve DESIGN.md and write only DESIGN.json.
+Include the block only when actual tokens need these extra details. Put it at the end of DESIGN.md, outside any example fence. The marker must be on its own line immediately before the JSON fence. There may be only one marked block. Keep the frontmatter authoritative for its token primitives; metadata preserves source color values or tonal steps, radius details, and actual shadow values.
 
-#### Schema
+Example block (copy its contents without the outer Markdown example fence):
 
+````markdown
+<!-- impeccino:design-metadata -->
 ```json
 {
   "schemaVersion": 2,
@@ -115,7 +118,7 @@ Regenerate the sidecar beside the resolved DESIGN.md whenever you regenerate tha
     "colorMeta": {
       "primary": {
         "canonical": "oklch(60% 0.25 350)",
-        "tonalRamp": ["...", "...", "..."]
+        "tonalRamp": ["oklch(40% 0.2 350)", "oklch(60% 0.25 350)"]
       }
     },
     "roundedMeta": {
@@ -127,8 +130,11 @@ Regenerate the sidecar beside the resolved DESIGN.md whenever you regenerate tha
   }
 }
 ```
+````
 
-Always write an `extensions` object, using an empty object when the project has no corresponding metadata. Keep canonical color values and tonal ramps faithful to the project's actual palette. The frontmatter remains the source of truth for its token primitives; use sidecar color metadata only when it preserves useful source values or tonal steps, rounded metadata only for the engine-consumed form details, and shadow values only for actual shadows.
+For a legacy DESIGN.json next to the resolved DESIGN.md, `doctor --fix` moves the entire JSON object into this block and removes the sidecar only after verifying the replacement. It preserves Markdown, waivers, and unknown metadata fields. Use that mechanical migration within the authorized write boundary before updating the record. If both records contain different metadata or either is malformed, retain both and resolve the reported conflict; never merge by guessing. The engine reads legacy JSON only when DESIGN.md has no marked block. A malformed block never triggers fallback.
+
+A metadata-only refresh updates this block while preserving the rest of DESIGN.md. For new metadata, use `schemaVersion: 2` and an `extensions` object. Do not add an empty block when no extra metadata is needed. Preserve migrated fields that the current engine does not interpret unless their removal is authorized.
 
 ## Seed mode
 
@@ -141,20 +147,21 @@ about material gaps. Seed mode does not replace coherent incumbent code.
 Use the canonical section order. Mark unresolved implementation facts as
 provisional, omit nonexistent components, and keep the first surface's
 composition in its surface brief. Write minimal frontmatter with `name` and
-`description` only when real tokens do not yet exist. Do not write DESIGN.json
-until actual detector metadata is available. Keep a recognizable seed marker:
+`description` only when real tokens do not yet exist. Omit the detector metadata
+block until actual detector metadata is available. Keep a recognizable seed marker:
 
 ```markdown
 <!-- SEED: provisional direction before implementation; re-run /impeccino document once there's code to capture the actual tokens and components. -->
 ```
 
 Existing seed markers and records remain valid. Rerun scan mode after code
-exists to record actual tokens and its sidecar.
+exists to record actual tokens and any needed metadata.
 
 ## Completion
 
 Check values against their actual sources, preserve scope and waivers, and
-confirm canonical section order and sidecar fields. Return paths written, the
+confirm canonical section order and metadata fields. Return paths written, the
 system facts captured, and unresolved or unverified decisions. If the record
-already matches, leave it unchanged and report what was checked. A sidecar-only
-refresh preserves DESIGN.md. Unrelated drift is reported rather than repaired.
+already matches, leave it unchanged and report what was checked. A metadata-only
+refresh preserves all other DESIGN.md content. Unrelated drift is reported
+rather than repaired.

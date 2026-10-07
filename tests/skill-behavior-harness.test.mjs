@@ -19,19 +19,20 @@ it('requires provider execution only when the CI caller opts into that gate', ()
   assert.doesNotThrow(() => assertProviderExecution(new Set(['claude-sonnet-5']), { required: true }));
 });
 
-it('documentation artifacts require tokens and the v2 sidecar independently of wrapper coverage', () => {
+it('documentation artifacts keep tokens and optional detector metadata in one document', () => {
   const design = '---\ncolors:\n  ink: "#222"\ntypography:\n  body:\n    fontFamily: system-ui\n---\n## Overview\nA reading surface.\n';
-  const sidecar = JSON.stringify({ schemaVersion: 2, extensions: { colorMeta: { primary: { canonical: '#222', tonalRamp: ['#222'] } } } });
-  assert.doesNotThrow(() => assertDocumentationArtifacts(design, sidecar));
-  assert.throws(() => assertDocumentationArtifacts('## Colors\nInk: #222\n', sidecar), /frontmatter/);
-  assert.throws(() => assertDocumentationArtifacts(design.replace('colors:', 'palette:'), sidecar), /color tokens/);
-  assert.throws(() => assertDocumentationArtifacts(design.replace('typography:', 'type:'), sidecar), /typography tokens/);
-  assert.throws(() => assertDocumentationArtifacts(design, ''), SyntaxError);
-  assert.throws(() => assertDocumentationArtifacts(design, sidecar.replace('"schemaVersion":2', '"schemaVersion":1')), /v2 sidecar/);
+  const withMetadata = (metadata) => `${design}\n<!-- impeccino:design-metadata -->\n\`\`\`json\n${JSON.stringify(metadata)}\n\`\`\`\n`;
+  assert.doesNotThrow(() => assertDocumentationArtifacts(design));
+  assert.doesNotThrow(() => assertDocumentationArtifacts(withMetadata({ schemaVersion: 2, extensions: { colorMeta: { primary: { canonical: '#222', tonalRamp: ['#222'] } } } })));
+  assert.throws(() => assertDocumentationArtifacts('## Colors\nInk: #222\n'), /frontmatter/);
+  assert.throws(() => assertDocumentationArtifacts(design.replace('colors:', 'palette:')), /color tokens/);
+  assert.throws(() => assertDocumentationArtifacts(design.replace('typography:', 'type:')), /typography tokens/);
+  assert.throws(() => assertDocumentationArtifacts(`${design}<!-- impeccino:design-metadata -->\n`), /closed JSON fence/);
+  assert.throws(() => assertDocumentationArtifacts(withMetadata({ schemaVersion: 1, extensions: {} })), /v2 metadata/);
   for (const value of [undefined, []]) {
-    assert.throws(() => assertDocumentationArtifacts(design, JSON.stringify({ schemaVersion: 2, extensions: value })), /extensions object/);
+    assert.throws(() => assertDocumentationArtifacts(withMetadata({ schemaVersion: 2, extensions: value })), /extensions object/);
   }
-  assert.doesNotThrow(() => assertDocumentationArtifacts(design, JSON.stringify({ schemaVersion: 2, extensions: {} })));
+  assert.doesNotThrow(() => assertDocumentationArtifacts(withMetadata({ schemaVersion: 2, extensions: {} })));
 });
 
 it('advice outcomes do not depend on opening every reference, but keep consent and prerequisite gates', () => {

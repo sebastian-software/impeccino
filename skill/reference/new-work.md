@@ -96,6 +96,7 @@ within scope, verify the repairs, and report the actual verdict and its limits.
 When recording a new world or requested system change, use the documenter or
 [document.md](document.md) after implementation. Its write boundary comes from
 the task's existing authorization, not from this reference. New system records
-include token-bearing DESIGN.md and DESIGN.json; ordinary extensions preserve
+include token-bearing DESIGN.md, with any needed detector metadata in its marked
+block; ordinary extensions preserve
 the incumbent record and report unrelated drift. Stop when the requested outcome
 and required checks pass, under the host's workflow and budget.

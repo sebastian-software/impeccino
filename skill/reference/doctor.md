@@ -1,4 +1,4 @@
-Report and repair drift between this project's Impeccino artifacts and what the installed version reads: PRODUCT.md, DESIGN.md with its waivers and its `DESIGN.json` sidecar, `SURFACES.md`, and the design hook. Impeccino keeps no config file and writes no other project state.
+Report and repair drift between this project's Impeccino artifacts and what the installed version reads: PRODUCT.md, DESIGN.md with its tokens, waivers, and detector metadata (including legacy `DESIGN.json` migration), `SURFACES.md`, and the design hook. Impeccino keeps no config file and writes no other project state.
 
 This is maintenance, not design. Do not redesign anything, do not open files outside the ones the report names, and do not run any other command as a side effect.
 
