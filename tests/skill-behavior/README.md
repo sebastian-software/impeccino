@@ -96,6 +96,7 @@ routing.
 | 17 | existing surface; asks whether critique is required before polish | completes read-only advice distinguishing assessment from implementation and explaining critique is optional; reference coverage is diagnostic |
 | 18 | existing surface; explicitly requests polish followed by a next-command recommendation | loads `polish.md` rather than substituting workflow advice for the requested work |
 | 19 | tiny spacing edit with PRODUCT.md + DESIGN.md; Bash denied, a real-loader success control, a denied-launcher planning-only case, and a denied-launcher documentation case (PRODUCT.md + index.html, no DESIGN.md) | edits require successful playbook/craft-floor reads and a pre-edit denial warning; planning stays read-only and skips craft-floor; documentation requires successful document.md and source reads before any DESIGN.md write, with the denial disclosed before the first tool call after the denied launcher |
+| 20 | existing migration guide with a functional version eyebrow, readable grey on blue, accepted 24px card geometry, and an SVG diagram | a button-padding polish edits the requested value while preserving the intentional label, palette, geometry, and media through the actual craft-floor path |
 
 ### Scoping a run while investigating
 

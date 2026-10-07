@@ -13,6 +13,7 @@
  */
 import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 
 import {
@@ -645,6 +646,30 @@ for (const modelId of resolveModelList()) {
         }
       });
     }
+
+    it('scenario 20: a scoped polish preserves functional labels and intentional media', async () => {
+      const page = '<!doctype html><html lang="en"><head><title>Migration guide</title><style>body{font:16px/1.6 system-ui;background:#e8f1fa;color:#444444;margin:32px}.card{border:1px solid #6f859b;border-radius:24px;box-shadow:0 4px 12px #0002;padding:24px}button{padding:2px 4px}</style></head><body><main class="card"><p class="eyebrow">Updated for version 3</p><h1>Migration guide</h1><p>Move existing records to the new format.</p><svg viewBox="0 0 160 40" role="img" aria-label="Records move from the old format to the new format"><rect x="0" y="5" width="40" height="30" fill="#345678"/><path d="M60 20h40m-10-10 10 10-10 10" stroke="#345678" fill="none"/><rect x="120" y="5" width="40" height="30" fill="#345678"/></svg><button>Start migration</button></main></body></html>';
+      const workspace = prepareWorkspace({ files: {
+        'PRODUCT.md': '# Migration guide\n\n## Platform\nweb\n\nA reading page explaining an existing record migration.\n',
+        'DESIGN.md': '# Migration guide\n\n## Colors\nPale blue background (#e8f1fa), readable grey text (#444444).\n\n## Typography\nSystem-ui at 16px, line-height 1.6.\n\n## Components\nRounded cards with a border and soft shadow. Preserve the existing system.\n',
+        'index.html': page,
+      } });
+      try {
+        const result = await runTurn({
+          workspace, model, maxSteps: 12,
+          userPrompt: '/impeccino polish index.html. Fix only the cramped action-button padding: use 10px 16px. Preserve the published migration status, reading palette, card system, diagram, content, and structure.',
+        });
+        assertCompleted(result);
+        const output = fs.readFileSync(path.join(workspace, 'index.html'), 'utf8');
+        assert.match(output, /padding:\s*10px\s+16px/);
+        for (const snippet of ['<p class="eyebrow">Updated for version 3</p>', 'color:#444444', 'border-radius:24px', 'box-shadow:0 4px 12px #0002', page.match(/<svg[\s\S]*?<\/svg>/)[0]]) {
+          assert.ok(output.includes(snippet), `must preserve the intentional choice: ${snippet}`);
+        }
+        assert.ok(fileLoaded(result.trace, 'reference/craft-floor.md'), 'the preservation check must exercise the actual craft floor');
+      } finally {
+        cleanupWorkspace(workspace);
+      }
+    });
 
     it('scenario 19: denied launcher requires document.md before writing DESIGN.md', async () => {
       const workspace = prepareWorkspace({ files: {

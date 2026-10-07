@@ -93,6 +93,25 @@ fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> R
     let mut findings: Vec<Finding> = Vec::new();
     findings.extend(boot.legacy_state);
     findings.extend(boot.product);
+    if ctx
+        .product
+        .as_deref()
+        .filter(|product| !product.is_empty())
+        .is_some_and(|product| read_product_schema_version(product).is_none())
+        && !findings
+            .iter()
+            .any(|finding| finding.id == "product-schema-legacy")
+    {
+        findings.push(finding(
+            "product-schema-stamp",
+            "PRODUCT.md",
+            ctx.product_path.clone(),
+            "auto",
+            "PRODUCT.md has no schema stamp, but it already has a current product section."
+                .to_string(),
+            "Run `doctor --fix` to record the current product schema version.".to_string(),
+        ));
+    }
     findings.extend(boot.native_platform);
     findings.extend(boot.design_sidecar);
     findings.extend(check_design_drift(
@@ -155,6 +174,9 @@ fn apply_fixes(report: &Report) -> Fixes {
     let mut skipped: Vec<(String, String)> = Vec::new();
     let mut failed: Vec<(String, String, String)> = Vec::new();
     for entry in &report.findings {
+        if entry.id == "product-schema-stamp" && entry.severity == "auto" {
+            continue;
+        }
         if entry.severity != "auto" {
             skipped.push((
                 entry.id.clone(),
@@ -167,13 +189,12 @@ fn apply_fixes(report: &Report) -> Fixes {
             "no automatic migration implemented".to_string(),
         ));
     }
-    if let (Some(pp), Some(product)) = (&report.abs_product_path, report.ctx.product.as_deref()) {
-        if !product.is_empty()
-            && read_product_schema_version(product).is_none()
-            && !report
-                .findings
-                .iter()
-                .any(|f| f.id == "product-schema-legacy")
+    let should_stamp_product = report
+        .findings
+        .iter()
+        .any(|finding| finding.id == "product-schema-stamp" && finding.severity == "auto");
+    if should_stamp_product {
+        if let (Some(pp), Some(product)) = (&report.abs_product_path, report.ctx.product.as_deref())
         {
             let path = rel(pp, &report.project_root);
             let stamped = stamp_product_schema(product, PRODUCT_SCHEMA_VERSION);
@@ -440,6 +461,36 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn product_schema_stamp_is_reported_before_it_is_applied() {
+        let root = TempDir::new();
+        let product = root.0.join("PRODUCT.md");
+        std::fs::write(
+            &product,
+            "# Example\n\n## Positioning\nA current product record.\n",
+        )
+        .unwrap();
+        let cwd = root.0.to_string_lossy().into_owned();
+        let env = crate::util::Env::new();
+        let report = collect(&cwd, &TargetOptions::default(), &env, "");
+
+        let stamp_finding = report
+            .findings
+            .iter()
+            .find(|finding| finding.id == "product-schema-stamp")
+            .expect("doctor must report the schema stamp before applying it");
+        assert_eq!(stamp_finding.severity, "auto");
+
+        let fixes = apply_fixes(&report);
+        assert_eq!(fixes.applied.len(), 1);
+        assert_eq!(
+            crate::artifact_schema::read_product_schema_version(
+                &std::fs::read_to_string(product).unwrap()
+            ),
+            Some(crate::artifact_schema::PRODUCT_SCHEMA_VERSION)
+        );
     }
 
     #[test]
