@@ -244,7 +244,7 @@ advisory. External packs own their registered finding policy. This classificatio
 does not expand accessibility coverage or establish deeper conformance.
 
 Advisories remain visible in explicit reports and hook context, sort after
-primary hook findings, do not deny Cursor writes, and do not produce finding
+primary hook findings within each file, do not deny Cursor writes, and do not produce finding
 exit status 2 alone. Codex Stop omits advisory-only context because its schema
 supports a blocking decision only. `--no-advisory`, operational failures,
 waivers, inline ignores, native exclusions, and target ownership still apply.

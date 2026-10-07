@@ -12,7 +12,7 @@ A missing DESIGN.md does not erase an established identity. A local extension
 inherits that identity and its surrounding behavior. A redesign preserves
 product truth, content, function, native affordances, and technical constraints
 while replacing the requested visual system. An incomplete brand preserves its
-confirmed assets. No visual authority permits invention within the brief.
+confirmed assets. Where no incumbent visual authority exists, invent within the brief.
 
 Use [init.md](init.md) for missing durable product context and [document.md](document.md)
 for an incumbent system that needs recording. Reuse available evidence and

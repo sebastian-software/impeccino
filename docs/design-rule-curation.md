@@ -118,6 +118,9 @@ remain useful. Framework recipes and universal numerical style thresholds are
 not copied into task contracts; their appropriate use belongs to the maintained
 specialist knowledge.
 
+The hook reference retains manifests, tiers, cache and waiver contracts while
+removing its former blanket approval gate; the host owns the write boundary.
+
 Existing PRODUCT.md headings and schema stamp, DESIGN.md tokens and waivers,
 DESIGN.json schema, SURFACES.md markers, and legacy direction blocks remain
 readable. A roll key is evidence only when a roll actually ran. Development
