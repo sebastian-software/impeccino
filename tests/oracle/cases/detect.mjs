@@ -142,6 +142,18 @@ function Thumb({ url }: { url?: string }) {
     { id: 'cli-version', verb: 'cli-version', args: [] },
 
     // Project decisions, DESIGN.md, inline ignores (detect-config workspace)
+    {
+      id: 'detect-config-independent-package-waivers', verb: 'detect', workspace: 'detect-config',
+      setup: (ws) => {
+        detectConfigRepo(ws);
+        fs.appendFileSync(path.join(ws, 'DESIGN.md'), '\n<!-- impeccino-disable side-tab: root brand rule -->\n');
+        const child = path.join(ws, 'independent');
+        fs.mkdirSync(child, { recursive: true });
+        fs.writeFileSync(path.join(child, 'package.json'), '{"name":"independent"}\n');
+        fs.writeFileSync(path.join(child, 'page.tsx'), '<div style="border-left: 4px solid #ff0000">x</div>\n');
+      },
+      args: ['--json', 'independent/page.tsx'],
+    },
     { id: 'detect-config-page-json', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--json', 'src/page.html'] },
     { id: 'detect-config-page-text', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['src/page.html'] },
     { id: 'detect-config-page-no-config', verb: 'detect', workspace: 'detect-config', setup: detectConfigRepo, args: ['--no-config', '--json', 'src/page.html'] },
