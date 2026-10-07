@@ -12,7 +12,7 @@ reviews, and need their own sync machinery.
 
 ## Decision
 
-Build output and generated files are not tracked. `skill/` is source and the
+Build output and generated files are not tracked, except the public README composed by mdtheme from reviewed source and a pinned shared theme. `skill/` is source and the
 install payload at once (0001), so git-based consumers (skill managers,
 submodules, `npx skills`) read it directly. Maintained license and notice
 files required by a standalone install are part of that source payload, not
@@ -32,3 +32,5 @@ generated copies. Root harness folders are ignored local developer state.
   output.
 - Engine release `THIRD-PARTY-NOTICES.txt` remains generated and untracked; the
   release workflow derives it from the locked Cargo dependency graph.
+
+- `README.md` is the explicit publication exception: edit `README.md.src`, generate with the project-pinned mdtheme, review the diff, and commit both. CI verifies exact composition; no workflow commits regenerated output automatically. `mise.lock` records the tool archive checksums.
