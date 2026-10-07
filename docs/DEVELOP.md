@@ -77,7 +77,7 @@ Follow [AGENTS.md](../AGENTS.md) for cross-harness writing rules, command conven
 ```
 impeccino/
   skill/                           # The skill; installs as-is
-    SKILL.md                       # Frontmatter, shared design laws, command router
+    SKILL.md                       # Frontmatter, task contracts, command router
     reference/                     # One <command>.md per command + shared playbooks
     scripts/                       # Launcher, engine VERSION pin, command metadata
     agents/                        # Claude Code agent files for the shipped roles
@@ -89,6 +89,7 @@ impeccino/
   docs/
     adr/                           # Light ADRs
     ENGINE.md                      # Crate map and engine build
+    DESIGN-HOOKS.md                # Project hook setup and troubleshooting
     HARNESSES.md                   # Harness capabilities reference
     RUNTIME-ENV.md                 # Environment the engine reads
     STYLE.md                       # Editorial style guide
