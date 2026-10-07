@@ -178,7 +178,7 @@ if (cfg.engineGated && process.env.IMPECCINO_SKIP_ENGINE_CHECK !== '1') {
     fail(
       `Refusing to release ${cfg.label} ${version}: engine v${engineVersion} is not fully published.\n` +
       `  Publish engine v${engineVersion} first (pnpm run release:engine), then release the skill.\n` +
-      '  See CLAUDE.md "Releases".'
+      '  See AGENTS.md "Releases".'
     );
   }
   ok(`engine v${engineVersion} release assets all present`);

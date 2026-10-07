@@ -113,7 +113,7 @@ function report(result) {
   if (missing.length) {
     console.error('');
     console.error(`Publish engine v${version} (tag engine-v${version}, pnpm run release:engine)`);
-    console.error('BEFORE releasing the skill. See CLAUDE.md "Releases".');
+    console.error('BEFORE releasing the skill. See AGENTS.md "Releases".');
   }
   if (unreachable.length) console.error('Check network access and rerun this probe before releasing the skill.');
   console.error(`  release base: ${base}`);

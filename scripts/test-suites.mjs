@@ -28,6 +28,8 @@ export const SUITES = {
       /^skill\/(SKILL\.md|agents\/|reference\/|scripts\/)/,
       /^skill\/scripts\/VERSION$/,
       /^README\.md$/,
+      /^(AGENTS|CLAUDE)\.md$/,
+      /^docs\/DEVELOP\.md$/,
       /^docs\/RUNTIME-ENV\.md$/,
       /^tests\/(?!oracle\/|fixtures\/).+\.(js|mjs|rs)$/,
       /^\.github\/workflows\/release-engine\.yml$/,
