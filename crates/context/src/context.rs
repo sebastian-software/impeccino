@@ -12,9 +12,9 @@ pub use impeccino_common::project_files::{
     CONTEXT_FALLBACK_DIRS as FALLBACK_DIRS, DESIGN_NAMES, PRODUCT_NAMES,
 };
 use impeccino_common::project_paths::{
-    has_git_boundary as shared_has_git_boundary, is_monorepo_root as shared_is_monorepo_root,
-    segment_matches, workspace_exclusion_matches, MONOREPO_FALLBACK_PROJECT_DIRS,
-    MONOREPO_MARKER_FILES,
+    has_git_boundary as shared_has_git_boundary, has_project_marker,
+    is_monorepo_root as shared_is_monorepo_root, segment_matches, workspace_exclusion_matches,
+    workspace_owns_path, MONOREPO_FALLBACK_PROJECT_DIRS, MONOREPO_MARKER_FILES,
 };
 pub use impeccino_common::project_paths::{
     is_ignored_workspace_discovery_dir, normalize_workspace_pattern,
@@ -159,7 +159,10 @@ pub fn resolve_context(cwd: &str, options: &TargetOptions, env: &Env) -> Resolve
     let abs_cwd = jsp::resolve(cwd, &[]);
     let project = resolve_project(&abs_cwd, options, env);
     let project_context_dir = resolve_local_context_dir(&project.project_root);
-    let root_context_dir = if project.repo_root != project.project_root {
+    let root_context_dir = if project.repo_root != project.project_root
+        && (!has_project_marker(&project.project_root)
+            || workspace_owns_path(&project.repo_root, &project.project_root))
+    {
         resolve_local_context_dir(&project.repo_root)
     } else {
         None
@@ -751,7 +754,8 @@ fn resolve_workspace_project_root(repo_root: &str, target_dir: &str) -> Option<S
     let rel_segments: Vec<&str> = rel.split(jsp::SEP_CHAR).filter(|s| !s.is_empty()).collect();
     for patterns in read_project_pattern_groups(repo_root) {
         if is_excluded_by_workspace_pattern(&rel_segments, &patterns) {
-            return Some(repo_root.to_string());
+            return nearest_project_like_root(repo_root, target_dir)
+                .or_else(|| Some(repo_root.to_string()));
         }
         for pattern in &patterns {
             if let Some(pr) = project_root_from_workspace_pattern(repo_root, &rel_segments, pattern)
@@ -1140,6 +1144,72 @@ pub fn has_visual_implementation(project_root: &str) -> bool {
 #[cfg(test)]
 mod workspace_pattern_tests {
     use super::workspace_pattern_matches_rel;
+
+    #[test]
+    fn context_inherits_documents_only_inside_declared_workspaces() {
+        use super::{resolve_context, Env, TargetOptions};
+        let root = std::env::temp_dir().join(format!(
+            "impeccino-context-boundary-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::write(
+            root.join("package.json"),
+            r#"{"workspaces":["packages/*","!packages/excluded"]}"#,
+        )
+        .unwrap();
+        std::fs::write(root.join("DESIGN.md"), "# Shared design").unwrap();
+        std::fs::write(root.join("PRODUCT.md"), "# Shared product").unwrap();
+        let root_text = root.to_string_lossy();
+        for (package, inherits) in [
+            ("packages/owned", true),
+            ("packages/excluded", false),
+            ("tools/stray", false),
+            ("apps/undeclared", false),
+        ] {
+            std::fs::create_dir_all(root.join(package).join("src")).unwrap();
+            std::fs::write(root.join(package).join("package.json"), "{}").unwrap();
+            let target = root.join(package).join("src");
+            let options = TargetOptions {
+                target_path: Some(target.to_string_lossy().into_owned()),
+                ..Default::default()
+            };
+            let resolved = resolve_context(&root_text, &options, &Env::new());
+            assert_eq!(resolved.design_path.is_some(), inherits, "{package}");
+            assert_eq!(resolved.product_path.is_some(), inherits, "{package}");
+            assert_eq!(
+                resolved.project_root,
+                root.join(package).to_string_lossy(),
+                "{package}"
+            );
+            std::fs::write(root.join(package).join("PRODUCT.md"), "# Local product").unwrap();
+            std::fs::write(root.join(package).join("DESIGN.md"), "# Local design").unwrap();
+            let local = resolve_context(&root_text, &options, &Env::new());
+            assert_eq!(
+                local.product_path.as_deref(),
+                Some(
+                    root.join(package)
+                        .join("PRODUCT.md")
+                        .to_string_lossy()
+                        .as_ref()
+                )
+            );
+            assert_eq!(
+                local.design_path.as_deref(),
+                Some(
+                    root.join(package)
+                        .join("DESIGN.md")
+                        .to_string_lossy()
+                        .as_ref()
+                )
+            );
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn workspace_exclusions_cover_descendants_without_matching_siblings() {
