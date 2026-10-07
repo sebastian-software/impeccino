@@ -11,6 +11,8 @@ pub mod atomic_file;
 pub mod jsp;
 pub mod proc;
 pub mod project_files;
+pub mod project_paths;
+pub mod scan_scope;
 
 /// Quote a launcher executable path for a command string printed to a shell.
 /// POSIX shells use single-quote escaping when the path needs it; Windows

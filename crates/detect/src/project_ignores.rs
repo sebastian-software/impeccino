@@ -13,11 +13,12 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::path::Path;
 use std::rc::Rc;
 
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use ignore::Match;
+
+use impeccino_common::project_paths::has_git_boundary;
 
 use crate::jsp;
 
@@ -197,7 +198,7 @@ impl ProjectIgnores {
         }
         let mut cur = dir.to_string();
         let found = loop {
-            if Path::new(&jsp::join(&[&cur, ".git"])).exists() {
+            if has_git_boundary(&cur) {
                 break Some(cur.clone());
             }
             let parent = jsp::dirname(&cur);

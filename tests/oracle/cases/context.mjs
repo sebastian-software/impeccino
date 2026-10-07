@@ -68,6 +68,16 @@ const gitBoundary = (ws, rel) => {
   fs.mkdirSync(path.join(ws, rel, '.git'), { recursive: true });
 };
 
+const excludedWorkspace = (ws) => {
+  write(ws, 'pnpm-workspace.yaml', "packages:\n  - 'apps/*'\n  - '!apps/b'\n");
+  write(ws, 'apps/b/src/App.tsx', 'export default function App() { return <main />; }\n');
+};
+
+const undeclaredPackage = (ws) => {
+  write(ws, 'tools/standalone/package.json', '{"name":"standalone"}\n');
+  write(ws, 'tools/standalone/src/App.tsx', 'export default function App() { return <main />; }\n');
+};
+
 // An installed Claude Code Stop hook in the launcher spelling, which is what
 // `context` counts as active coverage.
 const claudeStopHook = (ws, rel) => write(
@@ -201,6 +211,8 @@ const cases = [
   { id: 'context-monorepo-root', verb: 'context', workspace: 'ctx-monorepo', env: env(), files: IMPECCINO_FILES },
   { id: 'context-monorepo-target-a', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'apps/a/src/App.tsx'], env: env(), files: IMPECCINO_FILES },
   { id: 'context-monorepo-target-b-inherits', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'apps/b'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-excluded-package', verb: 'context', workspace: 'ctx-monorepo', setup: excludedWorkspace, args: ['--target', 'apps/b/src'], env: env(), files: IMPECCINO_FILES },
+  { id: 'context-monorepo-undeclared-package', verb: 'context', workspace: 'ctx-monorepo', setup: undeclaredPackage, args: ['--target', 'tools/standalone/src'], env: env(), files: IMPECCINO_FILES },
   { id: 'context-monorepo-target-dot', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', '.'], env: env(), files: IMPECCINO_FILES },
   { id: 'context-monorepo-target-missing', verb: 'context', workspace: 'ctx-monorepo', args: ['--target', 'apps/zzz/src/App.tsx'], env: env(), files: IMPECCINO_FILES },
   { id: 'context-monorepo-from-child-cwd', verb: 'context', workspace: 'ctx-monorepo', cwd: 'apps/b', env: env(), files: IMPECCINO_FILES },

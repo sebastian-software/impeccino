@@ -29,13 +29,12 @@ use crate::util::{
     exists, iso_now, js_string, jsp, now_value, obj_field, safe_read, safe_read_json, slice_prefix,
     str_field, truthy_value, utf16_len,
 };
+use impeccino_common::project_paths::has_project_marker;
+pub use impeccino_common::scan_scope::{
+    is_generated_path, HOOK_SOURCE_EXTENSIONS as ALLOWED_EXTS, TEMPLATE_EXTENSIONS,
+};
 
 pub const ENVELOPE_PREFIX: &str = "[impeccino@1]";
-
-pub const ALLOWED_EXTS: &[&str] = &[
-    ".tsx", ".jsx", ".html", ".htm", ".vue", ".svelte", ".astro", ".css", ".scss", ".sass",
-    ".less", ".ts", ".js",
-];
 
 pub const ACK_EXTS: &[&str] = &[
     ".tsx", ".jsx", ".html", ".htm", ".vue", ".svelte", ".astro", ".css", ".scss", ".sass", ".less",
@@ -67,18 +66,8 @@ re!(
     .join("|")
 );
 
-// JS: GENERATED_PATH (case-insensitive).
-re!(
-    GENERATED_PATH_RE,
-    r"(?i)(?:\.generated\.[a-z]+$|\.d\.ts$|\.min\.[a-z]+$|[/\\]node_modules[/\\]|[/\\]generated[/\\]|[/\\](?:dist|build|out|\.next|\.cache|coverage)[/\\]|[/\\]?[^/\\]+\.lock(?:\.json)?$)"
-);
-
 pub fn is_sensitive_path(p: &str) -> bool {
     SENSITIVE_PATH_RE.is_match(p)
-}
-
-pub fn is_generated_path(p: &str) -> bool {
-    GENERATED_PATH_RE.is_match(p)
 }
 
 /// JS: truthy(value) — `/^(1|true|yes|on)$/i` on a string (no trim).
@@ -282,9 +271,7 @@ pub fn resolve_project_cwd(
 
 /// JS: looksLikeProjectRoot(dir)
 fn looks_like_project_root(dir: &str) -> bool {
-    [".git", "package.json"]
-        .iter()
-        .any(|m| exists(&jsp::join(&[dir, m])))
+    has_project_marker(dir)
 }
 
 /// Resolve the project that owns the edited file. A workspace root may itself
@@ -411,15 +398,6 @@ pub const DEFAULT_MAX_CHARS: f64 = 8000.0;
 
 /// Server-side template extensions the hook scans with the static HTML
 /// engine by default.
-pub const TEMPLATE_EXTENSIONS: &[&str] = &[
-    ".blade.php",
-    ".twig",
-    ".html.erb",
-    ".erb",
-    ".hbs",
-    ".handlebars",
-];
-
 fn default_template_extensions() -> Vec<ExtensionEntry> {
     TEMPLATE_EXTENSIONS
         .iter()

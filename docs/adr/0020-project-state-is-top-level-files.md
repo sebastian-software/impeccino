@@ -36,6 +36,8 @@ Removed with the config file: the `ignores` verb, the `hooks ignore-rule|ignore-
 
 The cut is hard: there is no migration code. A leftover `.impeccino/` at a project root is one `mention` finding at boot (a single stat, within Tier 1's budget) and in `doctor`, naming where each part belongs.
 
+Workspace declarations, project markers, document names, scan extensions, and generated-path exclusions have one owner in `crates/common`. Context loading and detector DESIGN.md discovery use the same workspace ownership facts: a declared package may inherit root documents, while an excluded or undeclared package uses its own documents. Exclusions cover descendant paths. Ordinary source directories without a project marker remain part of the surrounding project. Hook byte ceilings remain event latency limits, and explicit detector file arguments may intentionally scan generated files.
+
 ## Consequences
 
 - Decisions live in the documents people and agents already read. Critique, audit, and polish drop findings that contradict a recorded decision and offer to record a new one when the user rejects a finding; the documenter carries waivers and declared tokens through every DESIGN.md rewrite.

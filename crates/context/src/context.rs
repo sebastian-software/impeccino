@@ -3,34 +3,23 @@
 use crate::jsp;
 use crate::surface_briefs::resolve_surface_brief;
 use crate::target_args::{has_target_option, TargetOptions};
-use crate::util::{
-    exists, homedir, is_dir, js_trim, read_dir_entries, read_json, safe_read, utf16_len, Env,
-};
+use crate::util::{exists, homedir, is_dir, js_trim, read_dir_entries, safe_read, utf16_len, Env};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde_json::Value;
 use std::collections::BTreeMap;
 
-pub const PRODUCT_NAMES: [&str; 3] = ["PRODUCT.md", "Product.md", "product.md"];
-pub const DESIGN_NAMES: [&str; 3] = ["DESIGN.md", "Design.md", "design.md"];
-pub const FALLBACK_DIRS: [&str; 2] = [".agents/context", "docs"];
-pub const MONOREPO_MARKER_FILES: [&str; 4] =
-    ["pnpm-workspace.yaml", "turbo.json", "nx.json", "lerna.json"];
-pub const MONOREPO_FALLBACK_PROJECT_DIRS: [&str; 2] = ["apps", "packages"];
-pub const WORKSPACE_DISCOVERY_IGNORED_DIRS: [&str; 12] = [
-    "node_modules",
-    ".git",
-    "dist",
-    "build",
-    ".next",
-    ".nuxt",
-    ".svelte-kit",
-    ".turbo",
-    ".cache",
-    "coverage",
-    "vendor",
-    "vendors",
-];
+pub use impeccino_common::project_files::{
+    CONTEXT_FALLBACK_DIRS as FALLBACK_DIRS, DESIGN_NAMES, PRODUCT_NAMES,
+};
+use impeccino_common::project_paths::{
+    has_git_boundary as shared_has_git_boundary, has_project_marker,
+    is_monorepo_root as shared_is_monorepo_root, segment_matches, workspace_exclusion_matches,
+    workspace_owns_path, MONOREPO_FALLBACK_PROJECT_DIRS, MONOREPO_MARKER_FILES,
+};
+pub use impeccino_common::project_paths::{
+    is_ignored_workspace_discovery_dir, normalize_workspace_pattern,
+    WORKSPACE_DISCOVERY_IGNORED_DIRS,
+};
 const VISUAL_SOURCE_DIRS: [&str; 7] = [
     "src",
     "app",
@@ -170,7 +159,10 @@ pub fn resolve_context(cwd: &str, options: &TargetOptions, env: &Env) -> Resolve
     let abs_cwd = jsp::resolve(cwd, &[]);
     let project = resolve_project(&abs_cwd, options, env);
     let project_context_dir = resolve_local_context_dir(&project.project_root);
-    let root_context_dir = if project.repo_root != project.project_root {
+    let root_context_dir = if project.repo_root != project.project_root
+        && (!has_project_marker(&project.project_root)
+            || workspace_owns_path(&project.repo_root, &project.project_root))
+    {
         resolve_local_context_dir(&project.repo_root)
     } else {
         None
@@ -359,7 +351,7 @@ pub fn find_git_boundary_root(start_dir: &str, env: &Env) -> Option<String> {
 
 /// JS: context.mjs#hasGitBoundary
 pub fn has_git_boundary(dir: &str) -> bool {
-    exists(&jsp::join(&[dir, ".git"]))
+    shared_has_git_boundary(dir)
 }
 
 pub fn is_path_inside(candidate: &str, root: &str) -> bool {
@@ -478,7 +470,7 @@ fn find_monorepo_root(start: &str, env: &Env) -> Option<String> {
         if dir == home {
             return None;
         }
-        if is_monorepo_root(&dir) {
+        if shared_is_monorepo_root(&dir) {
             return Some(dir);
         }
         if has_git_boundary(&dir) {
@@ -490,42 +482,6 @@ fn find_monorepo_root(start: &str, env: &Env) -> Option<String> {
         }
         dir = parent;
     }
-}
-
-fn is_monorepo_root(dir: &str) -> bool {
-    if read_project_patterns(dir)
-        .iter()
-        .any(|p| !normalize_workspace_pattern(p).starts_with('!'))
-    {
-        return true;
-    }
-    if !MONOREPO_MARKER_FILES
-        .iter()
-        .any(|f| exists(&jsp::join(&[dir, f])))
-    {
-        return false;
-    }
-    has_fallback_workspace_children(dir)
-}
-
-fn has_fallback_workspace_children(dir: &str) -> bool {
-    for name in MONOREPO_FALLBACK_PROJECT_DIRS {
-        let base = jsp::join(&[dir, name]);
-        let Some(entries) = read_dir_entries(&base) else {
-            continue;
-        };
-        if entries
-            .iter()
-            .any(|e| e.is_dir && !is_ignored_workspace_discovery_dir(&e.name))
-        {
-            return true;
-        }
-    }
-    false
-}
-
-pub fn is_ignored_workspace_discovery_dir(name: &str) -> bool {
-    name.starts_with('.') || WORKSPACE_DISCOVERY_IGNORED_DIRS.contains(&name)
 }
 
 /// JS: discoverTargetCandidates
@@ -798,7 +754,8 @@ fn resolve_workspace_project_root(repo_root: &str, target_dir: &str) -> Option<S
     let rel_segments: Vec<&str> = rel.split(jsp::SEP_CHAR).filter(|s| !s.is_empty()).collect();
     for patterns in read_project_pattern_groups(repo_root) {
         if is_excluded_by_workspace_pattern(&rel_segments, &patterns) {
-            return Some(repo_root.to_string());
+            return nearest_project_like_root(repo_root, target_dir)
+                .or_else(|| Some(repo_root.to_string()));
         }
         for pattern in &patterns {
             if let Some(pr) = project_root_from_workspace_pattern(repo_root, &rel_segments, pattern)
@@ -897,205 +854,14 @@ fn nearest_package_root_between(
 fn workspace_pattern_matches_rel(pattern: &str, rel_segments: &[&str]) -> bool {
     let norm = normalize_workspace_pattern(pattern);
     let segs: Vec<&str> = norm.split('/').filter(|s| !s.is_empty()).collect();
-    if segs.is_empty() {
-        return false;
-    }
-    if segs.contains(&"**") {
-        let first_glob = segs.iter().position(|s| s.contains('*'));
-        let prefix: Vec<&str> = match first_glob {
-            None => segs.clone(),
-            Some(i) => segs[..i].to_vec(),
-        };
-        if rel_segments.len() < prefix.len() + 1 {
-            return false;
-        }
-        for (i, p) in prefix.iter().enumerate() {
-            if !segment_matches(p, rel_segments[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
-    if rel_segments.len() < segs.len() {
-        return false;
-    }
-    for (i, p) in segs.iter().enumerate() {
-        if !segment_matches(p, rel_segments[i]) {
-            return false;
-        }
-    }
-    true
+    workspace_exclusion_matches(&segs, rel_segments)
 }
 
-/// JS: readProjectPatternGroups -> [impeccinoPatterns, packagePatterns]
+/// The package-manager workspace declarations shared by root resolution.
 pub fn read_project_pattern_groups(repo_root: &str) -> Vec<Vec<String>> {
-    let mut package: Vec<String> = Vec::new();
-    package.extend(read_package_workspaces(repo_root));
-    package.extend(read_pnpm_workspaces(repo_root));
-    package.extend(read_lerna_workspaces(repo_root));
-    let package: Vec<String> = package.into_iter().filter(|p| !p.is_empty()).collect();
-    vec![package]
-}
-
-fn read_project_patterns(repo_root: &str) -> Vec<String> {
-    read_project_pattern_groups(repo_root)
-        .into_iter()
-        .flatten()
-        .collect()
-}
-
-/// JS array-of-strings coercion for workspace patterns: non-string entries
-/// become `String(x)` in JS when normalized; keep strings, stringify others.
-fn value_strings(v: &Value) -> Vec<String> {
-    match v.as_array() {
-        Some(a) => a
-            .iter()
-            .map(|e| match e {
-                Value::String(s) => s.clone(),
-                Value::Null => "null".to_string(),
-                other => other.to_string(),
-            })
-            .collect(),
-        None => vec![],
-    }
-}
-
-fn read_package_workspaces(repo_root: &str) -> Vec<String> {
-    let Some(pkg) = read_json(&jsp::join(&[repo_root, "package.json"])) else {
-        return vec![];
-    };
-    let Some(ws) = pkg.get("workspaces") else {
-        return vec![];
-    };
-    if ws.is_array() {
-        return value_strings(ws);
-    }
-    if let Some(p) = ws.get("packages") {
-        if p.is_array() {
-            return value_strings(p);
-        }
-    }
-    vec![]
-}
-
-fn read_lerna_workspaces(repo_root: &str) -> Vec<String> {
-    let Some(lerna) = read_json(&jsp::join(&[repo_root, "lerna.json"])) else {
-        return vec![];
-    };
-    match lerna.get("packages") {
-        Some(p) if p.is_array() => value_strings(p),
-        _ => vec![],
-    }
-}
-
-static PACKAGES_FLOW_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^packages:\s*\[(.*)\]\s*$").unwrap());
-static PACKAGES_BLOCK_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^packages:\s*$").unwrap());
-static YAML_KEY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[A-Za-z0-9_-]+:\s*").unwrap());
-static YAML_ITEM_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^-\s*(.+)$").unwrap());
-
-fn read_pnpm_workspaces(repo_root: &str) -> Vec<String> {
-    let Some(body) = safe_read(&jsp::join(&[repo_root, "pnpm-workspace.yaml"])) else {
-        return vec![];
-    };
-    let mut patterns = Vec::new();
-    let mut in_packages = false;
-    for line in body.split('\n') {
-        let line = line.strip_suffix('\r').unwrap_or(line);
-        let stripped = strip_yaml_inline_comment(line);
-        let trimmed = js_trim(&stripped);
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        if let Some(m) = PACKAGES_FLOW_RE.captures(trimmed) {
-            patterns.extend(parse_yaml_flow_list(&m[1]));
-            in_packages = false;
-            continue;
-        }
-        if PACKAGES_BLOCK_RE.is_match(trimmed) {
-            in_packages = true;
-            continue;
-        }
-        if in_packages && YAML_KEY_RE.is_match(trimmed) {
-            break;
-        }
-        if in_packages {
-            if let Some(m) = YAML_ITEM_RE.captures(trimmed) {
-                patterns.push(unquote_yaml_value(&m[1]));
-            }
-        }
-    }
-    patterns
-}
-
-fn strip_yaml_inline_comment(line: &str) -> String {
-    let chars: Vec<char> = line.chars().collect();
-    let mut quote: Option<char> = None;
-    for i in 0..chars.len() {
-        let ch = chars[i];
-        if (ch == '"' || ch == '\'') && (i == 0 || chars[i - 1] != '\\') {
-            quote = if quote == Some(ch) {
-                None
-            } else {
-                quote.or(Some(ch))
-            };
-            continue;
-        }
-        if ch == '#' && quote.is_none() {
-            return chars[..i].iter().collect();
-        }
-    }
-    line.to_string()
-}
-
-fn parse_yaml_flow_list(body: &str) -> Vec<String> {
-    let chars: Vec<char> = body.chars().collect();
-    let mut items = Vec::new();
-    let mut quote: Option<char> = None;
-    let mut current = String::new();
-    for i in 0..chars.len() {
-        let ch = chars[i];
-        if (ch == '"' || ch == '\'') && (i == 0 || chars[i - 1] != '\\') {
-            quote = if quote == Some(ch) {
-                None
-            } else {
-                quote.or(Some(ch))
-            };
-            current.push(ch);
-            continue;
-        }
-        if ch == ',' && quote.is_none() {
-            let v = unquote_yaml_value(&current);
-            if !v.is_empty() {
-                items.push(v);
-            }
-            current.clear();
-            continue;
-        }
-        current.push(ch);
-    }
-    let v = unquote_yaml_value(&current);
-    if !v.is_empty() {
-        items.push(v);
-    }
-    items
-}
-
-fn unquote_yaml_value(v: &str) -> String {
-    let t = js_trim(v);
-    strip_one_quote_each_end(t)
-}
-
-/// JS: .replace(/^['"]|['"]$/g, '')
-pub fn strip_one_quote_each_end(t: &str) -> String {
-    let mut s = t;
-    if s.starts_with('\'') || s.starts_with('"') {
-        s = &s[1..];
-    }
-    if s.ends_with('\'') || s.ends_with('"') {
-        s = &s[..s.len() - 1];
-    }
-    s.to_string()
+    vec![impeccino_common::project_paths::read_workspace_patterns(
+        repo_root,
+    )]
 }
 
 fn project_root_from_workspace_pattern(
@@ -1157,34 +923,6 @@ fn project_root_from_double_star_pattern(
     let mut rp = vec![repo_root];
     rp.extend(rel_segments[..prefix.len() + 1].iter());
     Some(jsp::join(&rp))
-}
-
-pub fn normalize_workspace_pattern(p: &str) -> String {
-    let t = js_trim(p);
-    let s = strip_one_quote_each_end(t);
-    let s = s.strip_prefix("./").unwrap_or(&s).to_string();
-    s.trim_end_matches('/').to_string()
-}
-
-fn segment_matches(pattern_segment: &str, rel_segment: &str) -> bool {
-    if pattern_segment == "*" {
-        return true;
-    }
-    if !pattern_segment.contains('*') {
-        return pattern_segment == rel_segment;
-    }
-    let mut re = String::from("^");
-    for c in pattern_segment.chars() {
-        if c == '*' {
-            re.push_str("[^/]*");
-        } else {
-            re.push_str(&regex::escape(&c.to_string()));
-        }
-    }
-    re.push('$');
-    Regex::new(&re)
-        .map(|r| r.is_match(rel_segment))
-        .unwrap_or(false)
 }
 
 // ─── extractSectionValue / extractPlatform ─────────────────────────────────
@@ -1401,4 +1139,99 @@ pub fn has_visual_implementation(project_root: &str) -> bool {
     }
     let _ = is_dir;
     styled >= 3
+}
+
+#[cfg(test)]
+mod workspace_pattern_tests {
+    use super::workspace_pattern_matches_rel;
+
+    #[test]
+    fn context_inherits_documents_only_inside_declared_workspaces() {
+        use super::{resolve_context, Env, TargetOptions};
+        let root = std::env::temp_dir().join(format!(
+            "impeccino-context-boundary-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::write(
+            root.join("package.json"),
+            r#"{"workspaces":["packages/*","!packages/excluded"]}"#,
+        )
+        .unwrap();
+        std::fs::write(root.join("DESIGN.md"), "# Shared design").unwrap();
+        std::fs::write(root.join("PRODUCT.md"), "# Shared product").unwrap();
+        let root_text = root.to_string_lossy();
+        for (package, inherits) in [
+            ("packages/owned", true),
+            ("packages/excluded", false),
+            ("tools/stray", false),
+            ("apps/undeclared", false),
+        ] {
+            let package_dir = package
+                .split('/')
+                .fold(root.clone(), |dir, segment| dir.join(segment));
+            std::fs::create_dir_all(package_dir.join("src")).unwrap();
+            std::fs::write(package_dir.join("package.json"), "{}").unwrap();
+            let target = package_dir.join("src");
+            let options = TargetOptions {
+                target_path: Some(target.to_string_lossy().into_owned()),
+            };
+            let resolved = resolve_context(&root_text, &options, &Env::new());
+            assert_eq!(resolved.design_path.is_some(), inherits, "{package}");
+            assert_eq!(resolved.product_path.is_some(), inherits, "{package}");
+            assert_eq!(
+                resolved.project_root,
+                package_dir.to_string_lossy(),
+                "{package}"
+            );
+            std::fs::write(package_dir.join("PRODUCT.md"), "# Local product").unwrap();
+            std::fs::write(package_dir.join("DESIGN.md"), "# Local design").unwrap();
+            let local = resolve_context(&root_text, &options, &Env::new());
+            assert_eq!(
+                local.product_path.as_deref(),
+                Some(package_dir.join("PRODUCT.md").to_string_lossy().as_ref())
+            );
+            assert_eq!(
+                local.design_path.as_deref(),
+                Some(package_dir.join("DESIGN.md").to_string_lossy().as_ref())
+            );
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_exclusions_cover_descendants_without_matching_siblings() {
+        assert!(workspace_pattern_matches_rel(
+            "packages/excluded",
+            &["packages", "excluded", "src"]
+        ));
+        assert!(workspace_pattern_matches_rel(
+            "apps/**/web",
+            &["apps", "tools", "web", "src"]
+        ));
+        assert!(!workspace_pattern_matches_rel(
+            "packages/excluded",
+            &["packages", "excluded-other", "src"]
+        ));
+    }
+
+    #[test]
+    fn globstar_patterns_still_match_their_suffix() {
+        assert!(workspace_pattern_matches_rel(
+            "apps/**/web",
+            &["apps", "web"]
+        ));
+        assert!(workspace_pattern_matches_rel(
+            "apps/**/web",
+            &["apps", "tools", "nested", "web"]
+        ));
+        assert!(!workspace_pattern_matches_rel(
+            "apps/**/web",
+            &["apps", "tools", "api"]
+        ));
+    }
 }
