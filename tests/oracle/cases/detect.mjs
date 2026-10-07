@@ -47,6 +47,7 @@ export default function cases() {
   }
 
   out.push(
+    { id: 'detect-dom-quality-parity', verb: 'detect', args: ['--no-config', '--json', '<REPO>/tests/fixtures/dom-parity.html'], isolateHome: false },
     { id: 'detect-dir-json-all-fixtures', verb: 'detect', args: ['--no-config', '--json', `<REPO>/tests/fixtures/antipatterns`], isolateHome: false, timeoutMs: 180_000 },
     { id: 'detect-dir-text-all-fixtures', verb: 'detect', args: ['--no-config', `<REPO>/tests/fixtures/antipatterns`], isolateHome: false, timeoutMs: 180_000 },
     { id: 'detect-dir-quiet-all-fixtures', verb: 'detect', args: ['--no-config', '--quiet', `<REPO>/tests/fixtures/antipatterns`], isolateHome: false, timeoutMs: 180_000 },

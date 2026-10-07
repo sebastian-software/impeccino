@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>DOM quality parity</title>
+    <style>
+      body { margin: 24px; background: #ffffff; color: #000000; font-family: Georgia, serif; font-size: 16px; }
+      main { width: 640px; }
+      section { width: 640px; margin-bottom: 24px; }
+      h1 { font-size: 32px; }
+      h2 { font-size: 24px; }
+      p { width: 600px; }
+      button { width: 120px; height: 40px; color: #000000; background: #ffffff; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Static and rendered quality checks</h1>
+      <section>
+        <h2>Expected findings</h2>
+        <p style="font-size:16px;line-height:18px">A long paragraph gives tight leading enough body copy to evaluate.</p>
+        <p style="font-size:16px;text-align:justify;hyphens:manual">Justified body copy without automatic hyphenation.</p>
+        <p style="font-size:10px">Small body text should be reported consistently.</p>
+        <button style="font-size:10px">Continue</button>
+        <p style="font-size:16px;text-transform:uppercase">This body copy uses uppercase transformation and has enough characters.</p>
+        <p style="font-size:16px;letter-spacing:1.2px">Tracked body copy has enough characters for the rule.</p>
+        <p style="font-size:16px;letter-spacing:-1px">Crushed body copy has enough characters for the rule.</p>
+        <div style="width:36px;height:36px;opacity:0.1;background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6bQAAAABJRU5ErkJggg==)">Cover artwork</div>
+      </section>
+      <section>
+        <h2>Expected exemptions</h2>
+        <p style="font-size:16px;line-height:24px">Comfortable body copy remains readable with ordinary line spacing.</p>
+        <p style="font-size:16px;text-align:justify;hyphens:auto">Automatic hyphenation exempts this justified body copy.</p>
+        <button style="font-size:11px">Save</button>
+        <small style="font-size:10px">Copyright</small>
+        <code style="font-size:9px">code sample</code>
+        <span style="position:absolute;width:1px;height:1px;overflow:hidden;font-size:9px">Assistive label</span>
+      </section>
+    </main>
+  </body>
+</html>
