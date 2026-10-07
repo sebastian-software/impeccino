@@ -50,7 +50,6 @@ Source: `scripts/`, `tests/`, and Rust test modules under `crates/*/tests`.
 
 | Variable | Effect | Default or fallback |
 |---|---|---|
-| `IMPECCINO_PUBLIC_REPO` | Checkout root for Rust fixture, vector, and HTML oracle tests. | The current repository checkout. |
 | `IMPECCINO_ORACLE_PREFIX` | Limits the JS oracle replay to case IDs with this prefix. | Unset: replay all cases. |
 | `IMPECCINO_PAGE_SCAN_SIGTERM_CHILD` | Internal child mode for the page-scan SIGTERM cleanup test. | Used only by that test. |
 | `IMPECCINO_PAGE_SCAN_TREE_CHILD_EXE` | Internal executable path for the page-scan process-tree cleanup test. | Used only by that test. |

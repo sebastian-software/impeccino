@@ -1,6 +1,5 @@
 {
   "name": "impeccino",
-  "version": "4.1.0",
   "private": true,
   "description": "Impeccino: design skill, commands, and anti-pattern detection for AI coding agents (repository tooling)",
   "author": "Sebastian Werner",

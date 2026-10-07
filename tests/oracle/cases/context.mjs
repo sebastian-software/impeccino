@@ -25,7 +25,6 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import zlib from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 
 const WS = '<WS>';
@@ -147,44 +146,6 @@ const gitNestedStatus = (ws) => {
   write(ws, 'apps/web app/src/New page.html', '<main>new</main>\n');
   write(ws, 'apps/other/src/Outside.html', '<main>outside</main>\n');
 };
-
-// Tiny valid rasters for embed-prompt.
-function pngChunk(type, data) {
-  const t = Buffer.from(type, 'latin1');
-  const len = Buffer.alloc(4); len.writeUInt32BE(data.length, 0);
-  const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([t, data])), 0);
-  return Buffer.concat([len, t, data, crc]);
-}
-function crc32(buf) {
-  let c = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) { c ^= buf[i]; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1); }
-  return (c ^ 0xffffffff) >>> 0;
-}
-function tinyPng() {
-  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(1, 0); ihdr.writeUInt32BE(1, 4); ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
-  const idat = zlib.deflateSync(Buffer.from([0, 255, 0, 0]));
-  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), pngChunk('IHDR', ihdr), pngChunk('IDAT', idat), pngChunk('IEND', Buffer.alloc(0))]);
-}
-function tinyJpeg() {
-  // SOI, APP0 (JFIF), SOS, EOI. Enough structure for the COM reader/writer.
-  const app0 = Buffer.from([0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
-  const sos = Buffer.from([0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00]);
-  return Buffer.concat([Buffer.from([0xff, 0xd8]), app0, sos, Buffer.from([0x00, 0xff, 0xd9])]);
-}
-const imagesSetup = (ws) => {
-  fs.mkdirSync(path.join(ws, 'assets/nested'), { recursive: true });
-  fs.mkdirSync(path.join(ws, 'assets/.hidden'), { recursive: true });
-  fs.mkdirSync(path.join(ws, 'assets/node_modules'), { recursive: true });
-  fs.writeFileSync(path.join(ws, 'assets/a.png'), tinyPng());
-  fs.writeFileSync(path.join(ws, 'assets/b.jpg'), tinyJpeg());
-  fs.writeFileSync(path.join(ws, 'assets/c.webp'), Buffer.from('RIFF....WEBPVP8 ', 'latin1'));
-  fs.writeFileSync(path.join(ws, 'assets/nested/d.jpeg'), tinyJpeg());
-  fs.writeFileSync(path.join(ws, 'assets/.hidden/e.png'), tinyPng());
-  fs.writeFileSync(path.join(ws, 'assets/node_modules/f.png'), tinyPng());
-  fs.writeFileSync(path.join(ws, 'assets/notes.txt'), 'not a raster\n');
-  fs.writeFileSync(path.join(ws, 'prompt.txt'), 'A prompt read from a file.\nSecond line.\n');
-};
-
 
 const cases = [
   // ======================================================================

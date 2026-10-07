@@ -20,9 +20,7 @@ fn scan(html: &str) -> Vec<impeccino_core::findings::Finding> {
 }
 
 fn repo_root() -> std::path::PathBuf {
-    std::env::var("IMPECCINO_PUBLIC_REPO")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
 #[test]
