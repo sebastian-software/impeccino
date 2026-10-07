@@ -106,9 +106,21 @@ fn design_md_waivers_apply_to_page_findings() {
     }
     let project = temp_project("ignore");
     std::fs::write(project.join("DESIGN.md"), "# Design\n\n<!-- impeccino-disable line-length -- long legal copy is set wide on purpose -->\n").unwrap();
-    let (_, findings) = detect(&project, &fixture_url("quality.html"));
+    let page = project.join("quality.html");
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/antipatterns/quality.html");
+    std::fs::copy(fixture, &page).unwrap();
+    let (_, findings) = detect(&project, &format!("file://{}", page.display()));
     assert!(!findings.is_empty());
     assert!(!ids(&findings).contains(&"line-length"));
+
+    // The original fixture belongs to a separate repository, so cwd's
+    // waiver must not suppress its findings.
+    let (_, independent) = detect(&project, &fixture_url("quality.html"));
+    assert!(
+        ids(&independent).contains(&"line-length"),
+        "{independent:?}"
+    );
 }
 
 #[test]

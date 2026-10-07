@@ -1,0 +1,7 @@
+{
+  "stdout": "[\n  {\n    \"antipattern\": \"side-tab\",\n    \"name\": \"Side-tab accent border\",\n    \"description\": \"Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.\",\n    \"severity\": \"warning\",\n    \"category\": \"slop\",\n    \"file\": \"<WS>/independent/page.tsx\",\n    \"line\": 1,\n    \"snippet\": \"border-left: 4px solid #ff0000\\\">x</div>\"\n  }\n]\n",
+  "stderr": "",
+  "exit": 2,
+  "signal": null,
+  "files": {}
+}

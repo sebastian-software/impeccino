@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use crate::design_decisions::DesignDecisionsCache;
 use crate::design_system::{
-    design_system_start_dir, load_design_system_for_target, DesignSystemCache,
+    design_system_start_dir, find_design_root, load_design_system_for_target, DesignSystemCache,
 };
 use crate::detect_text::{detect_text, TextOptions};
 use crate::engines::{EngineError, Engines, ScanOptions};
@@ -55,7 +55,7 @@ Output streams:
 
 Exit status:
   0  Scan completed with no primary findings (advisories may still be listed)
-  1  At least one requested target could not be scanned
+  1  Scan aborted, or at least one requested target could not be scanned
   2  Scan completed with primary findings
   Operational failure takes precedence when a multi-target scan is partial.
 
@@ -283,9 +283,14 @@ impl<'a> Ctx<'a> {
                 .decisions
                 .for_dir(&self.cwd.clone(), &self.cwd, &self.home),
         };
-        // A file no DESIGN.md governs (a fixture or page outside the
-        // project) takes the decisions of the directory the scan runs in.
-        if decisions.source.is_none() && local_path.is_some() {
+        // An unowned standalone file can use caller context. An independent
+        // project marker without DESIGN.md must block that fallback.
+        if decisions.source.is_none()
+            && local_path.is_some_and(|path| {
+                let start = design_system_start_dir(path, &self.cwd);
+                find_design_root(&start, &self.cwd, &self.home).is_none()
+            })
+        {
             decisions = self
                 .decisions
                 .for_dir(&self.cwd.clone(), &self.cwd, &self.home);
@@ -815,7 +820,7 @@ fn scan_targets(
                 ));
                 if !confirm(ctx.io, "Continue?") {
                     ctx.io.err("Aborted.\n");
-                    return Err(Exit(0));
+                    return Err(Exit(1));
                 }
             }
             let mut unreadable_files: Vec<String> = Vec::new();
@@ -894,10 +899,14 @@ fn scan_targets(
 fn confirm(io: &mut Io, question: &str) -> bool {
     io.err(&format!("{question} [Y/n] "));
     let _ = io.stderr.flush();
-    let mut answer = String::new();
-    // Only reached when stdin is a TTY, so a direct line read is what the
-    // JS readline does too.
-    let _ = std::io::stdin().read_line(&mut answer);
+    let answer = match io.stdin_line() {
+        Ok(Some(answer)) => answer,
+        Ok(None) => return false,
+        Err(error) => {
+            io.err(&format!("Error: cannot read confirmation: {error}\n"));
+            return false;
+        }
+    };
     let a = impeccino_core::js::trim(&answer);
     a.is_empty() || a.eq_ignore_ascii_case("y") || a.eq_ignore_ascii_case("yes")
 }
@@ -921,6 +930,118 @@ mod tests {
     use super::*;
     use crate::engines::MissingHtmlEngine;
     use std::collections::HashMap;
+
+    #[test]
+    fn confirmations_read_each_injected_line_and_decline_eof() {
+        let (mut io, _) = Io::captured("yes\nn\n\n", std::env::temp_dir(), HashMap::new());
+        io.stdin_is_tty = true;
+        assert!(confirm(&mut io, "First?"));
+        assert!(!confirm(&mut io, "Second?"));
+        assert!(confirm(&mut io, "Third?"));
+        assert!(!confirm(&mut io, "Closed?"));
+    }
+
+    #[test]
+    fn confirmation_read_errors_and_oversized_replies_decline_the_scan() {
+        struct BrokenInput;
+        impl std::io::Read for BrokenInput {
+            fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("input unavailable"))
+            }
+        }
+        let (mut io, captured) =
+            Io::captured_reader(Box::new(BrokenInput), std::env::temp_dir(), HashMap::new());
+        assert!(!confirm(&mut io, "Continue?"));
+        let stderr = String::from_utf8(captured.stderr.borrow().clone()).unwrap();
+        assert!(stderr.contains("input unavailable"), "{stderr}");
+
+        let (mut io, captured) =
+            Io::captured(&"y".repeat(1025), std::env::temp_dir(), HashMap::new());
+        assert!(!confirm(&mut io, "Continue?"));
+        let stderr = String::from_utf8(captured.stderr.borrow().clone()).unwrap();
+        assert!(
+            stderr.contains("confirmation exceeds 1024 bytes"),
+            "{stderr}"
+        );
+    }
+
+    #[test]
+    fn declining_a_large_directory_scan_does_not_report_success() {
+        let root = std::env::temp_dir().join(format!(
+            "impeccino-declined-scan-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        for index in 0..51 {
+            std::fs::write(root.join(format!("source-{index}.css")), "").unwrap();
+        }
+        let html = MissingHtmlEngine;
+        let engines = Engines {
+            html: &html,
+            url: None,
+        };
+        let (mut io, captured) = Io::captured("n\n", root.clone(), HashMap::new());
+        io.stdin_is_tty = true;
+        let status = run_detect(&["--no-config".into(), ".".into()], &mut io, &engines);
+        let stderr = String::from_utf8(captured.stderr.borrow().clone()).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+
+        assert_eq!(status, 1, "{stderr}");
+        assert!(stderr.contains("Aborted."), "{stderr}");
+        assert!(!stderr.contains("No anti-patterns found"), "{stderr}");
+        assert!(captured.stdout.borrow().is_empty());
+    }
+
+    #[test]
+    fn explicit_targets_do_not_take_waivers_from_an_unrelated_cwd() {
+        let root = std::env::temp_dir().join(format!(
+            "impeccino-waiver-boundary-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(root.join(".git")).unwrap();
+        std::fs::write(root.join("package.json"), r#"{"workspaces":["apps/*"]}"#).unwrap();
+        std::fs::write(
+            root.join("DESIGN.md"),
+            "<!-- impeccino-disable side-tab: root brand rule -->\n",
+        )
+        .unwrap();
+        let html = MissingHtmlEngine;
+        let engines = Engines {
+            html: &html,
+            url: None,
+        };
+        for (group, status) in [("apps", 0), ("tools", 2)] {
+            let package = root.join(group).join("web");
+            std::fs::create_dir_all(&package).unwrap();
+            std::fs::write(package.join("package.json"), "{}").unwrap();
+            let file = package.join("page.tsx");
+            std::fs::write(
+                &file,
+                "<div style=\"border-left: 4px solid #ff0000\">x</div>\n",
+            )
+            .unwrap();
+            let home = std::env::temp_dir()
+                .join("impeccino-waiver-test-home")
+                .to_string_lossy()
+                .into_owned();
+            let env = HashMap::from([("HOME".into(), home.clone()), ("USERPROFILE".into(), home)]);
+            let (mut io, captured) = Io::captured("", root.clone(), env);
+            let args = ["--json".into(), file.to_string_lossy().into_owned()];
+            let actual = run_detect(&args, &mut io, &engines);
+            let stdout = String::from_utf8(captured.stdout.borrow().clone()).unwrap();
+            assert_eq!(actual, status, "{group}: {stdout}");
+            assert_eq!(stdout.contains("side-tab"), status == 2, "{stdout}");
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     fn run_with_stdin(args: &[&str], stdin: &str) -> (i32, String, String) {
         let args: Vec<String> = args.iter().map(|arg| (*arg).to_string()).collect();

@@ -34,7 +34,7 @@ pub fn quote_executable_path(value: &str, win32: bool) -> String {
 
 use std::collections::HashMap;
 use std::ffi::OsString;
-use std::io::{Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 
 /// The process environment entries whose names and values are valid UTF-8.
@@ -66,7 +66,7 @@ pub const STDIN_MAX_BYTES: u64 = 64 * 1024 * 1024;
 pub struct Io {
     pub stdout: Box<dyn Write>,
     pub stderr: Box<dyn Write>,
-    stdin: Option<Box<dyn Read>>,
+    stdin: Option<Box<dyn BufRead>>,
     stdin_cache: Option<String>,
     pub env: HashMap<String, String>,
     pub cwd: PathBuf,
@@ -79,7 +79,7 @@ impl Io {
         Io {
             stdout: Box::new(std::io::stdout()),
             stderr: Box::new(std::io::stderr()),
-            stdin: Some(Box::new(std::io::stdin())),
+            stdin: Some(Box::new(BufReader::new(std::io::stdin()))),
             stdin_cache: None,
             env: process_env(),
             cwd: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
@@ -100,6 +100,27 @@ impl Io {
             self.stdin_cache = Some(String::from_utf8_lossy(&buf).into_owned());
         }
         self.stdin_cache.as_deref().unwrap()
+    }
+
+    /// One confirmation line from the injected input, including TTY input.
+    /// Keep buffering between prompts and cap replies at 1024 bytes. EOF is
+    /// distinct from an empty line, so a closed input cannot imply consent.
+    pub fn stdin_line(&mut self) -> std::io::Result<Option<String>> {
+        let Some(reader) = self.stdin.as_mut() else {
+            return Ok(None);
+        };
+        let mut bytes = Vec::new();
+        reader.take(1024).read_until(b'\n', &mut bytes)?;
+        if bytes.is_empty() {
+            return Ok(None);
+        }
+        if bytes.len() == 1024 && !bytes.ends_with(b"\n") {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "confirmation exceeds 1024 bytes",
+            ));
+        }
+        Ok(Some(String::from_utf8_lossy(&bytes).into_owned()))
     }
 
     pub fn env(&self, key: &str) -> Option<&str> {
@@ -177,7 +198,7 @@ impl Io {
         let io = Io {
             stdout: Box::new(SharedBuf(out.clone())),
             stderr: Box::new(SharedBuf(err.clone())),
-            stdin: Some(stdin),
+            stdin: Some(Box::new(BufReader::new(stdin))),
             stdin_cache: None,
             env,
             cwd,
