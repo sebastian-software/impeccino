@@ -1176,7 +1176,6 @@ mod workspace_pattern_tests {
             let target = root.join(package).join("src");
             let options = TargetOptions {
                 target_path: Some(target.to_string_lossy().into_owned()),
-                ..Default::default()
             };
             let resolved = resolve_context(&root_text, &options, &Env::new());
             assert_eq!(resolved.design_path.is_some(), inherits, "{package}");
