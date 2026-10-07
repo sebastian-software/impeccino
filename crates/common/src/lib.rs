@@ -8,6 +8,7 @@
 
 pub mod agent_browser;
 pub mod atomic_file;
+pub mod design_metadata;
 pub mod jsp;
 pub mod proc;
 pub mod project_files;

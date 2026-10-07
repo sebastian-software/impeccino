@@ -1,5 +1,5 @@
 {
-  "stdout": "Impeccino doctor: <WS>\n\nNo drift found. Every artifact matches what this version reads.\n",
+  "stdout": "Impeccino doctor: <WS>\n\nautomatic (1):\n  design-sidecar-legacy  [DESIGN.json]\n    DESIGN.json is a legacy artifact; detector metadata now belongs in DESIGN.md.\n    → Run `doctor --fix` to preserve all metadata in DESIGN.md and remove the verified legacy sidecar.\n\nRun `<IMPECCINO> doctor --fix` to apply the automatic migrations, or `/impeccino doctor` to work through all of them.\n",
   "stderr": "",
   "exit": 0,
   "signal": null,

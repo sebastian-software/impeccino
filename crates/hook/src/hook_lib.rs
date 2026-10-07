@@ -1631,7 +1631,7 @@ pub fn detector_detect_html(
 
 pub fn design_stale_note(rt: &Runtime) -> String {
     format!(
-        "{ENVELOPE_PREFIX} DESIGN.md is newer than DESIGN.json. Run {} document to refresh the design-system sidecar.",
+        "{ENVELOPE_PREFIX} DESIGN.md is newer than legacy DESIGN.json. Run {} doctor --fix to migrate detector metadata into DESIGN.md.",
         rt.impeccino_command
     )
 }

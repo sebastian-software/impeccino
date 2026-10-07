@@ -326,6 +326,21 @@ const cases = [
     args: ['--json'], env: env(),
   },
   { id: 'doctor-full-sidecar-stale', verb: 'doctor', workspace: 'ctx-full', setup: (ws) => { touch(path.join(ws, 'DESIGN.md'), T_NEW); touch(path.join(ws, 'DESIGN.json'), T_OLD); }, args: ['--json'], env: env() },
+  {
+    id: 'doctor-embedded-metadata', verb: 'doctor', workspace: 'ctx-full',
+    setup: (ws) => {
+      const legacy = fs.readFileSync(path.join(ws, 'DESIGN.json'), 'utf8');
+      fs.appendFileSync(path.join(ws, 'DESIGN.md'), `\n<!-- impeccino:design-metadata -->\n\`\`\`json\n${legacy.trim()}\n\`\`\`\n`);
+      fs.unlinkSync(path.join(ws, 'DESIGN.json'));
+    },
+    args: ['--fix', '--json'], env: env(), files: IMPECCINO_FILES,
+  },
+  ...['{}', 'invalid'].map((metadata, index) => ({
+    id: `doctor-embedded-metadata-${index ? 'invalid' : 'conflict'}`,
+    verb: 'doctor', workspace: 'ctx-full',
+    setup: (ws) => fs.appendFileSync(path.join(ws, 'DESIGN.md'), `\n<!-- impeccino:design-metadata -->\n\`\`\`json\n${metadata}\n\`\`\`\n`),
+    args: ['--fix', '--json'], env: env(), files: IMPECCINO_FILES,
+  })),
   { id: 'doctor-native-ios-text', verb: 'doctor', workspace: 'ctx-native-ios', env: env() },
   { id: 'doctor-native-ios-json', verb: 'doctor', workspace: 'ctx-native-ios', args: ['--json'], env: env() },
   { id: 'doctor-adaptive-text', verb: 'doctor', workspace: 'ctx-adaptive', env: env() },

@@ -1,6 +1,6 @@
 # 0020: Project state is top-level files, and there is no config file
 
-**Status:** Accepted · **Date:** 2026-10-02
+**Status:** Accepted · **Date:** 2026-10-02 · **Updated:** 2026-10-07
 
 ## Context
 
@@ -18,8 +18,7 @@ Project state is a few top-level files, all committed; runtime state leaves the 
 | What | Where |
 |---|---|
 | Product truth | `PRODUCT.md` (unchanged) |
-| Visual system | `DESIGN.md` (unchanged) |
-| Design sidecar | `DESIGN.json`, next to DESIGN.md (the only location) |
+| Visual system and detector metadata | `DESIGN.md`: token frontmatter, guidance, waivers, and an optional marked JSON block |
 | Surface briefs | `SURFACES.md`, one section per surface: a `## <target>` heading and a `<!-- impeccino:surface {"target":...,"related":[...]} -->` marker. The marker is the authority, so `surface-brief write` replaces exactly one section and a body may carry headings of its own |
 | Project-wide detector waivers | `<!-- impeccino-disable <rule>: reason -->` in DESIGN.md, next to the rule that justifies it |
 | Deliberate values | DESIGN.md tokens: a declared font never counts as overused; the design-system rules accept every declared value |
@@ -34,14 +33,18 @@ Project state is a few top-level files, all committed; runtime state leaves the 
 
 Removed with the config file: the `ignores` verb, the `hooks ignore-rule|ignore-file|ignore-value` actions, the consent record, `projectRoots` (workspaces come from the package manager), and the hook's tuning keys, which are now fixed defaults (server templates such as `.blade.php`, `.twig`, `.erb`, `.hbs` are scanned with the HTML engine by default). Removed with the archive: the `critique-storage` verb and the `critique` block of `signals`. Both verbs answer with a "was removed" message.
 
-The cut is hard: there is no migration code. A leftover `.impeccino/` at a project root is one `mention` finding at boot (a single stat, within Tier 1's budget) and in `doctor`, naming where each part belongs.
+The hidden-directory cut is hard: there is no migration code for `.impeccino/`. A leftover `.impeccino/` at a project root is one `mention` finding at boot (a single stat, within Tier 1's budget) and in `doctor`, naming where each part belongs.
+
+Detector metadata now lives in DESIGN.md after an `<!-- impeccino:design-metadata -->` marker and a JSON fence. Frontmatter remains the portable primitive-token layer; the optional block holds color ramps, radius details, and shadow values without expanding that format. One document owns the visual record. No empty block is required.
+
+Legacy DESIGN.json is read only when the resolved DESIGN.md has no marked block. `doctor --fix` preserves the entire legacy object and existing Markdown, verifies the embedded replacement, then removes the old file. Conflicting or malformed records require a decision and remain untouched. This migration stays beside the resolved DESIGN.md and respects workspace ownership. Boot uses already-loaded Markdown and the adjacent legacy JSON, with no new discovery or directory walk.
 
 Workspace declarations, project markers, document names, scan extensions, and generated-path exclusions have one owner in `crates/common`. Context loading and detector DESIGN.md discovery use the same workspace ownership facts: a declared package may inherit root documents, while an excluded or undeclared package uses its own documents. Exclusions cover descendant paths. Ordinary source directories without a project marker remain part of the surrounding project. Hook byte ceilings remain event latency limits, and explicit detector file arguments may intentionally scan generated files.
 
 ## Consequences
 
 - Decisions live in the documents people and agents already read. Critique, audit, and polish drop findings that contradict a recorded decision and offer to record a new one when the user rejects a finding; the documenter carries waivers and declared tokens through every DESIGN.md rewrite.
-- A project holds nothing to ignore, so the README's gitignore block is gone. The engine writes `SURFACES.md`, the `PRODUCT.md` schema stamp (`doctor --fix`), and the harness manifests `hooks on` installs; agents write DESIGN.md and DESIGN.json.
+- A project holds nothing to ignore, so the README's gitignore block is gone. The engine writes `SURFACES.md`, the `PRODUCT.md` schema stamp (`doctor --fix`), and the harness manifests `hooks on` installs; agents write DESIGN.md. `doctor --fix` can migrate legacy DESIGN.json into DESIGN.md.
 - A waiver is only as precise as a rule id. Per-value and per-glob suppressions are gone; a single spot uses an in-file `impeccino-disable-line` comment, a whole file uses git's own rules.
 - `polish` no longer inherits a critique on its own; the user hands it one, or it runs its own pass.
 - Runtime state no longer travels with a checkout, so a fresh clone starts with an empty hook session, which is what a session is.

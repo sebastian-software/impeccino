@@ -217,17 +217,20 @@ describe('skill text contracts cleaned up in issue 33', () => {
     }
   });
 
-  test('document sidecar instructions contain only detector-consumed metadata', () => {
+  test('document embeds only detector-consumed metadata and migrates legacy files', () => {
     const document = read('reference/document.md');
-    const sidecar = document.split('### Step 4b: Write the DESIGN.json sidecar (detector metadata only)')[1]
-      .split('### Step 5: Confirm and refine')[0];
+    const metadata = document.split('### Keep detector metadata in DESIGN.md')[1]
+      .split('## Seed mode')[0];
     for (const field of ['extensions.colorMeta.<token>.canonical', 'extensions.colorMeta.<token>.tonalRamp',
       'extensions.roundedMeta.<token>', 'extensions.shadows[].value']) {
-      expect(sidecar).toContain(field);
+      expect(metadata).toContain(field);
     }
-    expect(sidecar).not.toMatch(/shadow DOM|5-10 components|narrative mapping/i);
+    expect(metadata).toContain('<!-- impeccino:design-metadata -->');
+    expect(metadata).toContain('doctor --fix');
+    expect(document).not.toMatch(/write only DESIGN.json|always write an.*extensions/i);
+    expect(metadata).not.toMatch(/shadow DOM|5-10 components|narrative mapping/i);
     expect(document).not.toMatch(/button, input, and nav primitives/i);
-    expect(sidecar).toMatch(/do not generate component snippets, narrative, motion, breakpoints/i);
+    expect(metadata).toMatch(/do not generate component snippets, narrative, motion, breakpoints/i);
   });
 
   test('hooks distinguish installed manifests from manually configured Grok', () => {

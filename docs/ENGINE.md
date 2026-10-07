@@ -86,12 +86,30 @@ so an older skill copy that calls one gets a clear answer
 [ADR 0012](adr/0012-no-image-comps.md),
 [ADR 0020](adr/0020-project-state-is-top-level-files.md)).
 
-No verb reads a config file. Project state is `SURFACES.md` and `DESIGN.json`
-beside DESIGN.md; `detect` and the hook take their waivers from DESIGN.md
+No verb reads a config file. Project state is PRODUCT.md, DESIGN.md, and SURFACES.md; `detect` and the hook take their waivers from DESIGN.md
 (`crates/detect/src/design_decisions.rs`) and skip what the project's
 `.gitignore` and `.gitattributes` exclude (`project_ignores.rs`); the hook's
 session cache and the boot's staleness throttle live in the per-user cache
 (`impeccino_common::project_files::user_cache_dir`).
+Detector metadata is an optional JSON fence in DESIGN.md immediately after the
+standalone `<!-- impeccino:design-metadata -->` marker. New blocks use
+`schemaVersion: 2` and an `extensions` object. Consumed fields are
+`colorMeta.<token>.canonical` and `.tonalRamp`, `roundedMeta.<token>` (scalar or
+`canonical`, `value`, `values`, `aliases`, `role`), and `shadows[].value`, all
+under `extensions`. The primitive frontmatter remains unchanged. There is one
+marked block; markers inside example fences are ignored. No empty block is
+required. Shared parsing and migration live in `crates/common/src/design_metadata.rs`.
+
+The production loader uses embedded metadata first and reads legacy DESIGN.json
+next to the resolved DESIGN.md only when no block exists. Invalid embedded
+metadata never falls back to JSON. Boot and doctor report malformed blocks and
+conflicts. `doctor --fix` appends the entire legacy JSON object without changing
+the Markdown prefix, rereads and verifies the result, then removes the old file.
+Unknown fields survive. Conflicts, unsafe file types, and write/verification
+failures retain the sidecar. Mechanical migration is explicit; detection and
+boot never write design artifacts. Raw sidecar normalizers remain compatibility
+helpers for frozen function vectors; production callers use the single-file reader.
+
 Hook file state stays in the cache for its owning project. When a session's
 working directory differs from that project, the session-cwd cache also keeps
 a bounded `projectRoots` index so Stop can find the project's cache without

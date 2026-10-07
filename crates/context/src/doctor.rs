@@ -43,8 +43,8 @@ fn usage() -> String {
         "Usage: impeccino doctor [--json] [--fix] [--target <path>]",
         "",
         "Report drift between this project's Impeccino artifacts and what the",
-        "installed version reads: PRODUCT.md, DESIGN.md and its DESIGN.json",
-        "sidecar, SURFACES.md, and the design hook.",
+        "installed version reads: PRODUCT.md, DESIGN.md, SURFACES.md,",
+        "legacy DESIGN.json metadata, and the design hook.",
         "",
         "  --json           Emit findings as JSON.",
         "  --fix            Apply the mechanical migrations (severity \"auto\") only.",
@@ -57,6 +57,8 @@ struct Report {
     ctx: Ctx,
     project_root: String,
     abs_product_path: Option<String>,
+    abs_design_path: Option<String>,
+    sidecar_path: String,
     findings: Vec<Finding>,
     workspaces: Vec<WorkspaceRow>,
     rule_registry_available: bool,
@@ -86,7 +88,7 @@ fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> R
         cwd,
         &BootExtras {
             abs_design_path: abs_design_path.clone(),
-            sidecar_path,
+            sidecar_path: sidecar_path.clone(),
             home: Some(homedir(env)),
         },
     );
@@ -140,6 +142,8 @@ fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> R
         ctx,
         project_root,
         abs_product_path,
+        abs_design_path,
+        sidecar_path,
         findings,
         workspaces,
         rule_registry_available: known.is_some(),
@@ -174,6 +178,27 @@ fn apply_fixes(report: &Report) -> Fixes {
     let mut skipped: Vec<(String, String)> = Vec::new();
     let mut failed: Vec<(String, String, String)> = Vec::new();
     for entry in &report.findings {
+        if entry.id == "design-sidecar-legacy" && entry.severity == "auto" {
+            if let Some(design) = &report.abs_design_path {
+                match impeccino_common::design_metadata::migrate_legacy_metadata(
+                    Path::new(design),
+                    Path::new(&report.sidecar_path),
+                ) {
+                    Ok(true) => applied.push(format!(
+                        "Migrated detector metadata into {} and removed {}.",
+                        rel(design, &report.project_root),
+                        rel(&report.sidecar_path, &report.project_root)
+                    )),
+                    Ok(false) => {
+                        skipped.push((entry.id.clone(), "legacy sidecar is already absent".into()))
+                    }
+                    Err(err) => {
+                        failed.push((entry.id.clone(), rel(design, &report.project_root), err))
+                    }
+                }
+            }
+            continue;
+        }
         if entry.id == "product-schema-stamp" && entry.severity == "auto" {
             continue;
         }

@@ -4,7 +4,6 @@ use regex::Regex;
 use std::sync::LazyLock as Lazy;
 
 pub const PRODUCT_SCHEMA_VERSION: i64 = 1;
-pub const DESIGN_SIDECAR_SCHEMA_VERSION: i64 = 2;
 pub const PRODUCT_V4_SECTIONS: [&str; 4] = [
     "Positioning",
     "Operating Context",
@@ -60,18 +59,4 @@ fn is_h1(l: &str) -> bool {
     };
     let trimmed = rest.trim_start_matches(|c: char| c.is_whitespace());
     trimmed.len() < rest.len() && !trimmed.is_empty()
-}
-
-/// JS: readSidecarSchemaVersion
-pub fn read_sidecar_schema_version(sidecar: Option<&serde_json::Value>) -> Option<i64> {
-    let v = sidecar?.as_object()?.get("schemaVersion")?;
-    if let Some(i) = v.as_i64() {
-        return Some(i);
-    }
-    if let Some(f) = v.as_f64() {
-        if f.fract() == 0.0 && f.is_finite() {
-            return Some(f as i64);
-        }
-    }
-    None
 }

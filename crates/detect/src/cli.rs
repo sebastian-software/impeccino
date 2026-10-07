@@ -34,7 +34,7 @@ Options:
   --no-config         Scan raw: ignore DESIGN.md (tokens, waivers, declared
                       fonts) and in-file ignore comments
   --no-inline-ignores Do not honor in-file impeccino-disable* ignore comments
-  --no-design-system  Do not load DESIGN.md / DESIGN.json tokens for the
+  --no-design-system  Do not load DESIGN.md tokens or legacy metadata for the
                       design-system rules (waivers still apply)
   --no-advisory       Suppress advisory findings entirely (e.g. em-dash overuse)
   --help              Show this help message
@@ -65,7 +65,7 @@ Project decisions (there is no config file):
   DESIGN.md is the project's record of deliberate choices:
     <!-- impeccino-disable side-tab: the ledger rule -->
   anywhere in DESIGN.md turns a rule off for every file it governs, and a
-  font DESIGN.md declares (typography, or DESIGN.json) never counts as an
+  font DESIGN.md declares under typography never counts as an
   overused font.
 
 Inline ignores:

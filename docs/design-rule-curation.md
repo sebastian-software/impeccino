@@ -104,7 +104,7 @@ the old prose or make those references a runtime dependency.
 | `clarify.md`, `onboard.md` | `interface-copy.md`, `cognitive-ux.md`, `forms-and-state.md`, `loading-states.md`, `design-planning.md` | Real first-use tasks, recovery and relevant states; preserve factual claims and reachable capabilities |
 | `harden.md`, `audit.md` | `ui-quality-gates.md`, `html-accessibility.md`, `accessibility-testing.md`, `forms-and-state.md`, `i18n-ux.md`, `i18n-rtl.md` | Evidence-based findings, supported ranges, interrupted gestures, no screenshot-only interaction verdict |
 | `optimize.md` | `browser-performance.md`, `react-performance-priorities.md`, `animation-runtime-performance.md` | Comparable before/after evidence; actual bottleneck; preserve behavior and report measurement limits |
-| `extract.md`, `document.md` | `design-system-rules.md`, `component-api-design.md` | Extraction boundaries, consumers, actual reused tokens; DESIGN.md format, sidecar fields, and waiver preservation remain local integration contracts |
+| `extract.md`, `document.md` | `design-system-rules.md`, `component-api-design.md` | Extraction boundaries, consumers, actual reused tokens; DESIGN.md format, detector metadata, and waiver preservation remain local integration contracts |
 | `init.md`, `shape.md` | `design-planning.md`, `design-planning-core.md` | Useful discovery for material gaps; supported product facts, explicit assumptions, smallest useful brief |
 
 The fixed interview rounds, compulsory confirmation, candidate tournaments,
@@ -160,3 +160,8 @@ contextual advice; Codex Stop suppresses it because that event offers only a
 blocking result. `--no-advisory` hides contextual findings, while operational
 failures and primary diagnostics keep their existing exit semantics. Waivers,
 inline ignores, project boundaries, and native scan exclusions remain effective.
+
+Issue #86 subsequently consolidates detector metadata into DESIGN.md. Legacy
+DESIGN.json remains a read-compatible input until explicit, verified migration;
+[ADR 0020](adr/0020-project-state-is-top-level-files.md) owns the current artifact
+layout.

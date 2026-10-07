@@ -15,7 +15,7 @@ Impeccino keeps no config file. Hooks are a per-project opt-in: `on` installs en
 What used to be detector config is read from the project's own files, by the hook and by `impeccino detect` alike:
 
 - **A rule the project has decided against** is waived in DESIGN.md with `<!-- impeccino-disable <rule-id>: <reason> -->`, best placed next to the Named Rule or Do/Don't that justifies it. It turns the rule off for every file that DESIGN.md governs. Same syntax as the in-file waiver; a bare `impeccino-disable` with no rule id is not honored at project scope.
-- **A deliberate value** belongs in DESIGN.md as a token. A font declared under `typography` (or in DESIGN.json) never counts as an overused font, and the design-system rules accept every declared color, radius, and size.
+- **A deliberate value** belongs in DESIGN.md as a token. A font declared under DESIGN.md’s `typography` never counts as an overused font, and the design-system rules accept every declared color, radius, and size.
 - **Files that are not the project's own source** stay out through git: whatever `.gitignore` (or `.git/info/exclude`) ignores, and whatever `.gitattributes` marks `linguist-generated` or `linguist-vendored`, is skipped inside a git repository.
 - **One spot** is waived where it lives: `impeccino-disable <rule>` (whole file) or `impeccino-disable-line` / `impeccino-disable-next-line` (one line), in any comment syntax, with an optional reason after `:` or `--`.
 

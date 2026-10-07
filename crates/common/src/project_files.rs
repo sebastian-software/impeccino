@@ -1,8 +1,7 @@
 //! Where Impeccino keeps its state (docs/adr/0020-project-state-is-top-level-files.md).
 //!
-//! Project state is two top-level files beside PRODUCT.md and DESIGN.md:
-//! `SURFACES.md` (surface briefs) and `DESIGN.json` (the DESIGN.md sidecar,
-//! next to DESIGN.md). There is no config file: project-wide detector
+//! Project state is PRODUCT.md, DESIGN.md (including detector metadata),
+//! and SURFACES.md (surface briefs). There is no config file: project-wide detector
 //! decisions live in DESIGN.md, and the project's own ignore rules keep
 //! files out. Runtime state nobody reads as a document (the hook's session
 //! cache, the staleness throttle, the launcher's engine cache) lives in a
@@ -10,7 +9,7 @@
 
 /// Every persisted surface brief, one section per surface.
 pub const SURFACES_FILE: &str = "SURFACES.md";
-/// The DESIGN.md sidecar, written next to DESIGN.md.
+/// Legacy detector metadata next to DESIGN.md; read until explicitly migrated.
 pub const DESIGN_SIDECAR_FILE: &str = "DESIGN.json";
 /// The retired project-state directory. Nothing reads it; boot and doctor
 /// report a leftover one so the user can move its files by hand.

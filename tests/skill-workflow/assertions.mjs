@@ -2,15 +2,20 @@ import assert from 'node:assert/strict';
 import { sourceHash } from './source-hash.mjs';
 import { missingReferences } from '../skill-behavior/assertions.mjs';
 
-export function assertDocumentationArtifacts(design, sidecarText) {
+export function assertDocumentationArtifacts(design) {
   const frontmatter = design.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
   assert.ok(frontmatter, 'documentation must include machine-readable frontmatter, not prose alone');
   assert.match(frontmatter, /^colors:\s*\n[ \t]+\S/m, 'documentation must record color tokens');
   assert.match(frontmatter, /^typography:\s*\n[ \t]+\S/m, 'documentation must record typography tokens');
-  const sidecar = JSON.parse(sidecarText);
-  assert.equal(sidecar.schemaVersion, 2, 'documentation must write the v2 sidecar');
-  assert.ok(sidecar.extensions && typeof sidecar.extensions === 'object' && !Array.isArray(sidecar.extensions),
-    'sidecar must contain an extensions object');
+  const marker = '<!-- impeccino:design-metadata -->';
+  if (!design.includes(marker)) return;
+  assert.equal(design.split(marker).length - 1, 1, 'documentation must contain at most one metadata block');
+  const block = design.match(/<!-- impeccino:design-metadata -->\r?\n(?:\r?\n)*```json\r?\n([\s\S]*?)\r?\n```(?:\r?\n|$)/)?.[1];
+  assert.ok(block, 'metadata marker must precede a closed JSON fence');
+  const metadata = JSON.parse(block);
+  assert.equal(metadata.schemaVersion, 2, 'new documentation must use v2 metadata');
+  assert.ok(metadata.extensions && typeof metadata.extensions === 'object' && !Array.isArray(metadata.extensions),
+    'metadata must contain an extensions object');
 }
 
 // For a resumed, already-reviewed ordinary extension only. New worlds and
