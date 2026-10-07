@@ -21,7 +21,6 @@ fake-dom = []
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["float_roundtrip"] }
 regex = { workspace = true }
-once_cell = { workspace = true }
 selectors = "0.38"
 cssparser = "0.37"
 precomputed-hash = "0.1"

@@ -8,8 +8,8 @@ use impeccino_core::color::{
     parse_rgb, split_top_level_commas, Rgba,
 };
 use impeccino_core::js;
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// `style.x || ''` on a computed style map.
 pub fn sv<'a>(style: &'a StyleValues, key: &str) -> &'a str {

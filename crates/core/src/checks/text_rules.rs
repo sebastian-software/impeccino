@@ -7,8 +7,8 @@ use crate::color;
 use crate::js::{self, ci, parse_float, string_to_number, WS};
 
 use crate::js_ext_b::{num_truthy, same_value_zero, utf16_len};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// The selector lists, thresholds and text parsers these checks share are
 /// open; re-exported so `checks::text_rules` stays one path.

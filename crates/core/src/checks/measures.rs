@@ -2,12 +2,12 @@
 
 use crate::color::{self, Rgba};
 
-use crate::js::{self, math_max, math_min3, math_round, number_to_string, to_fixed, WS, WS_CHARS};
+use crate::js::{self, math_max, math_min3, math_round, number_to_string, to_fixed, WS_CHARS};
 
 use crate::js_ext_b::{slice_utf16_prefix, utf16_len};
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// The CSS value helpers, style traits and plain-data types these checks are
 /// written against are shared; re-exported so `checks::measures` stays one path.
@@ -116,13 +116,9 @@ pub fn cream_from_class_list(cls: Option<&str>) -> Option<String> {
         }
     }
     for (tok, hex) in TAILWIND_BG_HEX {
-        let re = Regex::new(&format!(
-            "(?:^|{ws}){}(?:$|{ws})",
-            regex::escape(tok),
-            ws = WS
-        ))
-        .expect("tailwind token regex");
-        if re.is_match(cls) && is_cream_color(color::parse_any_color(Some(hex)).as_ref()) {
+        if cls.split(js::is_js_whitespace).any(|part| part == *tok)
+            && is_cream_color(color::parse_any_color(Some(hex)).as_ref())
+        {
             return Some(tok.to_string());
         }
     }

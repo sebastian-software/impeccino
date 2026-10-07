@@ -16,8 +16,8 @@ use crate::checks::rules::RuleHit;
 use crate::checks::text_rules::{QUALITY_TEXT_TAGS, SR_ONLY_SELECTOR, TEXT_EDGE_TAGS};
 use crate::js::{self, math_round, number_to_string, parse_float, to_fixed};
 use crate::js_ext_b::utf16_len;
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {

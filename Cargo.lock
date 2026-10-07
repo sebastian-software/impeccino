@@ -325,7 +325,6 @@ name = "impeccino-common"
 version = "0.2.0"
 dependencies = [
  "libc",
- "once_cell",
  "regex",
  "serde_json",
  "windows-sys",
@@ -337,7 +336,6 @@ version = "0.2.0"
 dependencies = [
  "impeccino-common",
  "impeccino-core",
- "once_cell",
  "regex",
  "serde",
  "serde_json",
@@ -350,7 +348,6 @@ version = "0.2.0"
 dependencies = [
  "impeccino-core",
  "impeccino-foundation",
- "once_cell",
  "regex",
  "serde",
  "serde_json",
@@ -363,7 +360,6 @@ dependencies = [
  "ignore",
  "impeccino-common",
  "impeccino-core",
- "once_cell",
  "regex",
  "serde",
  "serde_json",
@@ -374,7 +370,6 @@ name = "impeccino-foundation"
 version = "0.2.0"
 dependencies = [
  "cssparser",
- "once_cell",
  "precomputed-hash",
  "regex",
  "selectors",
@@ -390,7 +385,6 @@ dependencies = [
  "impeccino-context",
  "impeccino-core",
  "impeccino-detect",
- "once_cell",
  "regex",
  "serde_json",
  "sha2",
@@ -408,7 +402,6 @@ dependencies = [
  "impeccino-detect",
  "impeccino-html",
  "indexmap",
- "once_cell",
  "regex",
  "scraper",
  "selectors",
@@ -494,12 +487,6 @@ name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
-
-[[package]]
-name = "once_cell"
-version = "1.21.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "parking_lot"

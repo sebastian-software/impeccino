@@ -1,8 +1,8 @@
 //! JS-semantics helpers needed by the group-B checks port that `js.rs` does
 //! not carry (kept separate so parallel work does not collide).
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 static WHITESPACE_RUN_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(&format!("{}+", crate::js::WS)).expect("WHITESPACE_RUN_RE"));
@@ -37,15 +37,16 @@ pub fn collapsed_text_content(text: &str) -> String {
     crate::js::trim(&collapse_whitespace(text)).to_string()
 }
 
-/// JS `str.slice(0, end)` in UTF-16 code units. A cut through a surrogate
-/// pair yields U+FFFD for the orphan half (what a lossy re-decode of the JS
-/// string would give).
+/// Limit a display snippet by UTF-16 units without splitting a Unicode scalar.
+/// A supplementary character that crosses the limit is omitted entirely.
 pub fn slice_utf16_prefix(s: &str, end: usize) -> String {
-    if utf16_len(s) <= end {
-        return s.to_string();
-    }
-    let units: Vec<u16> = s.encode_utf16().take(end).collect();
-    String::from_utf16_lossy(&units)
+    let mut units = 0;
+    s.chars()
+        .take_while(|ch| {
+            units += ch.len_utf16();
+            units <= end
+        })
+        .collect()
 }
 
 /// JS truthiness of a number: `0`, `-0`, and `NaN` are falsy.
@@ -73,7 +74,7 @@ mod tests {
     fn utf16_cases() {
         assert_eq!(utf16_len("abc"), 3);
         assert_eq!(utf16_len("a😀"), 3);
-        assert_eq!(slice_utf16_prefix("a😀b", 2), "a\u{FFFD}");
+        assert_eq!(slice_utf16_prefix("a😀b", 2), "a");
         assert_eq!(slice_utf16_prefix("abc", 60), "abc");
         assert_eq!(slice_utf16_prefix("abcd", 2), "ab");
     }

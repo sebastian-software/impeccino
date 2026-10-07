@@ -14,10 +14,10 @@ use crate::color::{self, Rgba};
 use crate::js::{self, ci, math_max, math_max3, parse_float, WS, WS_CHARS};
 use crate::js_ext_b::num_truthy;
 use crate::rules::types::D;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::LazyLock as Lazy;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {

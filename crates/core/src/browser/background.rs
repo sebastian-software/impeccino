@@ -9,8 +9,8 @@ use crate::color::{
     parse_rgb, split_top_level_commas, Rgba,
 };
 use crate::js;
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {

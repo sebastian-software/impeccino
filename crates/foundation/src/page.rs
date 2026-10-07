@@ -1,8 +1,8 @@
 //! Page findings and SVG illustration measurements.
 
 use crate::js::{ci, WS};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 static COMMENT_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"<!--[\s\S]*?-->").unwrap());
 static FULL_PAGE_RE: Lazy<Regex> = Lazy::new(|| {

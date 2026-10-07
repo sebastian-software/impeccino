@@ -7,11 +7,11 @@ use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::ParseOpts;
 use impeccino_core::color::Rgba;
 use impeccino_core::js;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use scraper::{Html, HtmlTreeSink, Node};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock as Lazy;
 
 use crate::cascade::StyleValues;
 
@@ -293,8 +293,8 @@ impl StaticDocument {
     }
 }
 
-static DEFAULT_STYLE: once_cell::sync::Lazy<StyleValues> =
-    once_cell::sync::Lazy::new(crate::cascade::make_default_style);
+static DEFAULT_STYLE: std::sync::LazyLock<StyleValues> =
+    std::sync::LazyLock::new(crate::cascade::make_default_style);
 
 /// JS `makeStaticStyle()`: the untouched default style.
 pub fn default_style() -> &'static StyleValues {

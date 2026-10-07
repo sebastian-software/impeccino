@@ -123,6 +123,8 @@ fn claude_hook(command: &str, args: Option<&[String]>, timeout: i64, status: &st
     }
 }
 
+const LEGACY_HOOK_DESCRIPTION: &str = "Impeccino design detector: immediate-tier checks after Edit/Write on UI files, full-rule deep pass on Stop.";
+
 fn claude_manifest(cmd: &str, _windows: Option<&str>, args: Option<&[String]>) -> Value {
     let stop_entry = match args {
         Some(args) => obj(vec![(
@@ -136,27 +138,27 @@ fn claude_manifest(cmd: &str, _windows: Option<&str>, args: Option<&[String]>) -
         )]),
         None => stop_manifest_entry(cmd),
     };
-    obj(vec![
-        (
-            "description",
-            // JS: Claude Code folded multi-edit behavior into Edit; the manifest
-            // tracks the current Edit and Write tools (upstream 7d5c60d2).
-            Value::from("Impeccino design detector: immediate-tier checks after Edit/Write on UI files, full-rule deep pass on Stop."),
-        ),
-        (
-            "hooks",
-            obj(vec![
-                (
-                    "PostToolUse",
-                    Value::Array(vec![obj(vec![
-                        ("matcher", Value::from("Edit|Write")),
-                        ("hooks", Value::Array(vec![claude_hook(cmd, args, TIMEOUT_SECONDS, STATUS_MESSAGE)])),
-                    ])]),
-                ),
-                ("Stop", Value::Array(vec![stop_entry])),
-            ]),
-        ),
-    ])
+    obj(vec![(
+        "hooks",
+        obj(vec![
+            (
+                "PostToolUse",
+                Value::Array(vec![obj(vec![
+                    ("matcher", Value::from("Edit|Write")),
+                    (
+                        "hooks",
+                        Value::Array(vec![claude_hook(
+                            cmd,
+                            args,
+                            TIMEOUT_SECONDS,
+                            STATUS_MESSAGE,
+                        )]),
+                    ),
+                ])]),
+            ),
+            ("Stop", Value::Array(vec![stop_entry])),
+        ]),
+    )])
 }
 
 fn agents_manifest(cmd: &str, windows: Option<&str>, _args: Option<&[String]>) -> Value {
@@ -800,8 +802,8 @@ fn merge_hook_manifests(existing: &Value, fresh: &Value) -> Value {
     if let Some(v) = fresh_object.get("version") {
         merged.insert("version".into(), v.clone());
     }
-    if let Some(d) = fresh_object.get("description") {
-        merged.insert("description".into(), d.clone());
+    if merged.get("description").and_then(Value::as_str) == Some(LEGACY_HOOK_DESCRIPTION) {
+        merged.shift_remove("description");
     }
     let mut events: Vec<String> = existing_hooks.keys().cloned().collect();
     for k in fresh_hooks.keys() {
@@ -1029,7 +1031,9 @@ fn prune_impeccino_hook_from_manifest(path: &str) -> Result<bool, String> {
         next.insert("hooks".into(), Value::Object(cleaned));
     } else {
         next.shift_remove("hooks");
-        next.shift_remove("description");
+        if next.get("description").and_then(Value::as_str) == Some(LEGACY_HOOK_DESCRIPTION) {
+            next.shift_remove("description");
+        }
         next.shift_remove("version");
     }
     if next.is_empty() {
@@ -1119,6 +1123,19 @@ pub fn run(rt: &Runtime, args: &[String], io: &mut impeccino_common::Io) -> i32 
 #[cfg(test)]
 mod tests {
     use super::{remove_manifest_file_with, remove_state_file_with};
+
+    #[test]
+    fn claude_settings_do_not_receive_plugin_description_metadata() {
+        let fresh = super::claude_manifest("impeccino", None, None);
+        assert!(fresh.get("description").is_none());
+        let existing = serde_json::json!({"description":"my custom setting", "hooks":{}});
+        let merged = super::merge_hook_manifests(&existing, &fresh);
+        assert_eq!(merged["description"], "my custom setting");
+        let legacy = serde_json::json!({"description":super::LEGACY_HOOK_DESCRIPTION});
+        assert!(super::merge_hook_manifests(&legacy, &fresh)
+            .get("description")
+            .is_none());
+    }
 
     #[test]
     fn manifest_removal_failure_is_reported() {

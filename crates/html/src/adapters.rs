@@ -30,9 +30,9 @@ use impeccino_core::color::{composite_color_over, parse_any_color, parse_rgb};
 use impeccino_core::js::{self, parse_float, parse_int};
 use impeccino_core::js_ext_a::num_truthy;
 use impeccino_core::js_ext_b::slice_utf16_prefix;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashSet;
+use std::sync::LazyLock as Lazy;
 
 /// `StyleMap` view of a computed style for the core helpers.
 pub struct StyleRef<'a>(pub &'a StyleValues);

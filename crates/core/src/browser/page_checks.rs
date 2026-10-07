@@ -20,8 +20,8 @@ use crate::constants::SAFE_TAGS;
 use crate::js::{self, math_max, math_min, math_round, number_to_string, parse_float};
 use crate::js_ext_a::num_truthy;
 use crate::js_ext_b::{slice_utf16_prefix, utf16_len};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// The hidden-text measurement result type is shared.
 pub use impeccino_foundation::browser::HiddenTextMeasure;

@@ -11,8 +11,8 @@ use crate::js_ext_a::{
     advance_utf16, is_word_byte, last_index_of_byte, split_commas_outside_parens, split_ws,
     utf16_index, JsMap,
 };
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// The stylesheet-text utilities and finding shapes these scanners are built
 /// on are shared; re-exported so `checks::css_scan` stays one path.

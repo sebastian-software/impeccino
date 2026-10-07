@@ -8,8 +8,8 @@ use crate::css::measures::resolve_length_px;
 use crate::js::{self, math_max3, math_round, parse_float};
 use crate::js_ext_b::slice_utf16_prefix;
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 const DESIGN_COLOR_TOLERANCE: f64 = 6.0;
 const DESIGN_RADIUS_TOLERANCE_PX: f64 = 0.5;

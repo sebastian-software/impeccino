@@ -239,6 +239,10 @@ export default [
     steps: Array.from({ length: 8 }, () => ({ stdin: { hook_event_name: 'preToolUse', conversation_id: 'cv1', workspace_roots: [WS], tool_name: 'Write', tool_input: { path: 'src/new.css', content: '.t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n' } } })),
   },
   {
+    id: 'hbe-denial-downgrade-with-shifting-lines', verb: 'hook-before-edit', workspace: 'hook-project', files: CACHE_FILES,
+    steps: Array.from({ length: 8 }, (_, line) => ({ stdin: { hook_event_name: 'preToolUse', conversation_id: 'cv1', workspace_roots: [WS], tool_name: 'Write', tool_input: { path: 'src/new.css', content: `${'\n'.repeat(line)}.t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n` } } })),
+  },
+  {
     id: 'hbe-native-platform', verb: 'hook-before-edit', workspace: 'hook-project',
     setup: (ws) => fs.writeFileSync(`${ws}/PRODUCT.md`, '# P\n\n## Platform\nandroid\n'),
     stdin: { hook_event_name: 'preToolUse', conversation_id: 'cv1', workspace_roots: [WS], tool_name: 'Write', tool_input: { path: 'src/new.css', content: '.t { background: linear-gradient(90deg,#f00,#00f); -webkit-background-clip: text; color: transparent; }\n' } }, files: CACHE_FILES,

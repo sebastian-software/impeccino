@@ -17,9 +17,9 @@ use impeccino_core::color::Rgba;
 use impeccino_core::constants::GENERIC_FONTS;
 use impeccino_core::findings::{finding, Finding};
 use impeccino_core::js::{self, ci, math_round, number_to_string, parse_int};
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
+use std::sync::LazyLock as Lazy;
 
 pub use impeccino_common::project_files::{CONTEXT_FALLBACK_DIRS as FALLBACK_DIRS, DESIGN_NAMES};
 use impeccino_common::project_paths::{

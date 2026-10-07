@@ -26,7 +26,7 @@ pub fn scoped_ignore_active(dom: &dyn Dom, el: ElId, rule_id: &str) -> bool {
     false
 }
 
-static SPLIT_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+static SPLIT_RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(&format!("[{},]+", crate::js::WS_CHARS)).expect("SPLIT_RE")
 });
 
@@ -192,7 +192,7 @@ pub fn decode_browser_google_family(value: &str) -> String {
     decode_uri_component(&family).unwrap_or(family)
 }
 
-static GOOGLE_FAMILY_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+static GOOGLE_FAMILY_RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(r"[?&]family=([^&]+)").expect("GOOGLE_FAMILY_RE")
 });
 
@@ -234,7 +234,7 @@ pub fn check_browser_design_system_sources(
 
 // ─── Regex-on-HTML pass ─────────────────────────────────────────────────────
 
-static ONLY_COMMAS_WS_RE: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+static ONLY_COMMAS_WS_RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(&format!("^[,{}]*$", crate::js::WS_CHARS)).expect("ONLY_COMMAS_WS_RE")
 });
 
@@ -464,7 +464,7 @@ pub fn scoped_html_pattern_findings(dom: &dyn Dom) -> Vec<BrowserFinding> {
 
 // JS `/^(css|sc|emotion|jsx|module)-[\w-]{4,}$/i`, `/^_[\w-]{5,}$/`,
 // `/^[a-z0-9]{6,}$/i` (JS `\w` is ASCII; the `i` flag folds ASCII only).
-static HASHED_1: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::new(|| {
+static HASHED_1: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
     regex::Regex::new(&format!(
         "^({}|{}|{}|{}|{})-[A-Za-z0-9_-]{{4,}}$",
         crate::js::ci("css"),
@@ -475,10 +475,10 @@ static HASHED_1: once_cell::sync::Lazy<regex::Regex> = once_cell::sync::Lazy::ne
     ))
     .expect("HASHED_1")
 });
-static HASHED_2: once_cell::sync::Lazy<regex::Regex> =
-    once_cell::sync::Lazy::new(|| regex::Regex::new(r"^_[A-Za-z0-9_-]{5,}$").expect("HASHED_2"));
-static HASHED_3: once_cell::sync::Lazy<regex::Regex> =
-    once_cell::sync::Lazy::new(|| regex::Regex::new(r"^[a-zA-Z0-9]{6,}$").expect("HASHED_3"));
+static HASHED_2: std::sync::LazyLock<regex::Regex> =
+    std::sync::LazyLock::new(|| regex::Regex::new(r"^_[A-Za-z0-9_-]{5,}$").expect("HASHED_2"));
+static HASHED_3: std::sync::LazyLock<regex::Regex> =
+    std::sync::LazyLock::new(|| regex::Regex::new(r"^[a-zA-Z0-9]{6,}$").expect("HASHED_3"));
 
 pub fn is_likely_hashed_class(c: &str) -> bool {
     if c.is_empty() {

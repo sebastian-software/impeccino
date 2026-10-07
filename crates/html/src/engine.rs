@@ -21,9 +21,9 @@ use impeccino_core::checks::rules::RuleHit;
 use impeccino_core::findings::{try_finding, Finding};
 use impeccino_core::inline_ignores::apply_inline_ignores;
 use impeccino_core::page::is_full_page;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::path::Path;
+use std::sync::LazyLock as Lazy;
 
 /// The design-system pieces of `detectHtml` (`design-system.mjs`), supplied
 /// by the orchestrating crate when a project design system is loaded.

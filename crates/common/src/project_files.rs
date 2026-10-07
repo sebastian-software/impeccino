@@ -21,6 +21,18 @@ pub const DESIGN_NAMES: [&str; 3] = ["DESIGN.md", "Design.md", "design.md"];
 /// Fallback directories searched for project context documents.
 pub const CONTEXT_FALLBACK_DIRS: [&str; 2] = [".agents/context", "docs"];
 
+/// Host home precedence, with empty values treated as unset.
+pub fn home_dir(get: impl Fn(&str) -> Option<String>) -> Option<String> {
+    let (first, second) = if cfg!(windows) {
+        ("USERPROFILE", "HOME")
+    } else {
+        ("HOME", "USERPROFILE")
+    };
+    get(first)
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| get(second).filter(|value| !value.trim().is_empty()))
+}
+
 /// The per-user cache directory, `<cache>/impeccino`:
 ///
 /// - Windows: `%LOCALAPPDATA%\impeccino`, else
@@ -36,7 +48,7 @@ pub fn user_cache_dir(get: impl Fn(&str) -> Option<String>) -> Option<String> {
         if let Some(local) = var("LOCALAPPDATA") {
             return Some(crate::jsp::join(&[&local, "impeccino"]));
         }
-        let home = var("USERPROFILE").or_else(|| var("HOME"))?;
+        let home = home_dir(&get)?;
         return Some(crate::jsp::join(&[&home, "AppData", "Local", "impeccino"]));
     }
     if let Some(xdg) = var("XDG_CACHE_HOME") {
@@ -44,7 +56,7 @@ pub fn user_cache_dir(get: impl Fn(&str) -> Option<String>) -> Option<String> {
             return Some(crate::jsp::join(&[&xdg, "impeccino"]));
         }
     }
-    let home = var("HOME").or_else(|| var("USERPROFILE"))?;
+    let home = home_dir(&get)?;
     Some(crate::jsp::join(&[&home, ".cache", "impeccino"]))
 }
 

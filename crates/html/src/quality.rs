@@ -17,8 +17,8 @@ use impeccino_core::checks::text_rules::SR_ONLY_SELECTOR;
 use impeccino_core::js::{self, parse_float};
 use impeccino_core::js_ext_a::num_truthy;
 use impeccino_core::js_ext_b::utf16_len;
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 static WS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(&format!("{}+", js::WS)).expect("WS_RE"));
 /// JS `s.replace(/\s+/g, ' ')`.

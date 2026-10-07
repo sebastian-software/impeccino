@@ -6,9 +6,9 @@
 use crate::js::{self, parse_int, WS, WS_CHARS};
 use crate::js_ext_b::utf16_len;
 use crate::rules::types::D;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock as Lazy;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {

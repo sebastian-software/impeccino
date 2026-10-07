@@ -6,9 +6,9 @@
 
 use crate::color::{named_color, parse_any_color, Rgba};
 use crate::js::{self, ci, parse_float};
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock as Lazy;
 
 macro_rules! re {
     ($name:ident, $pat:expr) => {

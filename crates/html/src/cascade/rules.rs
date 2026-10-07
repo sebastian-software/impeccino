@@ -4,10 +4,10 @@ use super::csstree::{self, Important, Node};
 use super::shorthand::expand_static_declaration;
 use impeccino_core::js;
 use indexmap::IndexMap;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::sync::LazyLock as Lazy;
 
 /// The cascade metadata carried by a specified declaration
 /// (`{ important, specificity, order, inline }`).

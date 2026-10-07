@@ -10,8 +10,8 @@ use impeccino_core::findings::{finding, Finding};
 use impeccino_core::fonts::extract_google_font_families;
 use impeccino_core::js::{self, ci, math_round, number_to_string, parse_float, string_to_number};
 use impeccino_core::js_ext_a::{advance_utf16, slice_utf16_start, utf16_index, utf16_length};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 use crate::util::{line_of_offset, re, ANY, B, D, W, WS, WS_CHARS};
 

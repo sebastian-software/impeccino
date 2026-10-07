@@ -5,9 +5,9 @@ use crate::context::{BriefSummary, Ctx};
 use crate::jsp;
 use crate::util::{exists, is_dir, mtime_ms, read_json};
 use impeccino_common::project_files::{DESIGN_SIDECAR_FILE, LEGACY_STATE_DIR, SURFACES_FILE};
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{Map, Value};
+use std::sync::LazyLock as Lazy;
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq)]
 pub struct Finding {

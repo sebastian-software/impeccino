@@ -6,8 +6,8 @@ use super::defaults::{
 };
 use impeccino_core::color::{parse_any_color, Rgba, CSS_NAMED_COLORS};
 use impeccino_core::js;
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// A computed / partially-computed style: an ordered map of camelCase
 /// property name to value string. `parentStyle` and `values` in the JS are

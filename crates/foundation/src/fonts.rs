@@ -1,8 +1,8 @@
 //! Font family parsing and primary font classification.
 
 use crate::js::{self, ci, WS_CHARS};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// JS `GOOGLE_FONTS_URL_RE` = `/fonts\.googleapis\.com\/css2?\?[^"'\s)<>]*/gi`.
 static GOOGLE_FONTS_URL_RE: Lazy<Regex> = Lazy::new(|| {

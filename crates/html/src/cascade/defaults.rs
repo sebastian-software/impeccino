@@ -1,8 +1,8 @@
 //! Default styles, inherited properties and supported pseudo states.
 
 use impeccino_core::color::Rgba;
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// `/^(\d+(?:\.\d+)?)px\s+(solid|dashed|dotted|double|groove|ridge|inset|outset)\s+(.+)$/i`
 pub static BORDER_SHORTHAND_RE: Lazy<Regex> = Lazy::new(|| {

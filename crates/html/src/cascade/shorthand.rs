@@ -3,8 +3,8 @@
 use super::defaults::{is_static_inherited_prop, static_default_style};
 use super::values::{css_prop_to_camel, extract_static_color, split_css_list, split_css_tokens};
 use impeccino_core::js;
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// A `[prop, value]` pair as emitted by `expandStaticDeclaration`.
 pub type Expanded = (String, String);

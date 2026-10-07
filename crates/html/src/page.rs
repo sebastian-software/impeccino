@@ -17,9 +17,9 @@ use impeccino_core::checks::text_rules::{
 use impeccino_core::constants::SAFE_TAGS;
 use impeccino_core::js::{self, parse_float};
 use impeccino_core::js_ext_b::utf16_len;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
+use std::sync::LazyLock as Lazy;
 
 pub fn check_static_page_typography(doc: &StaticDocument) -> Vec<RuleHit> {
     let mut findings = Vec::new();

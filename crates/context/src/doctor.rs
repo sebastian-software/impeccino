@@ -63,7 +63,7 @@ struct Report {
 }
 
 fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> Report {
-    let ctx = load_context(cwd, target, env);
+    let ctx = load_context_without_visual_scan(cwd, target, env);
     let project_root = if ctx.project_root.is_empty() {
         cwd.to_string()
     } else {

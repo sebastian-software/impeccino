@@ -535,6 +535,8 @@ const cases = [
   // ======================================================================
   // concept-seed (local only: the roll assigns an index into the model's own list)
   // ======================================================================
+  { id: 'seed-from-missing', verb: 'concept-seed', workspace: 'ctx-empty', args: ['--from'], env: env() },
+  { id: 'seed-from-before-option', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--from', '--scope', 'direction'], env: env() },
   { id: 'seed-scope-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'world', '--from', 'k1'], env: env() },
   { id: 'seed-reroll-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--reroll', '-1'], env: env() },
   { id: 'seed-register-invalid', verb: 'concept-seed', workspace: 'ctx-product-only', args: ['--scope', 'direction', '--from', 'k1', '--reroll', '1', '--register', 'wild'], env: env() },

@@ -31,7 +31,7 @@ fn code_char(c: char) -> u32 {
 
 /// The `safePairs` set as (prevCode, nextCode) keys.
 fn safe_pairs() -> &'static std::collections::HashSet<u64> {
-    use once_cell::sync::Lazy;
+    use std::sync::LazyLock as Lazy;
     static SET: Lazy<std::collections::HashSet<u64>> = Lazy::new(|| {
         #[derive(Clone, Copy)]
         enum K {

@@ -20,7 +20,7 @@
     }
   ],
   "files": {
-    ".oracle-home/.cache/impeccino/projects/<PROJECT:workspace>/hook.cache.json": "{\"version\":1,\"sessions\":{\"s1\":{\"updatedAt\": <EPOCH>,\"files\":{},\"projectRoots\":[\"<WS>/apps/a\",\"<WS>/apps/b\"]}}}",
+    ".oracle-home/.cache/impeccino/projects/<PROJECT:workspace>/hook.cache.json": "{\"version\":1,\"sessions\":{\"s1\":{\"updatedAt\": <EPOCH>,\"files\":{},\"projectRoots\":[\"<WS>/apps/a\",\"<WS>/apps/b\"],\"stopProjectOffset\":1}}}",
     ".oracle-home/.cache/impeccino/projects/<PROJECT:workspace>/hook.cache.json.project-roots.lock": "",
     ".oracle-home/.cache/impeccino/projects/<PROJECT:appA>/hook.cache.json": "{\"version\":1,\"sessions\":{\"s1\":{\"updatedAt\": <EPOCH>,\"files\":{\"<WS>/apps/a/src/app.css\":{\"editCount\":1,\"findings\":[\"side-tab:2\",\"gradient-text:1\"]}},\"footerShown\":true}}}",
     ".oracle-home/.cache/impeccino/projects/<PROJECT:appA>/hook.cache.json.project-roots.lock": "",

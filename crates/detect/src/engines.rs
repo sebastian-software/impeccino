@@ -53,6 +53,17 @@ pub trait HtmlEngine {
         options: &ScanOptions,
         stderr: &mut dyn std::io::Write,
     ) -> Result<Vec<Finding>, EngineError>;
+    /// Scan source already loaded for directory import attribution.
+    fn detect_html_source(
+        &self,
+        source: &str,
+        path: &str,
+        options: &ScanOptions,
+        stderr: &mut dyn std::io::Write,
+    ) -> Result<Vec<Finding>, EngineError> {
+        let _ = source;
+        self.detect_html(path, options, stderr)
+    }
 }
 
 /// The URL engine (`cli/engine/engines/browser/detect-url.mjs`

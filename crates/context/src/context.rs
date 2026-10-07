@@ -4,9 +4,9 @@ use crate::jsp;
 use crate::surface_briefs::resolve_surface_brief;
 use crate::target_args::{has_target_option, TargetOptions};
 use crate::util::{exists, homedir, is_dir, js_trim, read_dir_entries, safe_read, utf16_len, Env};
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::BTreeMap;
+use std::sync::LazyLock as Lazy;
 
 pub use impeccino_common::project_files::{
     CONTEXT_FALLBACK_DIRS as FALLBACK_DIRS, DESIGN_NAMES, PRODUCT_NAMES,
@@ -103,6 +103,19 @@ pub struct Ctx {
 
 /// JS: loadContext(cwd, options)
 pub fn load_context(cwd: &str, options: &TargetOptions, env: &Env) -> Ctx {
+    load_context_with_visual_scan(cwd, options, env, true)
+}
+
+pub fn load_context_without_visual_scan(cwd: &str, options: &TargetOptions, env: &Env) -> Ctx {
+    load_context_with_visual_scan(cwd, options, env, false)
+}
+
+fn load_context_with_visual_scan(
+    cwd: &str,
+    options: &TargetOptions,
+    env: &Env,
+    scan_visual: bool,
+) -> Ctx {
     let resolved = resolve_context(cwd, options, env);
     let abs_cwd = jsp::resolve(cwd, &[]);
     let product = resolved.product_path.as_deref().and_then(safe_read);
@@ -144,7 +157,7 @@ pub fn load_context(cwd: &str, options: &TargetOptions, env: &Env) -> Ctx {
                 related_targets: b.related_targets.clone(),
             })
             .collect(),
-        has_visual_implementation: has_visual_implementation(&resolved.project_root),
+        has_visual_implementation: scan_visual && has_visual_implementation(&resolved.project_root),
         platform,
         project_root: resolved.project_root,
         repo_root: resolved.repo_root,
@@ -643,7 +656,7 @@ fn discover_roots_for_pattern(repo_root: &str, raw: &str) -> Vec<String> {
     }
     if segments.contains(&"**") {
         let mut package_roots: Vec<String> = Vec::new();
-        walk_dirs(&base, &mut |dir| {
+        walk_dirs(&base, 0, &mut 4096, &mut |dir| {
             if dir != base && is_candidate_project_root(dir) {
                 package_roots.push(dir.to_string());
             }
@@ -699,7 +712,10 @@ fn direct_child_dirs(dir: &str) -> Vec<String> {
     }
 }
 
-fn walk_dirs(root: &str, visit: &mut dyn FnMut(&str)) {
+fn walk_dirs(root: &str, depth: usize, remaining: &mut usize, visit: &mut dyn FnMut(&str)) {
+    if depth >= 32 || *remaining == 0 {
+        return;
+    }
     let Some(entries) = read_dir_entries(root) else {
         return;
     };
@@ -708,8 +724,12 @@ fn walk_dirs(root: &str, visit: &mut dyn FnMut(&str)) {
             continue;
         }
         let dir = jsp::join(&[root, &e.name]);
+        if *remaining == 0 {
+            break;
+        }
+        *remaining -= 1;
         visit(&dir);
-        walk_dirs(&dir, visit);
+        walk_dirs(&dir, depth + 1, remaining, visit);
     }
 }
 
@@ -1050,9 +1070,15 @@ pub fn has_visual_implementation(project_root: &str) -> bool {
         if n >= VISUAL_SCAN_FILE_LIMIT {
             return false;
         }
-        let Some(raw) = safe_read(file_path) else {
+        use std::io::Read;
+        let Ok(file) = std::fs::File::open(file_path) else {
             return false;
         };
+        let mut bytes = Vec::new();
+        if file.take(256 * 1024).read_to_end(&mut bytes).is_err() {
+            return false;
+        }
+        let raw = String::from_utf8_lossy(&bytes);
         let body = js_slice_utf16(&raw, 64 * 1024);
         let e1 = RE_BLOCK_COMMENT.replace_all(body, "");
         let e2 = RE_HTML_COMMENT.replace_all(&e1, "");
@@ -1141,6 +1167,34 @@ pub fn has_visual_implementation(project_root: &str) -> bool {
 #[cfg(test)]
 mod workspace_pattern_tests {
     use super::workspace_pattern_matches_rel;
+
+    #[test]
+    fn globstar_workspace_discovery_is_depth_bounded() {
+        let root = std::env::temp_dir().join(format!(
+            "impeccino-depth-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut dir = root.join("packages");
+        let mut near = String::new();
+        for depth in 1..=40 {
+            dir = dir.join("d");
+            std::fs::create_dir_all(&dir).unwrap();
+            if depth == 4 || depth == 40 {
+                std::fs::write(dir.join("package.json"), "{}").unwrap();
+                if depth == 4 {
+                    near = dir.to_string_lossy().into_owned();
+                }
+            }
+        }
+        let roots = super::discover_roots_for_pattern(&root.to_string_lossy(), "packages/**");
+        assert!(roots.contains(&near));
+        assert!(!roots.contains(&dir.to_string_lossy().into_owned()));
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn context_inherits_documents_only_inside_declared_workspaces() {

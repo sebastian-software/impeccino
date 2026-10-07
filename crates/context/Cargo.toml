@@ -17,5 +17,4 @@ impeccino-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }
-once_cell = { workspace = true }
 sha2 = "0.10"

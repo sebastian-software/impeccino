@@ -16,9 +16,9 @@ use crate::checks::text_rules::{
 use crate::js::{self, parse_float, parse_int};
 use crate::js_ext_a::num_truthy;
 use crate::js_ext_b::slice_utf16_prefix;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
+use std::sync::LazyLock as Lazy;
 
 /// `cleanInlineText`: direct text nodes joined with a
 /// space, whitespace collapsed, trimmed.

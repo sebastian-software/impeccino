@@ -4,8 +4,8 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
 
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 use crate::jsp;
 use crate::util::{re, read_text, read_text_with_error, ANY, D, WS};
@@ -90,36 +90,47 @@ static IMPORT_SPECIFIER_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
     ]
 });
 
-pub fn resolve_import(specifier: &str, from_dir: &str, file_set: &[String]) -> Option<String> {
+fn resolve_import(
+    specifier: &str,
+    from_dir: &str,
+    file_set: &std::collections::HashSet<&str>,
+) -> Option<String> {
     if !(specifier.starts_with('.') || specifier.starts_with('/')) {
         return None;
     }
     let base = jsp::resolve(from_dir, &[specifier]);
-    if file_set.contains(&base) {
+    if file_set.contains(base.as_str()) {
         return Some(base);
     }
     for ext in SCANNABLE_EXTENSIONS {
         let with_ext = format!("{base}{ext}");
-        if file_set.contains(&with_ext) {
+        if file_set.contains(with_ext.as_str()) {
             return Some(with_ext);
         }
     }
     for ext in SCANNABLE_EXTENSIONS {
         let index_file = jsp::join(&[&base, &format!("index{ext}")]);
-        if file_set.contains(&index_file) {
+        if file_set.contains(index_file.as_str()) {
             return Some(index_file);
         }
     }
     None
 }
 
-/// `buildImportGraph`: A file that
-/// cannot be read is reported and left out of the graph; the caller skips it
-/// for the scan too (pbakaus/impeccable#711).
+/// Import metadata retained after each source has been scanned.
+#[derive(Debug, PartialEq)]
+pub struct ParsedSource {
+    pub path: String,
+    pub imports: Vec<String>,
+}
+
+/// Read each file once, pass its source to the detector and retain only import metadata.
 pub fn build_import_graph_reporting(
     files: &[String],
     on_read_error: &mut dyn FnMut(&str, &std::io::Error),
-) -> Vec<(String, Vec<String>)> {
+    on_source: &mut dyn FnMut(&str, &str),
+) -> Vec<ParsedSource> {
+    let file_set = files.iter().map(String::as_str).collect();
     let mut graph = Vec::new();
     for file in files {
         let content = match read_text_with_error(file) {
@@ -133,14 +144,18 @@ pub fn build_import_graph_reporting(
         let mut imports: Vec<String> = Vec::new();
         for pattern in IMPORT_SPECIFIER_PATTERNS.iter() {
             for m in pattern.captures_iter(&content) {
-                if let Some(resolved) = resolve_import(&m[1], &dir, files) {
+                if let Some(resolved) = resolve_import(&m[1], &dir, &file_set) {
                     if !imports.contains(&resolved) {
                         imports.push(resolved);
                     }
                 }
             }
         }
-        graph.push((file.clone(), imports));
+        on_source(file, &content);
+        graph.push(ParsedSource {
+            path: file.clone(),
+            imports,
+        });
     }
     graph
 }
@@ -731,16 +746,19 @@ mod tests {
         let root = if cfg!(windows) { "C:\\p" } else { "/p" };
         let a = jsp::join(&[root, "a.tsx"]);
         let b_index = jsp::join(&[root, "b", "index.css"]);
-        let files = vec![a.clone(), b_index.clone()];
+        let files = [a.clone(), b_index.clone()];
         assert_eq!(
-            resolve_import("./a", root, &files).as_deref(),
+            resolve_import("./a", root, &files.iter().map(String::as_str).collect()).as_deref(),
             Some(a.as_str())
         );
         assert_eq!(
-            resolve_import("./b", root, &files).as_deref(),
+            resolve_import("./b", root, &files.iter().map(String::as_str).collect()).as_deref(),
             Some(b_index.as_str())
         );
-        assert_eq!(resolve_import("react", root, &files), None);
+        assert_eq!(
+            resolve_import("react", root, &files.iter().map(String::as_str).collect()),
+            None
+        );
     }
 
     #[test]
@@ -763,16 +781,33 @@ mod tests {
         let files = vec![source.clone(), dependency.clone()];
         let mut errors = Vec::new();
 
-        let graph = build_import_graph_reporting(&files, &mut |file, error| {
-            errors.push((file.to_string(), error.kind()));
-        });
+        let mut captured_source = String::new();
+        let graph = build_import_graph_reporting(
+            &files,
+            &mut |file, error| {
+                errors.push((file.to_string(), error.kind()));
+            },
+            &mut |file, content| {
+                if file == source {
+                    captured_source = content.to_string();
+                    std::fs::remove_file(file).unwrap();
+                }
+            },
+        );
 
         assert!(errors.is_empty(), "unexpected read errors: {errors:?}");
         assert_eq!(
-            graph,
+            graph
+                .iter()
+                .map(|entry| (entry.path.clone(), entry.imports.clone()))
+                .collect::<Vec<_>>(),
             vec![(source, vec![dependency.clone()]), (dependency, Vec::new()),]
         );
         std::fs::remove_dir_all(dir).unwrap();
+        assert!(
+            captured_source.contains("caf\u{fffd}"),
+            "captured source survives file removal"
+        );
     }
 
     #[test]

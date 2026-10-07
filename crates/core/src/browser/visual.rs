@@ -11,9 +11,9 @@ use crate::js::{
 };
 use crate::js_ext_a::{num_truthy, split_ws};
 use crate::js_ext_b::slice_utf16_prefix;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::{json, Map, Value};
+use std::sync::LazyLock as Lazy;
 
 /// The plans and rects this subsystem passes around are shared; re-exported
 /// so `browser::visual` stays one path.

@@ -9,8 +9,8 @@ use crate::checks::css_scan::{
 use crate::checks::rules::{RuleHit, ANY, B, BEZIER_RE, D, DOT, W};
 use crate::js::{self, ci, math_round, number_to_string, parse_float, parse_int, WS, WS_CHARS};
 use crate::js_ext_a::{advance_utf16, is_word_byte, retreat_utf16};
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock as Lazy;
 
 /// The corpora type is shared; re-exported so `checks::html_patterns` stays
 /// one path.
@@ -121,7 +121,7 @@ pub fn scan_html_for_shape_assembled_illustration(html: &str) -> Vec<RuleHit> {
             (Some(w), Some(h)) => (w, h),
             _ => continue,
         };
-        if w < 200.0 || h < 200.0 {
+        if !w.is_finite() || !h.is_finite() || w < 200.0 || h < 200.0 {
             continue;
         }
         let mut fills: Vec<String> = Vec::new();
@@ -684,9 +684,9 @@ mod tests {
         let nan = scan_html_for_shape_assembled_illustration(&format!(
             "<svg width=\".\" height=\".\">{scene}"
         ));
-        assert_eq!(
-            nan[0].snippet,
-            "inline <svg> scene: 8 primitive shapes, ~NaNxNaNpx, 3 fill colors"
+        assert!(
+            nan.is_empty(),
+            "invalid dimensions must not yield a sized scene: {nan:?}"
         );
     }
 
