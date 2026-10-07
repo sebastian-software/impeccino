@@ -6,18 +6,13 @@ use impeccino_html::select::Selector;
 use impeccino_html::{detect_html_source, DetectHtmlOptions};
 use std::path::{Path, PathBuf};
 
-/// The repo root: this workspace is the public repo. `IMPECCINO_PUBLIC_REPO`
-/// overrides it for an out-of-tree checkout.
+/// This workspace owns its regression fixtures.
 fn repo_root() -> PathBuf {
-    if let Ok(p) = std::env::var("IMPECCINO_PUBLIC_REPO") {
-        return PathBuf::from(p);
-    }
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-fn fixtures() -> Option<PathBuf> {
-    let p = repo_root().join("tests/fixtures/antipatterns");
-    p.is_dir().then_some(p)
+fn fixtures() -> PathBuf {
+    repo_root().join("tests/fixtures/antipatterns")
 }
 
 fn scan(html: &str) -> usize {
@@ -27,10 +22,7 @@ fn scan(html: &str) -> usize {
 
 #[test]
 fn truncated_fixtures_do_not_panic() {
-    let Some(dir) = fixtures() else {
-        eprintln!("fixtures not found; skipping");
-        return;
-    };
+    let dir = fixtures();
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
         .unwrap()
         .filter_map(|e| e.ok().map(|e| e.path()))

@@ -1,5 +1,5 @@
 //! Replays the JS `detect --no-config --json <fixture>` goldens
-//! (`tests/oracle/golden/detect-fixture-json-*.json` in the public repo)
+//! (`tests/oracle/golden/detect-fixture-json-*.json` in this repository)
 //! through the static engine and diffs the finding arrays.
 //!
 //! The goldens' `stdout` is the JSON array for one fixture with the repo path
@@ -10,8 +10,7 @@
 //! reach `detectHtml` through the `text_content_analyzers` hook; the test
 //! wires the `detect` crate's port so the complete arrays are diffed.
 //!
-//! The goldens and fixtures live in this repo; `IMPECCINO_PUBLIC_REPO`
-//! overrides the root for an out-of-tree checkout.
+//! The goldens and fixtures are owned by this workspace.
 
 use impeccino_html::{detect_html_source, DetectHtmlOptions};
 
@@ -24,15 +23,11 @@ fn run_text_content_analyzers(
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
-fn public_repo() -> Option<PathBuf> {
-    let p = match std::env::var("IMPECCINO_PUBLIC_REPO") {
-        Ok(p) => PathBuf::from(p),
-        Err(_) => Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."),
-    };
-    if p.join("tests/oracle/golden").is_dir() {
-        return Some(p.canonicalize().unwrap_or(p));
-    }
-    None
+fn repo_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("workspace root exists")
 }
 
 /// Case ids -> the fixture file under tests/fixtures/antipatterns.
@@ -78,10 +73,7 @@ fn mask_file(file: &str, root: &str, token: &str) -> String {
 
 #[test]
 fn html_fixture_goldens_match() {
-    let Some(repo) = public_repo() else {
-        eprintln!("oracle_html: public repo not found; skipping");
-        return;
-    };
+    let repo = repo_root();
     let golden_dir = repo.join("tests/oracle/golden");
     let fixtures = repo.join("tests/fixtures/antipatterns");
     let repo_str = repo.to_string_lossy().into_owned();
@@ -210,10 +202,7 @@ fn html_fixture_goldens_match() {
 /// config filter nor the design-system hook).
 #[test]
 fn detect_config_workspace_no_config_matches() {
-    let Some(repo) = public_repo() else {
-        eprintln!("oracle_html: public repo not found; skipping");
-        return;
-    };
+    let repo = repo_root();
     let ws = repo.join("tests/oracle/workspaces/detect-config");
     let golden_path = repo.join("tests/oracle/golden/detect-config-page-no-config.json");
     let (Ok(golden_src), true) = (std::fs::read_to_string(&golden_path), ws.is_dir()) else {

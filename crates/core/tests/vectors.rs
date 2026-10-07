@@ -1,7 +1,6 @@
 //! Replays the recorded JS call vectors through the Rust port and requires
 //! every one to match. Vectors live at
 //! `tests/oracle/vectors/calls/<module>/<fn>.jsonl` in this repo;
-//! `IMPECCINO_PUBLIC_REPO` overrides the root for an out-of-tree checkout.
 
 use impeccino_core::vectors::{call, KNOWN_FUNCTIONS};
 use serde_json::Value;
@@ -10,27 +9,13 @@ use std::path::{Path, PathBuf};
 
 const MODULES: &[&str] = &["shared.color", "shared.inline-ignores", "rules.checks"];
 
-/// The repo root. `IMPECCINO_PUBLIC_REPO` overrides it for an out-of-tree
-/// checkout.
+/// This workspace owns the frozen vector corpus.
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
 }
 
-fn vectors_dir() -> Option<PathBuf> {
-    let mut candidates: Vec<PathBuf> = Vec::new();
-    if let Ok(p) = std::env::var("IMPECCINO_PUBLIC_REPO") {
-        candidates.push(PathBuf::from(p));
-    }
-    candidates.push(repo_root());
-    candidates
-        .into_iter()
-        .map(|repo| {
-            repo.join("tests")
-                .join("oracle")
-                .join("vectors")
-                .join("calls")
-        })
-        .find(|dir| dir.is_dir())
+fn vectors_dir() -> PathBuf {
+    repo_root().join("tests/oracle/vectors/calls")
 }
 
 /// Canonical form for comparison: numbers by f64 value, objects key-order
@@ -98,14 +83,12 @@ fn same(a: &Canon, b: &Canon) -> bool {
 
 #[test]
 fn replay_recorded_vectors() {
-    let Some(dir) = vectors_dir() else {
-        panic!(
-            "vectors dir not found; set IMPECCINO_PUBLIC_REPO to a checkout of this repo that has \
-             tests/oracle/vectors/calls. The call vectors are frozen; review any expected/actual \
-             difference and fix the engine source, changing recorded data only for an intentional \
-             behavior update."
-        );
-    };
+    let dir = vectors_dir();
+    assert!(
+        dir.is_dir(),
+        "frozen vectors missing from {}",
+        dir.display()
+    );
     let mut total_pass = 0usize;
     let mut total_fail = 0usize;
     let mut lines_out: Vec<String> = Vec::new();

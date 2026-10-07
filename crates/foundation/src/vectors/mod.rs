@@ -1,5 +1,5 @@
 //! Replay codec and open dispatcher for the recorded JS call vectors
-//! (`tests/oracle/vectors/calls/<module>/<fn>.jsonl` in the public repo).
+//! (`tests/oracle/vectors/calls/<module>/<fn>.jsonl` in this repository).
 //!
 //! Values use the recorder's encoding for what JSON cannot carry:
 //! `{"$undef":true}`, `{"$nan":true}`, `{"$inf":1|-1}`, `{"$negzero":true}`,
