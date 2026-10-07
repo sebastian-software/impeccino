@@ -1171,9 +1171,12 @@ mod workspace_pattern_tests {
             ("tools/stray", false),
             ("apps/undeclared", false),
         ] {
-            std::fs::create_dir_all(root.join(package).join("src")).unwrap();
-            std::fs::write(root.join(package).join("package.json"), "{}").unwrap();
-            let target = root.join(package).join("src");
+            let package_dir = package
+                .split('/')
+                .fold(root.clone(), |dir, segment| dir.join(segment));
+            std::fs::create_dir_all(package_dir.join("src")).unwrap();
+            std::fs::write(package_dir.join("package.json"), "{}").unwrap();
+            let target = package_dir.join("src");
             let options = TargetOptions {
                 target_path: Some(target.to_string_lossy().into_owned()),
             };
@@ -1182,29 +1185,19 @@ mod workspace_pattern_tests {
             assert_eq!(resolved.product_path.is_some(), inherits, "{package}");
             assert_eq!(
                 resolved.project_root,
-                root.join(package).to_string_lossy(),
+                package_dir.to_string_lossy(),
                 "{package}"
             );
-            std::fs::write(root.join(package).join("PRODUCT.md"), "# Local product").unwrap();
-            std::fs::write(root.join(package).join("DESIGN.md"), "# Local design").unwrap();
+            std::fs::write(package_dir.join("PRODUCT.md"), "# Local product").unwrap();
+            std::fs::write(package_dir.join("DESIGN.md"), "# Local design").unwrap();
             let local = resolve_context(&root_text, &options, &Env::new());
             assert_eq!(
                 local.product_path.as_deref(),
-                Some(
-                    root.join(package)
-                        .join("PRODUCT.md")
-                        .to_string_lossy()
-                        .as_ref()
-                )
+                Some(package_dir.join("PRODUCT.md").to_string_lossy().as_ref())
             );
             assert_eq!(
                 local.design_path.as_deref(),
-                Some(
-                    root.join(package)
-                        .join("DESIGN.md")
-                        .to_string_lossy()
-                        .as_ref()
-                )
+                Some(package_dir.join("DESIGN.md").to_string_lossy().as_ref())
             );
         }
         std::fs::remove_dir_all(root).unwrap();
