@@ -68,6 +68,8 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          # Only repository admins may create new component tags.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
       - name: Require the tested main commit and complete shared pins
         id: candidate
         env:
@@ -85,7 +87,7 @@ jobs:
       - name: Publish the skill with the tested shared version
         if: steps.candidate.outputs.ready == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

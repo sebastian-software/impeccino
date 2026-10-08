@@ -14,7 +14,7 @@ Merging that PR creates a draft `engine-v<version>` release. An explicit dispatc
 
 After engine publication, the workflow verifies each asset's signing workflow, source digest, and tag ref, then writes its pins and advances both skill metadata and the launcher version to that same product version. The main-branch `release-skill.yml` workflow opens a mechanical pin PR containing only those three verified files. After that PR is merged and its main push CI succeeds, it reverifies the committed pins and publishes `skill-v<version>` from the tested commit. The two distribution tags retain their existing names and share one version; the skill receives no independent version bump.
 
-The organization `RELEASE_PLEASE_TOKEN` creates release and pin PRs whose CI starts automatically. Main retains its required status checks; no direct push or protection bypass is needed. Pin PRs are merged through the normal review process. The workflow never force-pushes. Recovery on a newer product version refuses to roll the skill back.
+The organization `RELEASE_PLEASE_TOKEN` creates release and pin PRs whose CI starts automatically. Main retains its required status checks; no direct push or protection bypass is needed. Pin PRs are merged through the normal review process. The same token creates new skill tags as an authorized repository admin; the built-in Actions token cannot create protected component tags. Tag updates and deletions remain prohibited for all actors. The workflow never force-pushes. Recovery on a newer product version refuses to roll the skill back.
 
 ## Consequences
 
