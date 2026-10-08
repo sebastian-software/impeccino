@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "flate2",
  "impeccino-common",
@@ -322,7 +322,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-common"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "libc",
  "regex",
@@ -332,7 +332,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-context"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "impeccino-common",
  "impeccino-core",
@@ -344,7 +344,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "impeccino-core",
  "impeccino-foundation",
@@ -355,7 +355,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-detect"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "ignore",
  "impeccino-common",
@@ -367,7 +367,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-foundation"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "cssparser",
  "precomputed-hash",
@@ -379,7 +379,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-hook"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "impeccino-common",
  "impeccino-context",
@@ -393,7 +393,7 @@ dependencies = [
 
 [[package]]
 name = "impeccino-html"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "cssparser",
  "ego-tree",
