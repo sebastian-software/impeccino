@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/sebastian-software/impeccino/compare/engine-v0.3.0...engine-v0.3.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* respect protected tags during release recovery ([#94](https://github.com/sebastian-software/impeccino/issues/94)) ([7fcd80b](https://github.com/sebastian-software/impeccino/commit/7fcd80b60a551df5289bc79aa067772844c76bc0))
+
 ## [0.3.0](https://github.com/sebastian-software/impeccino/compare/engine-v0.2.0...engine-v0.3.0) (2026-10-08)
 
 This version's empty draft was abandoned; its protected tag stays reserved.
