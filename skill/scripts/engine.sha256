@@ -1,8 +1,8 @@
-# Engine release engine-v0.2.0, pinned by scripts/pin-engine.mjs after verifying
+# Engine release engine-v0.3.1, pinned by scripts/pin-engine.mjs after verifying
 # each asset's build attestation (sebastian-software/impeccino/.github/workflows/release-engine.yml).
 # The launchers check downloads against these digests.
-543588c97c1ec70c7c49fd25d67beb73dff37565fc92113a4bc7917e540e20c3  engine-v0.2.0/impeccino-darwin-arm64
-19ab2dc5c95636fdfeb6b0a13f7027ee5a7c3c4c40cea8c763023ed5f3cf635b  engine-v0.2.0/impeccino-darwin-x64
-9a5d8ae3328518aedcdc1e5e3a34cbbbc31d4eb32a286d111f6055831c7fcb06  engine-v0.2.0/impeccino-linux-x64
-484b733bd9b2f6b44fc1e4e63e30b20305157eea717b72676fb26910aaefd30a  engine-v0.2.0/impeccino-linux-arm64
-c12df3337b6616861f070a5c81cd608daf17d539ec849be479edcb63fb81f246  engine-v0.2.0/impeccino-windows-x64.exe
+12f90638c4433324c4dbc0d6db0d229bd7eff1a24350059771fe11c264d3280c  engine-v0.3.1/impeccino-darwin-arm64
+91818562f4d01b5339122e8bcc58980ad24899cb27c313e445e6a978eff4a670  engine-v0.3.1/impeccino-darwin-x64
+af4a888f8a46055d978eacb9c5a3a16aa542484c77db7102ab7b3c8bc5c30a03  engine-v0.3.1/impeccino-linux-x64
+7628f9e930b44876c3ea1bf6f17af3f65bd7316f0bc1df86ce0d2adbfc364b0f  engine-v0.3.1/impeccino-linux-arm64
+2bd132e8f7ffffbd1bd9e918e62b94764fefbf0069b70124a58789923c898ee1  engine-v0.3.1/impeccino-windows-x64.exe
