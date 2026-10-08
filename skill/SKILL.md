@@ -6,7 +6,7 @@ argument-hint: "[craft|shape|init|document|extract · critique|audit · polish|b
 license: Apache-2.0
 compatibility: "Needs shell access. The launcher downloads its self-contained engine binary once on first run (network); after that concept-seed, like every verb that reads project files, runs offline. Rendered-page scans (detect <url>) also need agent-browser on PATH (npm install -g agent-browser && agent-browser install); everything else works without it."
 metadata:
-  version: 0.1.0
+  version: 0.3.1
 ---
 
 Build and improve interfaces around the user's task, product truth, and chosen visual direction. Match the ambition to the request: a new campaign may need expressive invention; a settings refinement needs clear behavior and a consistent system.
