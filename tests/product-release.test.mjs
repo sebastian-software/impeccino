@@ -5,6 +5,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { checkProductTag, prepareSkill } from '../scripts/product-release.mjs';
+import { openSkillPinPR, skillCandidate } from '../scripts/skill-pin-pr.mjs';
 import { publishEngine, RELEASE_ASSETS } from '../scripts/publish-engine.mjs';
 import { ENGINE_TARGETS, assetName } from '../scripts/fetch-engine.mjs';
 
@@ -183,5 +184,93 @@ describe('draft publication recovery', () => {
     gh.mockClear();
     expect(() => publishEngine('engine-v0.3.0', directory, { gh })).toThrow('Missing local release asset');
     expect(gh).toHaveBeenCalledOnce();
+  });
+});
+
+
+describe('protected-main skill delivery', () => {
+  async function prepared() {
+    const root = fixture();
+    await prepareSkill('engine-v0.3.0', { root, pin: async version => {
+      write(root, 'skill/scripts/engine.sha256', ENGINE_TARGETS.map(target => `${'a'.repeat(64)}  engine-v${version}/${assetName(target)}`).join('\n'));
+    } });
+    return root;
+  }
+  const localGit = root => args => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+
+  test('only publishes the successful main SHA with complete shared pins', async () => {
+    const root = fixture();
+    const git = localGit(root);
+    const sha = git(['rev-parse', 'HEAD']);
+    const gh = vi.fn(() => '[]');
+    expect(skillCandidate(sha, { root, git, gh })).toBe(false);
+    expect(gh).not.toHaveBeenCalled();
+    await prepareSkill('engine-v0.3.0', { root, pin: async version => {
+      write(root, 'skill/scripts/engine.sha256', ENGINE_TARGETS.map(target => `${'a'.repeat(64)}  engine-v${version}/${assetName(target)}`).join('\n'));
+    } });
+    expect(skillCandidate('older-sha', { root, git, gh })).toBe(false);
+    expect(gh).not.toHaveBeenCalled();
+    expect(skillCandidate(sha, { root, git, gh })).toBe(true);
+    gh.mockReturnValue('[{"tagName":"skill-v0.3.0","isDraft":false}]');
+    expect(skillCandidate(sha, { root, git, gh })).toBe(false);
+    gh.mockReturnValue('[{"tagName":"skill-v0.3.0","isDraft":true}]');
+    expect(skillCandidate(sha, { root, git, gh })).toBe(true);
+    write(root, 'skill/scripts/engine.sha256', '# incomplete');
+    expect(skillCandidate(sha, { root, git, gh })).toBe(false);
+  });
+
+  test('opens a pin-only branch and PR, never pushing main or forcing a ref', async () => {
+    const root = await prepared();
+    const git = vi.fn(args => ['ls-remote', 'push'].includes(args[0]) ? '' : localGit(root)(args));
+    const gh = vi.fn(args => {
+      if (args[1] === 'list') return '[]';
+      const body = fs.readFileSync(args[args.indexOf('--body-file') + 1], 'utf8');
+      expect(body).toContain('I am advancing');
+      expect(body).toContain('AI assistance:');
+      return 'https://example.com/pin-pr';
+    });
+    expect(openSkillPinPR({ root, git, gh })).toBe('https://example.com/pin-pr');
+    expect(git.mock.calls.filter(([args]) => args[0] === 'push')).toEqual([[['push', 'origin', 'HEAD:refs/heads/codex/release-skill-0.3.0']]]);
+    expect(localGit(root)(['show', '--format=', '--name-only', 'HEAD']).split('\n')).toEqual(['skill/SKILL.md', 'skill/scripts/VERSION', 'skill/scripts/engine.sha256']);
+  });
+
+  test('reuses an identical pending pin PR without another push', async () => {
+    const root = await prepared();
+    const git = vi.fn(args => {
+      if (args[0] === 'ls-remote') return 'remote branch';
+      if (args[0] === 'fetch') return '';
+      if (args[0] === 'diff' && args.includes('FETCH_HEAD')) return 'skill/scripts/VERSION';
+      if (args[0] === 'show') return fs.readFileSync(path.join(root, args[1].split(':')[1]), 'utf8').trim();
+      return localGit(root)(args);
+    });
+    const gh = vi.fn(() => '[{"url":"https://example.com/existing-pr"}]');
+    expect(openSkillPinPR({ root, git, gh })).toBe('https://example.com/existing-pr');
+    expect(git.mock.calls.some(([args]) => ['push', 'commit'].includes(args[0]))).toBe(false);
+    expect(gh).toHaveBeenCalledOnce();
+    git.mockImplementation(args => args[0] === 'ls-remote' ? 'remote branch' : args[0] === 'fetch' ? '' : args[0] === 'diff' && args.includes('FETCH_HEAD') ? 'crates/cli/src/main.rs' : localGit(root)(args));
+    expect(() => openSkillPinPR({ root, git, gh })).toThrow('unrelated changes');
+  });
+
+  test('refuses unrelated changes in a prepared pin PR', async () => {
+    const root = await prepared();
+    write(root, 'Cargo.toml', fs.readFileSync(path.join(root, 'Cargo.toml'), 'utf8') + '# unrelated\n');
+    expect(() => openSkillPinPR({ root, git: localGit(root), gh: vi.fn() })).toThrow('non-pin changes');
+  });
+
+  test('dispatches preparation on main and gates publication on trusted push CI', () => {
+    const engine = parse(fs.readFileSync(new URL('../.github/workflows/release-engine.yml', import.meta.url), 'utf8'));
+    expect(engine.jobs['pin-skill'].steps[0].run).toContain('gh workflow run release-skill.yml --ref main');
+    expect(engine.jobs['pin-skill'].permissions).toEqual({ actions: 'write' });
+    const skill = parse(fs.readFileSync(new URL('../.github/workflows/release-skill.yml', import.meta.url), 'utf8'));
+    expect(skill.on.workflow_run).toEqual({ workflows: ['CI'], branches: ['main'], types: ['completed'] });
+    for (const guard of ["event == 'push'", "head_branch == 'main'", "head_repository.full_name == github.repository", "conclusion == 'success'"]) {
+      expect(skill.jobs.publish.if).toContain(guard);
+    }
+    expect(skill.jobs.publish.steps[0].with.ref).toBe('main');
+    const candidate = skill.jobs.publish.steps.find(step => step.id === 'candidate');
+    expect(candidate.env.TESTED_SHA).toBe('${{ github.event.workflow_run.head_sha }}');
+    expect(skill.jobs.prepare.steps.at(-1).env.GH_TOKEN).toBe('${{ secrets.RELEASE_PLEASE_TOKEN }}');
+    const verify = skill.jobs.publish.steps.find(step => step.name === 'Reverify the published engine and committed pins');
+    expect(verify.run).toContain('git diff --exit-code');
   });
 });

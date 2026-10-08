@@ -32,7 +32,7 @@ export const SUITES = {
       /^docs\/DEVELOP\.md$/,
       /^docs\/RUNTIME-ENV\.md$/,
       /^tests\/(?!oracle\/|fixtures\/).+\.(js|mjs|rs)$/,
-      /^\.github\/workflows\/(release-engine|release-please|pr-title)\.yml$/,
+      /^\.github\/workflows\/(release-engine|release-skill|release-please|pr-title)\.yml$/,
       /^release-please-config\.json$/,
       /^\.release-please-(version|manifest\.json)$/,
     ],

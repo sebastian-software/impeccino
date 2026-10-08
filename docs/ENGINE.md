@@ -229,12 +229,14 @@ rather than bumping manifests or creating tags locally.
 
 The tagged `release-engine.yml` workflow builds and attests all five binaries,
 generates `THIRD-PARTY-NOTICES.txt`, and publishes the complete draft engine
-release. It verifies each binary's provenance against the release tag's source
-commit, commits the engine pins and shared skill version to main, then publishes
-the skill tag. `engine-v<version>` and `skill-v<version>` share that version.
+release. It dispatches `release-skill.yml` on main to verify each binary's
+provenance against the release tag's source commit and open a pin PR. After merge
+and successful push CI, that workflow reverifies the committed pins and publishes
+the skill tag from the tested commit. `engine-v<version>` and `skill-v<version>` share that version.
 The installed engine pin advances after its assets are published.
 
 Retry with `gh workflow run release-engine.yml --ref engine-v<version>`.
+Retry skill preparation with `gh workflow run release-skill.yml --ref main -f engine_tag=engine-v<version>`.
 Published engine assets are skipped; a draft asset with different bytes is
 refused. A failed pin verification preserves the installed skill files.
 If the tagged workflow itself needs a correction, release a new patch version;
