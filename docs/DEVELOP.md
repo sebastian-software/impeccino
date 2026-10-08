@@ -88,7 +88,9 @@ impeccino/
   crates/                          # Engine binary (Rust workspace); see docs/ENGINE.md
   scripts/
     check.js                       # Repository checks (`pnpm run check`)
-    release.mjs                    # Per-component release tags (engine, skill)
+    release.mjs                    # Guarded manual release recovery
+    product-release.mjs            # Candidate version checks and verified skill pins
+    publish-engine.mjs             # Complete drafts without replacing assets
   tests/                           # Vitest suites; tests/oracle/ is the engine's behavioral contract
   docs/
     adr/                           # Light ADRs

@@ -22,6 +22,18 @@ import { claudeEdit, hookPath } from './oracle/cases/hooks.mjs';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ENGINE_BIN = findEngineBinary();
 
+it('checks the declared release version exactly while retaining newline and failure contracts', () => {
+  const historical = { stdout: '0.2.0\n', stderr: '', exit: 0, signal: null, files: {} };
+  const expected = expectedForPlatform({ id: 'cli-version' }, historical, 'linux', '0.3.0');
+  assert.equal(expected.stdout, '0.3.0\n');
+  assert.equal(historical.stdout, '0.2.0\n');
+  assert.equal(diffResults(expected, { ...historical, stdout: '0.3.0\n' }).length, 0);
+  for (const actual of [historical, { ...historical, stdout: '0.3.0' }, { ...expected, exit: 1 }]) {
+    assert(diffResults(expected, actual).length > 0);
+  }
+  assert.deepEqual(expectedForPlatform({ id: 'other-case' }, historical, 'linux', '0.3.0'), historical);
+});
+
 it('normalizes Windows path separators and line endings before comparing goldens', () => {
   const sample = String.raw`root: C:\runner\repo\skill\scripts
 json: {"root":"C:\\runner\\repo\\skill\\scripts"}

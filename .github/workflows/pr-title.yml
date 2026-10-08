@@ -1,0 +1,29 @@
+name: Pull request title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Conventional Commit title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          node <<'JS'
+          const title = process.env.PR_TITLE;
+          if (!/^(feat|fix|perf|docs|refactor|test|build|ci|chore|deps|revert)(\([^)]+\))?!?: .+/.test(title)) {
+            console.error('Use a Conventional Commit title, such as feat: add a design command or fix: preserve design metadata.');
+            process.exit(1);
+          }
+          JS

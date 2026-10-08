@@ -32,7 +32,9 @@ export const SUITES = {
       /^docs\/DEVELOP\.md$/,
       /^docs\/RUNTIME-ENV\.md$/,
       /^tests\/(?!oracle\/|fixtures\/).+\.(js|mjs|rs)$/,
-      /^\.github\/workflows\/release-engine\.yml$/,
+      /^\.github\/workflows\/(release-engine|release-please|pr-title)\.yml$/,
+      /^release-please-config\.json$/,
+      /^\.release-please-(version|manifest\.json)$/,
     ],
     commands: [
       {
@@ -44,6 +46,7 @@ export const SUITES = {
           'tests/lib/utils.test.js',
           'tests/repository-checks.test.mjs',
           'tests/release-engine-workflow.test.js',
+          'tests/product-release.test.mjs',
           'tests/generate-engine-notices.test.js',
           'tests/workflow-security.test.js',
           'tests/ci-test-plan.test.mjs',

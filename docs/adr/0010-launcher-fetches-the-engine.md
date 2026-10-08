@@ -12,7 +12,7 @@ A checksum from the same release as the binary only guards against corruption, n
 
 GitHub Releases are the distribution channel, with GitHub's security model: `release-engine.yml` builds five targets, attests each binary, and publishes the release only once every asset is attached, so the repository enforces immutable releases. There are no checksum files in the release; the attestation and the pins replace them.
 
-After the engine release, `scripts/pin-engine.mjs` downloads every asset, verifies its build attestation with `gh attestation verify`, and writes the digests to `skill/scripts/engine.sha256`. The launchers (`impeccino`, `impeccino.cmd`) and `scripts/fetch-engine.mjs` accept a download only if it matches that pin; a version without pins is refused before downloading (development builds use `IMPECCINO_BIN`). A skill release refuses to tag without pins for its engine version.
+After the engine release, the automated shared-version flow (0014) calls `scripts/pin-engine.mjs`. The script downloads every asset, verifies its build attestation with `gh attestation verify` against the signing workflow, tag ref, and source commit, and writes the digests to `skill/scripts/engine.sha256`. The launchers (`impeccino`, `impeccino.cmd`) and `scripts/fetch-engine.mjs` accept a download only if it matches that pin; a version without pins is refused before downloading (development builds use `IMPECCINO_BIN`). A skill release refuses to tag without pins for its engine version.
 
 ## Consequences
 

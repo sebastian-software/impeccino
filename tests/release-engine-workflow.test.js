@@ -7,8 +7,8 @@ const workflow = parse(readFileSync(new URL('../.github/workflows/release-engine
 const action = (job, name) => job.steps.find(step => step.uses?.startsWith(`${name}@`));
 
 describe('engine release workflow', () => {
-  test('runs on engine tags with a read-only token; only publishing may write and attest', () => {
-    expect(workflow.on).toEqual({ push: { tags: ['engine-v*'] } });
+  test('dispatches on a release tag with read-only build credentials', () => {
+    expect(workflow.on).toEqual({ workflow_dispatch: null });
     expect(workflow.permissions).toEqual({ contents: 'read' });
     expect(workflow.jobs.publish.permissions).toEqual({ contents: 'write', 'id-token': 'write', attestations: 'write' });
     expect(workflow.jobs.build.permissions?.['id-token']).toBeUndefined();
@@ -20,8 +20,7 @@ describe('engine release workflow', () => {
     expect(attest.with['subject-path']).toBe('out/impeccino-*');
     const publish = steps.find(step => step.name === 'Publish the GitHub Release');
     expect(steps.indexOf(attest)).toBeLessThan(steps.indexOf(publish));
-    expect(publish.run).toContain('--draft');
-    expect(publish.run).toContain('--draft=false');
+    expect(publish.run).toContain('node scripts/publish-engine.mjs');
     expect(publish.run).not.toContain('gh release upload');
   });
 
@@ -41,8 +40,7 @@ describe('engine release workflow', () => {
     expect(steps.indexOf(notices)).toBeLessThan(steps.indexOf(attest));
     expect(notices.run).toBe('node scripts/generate-engine-notices.mjs out/THIRD-PARTY-NOTICES.txt');
     expect(attest.with['subject-path']).toBe('out/impeccino-*');
-    expect(publish.run).toContain('THIRD-PARTY-NOTICES.txt');
-    expect(publish.run).toContain('out/*');
+    expect(publish.run).toContain(' out');
   });
 
   test('publishes every built binary', () => {
@@ -102,10 +100,10 @@ describe('engine release workflow', () => {
     }
   });
 
-  test('validates both engine version sources against the pushed tag', () => {
-    const check = workflow.jobs.build.steps.find(step => step.name === 'Check the tag matches both engine versions');
+  test('validates the product version against the dispatched tag', () => {
+    const check = workflow.jobs.build.steps.find(step => step.name === 'Check the tag matches the product version');
     expect(check.shell).toBe('bash');
-    expect(check.run).toContain('node scripts/release.mjs engine --check-tag "$GITHUB_REF_NAME"');
+    expect(check.run).toContain('node scripts/product-release.mjs check-tag "$GITHUB_REF_NAME"');
   });
 
   test('pins cross and runs the exact arm64 artifact before publishing', () => {
