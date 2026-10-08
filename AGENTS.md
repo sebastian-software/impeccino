@@ -88,7 +88,7 @@ Rebuild the native binary, run the Rust and Vitest checks above, and run `pnpm r
 
 Recent history favors short, imperative subjects such as `Fix: ...`, `Add ...`, `Improve ...`, or `Bump ...`. Keep commits focused and explain the user-facing impact when it is not obvious. PRs should summarize what changed, list validation performed, and link the ADR when a change alters how the skill is built or delivered.
 
-**Do not bump manifest versions in a feature PR.** Bumping is a release step: a version in a feature branch conflicts with every other open branch. Land the code; the maintainer bumps `skill/SKILL.md` (`metadata.version`) / `skill/scripts/VERSION` and `Cargo.toml` when cutting the release (see **Releases**). The only PR that touches a manifest version is one whose purpose is the release itself.
+**Do not bump manifest versions in a feature PR.** Bumping is a release step: a version in a feature branch conflicts with every other open branch. Land the code; Release Please chooses the next product version in its release PR, and the release workflow advances the installed skill after verified engine publication (see **Releases**). Only the release PR and its mechanical pin commit change release versions.
 
 ## Contributing, Issue, and PR Guidelines
 
@@ -96,7 +96,15 @@ Open an issue before larger changes so the direction is agreed first; small fixe
 
 ## Releases
 
-A release is an annotated tag per component, and GitHub generates the notes from the commits since that component's previous tag ([ADR 0014](docs/adr/0014-releases-are-tags.md)), so commit messages should describe user-facing impact. The components: `engine-v` (`skill/scripts/VERSION` plus the matching `Cargo.toml` version; `release-engine.yml` builds and publishes the binaries) and `skill-v` (`skill/SKILL.md` `metadata.version`; a tag only, no artifacts). Order: publish the engine release, pin it into the skill with `pnpm run pin:engine` (verifies the build attestations, writes `skill/scripts/engine.sha256`), commit, then release the skill. Flow: bump the relevant manifest, commit, push, then `pnpm run release:<engine|skill>` (or `node scripts/release.mjs <component> --dry-run` first). The script refuses on a dirty tree or an unpushed HEAD, and it refuses to tag the skill until `scripts/check-engine-release.mjs` finds every engine asset for the pinned version. Fix already-shipped notes with `gh release edit <tag> --notes-file <md>`.
+Release Please owns one product version in `.release-please-version` and the root manifest, plus `CHANGELOG.md`. The virtual Cargo workspace uses the `simple` strategy and typed TOML updates for `Cargo.toml` and every local crate in `Cargo.lock`, following project-infra's Rust workspace template. Use Conventional Commit PR titles; squash merges carry `feat`, `fix`, and `perf` changes into the release notes. Do not bump versions in feature PRs.
+
+Merge the green Release Please PR to start publication. It creates a draft `engine-v<version>` release and dispatches `release-engine.yml` on that tag. The workflow builds five binaries, smoke-tests them, generates notices, attests them, and publishes the complete draft. It then verifies each asset against the signing workflow, tag ref, and source commit, advances `skill/scripts/VERSION` and `skill/SKILL.md` to the same version, and commits the verified `engine.sha256` pins to main. That mechanical commit is the source for `skill-v<version>`; it starts CI through the organization `RELEASE_PLEASE_TOKEN`. Both published components have the same version, with engine publication first (ADR 0014).
+
+The organization secret must be available to this repository and able to create release PRs and push the pin commit. There is no silent built-in-token fallback for release PRs. Main must allow the release bot's ordinary fast-forward push; it never force-pushes. If branch protection changes, adapt pin delivery to a reviewed PR before enabling releases again.
+
+Recovery: `gh workflow run release-engine.yml --ref engine-v<version>` resumes the tagged flow. Published engine assets are skipped; existing draft assets must match rebuilt bytes. Incomplete drafts stay private, and different bytes are never overwritten. Skill publication resumes a verified existing tag. If main has moved to a newer product version, the old recovery fails before changing the skill. Inspect the failed run and finish that release before merging another release PR.
+
+Historical `skill-v0.1.0` and `engine-v0.2.0` remain unchanged. The shared flow starts from engine 0.2.0; the next release aligns the skill. The bootstrap SHA is the engine 0.2.0 release commit. Remove `bootstrap-sha` after the first Release Please release. `scripts/release.mjs` remains a guarded manual recovery tool; normal releases use Release Please.
 
 ## Contributor Notes
 

@@ -223,21 +223,21 @@ lives in `impeccino_core::registry::IMMEDIATE_TIER_RULES`, which
 
 ## Releases
 
-Releases are tags with notes GitHub generates from the commits
-([ADR 0014](adr/0014-releases-are-tags.md)). Two release kinds touch the
-runtime, in this order:
+Release Please selects one product version and records its changes in
+`CHANGELOG.md` ([ADR 0014](adr/0014-releases-are-tags.md)). Merge its green PR
+rather than bumping manifests or creating tags locally.
 
-1. **Engine** (`engine-v<version>`): `pnpm run release:engine` verifies
-   the version and a clean tree, then tags and pushes;
-   `.github/workflows/release-engine.yml` builds the five targets, attests
-   each binary, generates `THIRD-PARTY-NOTICES.txt` from the locked Cargo
-   dependency union for all five targets, and publishes them as an immutable
-   release.
-2. **Pins**: `scripts/pin-engine.mjs` verifies each binary's build
-   attestation and writes the digests to `skill/scripts/engine.sha256`, which
-   the launchers check downloads against.
-3. **Skill** (`skill-v<version>`), gated on the engine release
-   (`scripts/check-engine-release.mjs`) and on the pins.
+The tagged `release-engine.yml` workflow builds and attests all five binaries,
+generates `THIRD-PARTY-NOTICES.txt`, and publishes the complete draft engine
+release. It verifies each binary's provenance against the release tag's source
+commit, commits the engine pins and shared skill version to main, then publishes
+the skill tag. `engine-v<version>` and `skill-v<version>` share that version.
+The installed engine pin advances after its assets are published.
+
+Retry with `gh workflow run release-engine.yml --ref engine-v<version>`.
+Published engine assets are skipped; a draft asset with different bytes is
+refused. A failed pin verification preserves the installed skill files.
+[AGENTS.md](../AGENTS.md#releases) records token requirements and recovery guards.
 
 CI runs the workspace build and tests (`rust`, `rust-windows`) and replays the
 oracle against a release build from the checkout under test.

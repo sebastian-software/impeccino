@@ -25,7 +25,6 @@
     "test:skill-workflow": "node scripts/run-tests.mjs skill-workflow",
     "audit": "pnpm audit --audit-level=moderate",
     "release:skill": "node scripts/release.mjs skill",
-    "release:engine": "node scripts/release.mjs engine",
     "check:engine-release": "node scripts/check-engine-release.mjs",
     "pin:engine": "node scripts/pin-engine.mjs",
     "readme:write": "mise run readme:write",

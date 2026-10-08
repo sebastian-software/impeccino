@@ -198,8 +198,8 @@ jobs:
 
   # Release-order guard: the engine release for the pinned skill/scripts/VERSION
   # (five binaries) and its pins in skill/scripts/engine.sha256 must exist before a skill release or a merge that
-  # bumps the pin, or the launcher dead-ends. release.mjs hard-fails
-  # `release:skill` on the same check.
+  # bumps the pin, or the launcher dead-ends. Release candidates keep the old
+  # installed pin until the new engine has been published and verified.
   engine-release-ready:
     runs-on: ubuntu-latest
     steps:
@@ -226,6 +226,9 @@ jobs:
           fi
           exit "$status"
 
+      - name: Check the candidate product version
+        run: node scripts/product-release.mjs check-tag "engine-v$(cat .release-please-version)"
+
       - name: Check the skill pins that engine release
         run: node scripts/pin-engine.mjs --check
 
@@ -233,7 +236,7 @@ jobs:
         # Only when the check itself failed, so a checkout or setup failure keeps its own error.
         if: failure() && steps.check.outcome == 'failure'
         run: |
-          echo "::error title=Engine release not ready::The engine release for v$(cat skill/scripts/VERSION) is not fully published (engine-v$(cat skill/scripts/VERSION) release assets). Publish the engine (pnpm run release:engine) before bumping skill/scripts/VERSION or releasing the skill."
+          echo "::error title=Engine release not ready::The engine release for v$(cat skill/scripts/VERSION) is not fully published. Resume release-engine.yml on its engine-v tag before advancing the installed skill pin."
 
   test:
     runs-on: ubuntu-latest

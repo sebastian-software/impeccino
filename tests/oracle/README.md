@@ -32,6 +32,11 @@ must match byte for byte.
 Path placeholders and ISO timestamps are normalized globally. Other masks are
 limited to values that vary by machine or run:
 
+The `cli-version` expectation uses the declared `.release-please-version`
+instead of the historical golden's release number. It still requires that exact
+version followed by one newline, empty stderr, and successful exit. A stale
+engine fails this case; version bumps do not rewrite behavior goldens.
+
 - `IMAGE_TOOLS: <IMAGE_TOOLS_PROBE>`: the context command reports which image
   converters are installed on the recording host.
 - `"<finding-id>": <EPOCH>`: the staleness cache stores epoch values by

@@ -2,7 +2,7 @@
 /**
  * Pin the published engine release into the skill: skill/scripts/engine.sha256.
  *
- * Run after `pnpm run release:engine` has published engine-v<VERSION>. For each
+ * The release workflow calls pinEngine after engine-v<VERSION> is published. For each
  * of the five release binaries this script downloads the asset, checks its
  * GitHub build attestation (`gh attestation verify`: built by this repo's
  * release-engine workflow), and only then writes
@@ -37,7 +37,7 @@ async function download(url) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-async function pin(version) {
+export async function pinEngine(version, { root = ROOT, sourceDigest } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccino-pin-'));
   const lines = [];
   try {
@@ -48,7 +48,9 @@ async function pin(version) {
       const file = path.join(dir, assetName(target));
       fs.writeFileSync(file, bytes);
       try {
-        execFileSync('gh', ['attestation', 'verify', file, '--repo', REPO, '--signer-workflow', WORKFLOW], { stdio: 'pipe' });
+        const args = ['attestation', 'verify', file, '--repo', REPO, '--signer-workflow', WORKFLOW];
+        if (sourceDigest) args.push('--source-digest', sourceDigest, '--source-ref', `refs/tags/engine-v${version}`);
+        execFileSync('gh', args, { stdio: 'pipe' });
       } catch (err) {
         const detail = String(err.stderr || err.message).trim().split('\n').slice(-3).join('\n');
         throw new Error(`${url}: build attestation did not verify (needs the gh CLI, signed in):\n${detail}`);
@@ -64,7 +66,7 @@ async function pin(version) {
     `# each asset's build attestation (${WORKFLOW}).`,
     '# The launchers check downloads against these digests.',
   ];
-  fs.writeFileSync(path.join(ROOT, PIN_FILE), `${[...header, ...lines].join('\n')}\n`);
+  fs.writeFileSync(path.join(root, PIN_FILE), `${[...header, ...lines].join('\n')}\n`);
   console.log(`\n✓ wrote ${PIN_FILE} for engine-v${version}`);
 }
 
@@ -79,7 +81,7 @@ async function main(argv = process.argv.slice(2)) {
     console.log(`✓ ${PIN_FILE} pins all ${ENGINE_TARGETS.length} assets of engine-v${version}`);
     return 0;
   }
-  await pin(version);
+  await pinEngine(version);
   return 0;
 }
 

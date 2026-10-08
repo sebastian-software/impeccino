@@ -416,7 +416,13 @@ export function caseRunsHere(c, platform = process.platform) {
  * PowerShell note and quoted launcher command for framework scans. Keep
  * these contracts in explicit expectations beside the shared POSIX golden.
  */
-export function expectedForPlatform(c, golden, platform = process.platform) {
+export function expectedForPlatform(c, golden, platform = process.platform, releaseVersion) {
+  // Release numbers are declared build inputs. Assert the candidate version
+  // exactly without rewriting the historical behavior golden each release.
+  if (c.id === 'cli-version') {
+    const version = releaseVersion ?? fs.readFileSync(path.join(REPO_ROOT, '.release-please-version'), 'utf8').trim();
+    return { ...golden, stdout: `${version}\n` };
+  }
   if (platform !== 'win32') return golden;
   const expected = structuredClone(golden);
   // The isolated user cache follows the engine's native Windows fallback.

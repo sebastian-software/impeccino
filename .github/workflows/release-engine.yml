@@ -1,25 +1,38 @@
 name: release-engine
-# Builds the engine binary for every supported target and publishes them as
-# the GitHub Release `engine-v<X>` on this repo. That
-# release is what the launcher (skill/scripts/impeccino) and
-# `pnpm run fetch:engine` download. Binaries are not code-signed; a GitHub
-# build attestation binds each one to this repo and workflow (verify with
-# `gh attestation verify <file> -R <repo>`). The release is published only
-# once every asset is attached, so it works with immutable releases;
-# scripts/pin-engine.mjs then pins the digests into the skill.
-#
-# Trigger: `pnpm run release:engine` (scripts/release.mjs) verifies
-# skill/scripts/VERSION and a clean tree, then pushes the tag. Third-party actions are pinned to commit SHAs so a
-# moved tag cannot swap the code this workflow runs.
+# Release Please creates the draft and tag. Dispatch on engine-v<version>,
+# never main; recovery uses the same tagged workflow and immutable sources.
 on:
-  push:
-    tags: ['engine-v*']
+  workflow_dispatch:
+concurrency:
+  group: release-engine-${{ github.ref }}
+  cancel-in-progress: false
 # Same-run artifact transfers use ACTIONS_RUNTIME_TOKEN, not GITHUB_TOKEN;
 # they do not require actions: read/write. Keep downloads scoped to this run.
 permissions:
   contents: read
 jobs:
+  release-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      draft: ${{ steps.release.outputs.draft }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Verify the product tag
+        run: node scripts/product-release.mjs check-tag "$GITHUB_REF_NAME"
+      - id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          draft=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq '.isDraft')
+          case "$draft" in true|false) ;; *) exit 1 ;; esac
+          echo "draft=$draft" >> "$GITHUB_OUTPUT"
   build:
+    needs: release-state
+    if: needs.release-state.outputs.draft == 'true'
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -34,9 +47,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Check the tag matches both engine versions
+      - name: Check the tag matches the product version
         shell: bash
-        run: node scripts/release.mjs engine --check-tag "$GITHUB_REF_NAME"
+        run: node scripts/product-release.mjs check-tag "$GITHUB_REF_NAME"
       # rust-toolchain.toml names the channel; `rustup show` installs it.
       # Never override the toolchain here.
       - name: Install the pinned toolchain
@@ -60,6 +73,7 @@ jobs:
           path: target/${{ matrix.target }}/release/impeccino${{ runner.os == 'Windows' && '.exe' || '' }}
           if-no-files-found: error
   smoke-linux-arm64:
+    timeout-minutes: 10
     needs: build
     runs-on: ubuntu-24.04-arm
     steps:
@@ -75,6 +89,7 @@ jobs:
           artifact/impeccino --version
           artifact/impeccino engine-probe
   publish:
+    timeout-minutes: 20
     needs: [build, smoke-linux-arm64]
     runs-on: ubuntu-latest
     permissions:
@@ -117,13 +132,69 @@ jobs:
         with:
           subject-path: out/impeccino-*
       - name: Publish the GitHub Release
-        env: { GH_TOKEN: "${{ github.token }}" }
-        # Draft first, attach every asset, then publish: an immutable release
-        # locks its assets at publication. No --clobber and no upload into an
-        # existing release; a re-run against a published release fails.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: node scripts/publish-engine.mjs "$GITHUB_REF_NAME" out
+  pin-skill:
+    needs: [release-state, publish]
+    if: ${{ always() && needs.release-state.result == 'success' && (needs.publish.result == 'success' || needs.release-state.outputs.draft == 'false') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      attestations: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+      - name: Skip a completed skill release
+        id: skill
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          set -e
-          tag="${GITHUB_REF_NAME}"
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "impeccino engine $tag" \
-          --notes "Prebuilt impeccino engine binaries ($tag), with THIRD-PARTY-NOTICES.txt. The skill's launcher downloads the binaries on first run and checks them against the digests pinned in skill/scripts/engine.sha256. Verify binary provenance with: gh attestation verify <file> -R $GITHUB_REPOSITORY" out/*
-          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#engine-v}"
+          # Listing published releases distinguishes an absent release from a
+          # failed API request. An API failure never means 'safe to publish'.
+          complete=$(gh release list --limit 1000 --json tagName,isDraft --jq ".[] | select(.tagName == \"skill-v${version}\" and .isDraft == false) | .tagName")
+          if [ -n "$complete" ]; then echo "complete=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Setup pnpm
+        if: steps.skill.outputs.complete != 'true'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Setup Node
+        if: steps.skill.outputs.complete != 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Verify and prepare the shared skill version
+        if: steps.skill.outputs.complete != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/product-release.mjs prepare-skill "$GITHUB_REF_NAME"
+      - name: Validate the prepared skill
+        if: steps.skill.outputs.complete != 'true'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check
+          pnpm run test:skill-behavior
+      - name: Commit the verified engine pins and skill version
+        if: steps.skill.outputs.complete != 'true'
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add skill/SKILL.md skill/scripts/VERSION skill/scripts/engine.sha256
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: pin engine and release skill ${GITHUB_REF_NAME#engine-v}" -m 'AI assistance: Codex helped implement this release automation.'
+            git push origin HEAD:main
+          fi
+      - name: Release the skill with the engine version
+        if: steps.skill.outputs.complete != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release.mjs skill --resume

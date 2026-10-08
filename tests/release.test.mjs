@@ -1,6 +1,6 @@
 /**
  * Guard tests for scripts/release.mjs, the tagging/publishing script for the
- * independently versioned components (skill and engine). It owns every
+ * shared-version skill component. It owns every
  * refusal that protects a public release: dirty tree, unpushed HEAD, existing
  * tag, missing version, and engine pins that disagree.
  *
@@ -102,7 +102,7 @@ describe('release.mjs guards', () => {
       path.join(REPO_ROOT, 'scripts', 'lib', 'is-entrypoint.mjs'),
       path.join(workDir, 'scripts', 'lib', 'is-entrypoint.mjs'),
     );
-    write('skill/SKILL.md', '---\nname: impeccino\ndescription: Design.\nmetadata:\n  version: 1.2.3\n---\n\nBody.\n');
+    write('skill/SKILL.md', '---\nname: impeccino\ndescription: Design.\nmetadata:\n  version: 0.1.0\n---\n\nBody.\n');
     write('skill/scripts/VERSION', '0.1.0\n');
     write('Cargo.toml', '[workspace.package]\nversion = "0.1.0"\n');
     const pins = ['darwin-arm64', 'darwin-x64', 'linux-x64', 'linux-arm64', 'windows-x64.exe']
@@ -140,64 +140,20 @@ describe('release.mjs guards', () => {
     }
   });
 
-  it('dry-runs a clean engine release: tags only, CI publishes', () => {
-    const { code, stdout } = runRelease(workDir, 'engine');
-    assert.equal(code, 0, stdout);
-    assert.match(stdout, /Engine 0\.1\.0/);
-    assert.match(stdout, /\[dry-run\] git tag -a engine-v0\.1\.0/);
-    assert.match(stdout, /\[dry-run\] git push origin engine-v0\.1\.0/);
-    assert.doesNotMatch(stdout, /gh release create/);
-    assert.match(stdout, /release-engine workflow/);
-  });
-
-  it('checks an engine workflow tag against both versions without release preconditions', () => {
-    const valid = runRelease(workDir, 'engine', '--check-tag', 'engine-v0.1.0');
-    assert.equal(valid.code, 0, valid.stderr);
-    assert.match(valid.stdout, /Git ref engine-v0\.1\.0 matches the engine versions/);
-    assert.doesNotMatch(valid.stdout, /Checking working tree is clean|Checking HEAD is pushed/);
-
-    const mismatch = runRelease(workDir, 'engine', '--check-tag', 'engine-v0.2.0');
-    assert.notEqual(mismatch.code, 0);
-    assert.match(mismatch.stderr, /Engine tag mismatch/);
-  });
-
-  it('allows matching engine prerelease versions', () => {
-    write('skill/scripts/VERSION', '0.2.0-rc.1\n');
-    write('Cargo.toml', '[workspace.package]\nversion = "0.2.0-rc.1"\n');
-    git(workDir, 'add', 'Cargo.toml', 'skill/scripts/VERSION');
-    git(workDir, 'commit', '-m', 'matching engine prerelease versions');
-    git(workDir, 'push', 'origin', 'main');
-
-    const { code, stdout } = runRelease(workDir, 'engine');
-    assert.equal(code, 0, stdout);
-    assert.match(stdout, /Engine 0\.2\.0-rc\.1/);
-    assert.match(stdout, /\[dry-run\] git tag -a engine-v0\.2\.0-rc\.1/);
-  });
-
-  it('refuses an engine tag when Cargo.toml and skill/scripts/VERSION disagree', () => {
-    write('Cargo.toml', '[workspace.package]\nversion = "0.2.0"\n');
+  it('refuses manual engine versioning and tagging now that Release Please owns them', () => {
     const { code, stderr } = runRelease(workDir, 'engine');
     assert.equal(code, 1);
-    assert.match(stderr, /Engine version mismatch/);
-  });
-
-  it('engine: refuses when the tag already exists on origin', () => {
-    git(workDir, 'tag', 'engine-v0.1.0');
-    git(workDir, 'push', 'origin', 'engine-v0.1.0');
-    git(workDir, 'tag', '-d', 'engine-v0.1.0');
-    const { code, stderr } = runRelease(workDir, 'engine');
-    assert.notEqual(code, 0);
-    assert.match(stderr, /engine-v0\.1\.0 already exists on origin/);
+    assert.match(stderr, /Release Please owns engine versions and tags/);
   });
 
   it('dry-runs a clean skill release end to end', () => {
     const { code, stdout } = runRelease(workDir, 'skill');
     assert.equal(code, 0, stdout);
-    assert.match(stdout, /Skill 1\.2\.3/);
+    assert.match(stdout, /Skill 0\.1\.0/);
     assert.match(stdout, /tag is free/);
-    assert.match(stdout, /\[dry-run\] git tag -a skill-v1\.2\.3/);
-    assert.match(stdout, /\[dry-run\] gh release create skill-v1\.2\.3 --repo sebastian-software\/impeccino --verify-tag/);
-    assert.match(stdout, /gh release create skill-v1\.2\.3 [^\n]*--generate-notes/);
+    assert.match(stdout, /\[dry-run\] git tag -a skill-v0\.1\.0/);
+    assert.match(stdout, /\[dry-run\] gh release create skill-v0\.1\.0 --repo sebastian-software\/impeccino --verify-tag/);
+    assert.match(stdout, /gh release create skill-v0\.1\.0 [^\n]*--generate-notes/);
     assert.doesNotMatch(stdout, /universal\.zip|1Password|changelog/);
   });
 
@@ -210,14 +166,43 @@ describe('release.mjs guards', () => {
     assert.match(stderr, /engine\.sha256 has no pin for engine-v0\.1\.0/);
   });
 
+  it('refuses a skill release with a different version from its pinned engine', () => {
+    write('skill/SKILL.md', '---\nmetadata:\n  version: 0.2.0\n---\n');
+    const { code, stderr } = runRelease(workDir, 'skill');
+    assert.equal(code, 1);
+    assert.match(stderr, /Shared version mismatch/);
+  });
+
+  it('resumes the original verified remote skill tag after an interrupted publication', () => {
+    git(workDir, 'tag', 'skill-v0.1.0');
+    git(workDir, 'push', 'origin', 'skill-v0.1.0');
+    const { code, stdout } = runRelease(workDir, 'skill', '--resume');
+    assert.equal(code, 0, stdout);
+    assert.match(stdout, /resuming the verified remote tag/);
+    assert.doesNotMatch(stdout, /git tag -a|git push origin skill-v/);
+    assert.match(stdout, /gh release create skill-v0\.1\.0/);
+  });
+
+  it('refuses to resume a tag whose pinned bytes disagree', () => {
+    git(workDir, 'tag', 'skill-v0.1.0');
+    git(workDir, 'push', 'origin', 'skill-v0.1.0');
+    const file = path.join(workDir, 'skill/scripts/engine.sha256');
+    write('skill/scripts/engine.sha256', fs.readFileSync(file, 'utf8').replaceAll('a'.repeat(64), 'b'.repeat(64)));
+    git(workDir, 'commit', '-am', 'change pin');
+    git(workDir, 'push', 'origin', 'main');
+    const { code, stderr } = runRelease(workDir, 'skill', '--resume');
+    assert.equal(code, 1);
+    assert.match(stderr, /does not contain the verified shared version and pins/);
+  });
+
   it('starts the release notes from the previous release on origin, not a local-only tag', () => {
-    git(workDir, 'tag', 'skill-v1.0.0');
-    git(workDir, 'push', 'origin', 'skill-v1.0.0');
+    git(workDir, 'tag', 'skill-v0.0.1');
+    git(workDir, 'push', 'origin', 'skill-v0.0.1');
     // A tag that only exists locally (an upstream remote's, say) is not a release here.
     git(workDir, 'tag', 'skill-v9.9.9');
     const { code, stdout } = runRelease(workDir, 'skill');
     assert.equal(code, 0, stdout);
-    assert.match(stdout, /--notes-start-tag skill-v1\.0\.0/);
+    assert.match(stdout, /--notes-start-tag skill-v0\.0\.1/);
     assert.doesNotMatch(stdout, /skill-v9\.9\.9/);
   });
 
@@ -244,16 +229,16 @@ describe('release.mjs guards', () => {
   });
 
   it('refuses when the tag already exists locally', () => {
-    git(workDir, 'tag', 'skill-v1.2.3');
+    git(workDir, 'tag', 'skill-v0.1.0');
     const { code, stderr } = runRelease(workDir, 'skill');
     assert.equal(code, 1);
     assert.match(stderr, /already exists locally/);
   });
 
   it('refuses when the tag already exists on origin', () => {
-    git(workDir, 'tag', 'skill-v1.2.3');
-    git(workDir, 'push', 'origin', 'skill-v1.2.3');
-    git(workDir, 'tag', '-d', 'skill-v1.2.3');
+    git(workDir, 'tag', 'skill-v0.1.0');
+    git(workDir, 'push', 'origin', 'skill-v0.1.0');
+    git(workDir, 'tag', '-d', 'skill-v0.1.0');
     const { code, stderr } = runRelease(workDir, 'skill');
     assert.equal(code, 1);
     assert.match(stderr, /already exists on origin/);
