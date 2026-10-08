@@ -2,6 +2,8 @@
 
 ## [0.3.0](https://github.com/sebastian-software/impeccino/compare/engine-v0.2.0...engine-v0.3.0) (2026-10-08)
 
+This version's empty draft was abandoned; its protected tag stays reserved.
+Publication continues with 0.3.1.
 
 ### ⚠ BREAKING CHANGES
 

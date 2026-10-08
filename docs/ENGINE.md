@@ -237,6 +237,9 @@ The installed engine pin advances after its assets are published.
 Retry with `gh workflow run release-engine.yml --ref engine-v<version>`.
 Published engine assets are skipped; a draft asset with different bytes is
 refused. A failed pin verification preserves the installed skill files.
+If the tagged workflow itself needs a correction, release a new patch version;
+the repository protects unpublished tags too. Keep an abandoned protected tag
+and remove only its empty, unpublished draft.
 [AGENTS.md](../AGENTS.md#releases) records token requirements and recovery guards.
 
 CI runs the workspace build and tests (`rust`, `rust-windows`) and replays the
