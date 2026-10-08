@@ -257,6 +257,20 @@ describe('protected-main skill delivery', () => {
     expect(() => openSkillPinPR({ root, git: localGit(root), gh: vi.fn() })).toThrow('non-pin changes');
   });
 
+  test('sets a tagger identity on a fresh publication runner', () => {
+    const root = fixture();
+    const git = localGit(root);
+    git(['config', '--unset', 'user.name']);
+    git(['config', '--unset', 'user.email']);
+    git(['config', 'user.useConfigOnly', 'true']);
+    const skill = parse(fs.readFileSync(new URL('../.github/workflows/release-skill.yml', import.meta.url), 'utf8'));
+    const publish = skill.jobs.publish.steps.find(step => step.name === 'Publish the skill with the tested shared version');
+    const identity = publish.run.slice(0, publish.run.indexOf('node scripts/release.mjs'));
+    execFileSync('sh', ['-c', identity], { cwd: root });
+    git(['tag', '-a', 'skill-v0.3.0', '-m', 'Skill 0.3.0']);
+    expect(git(['for-each-ref', '--format=%(taggername) %(taggeremail)', 'refs/tags/skill-v0.3.0'])).toBe('github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>');
+  });
+
   test('dispatches preparation on main and gates publication on trusted push CI', () => {
     const engine = parse(fs.readFileSync(new URL('../.github/workflows/release-engine.yml', import.meta.url), 'utf8'));
     expect(engine.jobs['pin-skill'].steps[0].run).toContain('gh workflow run release-skill.yml --ref main');

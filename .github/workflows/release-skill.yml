@@ -86,4 +86,7 @@ jobs:
         if: steps.candidate.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/release.mjs skill --resume
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          node scripts/release.mjs skill --resume
