@@ -2,6 +2,8 @@ import { describe, test, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import * as utils from '../scripts/lib/utils.js';
+import { missingPins } from '../scripts/fetch-engine.mjs';
+import { productVersion } from '../scripts/product-release.mjs';
 
 // skill/ is the install payload for every harness (docs/adr/0001), so these
 // checks guard the folder itself rather than any build output.
@@ -23,13 +25,18 @@ describe('skill scripts payload', () => {
     expect([...names].filter((n) => n.startsWith('bin/'))).toEqual([]);
   });
 
-  test('the launcher is executable and VERSION matches the engine crates', () => {
+  test('the launcher is executable and VERSION has all five verified engine pins', () => {
     const launcher = scripts.find((s) => s.name === 'impeccino');
     expect(launcher.mode & 0o111).not.toBe(0);
     const version = scripts.find((s) => s.name === 'VERSION').content.trim();
-    // `impeccino --version` prints the crate version; the launcher pins VERSION.
-    const cargo = fs.readFileSync(path.join(ROOT_DIR, 'Cargo.toml'), 'utf-8');
-    expect(cargo.match(/^version = "([^"]+)"/m)[1]).toBe(version);
+    expect(version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
+    expect(missingPins(version, ROOT_DIR)).toEqual([]);
+  });
+
+  test('the candidate engine follows the declared product version independently of the installed pin', () => {
+    // The release PR changes Cargo first. The installed pin advances after
+    // all five new binaries are published and their provenance verifies.
+    expect(productVersion(ROOT_DIR)).toBe(fs.readFileSync(path.join(ROOT_DIR, '.release-please-version'), 'utf8').trim());
   });
 });
 
