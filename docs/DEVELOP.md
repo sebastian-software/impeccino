@@ -90,6 +90,7 @@ impeccino/
     check.js                       # Repository checks (`pnpm run check`)
     release.mjs                    # Guarded manual release recovery
     product-release.mjs            # Candidate version checks and verified skill pins
+    skill-pin-pr.mjs               # CI-checked pin PRs and tested-main publication gate
     publish-engine.mjs             # Complete drafts without replacing assets
   tests/                           # Vitest suites; tests/oracle/ is the engine's behavioral contract
   docs/

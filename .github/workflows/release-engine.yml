@@ -143,61 +143,14 @@ jobs:
     needs: [release-state, publish]
     if: ${{ always() && needs.release-state.result == 'success' && (needs.publish.result == 'success' || needs.release-state.outputs.draft == 'false') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     permissions:
-      contents: write
-      attestations: read
+      actions: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: main
-          fetch-depth: 0
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-      - name: Skip a completed skill release
-        id: skill
+      # Skill preparation follows main so recovery can fix delivery without
+      # moving the immutable engine tag or rebuilding published binaries.
+      - name: Prepare a CI-checked skill pin PR
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          version="${GITHUB_REF_NAME#engine-v}"
-          # Listing published releases distinguishes an absent release from a
-          # failed API request. An API failure never means 'safe to publish'.
-          complete=$(gh release list --limit 1000 --json tagName,isDraft --jq ".[] | select(.tagName == \"skill-v${version}\" and .isDraft == false) | .tagName")
-          if [ -n "$complete" ]; then echo "complete=true" >> "$GITHUB_OUTPUT"; fi
-      - name: Setup pnpm
-        if: steps.skill.outputs.complete != 'true'
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - name: Setup Node
-        if: steps.skill.outputs.complete != 'true'
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - name: Verify and prepare the shared skill version
-        if: steps.skill.outputs.complete != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/product-release.mjs prepare-skill "$GITHUB_REF_NAME"
-      - name: Validate the prepared skill
-        if: steps.skill.outputs.complete != 'true'
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run check
-          pnpm run test:skill-behavior
-      - name: Commit the verified engine pins and skill version
-        if: steps.skill.outputs.complete != 'true'
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add skill/SKILL.md skill/scripts/VERSION skill/scripts/engine.sha256
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: pin engine and release skill ${GITHUB_REF_NAME#engine-v}" -m 'AI assistance: Codex helped implement this release automation.'
-            git push origin HEAD:main
-          fi
-      - name: Release the skill with the engine version
-        if: steps.skill.outputs.complete != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/release.mjs skill --resume
+        run: gh workflow run release-skill.yml --ref main -f engine_tag="$GITHUB_REF_NAME"
