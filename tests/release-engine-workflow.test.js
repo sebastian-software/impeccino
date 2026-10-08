@@ -10,6 +10,7 @@ describe('engine release workflow', () => {
   test('dispatches on a release tag with read-only build credentials', () => {
     expect(workflow.on).toEqual({ workflow_dispatch: null });
     expect(workflow.permissions).toEqual({ contents: 'read' });
+    expect(workflow.jobs['release-state'].permissions).toEqual({ contents: 'write' });
     expect(workflow.jobs.publish.permissions).toEqual({ contents: 'write', 'id-token': 'write', attestations: 'write' });
     expect(workflow.jobs.build.permissions?.['id-token']).toBeUndefined();
   });

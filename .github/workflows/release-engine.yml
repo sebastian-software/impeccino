@@ -14,6 +14,9 @@ jobs:
   release-state:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # GitHub exposes draft releases only to callers with push access.
+    permissions:
+      contents: write
     outputs:
       draft: ${{ steps.release.outputs.draft }}
     steps:
