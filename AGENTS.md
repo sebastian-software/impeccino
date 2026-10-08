@@ -104,7 +104,7 @@ The organization secret must be available to this repository and able to create 
 
 Recovery: `gh workflow run release-engine.yml --ref engine-v<version>` resumes the tagged flow. Published engine assets are skipped; existing draft assets must match rebuilt bytes. Incomplete drafts stay private, and different bytes are never overwritten. Skill publication resumes a verified existing tag. If main has moved to a newer product version, the old recovery fails before changing the skill. Inspect the failed run and finish that release before merging another release PR.
 
-Historical `skill-v0.1.0` and `engine-v0.2.0` remain unchanged. The shared flow starts from engine 0.2.0; the next release aligns the skill. The bootstrap SHA is the engine 0.2.0 release commit. Remove `bootstrap-sha` after the first Release Please release. `scripts/release.mjs` remains a guarded manual recovery tool; normal releases use Release Please.
+Historical `skill-v0.1.0` and `engine-v0.2.0` remain unchanged. The shared flow starts with 0.3.0. Bootstrap used the engine 0.2.0 release commit and was removed after Release Please created its first release and tag. Subsequent releases use the engine tag history. `scripts/release.mjs` remains a guarded manual recovery tool; normal releases use Release Please.
 
 ## Contributor Notes
 

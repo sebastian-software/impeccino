@@ -43,8 +43,3 @@
 ### Documentation
 
 * **skill:** record decisions in PRODUCT.md and DESIGN.md, not tool state ([bb9c020](https://github.com/sebastian-software/impeccino/commit/bb9c0206c17c5759a33b9f4b510e8e14726cc48a)), closes [#6](https://github.com/sebastian-software/impeccino/issues/6)
-
-## Changelog
-
-Release Please records product changes here. Releases before the shared version
-flow are recorded in the [GitHub release history](https://github.com/sebastian-software/impeccino/releases).

@@ -20,4 +20,4 @@ The organization `RELEASE_PLEASE_TOKEN` creates PRs whose CI starts automaticall
 
 The directly installed `skill/` folder continues to pin attested engine bytes (0010). A release PR still tests the previously published installed engine pin while CI builds and tests the candidate engine from source. The installed skill advances only when the new assets exist and verify.
 
-The first shared release starts above the engine's existing 0.2.0. Historical skill 0.1.0 and engine 0.2.0 tags remain valid. Bootstrap uses the engine 0.2.0 release commit; remove the bootstrap setting after the first Release Please release. Manual release scripts remain recovery tools.
+The first shared release is 0.3.0. Historical skill 0.1.0 and engine 0.2.0 tags remain valid. Bootstrap used the engine 0.2.0 release commit and was removed after Release Please created its first release and tag. Subsequent releases use the engine tag history. Manual release scripts remain recovery tools.
