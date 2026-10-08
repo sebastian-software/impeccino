@@ -281,6 +281,9 @@ describe('protected-main skill delivery', () => {
       expect(skill.jobs.publish.if).toContain(guard);
     }
     expect(skill.jobs.publish.steps[0].with.ref).toBe('main');
+    expect(skill.jobs.publish.steps[0].with.token).toBe('${{ secrets.RELEASE_PLEASE_TOKEN }}');
+    const publication = skill.jobs.publish.steps.find(step => step.name === 'Publish the skill with the tested shared version');
+    expect(publication.env.GH_TOKEN).toBe('${{ secrets.RELEASE_PLEASE_TOKEN }}');
     const candidate = skill.jobs.publish.steps.find(step => step.id === 'candidate');
     expect(candidate.env.TESTED_SHA).toBe('${{ github.event.workflow_run.head_sha }}');
     expect(skill.jobs.prepare.steps.at(-1).env.GH_TOKEN).toBe('${{ secrets.RELEASE_PLEASE_TOKEN }}');
