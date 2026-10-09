@@ -8,6 +8,22 @@ const workflows = Object.fromEntries(readdirSync(directory)
   .map(name => [name, parse(readFileSync(new URL(name, directory), 'utf8'))]));
 
 describe('workflow execution boundaries', () => {
+  test('installs repository dependencies before helpers that parse skill YAML', () => {
+    const yamlHelper = /node scripts\/(?:pin-engine|skill-pin-pr|release)\.mjs|node scripts\/product-release\.mjs prepare-skill/;
+    for (const [name, workflow] of Object.entries(workflows)) {
+      for (const [jobName, job] of Object.entries(workflow.jobs)) {
+        const steps = job.steps || [];
+        const helperIndex = steps.findIndex(step => yamlHelper.test(step.run || ''));
+        if (helperIndex === -1) continue;
+        const context = `${name}: ${jobName}`;
+        const installIndex = steps.findIndex(step => /^pnpm install --frozen-lockfile$/m.test(step.run || ''));
+        expect(installIndex, context).toBeGreaterThan(-1);
+        expect(installIndex, context).toBeLessThan(helperIndex);
+        expect(steps.slice(0, installIndex).some(step => step.uses?.startsWith('pnpm/action-setup@')), context).toBe(true);
+      }
+    }
+  });
+
   test('repository actions are pinned to full commit SHAs', () => {
     for (const [name, workflow] of Object.entries(workflows)) {
       for (const [jobName, job] of Object.entries(workflow.jobs)) {

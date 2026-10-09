@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { createHash } from 'node:crypto';
 import { checkProductTag, prepareSkill } from '../scripts/product-release.mjs';
@@ -45,6 +45,21 @@ function fixture() {
 }
 
 describe('shared product release', () => {
+  test('checks the engine product tag in a clean checkout without Node dependencies', () => {
+    const root = fixture();
+    for (const file of ['product-release.mjs', 'pin-engine.mjs', 'fetch-engine.mjs', 'lib/is-entrypoint.mjs']) {
+      write(root, `scripts/${file}`, fs.readFileSync(new URL(`../scripts/${file}`, import.meta.url), 'utf8'));
+    }
+    expect(fs.existsSync(path.join(root, 'node_modules'))).toBe(false);
+    const run = tag => spawnSync(process.execPath, ['scripts/product-release.mjs', 'check-tag', tag], { cwd: root, encoding: 'utf8' });
+    const valid = run('engine-v0.3.0');
+    expect(valid.status, valid.stderr).toBe(0);
+    expect(valid.stdout).toBe('0.3.0\n');
+    const invalid = run('engine-v0.2.0');
+    expect(invalid.status).toBe(1);
+    expect(invalid.stderr).toContain('Engine tag mismatch');
+  });
+
   test('writes both pin routes only after every asset verifies', async () => {
     const root = fixture();
     const verifyAsset = vi.fn();
