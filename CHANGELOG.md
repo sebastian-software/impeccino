@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/sebastian-software/impeccino/compare/engine-v0.3.1...engine-v0.4.0) (2026-10-09)
+
+
+### Features
+
+* **skill:** look for available design knowledge before starting ([d75c060](https://github.com/sebastian-software/impeccino/commit/d75c0607d5f3c876a8d29e92e505171381f67da9))
+
+
+### Bug Fixes
+
+* configure the skill release tagger identity ([#99](https://github.com/sebastian-software/impeccino/issues/99)) ([6db5029](https://github.com/sebastian-software/impeccino/commit/6db5029d3b46ff21037630aa586aab50b62c2ef1))
+* deliver shared skill releases through CI-checked pin PRs ([#96](https://github.com/sebastian-software/impeccino/issues/96)) ([f12db29](https://github.com/sebastian-software/impeccino/commit/f12db29ff62f3ef7b4a5336eb0cc36edf74a95cb))
+* use the authorized release identity for skill tags ([#100](https://github.com/sebastian-software/impeccino/issues/100)) ([4d99e5f](https://github.com/sebastian-software/impeccino/commit/4d99e5fc817243206e9830f3ae6d2d57ad1d6d8d))
+
 ## [0.3.1](https://github.com/sebastian-software/impeccino/compare/engine-v0.3.0...engine-v0.3.1) (2026-10-08)
 
 
