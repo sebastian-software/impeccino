@@ -13,9 +13,11 @@
 [![Engine release](https://img.shields.io/github/v/tag/sebastian-software/impeccino?filter=engine-v*&label=engine)](https://github.com/sebastian-software/impeccino/releases?q=engine-v)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-**Design work with context and evidence.**
+**Headless design tooling for AI agents. Bring your own design knowledge.**
 
-Impeccino gives your AI coding agent a working vocabulary for interface design. Shape a checkout before building it. Critique a landing page. Polish the settings screen without replacing its identity. Each command defines the task's scope and the evidence the agent should bring back.
+Headless components separate behavior from styling. Impeccino applies that idea to design work: it supplies workflows, project context, and automated checks, while your agent draws on the design skills and project references you choose.
+
+Shape a checkout before building it. Critique a landing page. Polish the settings screen while preserving its identity. Each command defines the task's scope and the evidence the agent should bring back.
 
 ```text
 /impeccino shape checkout
@@ -25,19 +27,25 @@ Impeccino gives your AI coding agent a working vocabulary for interface design. 
 
 You can also describe the work directly: `/impeccino redesign this hero for our photography portfolio`. In Codex, use `$impeccino` instead of `/impeccino`. The [command reference](skill/SKILL.md#commands) covers the full vocabulary.
 
+## Bring your own design knowledge
+
+Use your team's design-system guide, an installed typography skill, or other references that fit the work. Impeccino asks the agent to look for relevant knowledge before it starts, checking project sources before user-wide ones. Recorded project decisions take priority, so a general style recommendation cannot silently replace your product's identity.
+
+For curated web guidance, we maintain the [Skill Library's effective-web skill](https://github.com/sebastian-software/skills.sebastian-software.com/tree/main/skills/effective-web), covering interface review, visual systems, interaction, and contextual pattern review. It is optional. When no suitable source is available, the agent continues with general knowledge and says so in its report.
+
+Choose different knowledge sources for different projects. Keep the same Impeccino commands and checks.
+
 ## Keep the decisions between tasks
 
 `PRODUCT.md` records who the product serves, what it does, and which claims are supported. `DESIGN.md` records the visual system, including machine-readable tokens and detector metadata. `SURFACES.md` keeps the mode and decisions for each surface, so the agent can distinguish a persuasive landing page from an operational dashboard in the same product.
 
 Use `/impeccino init` to record product context and `/impeccino document` to capture an existing visual system. A narrow refinement can start from the code already there. The task contracts tell the agent to reuse answers and preserve established decisions; discovery addresses gaps that would change the work.
 
-## Tools meet design knowledge
+## Check the implementation
 
 The native engine loads project context and checks source files. For web pages, it can also measure the rendered result through agent-browser: contrast, overflow, occlusion, viewport edges, and page errors. Opt-in hooks return detector findings during edits.
 
-Design judgment comes from the host and the knowledge it selects. We maintain curated web guidance in the [Skill Library's effective-web skill](https://github.com/sebastian-software/skills.sebastian-software.com/tree/main/skills/effective-web), covering interface review, visual systems, interaction, and contextual pattern review. Impeccino supplies the task and the tools; the Library is optional, and other suitable knowledge sources can be used.
-
-A familiar font or effect needs interpretation against the brief. A broken interaction needs repair. A clean scan still leaves the agent responsible for inspecting the experience and reporting what it could not verify.
+Observed defects such as clipped text and low contrast need repair. Context-dependent style findings are advisory: a familiar font or effect needs interpretation against the brief. A clean scan still leaves the agent responsible for inspecting the experience and reporting what it could not verify.
 
 ## Install and start
 
@@ -62,13 +70,13 @@ For automatic edit feedback, enable `/impeccino hooks on` in the project. [Desig
 
 ## About the project
 
-Thank you to Paul Bakaus for [Impeccable](https://github.com/pbakaus/impeccable), whose design commands and tooling made Impeccino possible. We wanted a more flexible toolkit with independently selectable design knowledge and fewer tightly coupled parts.
+Thank you to Paul Bakaus for [Impeccable](https://github.com/pbakaus/impeccable), whose design commands and tooling made Impeccino possible. Think of Impeccino as a headless take on Impeccable: design workflows and checks with independently selectable design knowledge.
 
 Impeccino leaves out the built-in installer and marketplace packages, per-harness generated variants, its own browser stack and extension, image-generated comps, and the hosted concept catalog. One shared skill folder and a native engine carry the tasks; your host and skill manager provide the surrounding tools. The [architecture decisions](docs/adr/README.md) explain the choices.
 
-We maintain the project context, task contracts, native checks, and curated knowledge boundary here. The [curation record](docs/design-rule-curation.md) documents where the design knowledge lives and what remains under review.
+The [curation record](docs/design-rule-curation.md) documents where the design knowledge lives and what remains under review.
 
-For implementation and contribution, read [DEVELOP.md](docs/DEVELOP.md), [ENGINE.md](docs/ENGINE.md), and [AGENTS.md](AGENTS.md). The [architecture decisions](docs/adr/README.md) explain how the skill is built and delivered.
+For implementation and contribution, read [DEVELOP.md](docs/DEVELOP.md), [ENGINE.md](docs/ENGINE.md), and [AGENTS.md](AGENTS.md).
 
 Apache 2.0. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md), including the Impeccable attribution.
 
