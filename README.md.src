@@ -54,6 +54,8 @@ Install the shared skill folder with [Dalo](https://dalo.sh):
 ```bash
 dalo source add impeccino https://github.com/sebastian-software/impeccino.git --subpath skill
 dalo sync
+dalo binary show impeccino:impeccino#binary:impeccino
+dalo approve binary impeccino:impeccino#binary:impeccino
 ```
 
 Or use [skills.sh](https://skills.sh):
@@ -64,7 +66,9 @@ npx skills add sebastian-software/impeccino
 
 Then ask for the design task you have. Start with `/impeccino init` if you want durable product context recorded first.
 
-The launcher downloads and caches the pinned native engine on first use and verifies its digest. That first download needs network access and a writable cache; source checks then run locally without model API keys. Rendered web checks also require [agent-browser](https://github.com/vercel-labs/agent-browser): `npm install -g agent-browser && agent-browser install`.
+Dalo 1.5+ can supply the pinned engine on macOS and Linux through a separate binary approval. Review the repository, tag, and digests with `binary show` before approving. Each engine pin needs a new approval. The declaration is optional: when no matching Dalo binary is available, the launcher downloads and caches the pinned engine on first use, including on Windows and with skills.sh. Downloads need network access and a writable store or cache; source checks then run locally without model API keys. Rendered web checks also require [agent-browser](https://github.com/vercel-labs/agent-browser): `npm install -g agent-browser && agent-browser install`.
+
+The launcher honors `DALO_STORE`, otherwise the nearest `dalo-project.toml` within the current Git repository selects `<project>/.dalo`; without a project definition it uses `~/.dalo`. Set `DALO_STORE` when using a custom store. Skill commands continue to use the installed launcher.
 
 For automatic edit feedback, enable `/impeccino hooks on` in the project. [Design hooks](docs/DESIGN-HOOKS.md) explains supported hosts, manifests, and how to turn them off. Skill loading and launcher invocation have been verified in Claude Code and Codex; the [harness reference](docs/HARNESSES.md) distinguishes documented support from completed workflow verification.
 

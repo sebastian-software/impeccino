@@ -14,13 +14,14 @@ SKILL.md uses the Agent Skills spec fields (`name`, `description`, `license`, `c
 
 - `user-invocable: true`
 - `argument-hint` listing the commands and a target, which Claude Code shows in the slash-command picker.
+- `binaries` declaring the optional, digest-pinned engine for Dalo 1.5+ (0010).
 
-`compatibility` names what the machine needs (the launcher's first-run download, agent-browser for rendered-page scans). `allowed-tools` stays out: Claude Code blocks skill activation in non-interactive sessions when it is set. A test keeps the allowlist and the hint's command list in sync with `skill/scripts/command-metadata.json`.
+`compatibility` names what the machine needs (Dalo binary approval or the launcher's first-run download, agent-browser for rendered-page scans). `metadata.dalo.requires-commands` names agent-browser so Dalo reports a missing rendered-scan dependency without executing it. `allowed-tools` stays out: Claude Code blocks skill activation in non-interactive sessions when it is set. A test keeps the allowlist and the hint's command list in sync with `skill/scripts/command-metadata.json`.
 
 ## Consequences
 
 - Claude Code shows the command hint.
-- Strict validators report the two extra keys. That is expected; the runtimes load the skill.
+- Strict validators report the three extra keys. That is expected; the runtimes load the skill.
 
 ## Revisit when
 

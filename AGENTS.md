@@ -35,7 +35,7 @@ Write skill text so it holds in every harness:
 - Run the launcher as `"<skill-base-dir>/scripts/impeccino" <verb>`, quoted, because install paths can contain spaces.
 - Ask through "the host's structured question tool", not a named tool.
 - Put harness- or model-specific guidance in a labelled paragraph (`In Codex: ...`, `**GPT models (Codex):**`) instead of a build-time block.
-- SKILL.md frontmatter uses the Agent Skills spec fields (`name`, `description`, `license`, `compatibility`, `metadata`) plus `user-invocable` and `argument-hint`, which runtimes tolerate (ADR 0008); strict validators such as Codex's `quick_validate.py` flag the extras, which is expected. Keep `allowed-tools` out. `metadata.version` is the skill version.
+- SKILL.md frontmatter uses the Agent Skills spec fields (`name`, `description`, `license`, `compatibility`, `metadata`) plus `user-invocable`, `argument-hint`, and Dalo's optional `binaries` declaration, which runtimes tolerate (ADR 0008); strict validators such as Codex's `quick_validate.py` flag the extras, which is expected. Keep `allowed-tools` out. `metadata.version` is the skill version. The release pin step maintains `binaries.impeccino` from the attested engine pins (ADR 0010); do not edit its tag or digests independently.
 
 Nothing generated is tracked (ADR 0002). For other derived files, derive them where consumed instead.
 

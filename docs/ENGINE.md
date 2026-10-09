@@ -4,7 +4,8 @@ The public interface is the skill and its agent workflows. The Rust engine, its 
 
 Every command the skill text runs is `"<skill-base-dir>/scripts/impeccino" <verb>`. The
 launcher next to the skill (`skill/scripts/impeccino`, `impeccino.cmd`)
-finds or downloads one static binary per platform and execs it. That binary
+prefers a Dalo-supplied binary on macOS and Linux, otherwise finds or downloads
+one static binary per platform and execs it. That binary
 is built from this repo's Cargo workspace. There is no Node at runtime, and
 nothing in the engine runs in a browser
 ([ADR 0011](adr/0011-no-own-browser-stack.md)).
@@ -234,6 +235,16 @@ provenance against the release tag's source commit and open a pin PR. After merg
 and successful push CI, that workflow reverifies the committed pins and publishes
 the skill tag from the tested commit. `engine-v<version>` and `skill-v<version>` share that version.
 The installed engine pin advances after its assets are published.
+
+The pin step writes `engine.sha256`, `VERSION`, and `binaries.impeccino` in
+SKILL.md from those same attested bytes. `node scripts/pin-engine.mjs --check`
+rejects a missing pin or a mismatched Dalo tag, platform, asset, digest, or
+contract field. Dalo's four macOS/Linux assets are optional and require separate
+approval; Windows uses the launcher. The launcher checks a Dalo candidate's
+digest before its exact-version probe, honoring `DALO_STORE` or Dalo's nearest
+project definition within the Git boundary, then the default `~/.dalo` store.
+It does not invoke Dalo during startup. A missing, stale, or unapproved Dalo
+binary leaves the sibling, cache, and download fallback available.
 
 Retry with `gh workflow run release-engine.yml --ref engine-v<version>`.
 Retry skill preparation with `gh workflow run release-skill.yml --ref main -f engine_tag=engine-v<version>`.

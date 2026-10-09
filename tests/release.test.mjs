@@ -18,6 +18,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { checkEngineRelease } from '../scripts/check-engine-release.mjs';
+import { writeEnginePins } from '../scripts/pin-engine.mjs';
+import { readPins } from '../scripts/fetch-engine.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RELEASE_SCRIPT = path.join(REPO_ROOT, 'scripts', 'release.mjs');
@@ -108,6 +110,9 @@ describe('release.mjs guards', () => {
     const pins = ['darwin-arm64', 'darwin-x64', 'linux-x64', 'linux-arm64', 'windows-x64.exe']
       .map((a) => `${'a'.repeat(64)}  engine-v0.1.0/impeccino-${a}`).join('\n');
     write('skill/scripts/engine.sha256', `# fixture\n${pins}\n`);
+    writeEnginePins('0.1.0', readPins(workDir), workDir);
+    write('.gitignore', 'node_modules/\n');
+    fs.symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(workDir, 'node_modules'), 'junction');
 
     git(workDir, 'add', '-A');
     git(workDir, 'commit', '-m', 'fixture');
@@ -166,6 +171,16 @@ describe('release.mjs guards', () => {
     assert.match(stderr, /engine\.sha256 has no pin for engine-v0\.1\.0/);
   });
 
+  it('refuses a skill release whose Dalo declaration disagrees with the launcher pins', () => {
+    const file = path.join(workDir, 'skill/SKILL.md');
+    write('skill/SKILL.md', fs.readFileSync(file, 'utf8').replace('tag: engine-v0.1.0', 'tag: engine-v9.9.9'));
+    git(workDir, 'commit', '-am', 'change declaration');
+    git(workDir, 'push', 'origin', 'main');
+    const { code, stderr } = runRelease(workDir, 'skill');
+    assert.equal(code, 1);
+    assert.match(stderr, /binaries.impeccino disagrees/);
+  });
+
   it('refuses a skill release with a different version from its pinned engine', () => {
     write('skill/SKILL.md', '---\nmetadata:\n  version: 0.2.0\n---\n');
     const { code, stderr } = runRelease(workDir, 'skill');
@@ -192,7 +207,22 @@ describe('release.mjs guards', () => {
     git(workDir, 'push', 'origin', 'main');
     const { code, stderr } = runRelease(workDir, 'skill', '--resume');
     assert.equal(code, 1);
-    assert.match(stderr, /does not contain the verified shared version and pins/);
+    assert.match(stderr, /binaries.impeccino disagrees/);
+  });
+
+  it('refuses to resume a tag with a stale Dalo declaration even when its launcher pins match', () => {
+    const file = path.join(workDir, 'skill/SKILL.md');
+    const skill = fs.readFileSync(file, 'utf8');
+    write('skill/SKILL.md', skill.replace('tag: engine-v0.1.0', 'tag: engine-v9.9.9'));
+    git(workDir, 'commit', '-am', 'stale declaration');
+    git(workDir, 'tag', 'skill-v0.1.0');
+    git(workDir, 'push', 'origin', 'skill-v0.1.0');
+    write('skill/SKILL.md', skill);
+    git(workDir, 'commit', '-am', 'restore declaration');
+    git(workDir, 'push', 'origin', 'main');
+    const { code, stderr } = runRelease(workDir, 'skill', '--resume');
+    assert.equal(code, 1);
+    assert.match(stderr, /does not contain the verified Dalo binary declaration/);
   });
 
   it('starts the release notes from the previous release on origin, not a local-only tag', () => {

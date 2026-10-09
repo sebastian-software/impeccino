@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { productVersion } from './product-release.mjs';
 import { missingPins, readEngineVersion, PIN_FILE } from './fetch-engine.mjs';
 import { isEntrypoint } from './lib/is-entrypoint.mjs';
+import { checkEnginePins } from './pin-engine.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = 'sebastian-software/impeccino';
@@ -17,7 +18,13 @@ const skillVersion = root => fs.readFileSync(path.join(root, 'skill/SKILL.md'), 
 
 export function sharedPinsReady(root = ROOT) {
   const version = productVersion(root);
-  return readEngineVersion(root) === version && skillVersion(root) === version && missingPins(version, root).length === 0;
+  if (readEngineVersion(root) !== version || skillVersion(root) !== version || missingPins(version, root).length) return false;
+  try {
+    checkEnginePins(version, root);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function skillCandidate(testedSha, { root = ROOT, git = command(root, 'git'), gh = command(root, 'gh') } = {}) {

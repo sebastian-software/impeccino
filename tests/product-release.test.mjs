@@ -4,10 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parse } from 'yaml';
+import { createHash } from 'node:crypto';
 import { checkProductTag, prepareSkill } from '../scripts/product-release.mjs';
 import { openSkillPinPR, skillCandidate } from '../scripts/skill-pin-pr.mjs';
 import { publishEngine, RELEASE_ASSETS } from '../scripts/publish-engine.mjs';
 import { ENGINE_TARGETS, assetName } from '../scripts/fetch-engine.mjs';
+import { checkEnginePins, writeEnginePins, pinEngine } from '../scripts/pin-engine.mjs';
 
 const roots = [];
 const temp = () => {
@@ -29,6 +31,7 @@ function fixture() {
   write(root, 'skill/SKILL.md', '---\nname: impeccino\nmetadata:\n  version: 0.1.0\n---\n\nKeep this body.\n  version: body text\n');
   write(root, 'skill/scripts/VERSION', '0.2.0\n');
   write(root, 'skill/scripts/engine.sha256', '# old verified pins\n');
+  writeEnginePins('0.2.0', new Map(ENGINE_TARGETS.map(target => [`engine-v0.2.0/${assetName(target)}`, 'a'.repeat(64)])), root);
   const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
   git('init');
   git('config', 'user.name', 'Release Test');
@@ -42,6 +45,59 @@ function fixture() {
 }
 
 describe('shared product release', () => {
+  test('writes both pin routes only after every asset verifies', async () => {
+    const root = fixture();
+    const verifyAsset = vi.fn();
+    const downloadAsset = async url => Buffer.from(url.split('/').at(-1));
+    await pinEngine('0.3.0', { root, sourceDigest: 'c'.repeat(40), downloadAsset, verifyAsset });
+    expect(verifyAsset).toHaveBeenCalledTimes(5);
+    for (const [, version, sourceDigest] of verifyAsset.mock.calls) {
+      expect(version).toBe('0.3.0');
+      expect(sourceDigest).toBe('c'.repeat(40));
+    }
+    const frontmatter = parse(fs.readFileSync(path.join(root, 'skill/SKILL.md'), 'utf8').split('---')[1]);
+    const engine = frontmatter.binaries.impeccino;
+    expect(Object.keys(engine.assets).sort()).toEqual(['linux-arm64', 'linux-x64', 'macos-arm64', 'macos-x64']);
+    expect(engine.assets['macos-arm64'].sha256).toBe(createHash('sha256').update('impeccino-darwin-arm64').digest('hex'));
+    expect(engine.availability).toBe('optional');
+    expect(() => checkEnginePins('0.3.0', root)).not.toThrow();
+  });
+
+  test('a late attestation failure preserves all installed pins', async () => {
+    const root = fixture();
+    const files = ['skill/SKILL.md', 'skill/scripts/VERSION', 'skill/scripts/engine.sha256'];
+    const before = files.map(file => fs.readFileSync(path.join(root, file), 'utf8'));
+    let count = 0;
+    await expect(pinEngine('0.3.0', {
+      root,
+      downloadAsset: async () => Buffer.from('engine'),
+      verifyAsset: () => { if (++count === 5) throw new Error('invalid provenance'); },
+    })).rejects.toThrow('build attestation did not verify');
+    expect(files.map(file => fs.readFileSync(path.join(root, file), 'utf8'))).toEqual(before);
+  });
+
+  test.each(['tag', 'digest', 'asset', 'platform', 'unknown field'])('offline pin validation rejects declaration drift: %s', (change) => {
+    const root = fixture();
+    const file = path.join(root, 'skill/SKILL.md');
+    const skill = fs.readFileSync(file, 'utf8');
+    const replacements = {
+      tag: ['tag: engine-v0.2.0', 'tag: engine-v9.9.9'],
+      digest: ['a'.repeat(64), 'b'.repeat(64)],
+      asset: ['asset: impeccino-darwin-arm64', 'asset: another-binary'],
+      platform: ['macos-arm64:', 'windows-x64:'],
+      'unknown field': ['availability: optional', 'availability: optional\n    unexpected: true'],
+    };
+    fs.writeFileSync(file, skill.replace(...replacements[change]));
+    expect(() => checkEnginePins('0.2.0', root)).toThrow('disagrees');
+  });
+
+  test('rejects incomplete verified pins before writing the skill', () => {
+    const root = fixture();
+    const skill = fs.readFileSync(path.join(root, 'skill/SKILL.md'), 'utf8');
+    expect(() => writeEnginePins('0.3.0', new Map(), root)).toThrow('Missing or invalid pin');
+    expect(fs.readFileSync(path.join(root, 'skill/SKILL.md'), 'utf8')).toBe(skill);
+  });
+
   test('validates the candidate before changing the installed engine pin', () => {
     const root = fixture();
     expect(checkProductTag('engine-v0.3.0', root)).toBe('0.3.0');
@@ -55,23 +111,36 @@ describe('shared product release', () => {
   test('advances metadata and VERSION only after all five pins verify against the tag commit', async () => {
     const root = fixture();
     const pin = vi.fn(async (version, options) => {
-      expect(fs.readFileSync(path.join(root, 'skill/scripts/VERSION'), 'utf8')).toBe('0.2.0\n');
+      expect(fs.readFileSync(path.join(root, 'skill/scripts/VERSION'), 'utf8')).toBe(pin.mock.calls.length === 1 ? '0.2.0\n' : '0.3.0\n');
       expect(options.sourceDigest).toMatch(/^[a-f0-9]{40}$/);
-      write(root, 'skill/scripts/engine.sha256', ENGINE_TARGETS.map(target => `${'a'.repeat(64)}  engine-v${version}/${assetName(target)}`).join('\n'));
+      writeEnginePins(version, new Map(ENGINE_TARGETS.map(target => [`engine-v${version}/${assetName(target)}`, 'a'.repeat(64)])), root);
     });
     await expect(prepareSkill('engine-v0.3.0', { root, pin })).resolves.toBe('0.3.0');
     expect(pin).toHaveBeenCalledOnce();
     expect(fs.readFileSync(path.join(root, 'skill/scripts/VERSION'), 'utf8')).toBe('0.3.0\n');
-    expect(fs.readFileSync(path.join(root, 'skill/SKILL.md'), 'utf8')).toBe('---\nname: impeccino\nmetadata:\n  version: 0.3.0\n---\n\nKeep this body.\n  version: body text\n');
+    const skill = fs.readFileSync(path.join(root, 'skill/SKILL.md'), 'utf8');
+    expect(skill).toContain('  version: 0.3.0\n');
+    expect(skill).toContain('tag: engine-v0.3.0');
+    expect(skill).toContain('\nKeep this body.\n  version: body text\n');
+    expect(() => checkEnginePins('0.3.0', root)).not.toThrow();
+    // Recovery after the mechanical pin commit must preserve identical files.
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '-m', 'chore: pin engine'], { cwd: root });
+    await expect(prepareSkill('engine-v0.3.0', { root, pin })).resolves.toBe('0.3.0');
+    expect(fs.readFileSync(path.join(root, 'skill/SKILL.md'), 'utf8')).toBe(skill);
   });
 
-  test.each(['provenance failure', 'incomplete pins'])('restores the installed skill after %s', async (failure) => {
+  test.each(['provenance failure', 'incomplete pins', 'declaration drift'])('restores the installed skill after %s', async (failure) => {
     const root = fixture();
     const files = ['skill/SKILL.md', 'skill/scripts/VERSION', 'skill/scripts/engine.sha256'];
     const before = files.map(file => fs.readFileSync(path.join(root, file), 'utf8'));
     const pin = async () => {
       write(root, 'skill/scripts/engine.sha256', '# partial\n');
       if (failure === 'provenance failure') throw new Error('untrusted artifact');
+      if (failure === 'declaration drift') {
+        write(root, 'skill/scripts/engine.sha256', ENGINE_TARGETS.map(target => `${'a'.repeat(64)}  engine-v0.3.0/${assetName(target)}`).join('\n'));
+        write(root, 'skill/scripts/VERSION', '0.3.0\n');
+      }
     };
     await expect(prepareSkill('engine-v0.3.0', { root, pin })).rejects.toThrow();
     expect(files.map(file => fs.readFileSync(path.join(root, file), 'utf8'))).toEqual(before);
@@ -92,6 +161,17 @@ describe('shared product release', () => {
     execFileSync('git', ['commit', '-m', 'feat: change sources'], { cwd: root });
     const pin = vi.fn();
     await expect(prepareSkill('engine-v0.3.0', { root, pin })).rejects.toThrow(/sources changed/);
+    expect(pin).not.toHaveBeenCalled();
+  });
+
+  test.each(['repo: sebastian-software/impeccino', 'availability: optional', 'asset: impeccino-darwin-arm64'])('recovery refuses an authored binary contract change: %s', async value => {
+    const root = fixture();
+    const file = path.join(root, 'skill/SKILL.md');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(value, `${value}-changed`));
+    execFileSync('git', ['add', '.'], { cwd: root });
+    execFileSync('git', ['commit', '-m', 'change binary contract'], { cwd: root });
+    const pin = vi.fn();
+    await expect(prepareSkill('engine-v0.3.0', { root, pin })).rejects.toThrow('Skill sources changed');
     expect(pin).not.toHaveBeenCalled();
   });
 
@@ -192,7 +272,7 @@ describe('protected-main skill delivery', () => {
   async function prepared() {
     const root = fixture();
     await prepareSkill('engine-v0.3.0', { root, pin: async version => {
-      write(root, 'skill/scripts/engine.sha256', ENGINE_TARGETS.map(target => `${'a'.repeat(64)}  engine-v${version}/${assetName(target)}`).join('\n'));
+      writeEnginePins(version, new Map(ENGINE_TARGETS.map(target => [`engine-v${version}/${assetName(target)}`, 'a'.repeat(64)])), root);
     } });
     return root;
   }
@@ -206,7 +286,7 @@ describe('protected-main skill delivery', () => {
     expect(skillCandidate(sha, { root, git, gh })).toBe(false);
     expect(gh).not.toHaveBeenCalled();
     await prepareSkill('engine-v0.3.0', { root, pin: async version => {
-      write(root, 'skill/scripts/engine.sha256', ENGINE_TARGETS.map(target => `${'a'.repeat(64)}  engine-v${version}/${assetName(target)}`).join('\n'));
+      writeEnginePins(version, new Map(ENGINE_TARGETS.map(target => [`engine-v${version}/${assetName(target)}`, 'a'.repeat(64)])), root);
     } });
     expect(skillCandidate('older-sha', { root, git, gh })).toBe(false);
     expect(gh).not.toHaveBeenCalled();
@@ -215,6 +295,10 @@ describe('protected-main skill delivery', () => {
     expect(skillCandidate(sha, { root, git, gh })).toBe(false);
     gh.mockReturnValue('[{"tagName":"skill-v0.3.0","isDraft":true}]');
     expect(skillCandidate(sha, { root, git, gh })).toBe(true);
+    const skill = fs.readFileSync(path.join(root, 'skill/SKILL.md'), 'utf8');
+    write(root, 'skill/SKILL.md', skill.replace('tag: engine-v0.3.0', 'tag: engine-v0.2.0'));
+    expect(skillCandidate(sha, { root, git, gh })).toBe(false);
+    write(root, 'skill/SKILL.md', skill);
     write(root, 'skill/scripts/engine.sha256', '# incomplete');
     expect(skillCandidate(sha, { root, git, gh })).toBe(false);
   });
@@ -264,6 +348,13 @@ describe('protected-main skill delivery', () => {
     git(['config', '--unset', 'user.email']);
     git(['config', 'user.useConfigOnly', 'true']);
     const skill = parse(fs.readFileSync(new URL('../.github/workflows/release-skill.yml', import.meta.url), 'utf8'));
+    for (const job of ['prepare', 'publish']) {
+      const steps = skill.jobs[job].steps;
+      const install = steps.findIndex(step => step.run === 'pnpm install --frozen-lockfile');
+      const firstPinScript = steps.findIndex(step => step.run?.includes('node scripts/'));
+      expect(install).toBeGreaterThan(-1);
+      expect(install).toBeLessThan(firstPinScript);
+    }
     const publish = skill.jobs.publish.steps.find(step => step.name === 'Publish the skill with the tested shared version');
     const identity = publish.run.slice(0, publish.run.indexOf('node scripts/release.mjs'));
     execFileSync('sh', ['-c', identity], { cwd: root });

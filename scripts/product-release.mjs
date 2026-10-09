@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { pinEngine } from './pin-engine.mjs';
+import { pinEngine, checkEnginePins, withoutReleasePins } from './pin-engine.mjs';
 import { missingPins, PIN_FILE } from './fetch-engine.mjs';
 import { isEntrypoint } from './lib/is-entrypoint.mjs';
 
@@ -42,15 +42,16 @@ export async function prepareSkill(tag, { root = ROOT, pin = pinEngine } = {}) {
   const pinFiles = [PIN_FILE, 'skill/scripts/VERSION', 'skill/SKILL.md'];
   if (changed.some(file => !pinFiles.includes(file))) throw new Error('Release sources changed on main; refusing to pin an older engine');
   const taggedSkill = execFileSync('git', ['show', `${sourceDigest}:skill/SKILL.md`], { cwd: root, encoding: 'utf8' });
-  const withoutVersion = text => text.replace(/^---\r?\n([\s\S]*?)\r?\n---/, block => block.replace(/^  version:\s*[^\r\n]+/m, '  version: product'));
-  if (withoutVersion(skill) !== withoutVersion(taggedSkill)) throw new Error('Skill sources changed on main; finish the existing release first');
+  if (withoutReleasePins(skill) !== withoutReleasePins(taggedSkill)) throw new Error('Skill sources changed on main; finish the existing release first');
   const files = [PIN_FILE, 'skill/scripts/VERSION', 'skill/SKILL.md'];
   const originals = files.map(file => fs.readFileSync(path.join(root, file)));
   try {
     await pin(version, { root, sourceDigest });
     if (missingPins(version, root).length) throw new Error('The product engine is not fully pinned');
+    checkEnginePins(version, root);
     fs.writeFileSync(path.join(root, 'skill/scripts/VERSION'), `${version}\n`);
-    fs.writeFileSync(skillPath, skill.replace(frontmatter, frontmatter.replace(versionLine, `  version: ${version}`)));
+    const pinnedSkill = fs.readFileSync(skillPath, 'utf8');
+    fs.writeFileSync(skillPath, pinnedSkill.replace(/^---\r?\n([\s\S]*?)\r?\n---/, block => block.replace(/^  version:\s*[^\r\n]+/m, `  version: ${version}`)));
   } catch (error) {
     files.forEach((file, index) => fs.writeFileSync(path.join(root, file), originals[index]));
     throw error;
