@@ -5,7 +5,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { pinEngine, checkEnginePins, withoutReleasePins } from './pin-engine.mjs';
 import { missingPins, PIN_FILE } from './fetch-engine.mjs';
 import { isEntrypoint } from './lib/is-entrypoint.mjs';
 
@@ -30,8 +29,12 @@ export function checkProductTag(tag, root = ROOT) {
   return version;
 }
 
-export async function prepareSkill(tag, { root = ROOT, pin = pinEngine } = {}) {
+export async function prepareSkill(tag, { root = ROOT, pin: suppliedPin } = {}) {
   const version = checkProductTag(tag, root);
+  // Engine build runners check tags before any Node packages are installed.
+  // Only skill preparation needs the YAML parser and pin-writing helpers.
+  const { pinEngine, checkEnginePins, withoutReleasePins } = await import('./pin-engine.mjs');
+  const pin = suppliedPin ?? pinEngine;
   const skillPath = path.join(root, 'skill/SKILL.md');
   const skill = fs.readFileSync(skillPath, 'utf8');
   const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[0];
