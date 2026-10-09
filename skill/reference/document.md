@@ -68,8 +68,8 @@ Read existing DESIGN.md and any legacy DESIGN.json before updating. Preserve
 legacy metadata through the migration below; do not create a new sidecar.
 A document request authorizes recording within its scope; it does not authorize replacing an
 incumbent identity or unrelated decisions. Ask only when a material boundary
-or fact remains unclear. Select suitable system-design knowledge available to
-the host rather than inventing a metaphor or mandatory naming workshop.
+or fact remains unclear. Use the design-system knowledge found through
+[knowledge.md](knowledge.md) rather than inventing a metaphor or mandatory naming workshop.
 
 ## Scan mode
 

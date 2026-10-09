@@ -3,8 +3,8 @@
 Review technical quality in the requested scope without editing implementation.
 Read PRODUCT.md, DESIGN.md, the surface brief, and relevant ADRs. Respect
 recorded style decisions; report observed accessibility or functional defects
-even when a recorded decision conflicts. Select suitable audit knowledge
-available to the host and establish the actual platform and support policy.
+even when a recorded decision conflicts. Use the audit knowledge found through
+[knowledge.md](knowledge.md) and establish the actual platform and support policy.
 Native platforms use audit.native.md and skip the HTML/CSS detector.
 
 ## Diagnostic Scan

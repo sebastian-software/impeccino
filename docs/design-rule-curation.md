@@ -8,8 +8,11 @@ describe source overlap, not independent votes or proof of universal validity.
 
 The maintained knowledge owner is `effective-web` in the Skill Library.
 Impeccino keeps task entry points, context, measurements, and project-file
-contracts. Its workflows can use suitable knowledge available to the host;
-the Library is not a mandatory runtime dependency or an exclusive source.
+contracts. Setup step 3 asks the agent to look for design
+knowledge by topic through `skill/reference/knowledge.md`, project sources
+before user-wide ones; it names no particular library. The Library is still not a mandatory runtime
+dependency or an exclusive source; without a qualifying source, the work
+continues on general knowledge and the report says so.
 This follows [issue 74](https://github.com/sebastian-software/impeccino/issues/74).
 
 ## Content dispositions

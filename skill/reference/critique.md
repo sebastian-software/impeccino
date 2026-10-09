@@ -12,8 +12,8 @@ accessibility or functional defects and explain any conflicting decision.
 
 Inspect the experience before detector output when possible to reduce anchoring.
 Use independent assessments only when the host permits and the task benefits;
-report when the review is local rather than independent. Select suitable review
-knowledge available to the host.
+report when the review is local rather than independent. Judge with the review
+knowledge found through [knowledge.md](knowledge.md).
 
 ## Mechanical scan (web only)
 
@@ -29,9 +29,10 @@ Stop servers started solely for this review unless asked to keep them.
 
 Return actionable findings in chat; nothing is archived. Name target, audience,
 what works, prioritized findings, evidence and user consequence, concrete
-recommendations, and coverage limits. Separate measured defects from advisory
-patterns; an unjustified cluster needs its owning decision corrected. Do not
-claim overall accessibility or design quality from a clean scan.
+recommendations, the knowledge sources used, and coverage limits. Separate
+measured defects from advisory patterns; an unjustified cluster needs its
+owning decision corrected. Do not claim overall accessibility or design quality
+from a clean scan.
 
 Ask a targeted question only when an unresolved finding needs a material choice.
 When the user rejects a finding as deliberate, reuse that decision. Record it

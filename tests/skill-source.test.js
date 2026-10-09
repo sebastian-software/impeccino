@@ -116,6 +116,25 @@ describe('cross-reference contracts', () => {
     expect([skill, overdrive].join('\n')).not.toMatch(/at most one more round|two rounds is the ceiling|mandatory interview/i);
   });
 
+  test('setup nudges the agent to look for design knowledge by topic', () => {
+    const skill = read('SKILL.md');
+    const knowledge = read('reference/knowledge.md');
+    const reviewer = read('agents/impeccino-finish-reviewer.md');
+    const setup = skill.split('## Setup')[1].split(/\n## /)[0];
+
+    expect(setup).toMatch(/look for design know-how[^\n]*\(reference\/knowledge\.md\)/);
+    expect(knowledge).toMatch(/## Look before you start/);
+    expect(knowledge).toMatch(/Recorded project decisions outrank both/);
+    expect(knowledge).toMatch(/\| typography \|/);
+    expect(knowledge).toMatch(/say so;\s+a missing\s+source never blocks the work/);
+    expect(reviewer).toMatch(/knowledge file paths/);
+    const skillText = fs.readdirSync(path.join(skillDir, 'reference'))
+      .map((name) => read('reference/' + name))
+      .concat([skill, reviewer, read('agents/impeccino-documenter.md')]).join('\n');
+    expect(skillText).not.toMatch(/effective[- ](web|writing|marketing)/i);
+    expect(skillText).not.toMatch(/no external skill|without requiring one external skill/i);
+  });
+
   test('review and documentation distinguish style warnings from observed defects', () => {
     const craftFloor = read('reference/craft-floor.md');
     const reviewer = read('agents/impeccino-finish-reviewer.md');

@@ -8,7 +8,7 @@ shape does not write code or persist a direction contract unless requested.
 Read the requested target and existing context before asking. Establish the
 surface's audience and job, success, real content and evidence, important states
 and ranges, interaction, platform constraints, and what remains untouched.
-Reuse settled facts. Select suitable planning knowledge available to the host.
+Reuse settled facts. Use the planning knowledge found through [knowledge.md](knowledge.md).
 
 Use one focused discovery round when material gaps remain. Ask through the
 host's structured question tool when available; keep questions concrete and

@@ -2,8 +2,8 @@
 
 Build a new surface or replace a visual identity within the requested scope.
 PRODUCT.md owns product facts; DESIGN.md owns durable visual decisions; each
-marked section of SURFACES.md owns one surface's mode and strategy. Select
-suitable design knowledge available to the host. No external skill is required.
+marked section of SURFACES.md owns one surface's mode and strategy. Apply the
+planning knowledge found through [knowledge.md](knowledge.md).
 
 ## 1. Decide what is already true
 
