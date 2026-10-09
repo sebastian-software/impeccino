@@ -1,9 +1,9 @@
 # Craft floor
 
 Read this after direction is settled and before a UI edit. Apply the user's
-request, product truth, incumbent system, and agreed scope. Select suitable
-design knowledge for the task from what the host has available; no external
-skill or catalogue is required to complete the work.
+request, product truth, incumbent system, and agreed scope. Apply the design
+knowledge Setup found through [knowledge.md](knowledge.md); when no source
+qualified, use general knowledge and say so.
 
 ## Interpret the evidence
 

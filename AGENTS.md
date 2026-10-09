@@ -41,7 +41,7 @@ Nothing generated is tracked (ADR 0002). For other derived files, derive them wh
 
 ## Skill architecture and authoring
 
-The skill has one command router. Do not add standalone skills or restore the removed per-domain references: shared guidance belongs in `craft-floor.md`, `new-work.md`, `operate.md`, or the command that consumes it. Claude Code agent files in `skill/agents/` are the shipped roles; SKILL.md explains the fallback for other harnesses.
+The skill has one command router. Do not add standalone skills or restore the removed per-domain references: shared guidance belongs in `craft-floor.md`, `new-work.md`, `operate.md`, or the command that consumes it. `knowledge.md` nudges the agent to look for design know-how in installed skills and project resources by topic before it starts; it names no particular skill and holds no design rules itself. Claude Code agent files in `skill/agents/` are the shipped roles; SKILL.md explains the fallback for other harnesses.
 
 Mode is per surface: Persuade, Operate, Read, or Experience. Store it in that surface's marked section of `SURFACES.md`, never as a project-wide PRODUCT.md register. Platform is independent: PRODUCT.md's `## Platform` holds `web`, `ios`, `android`, or `adaptive`; a missing field defaults to web. Native variants replace the web command reference when one exists, and adaptive loads both platform references. Keep the report skeleton of `audit.md` and `audit.native.md` aligned. Accessibility guidance belongs in audit rather than the setup design laws.
 
