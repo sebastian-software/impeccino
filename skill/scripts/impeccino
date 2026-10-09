@@ -1,6 +1,6 @@
 #!/bin/sh
 # Impeccino launcher. Automatic candidates must match VERSION; downloads must
-# also match engine.sha256. Selection: explicit override, sibling, cache, fetch.
+# also match engine.sha256. Selection: override, Dalo, sibling, cache, fetch.
 set -eu
 
 dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -78,6 +78,51 @@ probe_ok() {
   rm -f "$probe_tmp"
   return "$probe_status"
 }
+
+# Dalo exposes an approved engine at <store>/bin/impeccino. Match this skill's
+# digest before executing even the version probe; another skill pin can share
+# the stable exposure path. Windows assets are not part of Dalo's contract.
+dalo_digest_ok() {
+  [ -f "$dir/engine.sha256" ] || return 1
+  dalo_expected=$(awk -v k="engine-v$version/impeccino-$os-$arch" '$2 == k { print $1; exit }' "$dir/engine.sha256" 2>/dev/null) || return 1
+  [ -n "$dalo_expected" ] || return 1
+  if command -v shasum >/dev/null 2>&1; then
+    dalo_hash=$(shasum -a 256 "$1" 2>/dev/null) || return 1
+  elif command -v sha256sum >/dev/null 2>&1; then
+    dalo_hash=$(sha256sum "$1" 2>/dev/null) || return 1
+  else
+    return 1
+  fi
+  [ "${dalo_hash%% *}" = "$dalo_expected" ]
+}
+
+if [ -n "$version" ] && { [ "$os" = darwin ] || [ "$os" = linux ]; }; then
+  dalo_store=${DALO_STORE:-}
+  if [ -z "$dalo_store" ]; then
+    # Match Dalo's nearest-project discovery, including nested projects and
+    # worktrees. Parent stats only: no Dalo process or directory inventory.
+    dalo_parent=$(pwd -P)
+    while :; do
+      if [ -f "$dalo_parent/dalo-project.toml" ]; then
+        dalo_store="$dalo_parent/.dalo"
+        break
+      fi
+      [ -e "$dalo_parent/.git" ] && break
+      [ "$dalo_parent" = / ] && break
+      dalo_parent=${dalo_parent%/*}
+      [ -n "$dalo_parent" ] || dalo_parent=/
+    done
+    [ -n "$dalo_store" ] || dalo_store="${HOME:-/nonexistent}/.dalo"
+  fi
+  case "$dalo_store" in
+    '~') dalo_store="${HOME:-/nonexistent}" ;;
+    '~/'*) dalo_store="${HOME:-/nonexistent}/${dalo_store#\~/}" ;;
+  esac
+  dalo_bin="$dalo_store/bin/impeccino"
+  if [ -x "$dalo_bin" ] && dalo_digest_ok "$dalo_bin" && probe_ok "$dalo_bin" "$version"; then
+    exec "$dalo_bin" "$@"
+  fi
+fi
 
 if [ -n "$version" ] && [ -f "$bin" ]; then
   if [ ! -x "$bin" ]; then

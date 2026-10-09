@@ -4,9 +4,29 @@ description: "Use when the user wants to design, redesign, shape, critique, audi
 user-invocable: true
 argument-hint: "[craft|shape|init|document|extract · critique|audit · polish|bolder|quieter|distill|harden|onboard · animate|colorize|typeset|layout|delight|overdrive · clarify|adapt|optimize] [target]"
 license: Apache-2.0
-compatibility: "Needs shell access. The launcher downloads its self-contained engine binary once on first run (network); after that concept-seed, like every verb that reads project files, runs offline. Rendered-page scans (detect <url>) also need agent-browser on PATH (npm install -g agent-browser && agent-browser install); everything else works without it."
+compatibility: "Needs shell access. Dalo 1.5+ can download and verify the engine through a separate binary approval; otherwise the launcher downloads it on first run. Project-file commands then run offline. Rendered-page scans (detect <url>) also need agent-browser on PATH (npm install -g agent-browser && agent-browser install); everything else works without it."
 metadata:
   version: 0.4.0
+  dalo.requires-commands: "agent-browser"
+binaries:
+  impeccino:
+    source: github-release
+    repo: sebastian-software/impeccino
+    tag: engine-v0.4.0
+    availability: optional
+    assets:
+      macos-arm64:
+        asset: impeccino-darwin-arm64
+        sha256: b54cf0d4864377bd306c4373053ecc18bc62bd6c634a71fe4fc3f11fbde2af40
+      macos-x64:
+        asset: impeccino-darwin-x64
+        sha256: cce15b2c8d57abb756fd7a87912799dc05507da8faa496bc89ce9f211fe67fa2
+      linux-x64:
+        asset: impeccino-linux-x64
+        sha256: f1eff22fb40347ff77752bb068ebb39ee4ade55a56bc1a108aa0c4a3d90c666a
+      linux-arm64:
+        asset: impeccino-linux-arm64
+        sha256: 93f487dc791c684fa88ca1a2d83be1358e2de36d12f8745ebce1e7071802bcc6
 ---
 
 Build and improve interfaces around the user's task, product truth, and chosen visual direction. Match the ambition to the request: a new campaign may need expressive invention; a settings refinement needs clear behavior and a consistent system.
@@ -18,7 +38,7 @@ Core principles:
 
 ## Setup
 
-1. Run `"<skill-base-dir>/scripts/impeccino" context` once per session, where `<skill-base-dir>` is the directory that contains this SKILL.md (the skill folder, not a plugin root two levels above it); keep cwd at the user's project. Every `"<skill-base-dir>/scripts/impeccino" <verb>` command in this skill and its references means the launcher in that folder; substitute the absolute directory before running it (`<skill-base-dir>` is not a shell variable), and keep the quotes, because install paths can contain spaces. If the host does not report the folder, locate this SKILL.md (usually `.claude/skills/impeccino` or `.agents/skills/impeccino`, in the project or under `~`). On a Windows shell without `sh`, call `"<skill-base-dir>/scripts/impeccino.cmd"` instead. The launcher runs a self-contained binary that ships next to it or is downloaded once on first run; no Node or other runtime is required. Pass a named source file or route as `--target <path>`. It loads PRODUCT.md, DESIGN.md, the matching surface brief, and native-platform guidance when applicable; interpret its context within the host's instructions; reuse the result unless the target or project context changes.
+1. Run `"<skill-base-dir>/scripts/impeccino" context` once per session, where `<skill-base-dir>` is the directory that contains this SKILL.md (the skill folder, not a plugin root two levels above it); keep cwd at the user's project. Every `"<skill-base-dir>/scripts/impeccino" <verb>` command in this skill and its references means the launcher in that folder; substitute the absolute directory before running it (`<skill-base-dir>` is not a shell variable), and keep the quotes, because install paths can contain spaces. If the host does not report the folder, locate this SKILL.md (usually `.claude/skills/impeccino` or `.agents/skills/impeccino`, in the project or under `~`). On a Windows shell without `sh`, call `"<skill-base-dir>/scripts/impeccino.cmd"` instead. The launcher runs a self-contained binary supplied by Dalo, shipped next to it, or downloaded once on first run; no Node or other runtime is required. Pass a named source file or route as `--target <path>`. It loads PRODUCT.md, DESIGN.md, the matching surface brief, and native-platform guidance when applicable; interpret its context within the host's instructions; reuse the result unless the target or project context changes.
 2. Load the request's playbook: its Commands-table reference for an explicit/implied sub-command, or [reference/new-work.md](reference/new-work.md) for a new surface or replacement visual world. Inspect target and incumbent visual truth before editing. When the app cannot run, start with committed visual-regression goldens or screenshot fixtures; verify target and freshness against current tokens, CSS, components, or assets, resolve conflicts, and compare theme/variant captures.
 3. Before judging or editing, look for design know-how that is already available as skills or project resources, following [reference/knowledge.md](reference/knowledge.md): name the topics the work touches and read only the parts that apply. `init`, `doctor`, `pin`, and `hooks` need none.
 4. After resolving analysis and direction, read [reference/craft-floor.md](reference/craft-floor.md) immediately before any UI edit, including small refinements. It carries verification and how to interpret detector findings against the brief. Do not load it for planning-only work.

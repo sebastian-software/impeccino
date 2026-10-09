@@ -32,5 +32,8 @@ generated copies. Root harness folders are ignored local developer state.
   output.
 - Engine release `THIRD-PARTY-NOTICES.txt` remains generated and untracked; the
   release workflow derives it from the locked Cargo dependency graph.
+- Attested release pins in `engine.sha256`, VERSION, and SKILL.md's Dalo binary
+  declaration are reviewed source inputs for installation (0010, 0014), not
+  build artifacts. The release pin step updates them together.
 
 - `README.md` is the explicit publication exception: edit `README.md.src`, generate with the project-pinned mdtheme, review the diff, and commit both. CI verifies exact composition; no workflow commits regenerated output automatically. `mise.lock` records the tool archive checksums.

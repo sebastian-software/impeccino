@@ -47,6 +47,47 @@ async function exercise(t, scenario) {
     : path.join(cache, 'bin', '0.0.0-test');
   const missingEnvBin = path.join(home, 'missing-engine');
   const overrideBin = path.join(home, WINDOWS ? 'override-engine.cmd' : 'override-engine');
+  const daloScenarios = scenario.startsWith('dalo-');
+  const project = path.join(root, 'project');
+  const nested = path.join(project, 'nested');
+  const customStore = path.join(root, 'custom store');
+  let cwd = root;
+  let daloStore = path.join(home, '.dalo');
+  if (daloScenarios) {
+    if (['dalo-custom', 'dalo-relative', 'dalo-explicit-over-project'].includes(scenario)) daloStore = customStore;
+    if (['dalo-project', 'dalo-explicit-over-project', 'dalo-git-boundary'].includes(scenario)) {
+      fs.mkdirSync(nested, { recursive: true });
+      fs.writeFileSync(path.join(project, 'dalo-project.toml'), 'schema_version = 2\n');
+      fs.mkdirSync(path.join(project, '.git'));
+      cwd = nested;
+      if (scenario === 'dalo-project') daloStore = path.join(project, '.dalo');
+      if (scenario === 'dalo-git-boundary') {
+        fs.writeFileSync(path.join(nested, '.git'), 'gitdir: unrelated worktree\n');
+        // An ancestor's unrelated project store must not be consulted.
+        fs.mkdirSync(path.join(project, '.dalo', 'bin'), { recursive: true });
+        fs.writeFileSync(path.join(project, '.dalo', 'bin', 'impeccino'), PAYLOAD, { mode: 0o755 });
+      }
+    }
+    fs.mkdirSync(path.join(daloStore, 'bin'), { recursive: true });
+    if (scenario !== 'dalo-missing') {
+      const payload = scenario === 'dalo-wrong-version'
+        ? Buffer.from('#!/bin/sh\nif [ "$1" = engine-probe ]; then printf "impeccino-engine 9.9.9\\n"; else printf "wrong-engine\\n"; fi\n')
+        : ['dalo-tampered', 'dalo-stale'].includes(scenario)
+        ? Buffer.from(`#!/bin/sh\nprintf 'executed' > '${path.join(root, 'untrusted-executed')}'\nprintf 'impeccino-engine ${scenario === 'dalo-stale' ? '9.9.9' : '0.0.0-test'}\\n'\n`)
+        : PAYLOAD;
+      fs.writeFileSync(path.join(daloStore, 'bin', 'impeccino'), payload, { mode: 0o555 });
+      if (scenario === 'dalo-wrong-version') {
+        const pins = path.join(scripts, 'engine.sha256');
+        fs.writeFileSync(pins, fs.readFileSync(pins, 'utf8').replaceAll(HASH, createHash('sha256').update(payload).digest('hex')));
+      }
+    }
+    if (['dalo-priority', 'dalo-wrong-version'].includes(scenario)) {
+      const sibling = path.join(scripts, 'bin', PLATFORM + '-' + ARCH, 'impeccino');
+      fs.mkdirSync(path.dirname(sibling), { recursive: true });
+      fs.writeFileSync(sibling, `#!/bin/sh\nif [ "$1" = engine-probe ]; then printf "impeccino-engine 0.0.0-test\\n"; else printf "${scenario === 'dalo-priority' ? 'sibling-engine' : 'verified-engine'}\\n"; fi\n`, { mode: 0o755 });
+    }
+    if (scenario === 'dalo-no-pin') fs.unlinkSync(path.join(scripts, 'engine.sha256'));
+  }
   if (['sibling-marker-only', 'sibling-probe-failure', 'sibling-extra-output', 'cache-marker-only'].includes(scenario)) {
     const sibling = scenario === 'cache-marker-only'
       ? path.join(cacheDir, 'impeccino')
@@ -138,7 +179,10 @@ async function exercise(t, scenario) {
     if (scenario === 'parallel-downloads') setTimeout(respond, 100);
     else respond();
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
   t.onTestFinished(() => new Promise(resolve => server.close(resolve)));
   // Keep system tools, but exclude user/npm PATH candidates and all launcher
   // overrides so the test cannot accidentally execute an installed engine.
@@ -148,13 +192,16 @@ async function exercise(t, scenario) {
     ...(defaultCache ? (WINDOWS ? { LOCALAPPDATA: cache } : { XDG_CACHE_HOME: cache }) : { IMPECCINO_HOME: cache }),
     ...(scenario === 'missing-env-bin' ? { IMPECCINO_BIN: missingEnvBin } : {}),
     ...(scenario === 'override-other-version' ? { IMPECCINO_BIN: overrideBin } : {}),
+    ...(['dalo-custom', 'dalo-explicit-over-project'].includes(scenario) ? { DALO_STORE: customStore } : {}),
+    ...(scenario === 'dalo-relative' ? { DALO_STORE: 'custom store' } : {}),
+    ...(scenario === 'dalo-override' ? { IMPECCINO_BIN: overrideBin } : {}),
     IMPECCINO_DOWNLOAD_BASE: `http://127.0.0.1:${server.address().port}`,
     ...(WINDOWS ? { SystemRoot: process.env.SystemRoot, ComSpec: COMSPEC, PROCESSOR_ARCHITECTURE: 'AMD64' } : {}),
   };
   const run = () => new Promise((resolve, reject) => {
     const child = WINDOWS
       ? spawn(COMSPEC, ['/d', '/s', '/c', `""${launcher}" /d /c echo verified-engine"`], { env, cwd: root, windowsVerbatimArguments: true, timeout: 20000 })
-      : spawn('/bin/sh', [launcher], { env, cwd: root, timeout: 20000 });
+      : spawn('/bin/sh', [launcher], { env, cwd, timeout: 20000 });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', data => { stdout += data; });
@@ -162,7 +209,7 @@ async function exercise(t, scenario) {
     child.on('error', reject);
     child.on('close', (status, signal) => resolve({ status, signal, stdout, stderr }));
   });
-  if (scenario === 'override-other-version') {
+  if (['override-other-version', 'dalo-override'].includes(scenario)) {
     fs.writeFileSync(overrideBin, WINDOWS
       ? '@echo off\r\necho override-engine\r\n'
       : "#!/bin/sh\n" + "printf 'override-engine\\n'\n",
@@ -181,10 +228,11 @@ async function exercise(t, scenario) {
   }
   assert.equal(result.signal, null, JSON.stringify(result));
   for (const item of results) assert.equal(item.signal, null, JSON.stringify(item));
-  const noDownload = scenario.startsWith('cache-') && scenario !== 'cache-marker-only' || ['no-pin', 'pinned-other-version', 'missing-env-bin', 'override-other-version'].includes(scenario);
+  const noDownload = scenario.startsWith('cache-') && scenario !== 'cache-marker-only' || ['no-pin', 'pinned-other-version', 'missing-env-bin', 'override-other-version', 'dalo-default', 'dalo-custom', 'dalo-relative', 'dalo-project', 'dalo-explicit-over-project', 'dalo-git-boundary', 'dalo-priority', 'dalo-override', 'dalo-no-pin', 'dalo-wrong-version'].includes(scenario);
   const expectedRequests = scenario === 'parallel-downloads' ? 2 : noDownload ? 0 : 1;
   assert.equal(requests.length, expectedRequests,
     'cache failures, unusable overrides, and unpinned versions do not attempt a download; parallel downloads use separate staging files');
+  assert.equal(fs.existsSync(path.join(root, 'untrusted-executed')), false, 'a mismatched Dalo candidate is never executed, even for the probe');
   let cooldownResult;
   if (['download-failure', 'transport-failure'].includes(scenario)) {
     cooldownResult = await run();
@@ -250,6 +298,41 @@ test('launcher recovers after an expired failure cooldown', async t => {
 });
 
 if (!WINDOWS) {
+  for (const scenario of ['dalo-default', 'dalo-custom', 'dalo-relative', 'dalo-project', 'dalo-explicit-over-project', 'dalo-git-boundary', 'dalo-priority']) {
+    test(`launcher uses the pinned Dalo engine without downloading (${scenario})`, async t => {
+      const result = await exercise(t, scenario);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /verified-engine/);
+      assert.deepEqual(result.requests, []);
+      assert.deepEqual(result.files, [], 'Dalo execution does not copy into the launcher cache');
+    });
+  }
+  for (const scenario of ['dalo-tampered', 'dalo-stale', 'dalo-missing']) {
+    test(`launcher keeps its fallback for an unusable Dalo engine (${scenario})`, async t => {
+      const result = await exercise(t, scenario);
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /verified-engine/);
+      assert.equal(result.requests.length, 1);
+    });
+  }
+  test('explicit engine override takes precedence over Dalo', async t => {
+    const result = await exercise(t, 'dalo-override');
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /override-engine/);
+    assert.deepEqual(result.requests, []);
+  });
+  test('launcher refuses to execute a Dalo engine without its skill digest', async t => {
+    const result = await exercise(t, 'dalo-no-pin');
+    assert.equal(result.status, 127, result.stderr);
+    assert.deepEqual(result.requests, []);
+  });
+  test('launcher requires the exact version even when the Dalo digest matches', async t => {
+    const result = await exercise(t, 'dalo-wrong-version');
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /verified-engine/);
+    assert.doesNotMatch(result.stdout, /wrong-engine/);
+    assert.deepEqual(result.requests, []);
+  });
   test('parallel launcher downloads use distinct temporary files', async t => {
     const result = await exercise(t, 'parallel-downloads');
     assert.equal(result.results.length, 2);

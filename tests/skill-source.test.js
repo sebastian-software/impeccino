@@ -4,6 +4,7 @@ import path from 'path';
 import * as utils from '../scripts/lib/utils.js';
 import { missingPins } from '../scripts/fetch-engine.mjs';
 import { productVersion } from '../scripts/product-release.mjs';
+import { checkEnginePins } from '../scripts/pin-engine.mjs';
 
 // skill/ is the install payload for every harness (docs/adr/0001), so these
 // checks guard the folder itself rather than any build output.
@@ -31,6 +32,7 @@ describe('skill scripts payload', () => {
     const version = scripts.find((s) => s.name === 'VERSION').content.trim();
     expect(version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
     expect(missingPins(version, ROOT_DIR)).toEqual([]);
+    expect(() => checkEnginePins(version, ROOT_DIR)).not.toThrow();
   });
 
   test('the candidate engine follows the declared product version independently of the installed pin', () => {
@@ -49,7 +51,7 @@ describe('universal skill source', () => {
     const { frontmatter } = utils.parseFrontmatter(fs.readFileSync(path.join(SKILL_DIR, 'SKILL.md'), 'utf-8'));
     // Spec fields, plus Claude Code's `user-invocable` and `argument-hint`.
     // `allowed-tools` stays out: Claude Code then blocks non-interactive activation.
-    const allowed = new Set(['name', 'description', 'license', 'compatibility', 'metadata', 'user-invocable', 'argument-hint']);
+    const allowed = new Set(['name', 'description', 'license', 'compatibility', 'metadata', 'binaries', 'user-invocable', 'argument-hint']);
     for (const key of Object.keys(frontmatter)) expect(allowed.has(key)).toBe(true);
     expect(frontmatter.metadata.version).toBeTruthy();
     // The hint names every command, and only those.

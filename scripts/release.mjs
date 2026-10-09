@@ -15,7 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkEngineRelease } from './check-engine-release.mjs';
 import { readEngineVersion } from './fetch-engine.mjs';
-import { PIN_FILE, missingPins } from './pin-engine.mjs';
+import { PIN_FILE, missingPins, checkEnginePins } from './pin-engine.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -120,11 +120,17 @@ function checkReleasePreconditions(tag) {
     if (!resume) fail(`Tag ${tag} already exists on origin.`);
     run(`git fetch origin tag ${tag}`);
     existingTag = true;
-    const taggedSkill = readSkillVersion(run(`git show ${tag}:skill/SKILL.md`));
+    const taggedSkillText = run(`git show ${tag}:skill/SKILL.md`);
+    const taggedSkill = readSkillVersion(taggedSkillText);
     const taggedEngine = run(`git show ${tag}:skill/scripts/VERSION`);
     const taggedPins = run(`git show ${tag}:skill/scripts/engine.sha256`);
     if (taggedSkill !== version || taggedEngine !== version || taggedPins !== readFileSync(path.join(repoRoot, PIN_FILE), 'utf8').trim()) {
       fail(`Existing ${tag} does not contain the verified shared version and pins.`);
+    }
+    try {
+      checkEnginePins(version, repoRoot, taggedSkillText);
+    } catch {
+      fail(`Existing ${tag} does not contain the verified Dalo binary declaration.`);
     }
   }
   if (localTagExists && !existingTag) fail(`Local tag ${tag} is not on origin; refusing to resume it.`);
@@ -177,6 +183,11 @@ if (component === 'skill') {
   const missing = missingPins(engineVersion, repoRoot);
   if (missing.length) {
     fail(`${PIN_FILE} has no pin for engine-v${engineVersion} (${missing.join(', ')}). Run \`node scripts/pin-engine.mjs\` after the engine release and commit the result.`);
+  }
+  try {
+    checkEnginePins(engineVersion, repoRoot);
+  } catch (error) {
+    fail(error.message);
   }
   ok('engine pins present');
 }
