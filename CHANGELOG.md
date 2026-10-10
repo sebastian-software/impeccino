@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/sebastian-software/impeccino/compare/engine-v0.4.0...engine-v0.5.0) (2026-10-10)
+
+
+### Features
+
+* use Dalo-managed engine binaries ([c884f17](https://github.com/sebastian-software/impeccino/commit/c884f171ef0250b5005d163a0b1faaaead477a56))
+
+
+### Bug Fixes
+
+* install dependencies before the CI pin check ([48a3cb5](https://github.com/sebastian-software/impeccino/commit/48a3cb5c3a9165f1abc0246108c300c9a38fd3dd))
+
 ## [0.4.0](https://github.com/sebastian-software/impeccino/compare/engine-v0.3.1...engine-v0.4.0) (2026-10-09)
 
 
