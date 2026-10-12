@@ -1,0 +1,7 @@
+{
+  "stdout": "{\n  \"valid\": false,\n  \"diagnostics\": [\n    {\n      \"code\": \"token-group\",\n      \"source\": \"draft\",\n      \"severity\": \"error\",\n      \"line\": 2,\n      \"column\": 1,\n      \"path\": \"/colors\",\n      \"message\": \"Use a mapping of token names to values\"\n    },\n    {\n      \"code\": \"token-reference\",\n      \"source\": \"draft\",\n      \"severity\": \"error\",\n      \"line\": 5,\n      \"column\": 5,\n      \"path\": \"/components/button/textColor\",\n      \"message\": \"Resolve {colors.missing} to a declared primitive (or a typography token for component typography); primitive tokens cannot reference other tokens\"\n    },\n    {\n      \"code\": \"section-order\",\n      \"source\": \"draft\",\n      \"severity\": \"error\",\n      \"line\": 8,\n      \"column\": 1,\n      \"path\": \"/sections/Colors\",\n      \"message\": \"Keep present canonical sections in Overview, Colors, Typography, Layout, Elevation, Shapes, Components, Do's and Don'ts order\"\n    }\n  ]\n}\n",
+  "stderr": "",
+  "exit": 2,
+  "signal": null,
+  "files": {}
+}

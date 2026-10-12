@@ -125,6 +125,10 @@ fn collect(cwd: &str, target: &TargetOptions, env: &Env, provider_id: &str) -> R
         ctx.design.as_deref(),
         ctx.design_path.as_deref(),
     ));
+    findings.extend(check_design_validation(
+        ctx.design.as_deref(),
+        ctx.design_path.as_deref(),
+    ));
     findings.extend(check_design_waivers(
         ctx.design.as_deref(),
         ctx.design_path.as_deref(),

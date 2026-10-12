@@ -7,6 +7,18 @@ pub const MARKER: &str = "<!-- impeccino:design-metadata -->";
 /// Read the one marked JSON block, ignoring markers inside example fences.
 /// An invalid block is an error, never permission to fall back to a sidecar.
 pub fn embedded_metadata(markdown: &str) -> Result<Option<Value>, String> {
+    Ok(metadata_block(markdown)?.map(|block| block.value))
+}
+
+pub struct MetadataBlock {
+    pub value: Value,
+    pub range: std::ops::Range<usize>,
+    pub json_line: usize,
+    pub json_range: std::ops::Range<usize>,
+}
+
+/// The same authoritative block with byte ranges for document updates.
+pub fn metadata_block(markdown: &str) -> Result<Option<MetadataBlock>, String> {
     let lines: Vec<&str> = markdown.lines().collect();
     let mut fence: Option<(char, usize)> = None;
     let mut result = None;
@@ -25,6 +37,7 @@ pub fn embedded_metadata(markdown: &str) -> Result<Option<Value>, String> {
             if result.is_some() {
                 return Err("DESIGN.md has more than one design-metadata block".into());
             }
+            let marker_index = index;
             index += 1;
             while index < lines.len() && lines[index].trim().is_empty() {
                 index += 1;
@@ -45,14 +58,38 @@ pub fn embedded_metadata(markdown: &str) -> Result<Option<Value>, String> {
             if index == lines.len() {
                 return Err("The design-metadata JSON fence is not closed".into());
             }
-            result = Some(parse_metadata(&lines[start..index].join("\n"))?);
+            let byte_start = markdown
+                .split_inclusive('\n')
+                .take(marker_index)
+                .map(str::len)
+                .sum();
+            let byte_end = markdown
+                .split_inclusive('\n')
+                .take(index + 1)
+                .map(str::len)
+                .sum();
+            result = Some(MetadataBlock {
+                value: parse_metadata(&lines[start..index].join("\n"))?,
+                range: byte_start..byte_end,
+                json_line: start + 1,
+                json_range: markdown
+                    .split_inclusive('\n')
+                    .take(start)
+                    .map(str::len)
+                    .sum()
+                    ..markdown
+                        .split_inclusive('\n')
+                        .take(index)
+                        .map(str::len)
+                        .sum(),
+            });
         }
         index += 1;
     }
     Ok(result)
 }
 
-fn fence_line(line: &str) -> Option<(char, usize, &str)> {
+pub(crate) fn fence_line(line: &str) -> Option<(char, usize, &str)> {
     let ch = line.chars().next()?;
     if !matches!(ch, '`' | '~') {
         return None;

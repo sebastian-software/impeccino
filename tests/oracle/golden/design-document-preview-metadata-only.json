@@ -1,0 +1,11 @@
+{
+  "stdout": "{\n  \"path\": \"DESIGN.md\",\n  \"valid\": true,\n  \"written\": false,\n  \"previewRevision\": \"<PREVIEW_REVISION>\",\n  \"metadataOnly\": true,\n  \"diagnostics\": [],\n  \"changes\": [\n    {\n      \"path\": \"/metadata/extensions/roundedMeta/pill\",\n      \"kind\": \"added\",\n      \"before\": null,\n      \"after\": \"999px\"\n    },\n    {\n      \"path\": \"/metadata/schemaVersion\",\n      \"kind\": \"added\",\n      \"before\": null,\n      \"after\": 2\n    }\n  ],\n  \"preservedSections\": [],\n  \"diff\": \"--- a/DESIGN.md\\n+++ b/DESIGN.md\\n@@ -8,3 +8,7 @@\\n Original palette.\\n ## Iconography\\n Preserve this exact foreign guidance.\\n+<!-- impeccino:design-metadata -->\\n+```json\\n+{\\\"schemaVersion\\\":2,\\\"extensions\\\":{\\\"roundedMeta\\\":{\\\"pill\\\":\\\"999px\\\"}}}\\n+```\\n\",\n  \"content\": \"---\\nname: Record\\ncolors:\\n  primary: \\\"#123456\\\"\\n---\\n<!-- impeccino-disable side-tab: ink rule -->\\n## Colors\\nOriginal palette.\\n## Iconography\\nPreserve this exact foreign guidance.\\n<!-- impeccino:design-metadata -->\\n```json\\n{\\\"schemaVersion\\\":2,\\\"extensions\\\":{\\\"roundedMeta\\\":{\\\"pill\\\":\\\"999px\\\"}}}\\n```\\n\"\n}\n",
+  "stderr": "",
+  "exit": 0,
+  "signal": null,
+  "files": {
+    "DESIGN.md": "---\nname: Record\ncolors:\n  primary: \"#123456\"\n---\n<!-- impeccino-disable side-tab: ink rule -->\n## Colors\nOriginal palette.\n## Iconography\nPreserve this exact foreign guidance.\n",
+    "draft.md": "---\nname: Record\ncolors:\n  primary: \"#654321\"\n---\n<!-- impeccino-disable side-tab: ink rule -->\n## Colors\nObserved palette.\n## Iconography\nPreserve this exact foreign guidance.\n",
+    "package.json": "{}\n"
+  }
+}

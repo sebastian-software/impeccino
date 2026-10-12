@@ -16,7 +16,7 @@ use impeccino_core::checks::measures::resolve_length_px;
 use impeccino_core::color::Rgba;
 use impeccino_core::constants::GENERIC_FONTS;
 use impeccino_core::findings::{finding, Finding};
-use impeccino_core::js::{self, ci, math_round, number_to_string, parse_int};
+use impeccino_core::js::{self, ci, math_round, number_to_string};
 use regex::Regex;
 use serde_json::{Map, Value};
 use std::sync::LazyLock as Lazy;
@@ -201,10 +201,6 @@ pub fn resolve_design_sidecar_path(_cwd: &str, context_dir: &str) -> Option<Stri
 
 // ─── Frontmatter YAML subset ─────────────────────────────────────────────────
 
-re!(CRLF_RE, "\r?\n");
-re!(COMMENT_LINE_RE, format!("^{WS}*#"));
-re!(LEADING_WS_RE, format!("^{WS}*"));
-
 /// `parseFrontmatter`: `None` when there is no
 /// `---` block; otherwise the parsed object (possibly empty).
 /// Class selectors the design document names as its own, in the order it
@@ -330,227 +326,9 @@ fn clause_condemns(masked: &str, start: usize, end: usize) -> bool {
         || DESIGN_DIRECTIVE_NEGATIVE.is_match(&masked[clause_start..start])
 }
 
-pub fn parse_frontmatter(md: &str) -> Option<Map<String, Value>> {
-    let lines: Vec<&str> = CRLF_RE.split(md).collect();
-    if js::trim(lines.first().copied().unwrap_or("")) != "---" {
-        return None;
-    }
-    let mut end = None;
-    for (i, line) in lines.iter().enumerate().skip(1) {
-        if js::trim(line) == "---" {
-            end = Some(i);
-            break;
-        }
-    }
-    let end = end?;
-    Some(parse_yaml_subset(&lines[1..end].join("\n")))
-}
-
-/// `parseYamlSubset`: (nested maps and scalars only).
-pub fn parse_yaml_subset(yaml: &str) -> Map<String, Value> {
-    // Build a tree of paths, then materialize: JS mutates nested objects by
-    // reference; here we track the key path of each open mapping.
-    let mut root = Map::new();
-    let mut stack: Vec<(i64, Vec<String>)> = vec![(-1, vec![])];
-    for raw in CRLF_RE.split(yaml) {
-        if js::trim(raw).is_empty() || COMMENT_LINE_RE.is_match(raw) {
-            continue;
-        }
-        let indent_bytes = LEADING_WS_RE.find(raw).map(|m| m.end()).unwrap_or(0);
-        let indent = raw[..indent_bytes]
-            .chars()
-            .map(|c| c.len_utf16())
-            .sum::<usize>() as i64;
-        let content = &raw[indent_bytes..];
-        let Some(colon_idx) = find_top_level_colon(content) else {
-            continue;
-        };
-        while stack.len() > 1 && stack.last().map(|s| s.0 >= indent).unwrap_or(false) {
-            stack.pop();
-        }
-        let key = unquote_yaml_key(js::trim(&content[..colon_idx])).to_string();
-        let rest = strip_inline_yaml_comment(js::trim(&content[colon_idx + 1..]));
-        let parent_path = stack.last().map(|s| s.1.clone()).unwrap_or_default();
-        let parent = get_path_mut(&mut root, &parent_path);
-        if rest.is_empty() {
-            parent.insert(key.clone(), Value::Object(Map::new()));
-            let mut path = parent_path;
-            path.push(key);
-            stack.push((indent, path));
-        } else {
-            parent.insert(key, parse_scalar(&rest));
-        }
-    }
-    root
-}
-
-fn get_path_mut<'a>(
-    root: &'a mut Map<String, Value>,
-    path: &[String],
-) -> &'a mut Map<String, Value> {
-    let mut cur = root;
-    for key in path {
-        // A key on the stack was inserted as an object; a later scalar write to
-        // the same key at the parent level would already have popped the stack.
-        let entry = cur
-            .entry(key.clone())
-            .or_insert_with(|| Value::Object(Map::new()));
-        if !entry.is_object() {
-            *entry = Value::Object(Map::new());
-        }
-        cur = entry.as_object_mut().unwrap();
-    }
-    cur
-}
-
-fn find_top_level_colon(s: &str) -> Option<usize> {
-    let mut in_quote: Option<char> = None;
-    let mut prev: Option<char> = None;
-    for (i, ch) in s.char_indices() {
-        if let Some(q) = in_quote {
-            if ch == q && prev != Some('\\') {
-                in_quote = None;
-            }
-        } else if ch == '"' || ch == '\'' {
-            in_quote = Some(ch);
-        } else if ch == ':' {
-            return Some(i);
-        }
-        prev = Some(ch);
-    }
-    None
-}
-
-pub fn unquote_yaml_key(key: &str) -> &str {
-    if (key.starts_with('"') && key.ends_with('"'))
-        || (key.starts_with('\'') && key.ends_with('\''))
-    {
-        if key.chars().count() >= 2 {
-            return &key[1..key.len() - 1];
-        }
-        // JS slice(1, -1) on a one-char string yields ''.
-        return "";
-    }
-    key
-}
-
-fn strip_inline_yaml_comment(s: &str) -> String {
-    let mut in_quote: Option<char> = None;
-    let mut prev: Option<char> = None;
-    for (i, ch) in s.char_indices() {
-        if let Some(q) = in_quote {
-            if ch == q && prev != Some('\\') {
-                in_quote = None;
-            }
-        } else if ch == '"' || ch == '\'' {
-            in_quote = Some(ch);
-        } else if ch == '#' && i > 0 && prev.map(js::is_js_whitespace).unwrap_or(false) {
-            return s[..i].trim_end_matches(js::is_js_whitespace).to_string();
-        }
-        prev = Some(ch);
-    }
-    s.to_string()
-}
-
-fn yaml_simple_escape(c: char) -> Option<char> {
-    Some(match c {
-        '0' => '\0',
-        'a' => '\x07',
-        'b' => '\x08',
-        't' => '\t',
-        'n' => '\n',
-        'v' => '\x0B',
-        'f' => '\x0C',
-        'r' => '\r',
-        'e' => '\x1b',
-        ' ' => ' ',
-        '"' => '"',
-        '/' => '/',
-        '\\' => '\\',
-        'N' => '\u{85}',
-        '_' => '\u{a0}',
-        'L' => '\u{2028}',
-        'P' => '\u{2029}',
-        _ => return None,
-    })
-}
-
-fn unescape_yaml_double_quoted(body: &str) -> String {
-    let chars: Vec<char> = body.chars().collect();
-    let mut out = String::new();
-    let mut i = 0;
-    while i < chars.len() {
-        let ch = chars[i];
-        if ch != '\\' || i == chars.len() - 1 {
-            out.push(ch);
-            i += 1;
-            continue;
-        }
-        let next = chars[i + 1];
-        if let Some(mapped) = yaml_simple_escape(next) {
-            out.push(mapped);
-            i += 2;
-            continue;
-        }
-        let hex_len = match next {
-            'x' => Some(2),
-            'u' => Some(4),
-            'U' => Some(8),
-            _ => None,
-        };
-        if let Some(hex_len) = hex_len {
-            let hex: String = chars[(i + 2).min(chars.len())..(i + 2 + hex_len).min(chars.len())]
-                .iter()
-                .collect();
-            let code_point: i64 =
-                if hex.chars().count() == hex_len && hex.chars().all(|c| c.is_ascii_hexdigit()) {
-                    parse_int(&hex, 16) as i64
-                } else {
-                    -1
-                };
-            if (0..=0x10ffff).contains(&code_point) {
-                // String.fromCodePoint: a surrogate code point has no char
-                // representation; substitute U+FFFD as the closest thing.
-                out.push(char::from_u32(code_point as u32).unwrap_or('\u{fffd}'));
-                i += 2 + hex_len;
-                continue;
-            }
-        }
-        out.push(ch);
-        i += 1;
-    }
-    out
-}
-
-re!(INT_RE, "^-?[0-9]+$");
-re!(FLOAT_RE, "^-?[0-9]*\\.[0-9]+$");
-
-fn parse_scalar(raw: &str) -> Value {
-    let s = js::trim(raw);
-    let n = s.chars().count();
-    if n >= 2 && s.starts_with('"') && s.ends_with('"') {
-        return Value::String(unescape_yaml_double_quoted(&s[1..s.len() - 1]));
-    }
-    if n >= 2 && s.starts_with('\'') && s.ends_with('\'') {
-        return Value::String(s[1..s.len() - 1].replace("''", "'"));
-    }
-    if s == "true" {
-        return Value::Bool(true);
-    }
-    if s == "false" {
-        return Value::Bool(false);
-    }
-    if s == "null" || s == "~" {
-        return Value::Null;
-    }
-    if INT_RE.is_match(s) || FLOAT_RE.is_match(s) {
-        let v = js::string_to_number(s);
-        return serde_json::Number::from_f64(v)
-            .map(Value::Number)
-            .unwrap_or(Value::String(s.to_string()));
-    }
-    Value::String(s.to_string())
-}
+pub use impeccino_common::design_frontmatter::{
+    parse_frontmatter, parse_yaml_subset, unquote_yaml_key,
+};
 
 // ─── Normalized design system ────────────────────────────────────────────────
 
@@ -967,18 +745,22 @@ pub fn load_design_system_for_cwd(cwd: &str) -> Option<DesignSystem> {
     let md = resolve_design_md_path(cwd)?;
     let md_stat = mtime_ms(&md.path);
     let text = read_text(&md.path)?;
-    let frontmatter = parse_frontmatter(&text)?;
-    let embedded = impeccino_common::design_metadata::embedded_metadata(&text);
+    let document = impeccino_common::design_document::parse_design_md(&text);
+    let frontmatter = document.frontmatter?;
+    let has_embedded = document.metadata.is_some()
+        || document
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "metadata-syntax");
     // A marked block is authoritative, including when malformed. Legacy
     // fallback applies only when the Markdown has no metadata block.
-    let sidecar_path = if matches!(embedded, Ok(None)) {
+    let sidecar_path = if !has_embedded {
         resolve_design_sidecar_path(cwd, &md.context_dir)
     } else {
         None
     };
-    let sidecar = embedded
-        .ok()
-        .flatten()
+    let sidecar = document
+        .metadata
         .or_else(|| sidecar_path.as_deref().and_then(read_json));
     let sidecar_stat = sidecar_path.as_deref().and_then(mtime_ms);
     let md_newer = matches!((md_stat, sidecar_stat), (Some(m), Some(s)) if m > s + 1000.0);
@@ -2180,8 +1962,9 @@ mod tests {
 
     #[test]
     fn yaml_scalars() {
-        assert_eq!(parse_scalar("\"a\\\"b\""), Value::String("a\"b".into()));
-        assert_eq!(parse_scalar("'it''s'"), Value::String("it's".into()));
-        assert_eq!(js_string(&parse_scalar("007")), "7");
+        let mapping = parse_yaml_subset("escaped: \"a\\\"b\"\napostrophe: 'it''s'\nzeroes: 007\n");
+        assert_eq!(mapping["escaped"], Value::String("a\"b".into()));
+        assert_eq!(mapping["apostrophe"], Value::String("it's".into()));
+        assert_eq!(js_string(&mapping["zeroes"]), "7");
     }
 }

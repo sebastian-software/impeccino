@@ -52,3 +52,11 @@ Workspace declarations, project markers, document names, scan extensions, and ge
 ## Revisit when
 
 A project needs a detector setting that no design decision or git rule can express. Record why in a new ADR before adding a file for it.
+
+The DESIGN.md readers share one Rust frontmatter/document model. Explicit draft
+validation and update preview operate on text without filesystem access. The
+internal document integration writes only the resolved DESIGN.md after checking
+the reviewed preview revision, preservation rules, app ownership, and file
+safety. It preserves foreign sections and opaque frontmatter; metadata-only
+updates retain every Markdown byte outside the marked JSON block. Temporary
+drafts belong to host temporary storage, never project state.
