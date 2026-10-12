@@ -157,6 +157,50 @@ block until actual detector metadata is available. Keep a recognizable seed mark
 Existing seed markers and records remain valid. Rerun scan mode after code
 exists to record actual tokens and any needed metadata.
 
+## Validate and review the draft
+
+Use the pinned engine's guarded update when it supports `design-document`.
+Check once with `"<skill-base-dir>/scripts/impeccino" design-document --help`;
+its usage must identify `impeccino design-document`.
+Earlier pins can finish the record through the host's file tools after the
+source, scope, and preservation checks above; review the host's diff before writing.
+
+Stage the draft in a host temporary file outside the project, or supply it on
+stdin with `--draft -`. Pass the same resolved `--target <app-path>` when an app
+was selected. With a supported engine, run:
+
+```sh
+"<skill-base-dir>/scripts/impeccino" design-document validate --draft <temporary-draft>
+"<skill-base-dir>/scripts/impeccino" design-document preview --draft <temporary-draft>
+```
+
+The preview reports `diagnostics`, the token/metadata changes, preserved foreign
+sections, a unified `diff`, and `previewRevision`. Correct errors against the
+actual sources and inspect the diff. Missing tokens, active waiver comments,
+and metadata values need restoration or an explicitly authorized removal.
+Unknown sections and opaque frontmatter fields stay intact. A parent workspace's
+record requires its owner's write scope; report a boundary refusal before editing.
+
+For an authorized removal, repeat `--remove-token <JSON-pointer>`,
+`--remove-waiver <rule-id>`, or `--remove-metadata <JSON-pointer>` on both preview
+and write. Token paths begin at their group, such as `/colors/primary` or
+`/typography/body`; metadata paths begin inside the marked JSON object, such as
+`/extensions/roundedMeta/pill`. Every rule in a removed multi-rule waiver needs
+explicit removal scope. A document refresh alone supplies none of these removals.
+
+After reviewing the valid preview, write with the same draft, target, and removal
+arguments plus `--expected <previewRevision>`:
+
+```sh
+"<skill-base-dir>/scripts/impeccino" design-document write --draft <temporary-draft> --expected <previewRevision>
+```
+
+A changed record, draft, target, update mode, or removal list needs a new preview.
+Use `--metadata-only` on preview and write for a metadata-only refresh; it keeps
+every Markdown byte outside the marked block. The draft can contain just that
+block. Keep temporary input in the host's temporary storage and remove it after
+completion. The project retains PRODUCT.md, DESIGN.md, and SURFACES.md only.
+
 ## Completion
 
 Check values against their actual sources, preserve scope and waivers, and

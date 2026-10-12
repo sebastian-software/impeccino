@@ -28,7 +28,7 @@ Changes to the internal interface require updating its callers and regression co
 
 ## Current internal callers
 
-The skill references call `context`, `doctor`, `pin`, `signals`, `concept-seed`, `surface-brief`, `detect`, and `hooks`. Installed hook manifests call `hook` and `hook-before-edit`; the launchers use the hidden `engine-probe` handshake to validate the pinned engine. `palette` remains an internal engine verb; no direct caller appears in the current skill text. `critique-storage` and `ignores` now return their documented removal messages because critiques live in chat and projects have no config file (ADR 0020).
+The skill references call `context`, `doctor`, `pin`, `signals`, `concept-seed`, `surface-brief`, `detect`, and `hooks`. Installed hook manifests call `hook` and `hook-before-edit`; the launchers use the hidden `engine-probe` handshake to validate the pinned engine. `design-document` validates drafts and previews or applies guarded DESIGN.md updates. `palette` remains an internal engine verb; no direct caller appears in the current skill text. `critique-storage` and `ignores` now return their documented removal messages because critiques live in chat and projects have no config file (ADR 0020).
 
 The aliases `context-signals`, `hook-admin`, root help, version flags, and implicit detector target syntax remain internal engine behavior. Check their callers, repository tests, and engine-produced commands before removing any of them.
 
@@ -162,6 +162,41 @@ copies a local build), then `target/release/impeccino`, so a plain
 The frozen function-level vectors in `tests/oracle/vectors/calls/` replay
 through `impeccino_core::vectors::call` (`cargo test -p impeccino-core`),
 which is the union of foundation's dispatch arms and the core's.
+
+## DESIGN.md document integration
+
+`crates/common/src/design_frontmatter.rs` owns the supported nested-map/scalar
+YAML interpretation. Doctor and the detector share it through the pure
+`design_document` model; existing permissive reads and legacy coverage remain
+compatible. Explicit validation checks token group shapes, component references,
+present canonical section order, duplicate headings/keys, and consumed embedded
+metadata fields. Optional sections and provisional seed records stay valid.
+Unknown component properties produce warnings and remain in the record. CSS
+expressions remain source strings; this is not a complete CSS or YAML linter.
+Doctor runs this validation in its deep pass, with no new boot walks or writes.
+
+The internal integration verb supports `validate`, `preview`, and `write`, each
+with `--draft <file|->` and an optional `--target <app-path>`. Reports identify the destination relative to the invoking working directory and
+include one-based line/column positions, JSON-pointer field paths, and whether a
+preservation error refers to the draft or existing record. Validation and preview
+never write. Preview includes a unified diff, preserved foreign sections, and a
+`previewRevision`; write requires that ID through `--expected` and checks the
+same destination, existing bytes, draft, mode, and removal policy again.
+
+`--remove-token` selects a token JSON pointer (including a token subtree),
+`--remove-waiver` selects a rule ID, and `--remove-metadata` selects a JSON
+pointer within the metadata object. Selectors must match existing values. Omitted
+values are not permission to remove them. Foreign Markdown sections and opaque
+frontmatter fields are retained. `--metadata-only` changes the marked JSON block
+and keeps all other Markdown bytes; it requires an existing record.
+
+Writes use the established atomic replacement and retain permissions. Symlink
+files/directories, destinations outside the selected app, inherited workspace
+records, and unresolved legacy sidecars are refused. Resolve shared ownership or
+run the existing sidecar migration before preparing the update. The integration
+creates no config, state directory, or extra project artifact. The skill checks
+verb support so earlier published engine pins can still document through the
+host's existing file tools.
 
 ## Rule packs
 

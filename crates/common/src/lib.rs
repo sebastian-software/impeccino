@@ -11,6 +11,7 @@ pub mod atomic_file;
 pub mod design_document;
 pub mod design_frontmatter;
 pub mod design_metadata;
+pub mod design_update;
 pub mod jsp;
 pub mod proc;
 pub mod project_files;

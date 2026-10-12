@@ -108,6 +108,7 @@ fn run(args: &[String], io: &mut Io) -> i32 {
         }
         "signals" | "context-signals" => impeccino_context::run_signals(rest, io),
         "doctor" => impeccino_context::run_doctor(rest, io),
+        "design-document" => impeccino_context::run_design_document(rest, io),
         "concept-seed" => impeccino_context::run_concept_seed(rest, io),
         "hook" => impeccino_hook::run_hook(rest, io, engines().html),
         "hook-before-edit" => impeccino_hook::run_hook_before_edit(rest, io, engines().html),

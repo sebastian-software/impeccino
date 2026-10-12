@@ -178,6 +178,23 @@ fn wrap_ticks(items: &[String]) -> String {
         .join(", ")
 }
 
+/// Explicit doctor-only schema validation; boot keeps its existing cheap checks.
+pub fn check_design_validation(design: Option<&str>, design_path: Option<&str>) -> Vec<Finding> {
+    let Some(design) = design else {
+        return Vec::new();
+    };
+    impeccino_common::design_document::validate(design).into_iter()
+        // Boot already reports malformed marked JSON, including in doctor.
+        .filter(|diagnostic| diagnostic.code != "metadata-syntax")
+        .map(|diagnostic| finding(
+            &format!("design-document-{}", diagnostic.code),
+            "DESIGN.md", design_path.map(str::to_string),
+            if diagnostic.severity == "error" { "route" } else { "mention" },
+            format!("DESIGN.md:{}:{} {}: {}", diagnostic.line, diagnostic.column, diagnostic.path, diagnostic.message),
+            "Validate the draft against the recorded sources; preserve tokens, waivers, and unrelated sections before updating DESIGN.md.".into(),
+        )).collect()
+}
+
 /// Project-wide waivers in DESIGN.md (`<!-- impeccino-disable <rule> -->`)
 /// that name a rule the detector does not have.
 pub fn check_design_waivers(

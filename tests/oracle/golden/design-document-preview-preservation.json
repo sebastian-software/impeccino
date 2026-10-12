@@ -1,0 +1,11 @@
+{
+  "stdout": "{\n  \"path\": \"DESIGN.md\",\n  \"valid\": false,\n  \"written\": false,\n  \"previewRevision\": \"<PREVIEW_REVISION>\",\n  \"metadataOnly\": false,\n  \"diagnostics\": [\n    {\n      \"code\": \"token-removed\",\n      \"source\": \"existing\",\n      \"severity\": \"error\",\n      \"line\": 4,\n      \"column\": 3,\n      \"path\": \"/colors/primary\",\n      \"message\": \"This draft drops a declared token; restore it or explicitly authorize its removal\"\n    },\n    {\n      \"code\": \"waiver-removed\",\n      \"source\": \"existing\",\n      \"severity\": \"error\",\n      \"line\": 6,\n      \"column\": 1,\n      \"path\": \"/waivers/side-tab\",\n      \"message\": \"Preserve the existing waiver comment verbatim outside example fences, or explicitly authorize every rule's removal\"\n    }\n  ],\n  \"changes\": [\n    {\n      \"path\": \"/colors/primary\",\n      \"kind\": \"removed\",\n      \"before\": \"#123456\",\n      \"after\": null\n    },\n    {\n      \"path\": \"/waivers/side-tab\",\n      \"kind\": \"removed\",\n      \"before\": \"<!-- impeccino-disable side-tab: ink rule -->\",\n      \"after\": null\n    }\n  ],\n  \"preservedSections\": [\n    \"Iconography\"\n  ],\n  \"diff\": \"--- a/DESIGN.md\\n+++ b/DESIGN.md\\n@@ -1,10 +1,7 @@\\n ---\\n name: Record\\n-colors:\\n-  primary: \\\"#123456\\\"\\n----\\n-<!-- impeccino-disable side-tab: ink rule -->\\n-## Colors\\n-Original palette.\\n+---\\n+## Colors\\n+Observed palette.\\n ## Iconography\\n Preserve this exact foreign guidance.\\n\",\n  \"content\": \"---\\nname: Record\\n---\\n## Colors\\nObserved palette.\\n## Iconography\\nPreserve this exact foreign guidance.\\n\"\n}\n",
+  "stderr": "",
+  "exit": 2,
+  "signal": null,
+  "files": {
+    "DESIGN.md": "---\nname: Record\ncolors:\n  primary: \"#123456\"\n---\n<!-- impeccino-disable side-tab: ink rule -->\n## Colors\nOriginal palette.\n## Iconography\nPreserve this exact foreign guidance.\n",
+    "draft.md": "---\nname: Record\ncolors:\n  primary: \"#654321\"\n---\n<!-- impeccino-disable side-tab: ink rule -->\n## Colors\nObserved palette.\n## Iconography\nPreserve this exact foreign guidance.\n",
+    "package.json": "{}\n"
+  }
+}
