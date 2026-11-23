@@ -140,13 +140,10 @@ pub fn is_kicker_candidate(o: &KickerCandidateInput) -> bool {
         return false;
     }
     let min_tracked_spacing = o.kicker_font_size * 0.06;
-    if matches!(
+    matches!(
         o.kicker_letter_spacing.partial_cmp(&min_tracked_spacing),
-        None | Some(std::cmp::Ordering::Less)
-    ) {
-        return false;
-    }
-    true
+        Some(std::cmp::Ordering::Equal | std::cmp::Ordering::Greater)
+    )
 }
 
 pub fn is_numbered_section_label_candidate(o: &NumberedLabelCandidateInput) -> bool {
