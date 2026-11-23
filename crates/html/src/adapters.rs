@@ -910,10 +910,7 @@ fn positioned_child_is_decorative(child: &StaticElement<'_>) -> bool {
         child.get_attribute("class").unwrap_or(""),
         child.get_attribute("id").unwrap_or("")
     );
-    if DECORATIVE_IDENT_RE.is_match(&ident) && !positioned_child_has_substantive_content(child) {
-        return true;
-    }
-    false
+    DECORATIVE_IDENT_RE.is_match(&ident) && !positioned_child_has_substantive_content(child)
 }
 
 fn clipping_container_is_intentional_viewport(el: &StaticElement<'_>) -> bool {
