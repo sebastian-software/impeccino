@@ -299,10 +299,7 @@ pub fn check_heading_rhythm_dom(dom: &dyn Dom) -> Vec<ElFinding> {
             return true;
         }
         let bs = dom.style(el, "boxShadow");
-        if !bs.is_empty() && bs != "none" {
-            return true;
-        }
-        false
+        !bs.is_empty() && bs != "none"
     };
     let font_size_or_16 = |el: ElId| -> f64 {
         let n = parse_float(&dom.style(el, "fontSize"));

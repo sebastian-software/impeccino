@@ -1019,10 +1019,7 @@ pub fn positioned_child_is_decorative(dom: &dyn Dom, child: ElId) -> bool {
         dom.attr(child, "class").unwrap_or_default(),
         dom.attr(child, "id").unwrap_or_default()
     );
-    if DECOR_IDENT_RE.is_match(&ident) && !positioned_child_has_substantive_content(dom, child) {
-        return true;
-    }
-    false
+    DECOR_IDENT_RE.is_match(&ident) && !positioned_child_has_substantive_content(dom, child)
 }
 
 pub fn clipping_container_is_intentional_viewport(dom: &dyn Dom, el: ElId) -> bool {
